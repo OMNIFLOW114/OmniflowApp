@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { callGroq } from "@/utils/callGroq";
 
 const AIBuddy = () => {
   const [message, setMessage] = useState("");
