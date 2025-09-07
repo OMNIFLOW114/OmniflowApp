@@ -1,0 +1,117 @@
+:root {
+  --light-bg: #f9f9f9;
+  --light-card: #ffffff;
+  --light-text: #222;
+  --light-border: #ddd;
+
+  --dark-bg: #121212;
+  --dark-card: #1e1e1e;
+  --dark-text: #f1f1f1;
+  --dark-border: #444;
+
+  --primary: #4a90e2;
+  --accent: #ffd700;
+}
+
+.scholarship-page {
+  background-color: var(--light-bg);
+  color: var(--light-text);
+  min-height: 100vh;
+  padding: 2rem;
+  transition: all 0.3s ease;
+}
+
+body.dark .scholarship-page {
+  background-color: var(--dark-bg);
+  color: var(--dark-text);
+}
+
+.back-button {
+  background-color: var(--primary);
+  color: #fff;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 6px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  cursor: pointer;
+}
+
+.scholarship-page h2 {
+  font-size: 1.8rem;
+  margin-bottom: 1.5rem;
+}
+
+.scholarship-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.scholarship-card {
+  background-color: var(--light-card);
+  border: 1px solid var(--light-border);
+  padding: 1.5rem;
+  border-radius: 10px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s ease;
+}
+
+body.dark .scholarship-card {
+  background-color: var(--dark-card);
+  border: 1px solid var(--dark-border);
+}
+
+.scholarship-card:hover {
+  transform: translateY(-4px);
+}
+
+.scholarship-card h3 {
+  font-size: 1.2rem;
+  margin-bottom: 0.6rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.scholarship-card p {
+  font-size: 0.95rem;
+  margin-bottom: 0.5rem;
+  line-height: 1.5;
+}
+
+.apply-button {
+  background-color: var(--accent);
+  color: #000;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: background 0.2s ease;
+}
+
+.apply-button:hover {
+  background-color: #e6c200;
+}
+
+@media screen and (max-width: 600px) {
+  .scholarship-page {
+    padding: 1rem;
+  }
+
+  .scholarship-card {
+    padding: 1rem;
+  }
+
+  .back-button {
+    font-size: 0.9rem;
+    padding: 0.4rem 1rem;
+  }
+}

@@ -1,13 +1,17 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { auth, db, storage } from "@/firebase";
-import { doc, setDoc } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { supabase } from "@/supabase";
 import { Button } from "@/components/ui/button";
 
 export default function Profile() {
   const navigate = useNavigate();
+  const [user, setUser] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [imageFile, setImageFile] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [generatingBio, setGeneratingBio] = useState(false);
+
   const [profile, setProfile] = useState({
     fullName: "",
     email: "",
@@ -35,10 +39,40 @@ export default function Profile() {
     resume: "",
   });
 
-  const [saving, setSaving] = useState(false);
-  const [imageFile, setImageFile] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [generatingBio, setGeneratingBio] = useState(false);
+  useEffect(() => {
+    const fetchUserAndCheckProfile = async () => {
+      const { data: authData } = await supabase.auth.getUser();
+      const user = authData?.user;
+
+      if (!user) {
+        navigate("/login");
+        return;
+      }
+
+      setUser(user);
+      setProfile((prev) => ({
+        ...prev,
+        email: user.email,
+      }));
+
+      const { data: userData, error } = await supabase
+        .from("users")
+        .select("profile_completed")
+        .eq("id", user.id)
+        .single();
+
+      if (error) {
+        console.error("Error checking profile:", error.message);
+        return;
+      }
+
+      if (userData?.profile_completed) {
+        navigate("/home");
+      }
+    };
+
+    fetchUserAndCheckProfile();
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -65,12 +99,8 @@ export default function Profile() {
 
   const handleGenerateBio = async () => {
     setGeneratingBio(true);
-
-    // This is where you'd call your AI backend (like OpenAI)
     const { fullName, jobTitle, company, skills, interests } = profile;
     const generatedBio = `👋 Hi, I'm ${fullName}, a passionate ${jobTitle} at ${company}. I specialize in ${skills}. Outside of work, I enjoy ${interests}. I'm driven by innovation, collaboration, and a love for learning.`;
-
-    // Simulate API delay
     setTimeout(() => {
       setProfile((prev) => ({ ...prev, bio: generatedBio }));
       setGeneratingBio(false);
@@ -87,27 +117,36 @@ export default function Profile() {
     setLoading(true);
 
     try {
-      const uid = auth.currentUser?.uid;
+      const uid = user?.id;
       if (!uid) throw new Error("User not authenticated.");
 
       let profilePictureUrl = profile.profilePicture;
 
       if (imageFile) {
-        const storageRef = ref(storage, `profile_pictures/${uid}`);
-        const snapshot = await uploadBytes(storageRef, imageFile);
-        profilePictureUrl = await getDownloadURL(snapshot.ref);
+        const fileExt = imageFile.name.split(".").pop();
+        const fileName = `profile_${uid}.${fileExt}`;
+        const { data, error } = await supabase.storage
+          .from("profile-pictures")
+          .upload(fileName, imageFile, { upsert: true });
+
+        if (error) throw error;
+
+        const { data: urlData } = supabase
+          .storage
+          .from("profile-pictures")
+          .getPublicUrl(fileName);
+
+        profilePictureUrl = urlData?.publicUrl;
       }
 
-      const userRef = doc(db, "users", uid);
-      await setDoc(
-        userRef,
-        {
+      await supabase
+        .from("users")
+        .update({
           ...profile,
           profilePicture: profilePictureUrl,
-          profileCompleted: true,
-        },
-        { merge: true }
-      );
+          profile_completed: true,
+        })
+        .eq("id", uid);
 
       navigate("/home");
     } catch (error) {
@@ -146,7 +185,6 @@ export default function Profile() {
       <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-4xl space-y-6">
         <h2 className="text-3xl font-bold text-center text-gray-800">OmniFlow Profile</h2>
 
-        {/* Profile Picture Upload */}
         <div className="flex items-center justify-center">
           <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-200">
             <img
@@ -163,7 +201,6 @@ export default function Profile() {
           />
         </div>
 
-        {/* Personal Information */}
         <div className="space-y-6">
           <h3 className="text-xl font-semibold text-gray-700">Personal Information</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -178,7 +215,6 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* Professional Info */}
         <div className="space-y-6">
           <h3 className="text-xl font-semibold text-gray-700">Professional Information</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -189,7 +225,6 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* Social Media */}
         <div className="space-y-6">
           <h3 className="text-xl font-semibold text-gray-700">Social Media</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -200,7 +235,6 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* Skills & Interests */}
         <div className="space-y-6">
           <h3 className="text-xl font-semibold text-gray-700">Skills & Interests</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -210,7 +244,6 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* Bio & About Me */}
         <div className="space-y-6">
           <h3 className="text-xl font-semibold text-gray-700">About Me & Bio</h3>
           <textarea
@@ -220,7 +253,6 @@ export default function Profile() {
             className="mt-1 p-3 w-full border rounded-md"
             placeholder="Tell us something about yourself"
           />
-
           <div className="relative">
             <textarea
               name="bio"
@@ -241,7 +273,6 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* Portfolio & Resume */}
         <div className="space-y-6">
           <h3 className="text-xl font-semibold text-gray-700">Portfolio & Resume</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -250,7 +281,6 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* Buttons */}
         <div className="pt-6 flex justify-end space-x-4">
           <Button
             variant="secondary"

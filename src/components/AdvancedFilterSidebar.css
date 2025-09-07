@@ -1,0 +1,70 @@
+.filter-sidebar {
+  background: var(--light-card);
+  border: 1px solid var(--light-border);
+  padding: 1.2rem;
+  border-radius: 14px;
+  width: 100%;
+  max-width: 300px;
+  margin-bottom: 2rem;
+  transition: all 0.4s ease;
+}
+
+[data-theme='dark'] .filter-sidebar {
+  background: var(--dark-card);
+  border-color: var(--dark-border);
+}
+
+.filter-sidebar h3 {
+  margin-bottom: 1rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--primary-color);
+}
+
+.filter-group {
+  margin-bottom: 1rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.filter-group label {
+  margin-bottom: 0.4rem;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.filter-group input,
+.filter-group select {
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--light-border);
+  font-size: 0.95rem;
+  background: var(--light-bg);
+  color: inherit;
+  transition: border 0.3s ease;
+}
+
+[data-theme='dark'] .filter-group input,
+[data-theme='dark'] .filter-group select {
+  background: var(--dark-bg);
+  border: 1px solid var(--dark-border);
+}
+
+.price-range {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.filter-group.checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+@media screen and (max-width: 768px) {
+  .filter-sidebar {
+    max-width: 100%;
+    margin-bottom: 1.5rem;
+  }
+}

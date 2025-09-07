@@ -1,0 +1,92 @@
+/* Bottom Navbar */
+.bottom-navbar {
+  background: #fff;
+  padding: 0.5rem 0.75rem;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  border-top: 1px solid #ddd;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  height: 60px;
+}
+
+/* Link Styling */
+.bottom-nav-link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: #444;
+  transition: color 0.3s ease, transform 0.2s ease;
+  text-decoration: none;
+  font-size: 12px;
+  position: relative;
+  padding: 4px 0;
+}
+
+/* Active Tab */
+.bottom-nav-link.active {
+  color: #2563eb;
+}
+
+.bottom-nav-link:hover {
+  color: #2563eb;
+}
+
+.bottom-nav-link span {
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
+  text-align: center;
+}
+
+/* Active Indicator Animation (Sliding Dot) */
+.bottom-nav-link .active-indicator {
+  width: 4px;
+  height: 4px;
+  background-color: #2563eb;
+  border-radius: 50%;
+  position: absolute;
+  bottom: 0;
+  transform: translateY(5px);
+  animation: slideIndicator 0.3s ease-out;
+}
+
+/* Sliding Animation */
+@keyframes slideIndicator {
+  0% {
+    width: 0;
+    opacity: 0;
+  }
+  100% {
+    width: 4px;
+    opacity: 1;
+  }
+}
+
+/* Responsiveness for smaller phones */
+@media (max-width: 480px) {
+  .bottom-navbar {
+    height: 56px;
+    padding: 0.4rem 0.5rem;
+  }
+
+  .bottom-nav-link span {
+    font-size: 0.65rem;
+  }
+
+  .bottom-nav-link svg {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+@media (max-width: 360px) {
+  .bottom-nav-link span {
+    display: none; /* hide labels if needed on very small devices */
+  }
+}

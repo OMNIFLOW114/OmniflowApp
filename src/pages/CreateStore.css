@@ -1,0 +1,173 @@
+
+
+/* CreateStore.css — Infinity Insanity Luxury Edition */
+
+body {
+  background: radial-gradient(circle at top left, #0a0a0a, #000000);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.container {
+  max-width: 900px;
+  margin: 2rem auto;
+  padding: 2.5rem;
+  border-radius: 24px;
+  background: rgba(15, 15, 15, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 215, 0, 0.15);
+  box-shadow: 0 0 30px rgba(255, 215, 0, 0.2),
+              inset 0 0 20px rgba(255, 215, 0, 0.05);
+  color: white;
+}
+
+h2 {
+  font-size: 2.8rem;
+  font-weight: 800;
+  margin-bottom: 2rem;
+  color: gold;
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.6);
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+input,
+textarea,
+select {
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: #111;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  color: #fff;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border: 1px solid gold;
+  box-shadow: 0 0 8px gold;
+}
+
+button {
+  padding: 14px 24px;
+  background: linear-gradient(135deg, gold, #ffcc00);
+  color: #000;
+  font-size: 1.1rem;
+  font-weight: bold;
+  border: none;
+  border-radius: 20px;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(255, 215, 0, 0.4);
+  transition: transform 0.2s ease, box-shadow 0.3s ease;
+}
+
+button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 25px rgba(255, 215, 0, 0.6);
+}
+
+.theme-buttons {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.theme-buttons button {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: #1a1a1a;
+  color: white;
+  border: 1px solid transparent;
+  transition: all 0.3s ease;
+}
+
+.theme-buttons button:hover {
+  background: rgba(255, 215, 0, 0.15);
+  border-color: gold;
+}
+
+.theme-buttons button.active {
+  background: gold;
+  color: black;
+  font-weight: bold;
+  border-color: gold;
+  box-shadow: 0 0 12px rgba(255, 215, 0, 0.7);
+}
+
+.preview-container {
+  margin-top: 2.5rem;
+  border-radius: 20px;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(6px);
+  box-shadow: inset 0 0 20px rgba(255, 215, 0, 0.05);
+}
+
+label {
+  font-weight: 600;
+  color: #f0f0f0;
+  font-size: 1rem;
+}
+.spinner {
+  margin: 2rem auto;
+  width: 60px;
+  height: 60px;
+  border: 6px solid rgba(255, 215, 0, 0.2);
+  border-top: 6px solid gold;
+  border-radius: 50%;
+  animation: spin 1.2s linear infinite;
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+/* --- Mobile Responsiveness --- */
+@media (max-width: 768px) {
+  .container {
+    margin: 1rem auto;
+    padding: 1.5rem;
+    border-radius: 16px;
+  }
+
+  h2 {
+    font-size: 2rem;
+    text-align: center;
+    margin-bottom: 1.5rem;
+  }
+
+  form {
+    gap: 1rem;
+  }
+
+  input,
+  textarea {
+    font-size: 0.95rem;
+    padding: 12px;
+  }
+
+  .theme-buttons {
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .theme-buttons button {
+    font-size: 0.95rem;
+    padding: 12px;
+  }
+
+  button[type="submit"] {
+    width: 100%;
+    font-size: 1rem;
+    padding: 12px;
+  }
+}

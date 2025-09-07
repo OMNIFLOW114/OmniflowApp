@@ -1,0 +1,691 @@
+/* ProductDetail.css - Modern 3D E-commerce Style */
+
+:root {
+  /* Light Mode */
+  --light-bg: #f8f9fa;
+  --light-card: #ffffff;
+  --light-text: #333333;
+  --light-text-secondary: #666666;
+  --light-border: #e0e0e0;
+  --light-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  
+  /* Dark Mode */
+  --dark-bg: #121212;
+  --dark-card: #1e1e1e;
+  --dark-text: #f0f0f0;
+  --dark-text-secondary: #bbbbbb;
+  --dark-border: #333333;
+  --dark-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  
+  /* Colors */
+  --primary: #ff6b00; /* Kilimall/Jumia orange */
+  --primary-dark: #e05d00;
+  --secondary: #ff3e3e;
+  --accent: #00a8ff;
+  --success: #40c057;
+  --warning: #ffc107;
+  --danger: #ff5252;
+  
+  /* 3D Effects */
+  --card-depth: 8px;
+  --button-depth: 4px;
+  --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+[data-theme="dark"] {
+  --bg: var(--dark-bg);
+  --card-bg: var(--dark-card);
+  --text: var(--dark-text);
+  --text-secondary: var(--dark-text-secondary);
+  --border: var(--dark-border);
+  --shadow: var(--dark-shadow);
+}
+
+[data-theme="light"] {
+  --bg: var(--light-bg);
+  --card-bg: var(--light-card);
+  --text: var(--light-text);
+  --text-secondary: var(--light-text-secondary);
+  --border: var(--light-border);
+  --shadow: var(--light-shadow);
+}
+
+/* Base Styles */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+  transition: var(--transition);
+  line-height: 1.6;
+}
+
+/* Layout */
+.product-detail-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  position: relative;
+}
+
+/* Back Button */
+.back-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 50px;
+  padding: 8px 16px;
+  color: var(--text);
+  cursor: pointer;
+  margin-bottom: 20px;
+  transition: var(--transition);
+  box-shadow: var(--shadow);
+}
+
+.back-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Main Product Card */
+.product-detail-card {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+  background: var(--card-bg);
+  border-radius: 16px;
+  padding: 30px;
+  box-shadow: var(--shadow);
+  transition: var(--transition);
+  margin-bottom: 30px;
+}
+
+@media (max-width: 768px) {
+  .product-detail-card {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Image Gallery - Jumia-style Large Images */
+.image-gallery-slider {
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+.image-gallery-slider img {
+  width: 100%;
+  height: 450px;
+  object-fit: contain;
+  background: white;
+  padding: 20px;
+}
+
+.slick-prev:before, 
+.slick-next:before {
+  color: var(--primary) !important;
+  font-size: 24px !important;
+}
+
+.slick-dots li button:before {
+  color: var(--text) !important;
+}
+
+/* Product Info */
+.product-info h1 {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+  color: var(--text);
+}
+
+/* Ratings */
+.stars {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 1rem;
+}
+
+.star-filled {
+  color: var(--warning);
+}
+
+.star-empty {
+  color: var(--border);
+}
+
+.review-count {
+  margin-left: 8px;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.rate-button {
+  margin-left: 12px;
+  padding: 4px 12px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 50px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.rate-button:hover {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+/* Price */
+.price-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 1.5rem 0;
+}
+
+.price {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.discount {
+  background: var(--danger);
+  color: white;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+/* Delivery Info */
+.delivery-info {
+  background: rgba(0, 168, 255, 0.1);
+  border-radius: 12px;
+  padding: 15px;
+  margin: 1.5rem 0;
+}
+
+.delivery-info p {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+/* Variants */
+.variants {
+  margin: 1.5rem 0;
+}
+
+.variants h4 {
+  margin-bottom: 8px;
+  font-size: 1rem;
+}
+
+.variant-btn {
+  padding: 6px 12px;
+  margin-right: 8px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.variant-selected {
+  padding: 6px 12px;
+  margin-right: 8px;
+  background: var(--primary);
+  color: white;
+  border: 1px solid var(--primary);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* Stock Status */
+.stock-status-bar {
+  margin: 1.5rem 0;
+}
+
+.progress-wrapper {
+  height: 8px;
+  background: var(--border);
+  border-radius: 4px;
+  margin: 8px 0;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  background: var(--success);
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+/* Seller Info */
+.seller-info {
+  background: rgba(255, 107, 0, 0.1);
+  border-radius: 12px;
+  padding: 15px;
+  margin: 1.5rem 0;
+}
+
+.seller-info > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.seller-performance {
+  display: flex;
+  gap: 15px;
+}
+
+/* Action Buttons */
+.action-buttons {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+  margin: 1.5rem 0;
+}
+
+@media (max-width: 480px) {
+  .action-buttons {
+    grid-template-columns: 1fr;
+  }
+}
+
+.buy-now, .add-to-cart, .wishlist, .view-button, .installment-button {
+  padding: 12px;
+  border-radius: 8px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: var(--transition);
+  border: none;
+  font-size: 0.9rem;
+}
+
+.buy-now {
+  background: var(--primary);
+  color: white;
+}
+
+.buy-now:hover {
+  background: var(--primary-dark);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 107, 0, 0.3);
+}
+
+.add-to-cart {
+  background: var(--card-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.add-to-cart:hover {
+  background: rgba(0, 168, 255, 0.1);
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+
+.wishlist {
+  background: var(--card-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.wishlist:hover {
+  background: rgba(255, 62, 62, 0.1);
+  border-color: var(--secondary);
+  transform: translateY(-2px);
+}
+
+.view-button {
+  background: var(--card-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.view-button:hover {
+  background: rgba(64, 192, 87, 0.1);
+  border-color: var(--success);
+  transform: translateY(-2px);
+}
+
+.installment-button {
+  background: linear-gradient(135deg, #9C27B0, #673AB7);
+  color: white;
+}
+
+.installment-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(156, 39, 176, 0.3);
+}
+
+/* Interaction Zone */
+.interaction-zone {
+  margin-top: 1.5rem;
+}
+
+.interaction-zone textarea {
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text);
+  resize: vertical;
+  min-height: 80px;
+  margin-bottom: 8px;
+}
+
+.interaction-zone button {
+  padding: 8px 16px;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.interaction-zone button:hover {
+  background: var(--primary-dark);
+}
+
+/* Verified Feedback */
+.verified-feedback {
+  background: var(--card-bg);
+  border-radius: 16px;
+  padding: 30px;
+  box-shadow: var(--shadow);
+  margin-bottom: 30px;
+}
+
+.verified-feedback h3 {
+  margin-bottom: 1.5rem;
+}
+
+.review-item {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 12px;
+  padding: 15px;
+  margin-bottom: 15px;
+}
+
+.review-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.review-header .stars {
+  margin-left: auto;
+}
+
+.review-item p {
+  margin-bottom: 8px;
+  font-style: italic;
+}
+
+.review-item small {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+/* Payment Modal */
+.payment-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(5px);
+}
+
+.modal-content {
+  background: var(--card-bg);
+  border-radius: 16px;
+  padding: 30px;
+  width: 100%;
+  max-width: 500px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  animation: modalFadeIn 0.3s ease;
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-content h3 {
+  margin-bottom: 1.5rem;
+  color: var(--text);
+}
+
+.delivery-location-input {
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text);
+  margin-bottom: 1.5rem;
+}
+
+.modal-content button {
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  border: none;
+  font-weight: 600;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.modal-content button:not(.cancel-button) {
+  background: var(--primary);
+  color: white;
+}
+
+.modal-content button:not(.cancel-button):hover {
+  background: var(--primary-dark);
+  transform: translateY(-2px);
+}
+
+.cancel-button {
+  background: var(--danger);
+  color: white;
+}
+
+.cancel-button:hover {
+  background: #e53935;
+  transform: translateY(-2px);
+}
+
+/* Installment Breakdown */
+.installment-breakdown {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 8px;
+  padding: 12px;
+  margin: 1rem 0;
+}
+
+.installment-breakdown ul {
+  list-style: none;
+  padding-left: 0;
+}
+
+.installment-breakdown li {
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--border);
+}
+
+.installment-breakdown li:last-child {
+  border-bottom: none;
+}
+
+/* 3D Effects */
+.product-detail-card, .verified-feedback {
+  position: relative;
+  transform-style: preserve-3d;
+}
+
+.product-detail-card::before, .verified-feedback::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(0,0,0,0.1));
+  border-radius: inherit;
+  transform: translateZ(-1px);
+  z-index: -1;
+}
+
+/* Loading State */
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  font-size: 1.5rem;
+  color: var(--text);
+}
+
+/* Responsive Adjustments */
+@media (max-width: 576px) {
+  .product-detail-container {
+    padding: 10px;
+  }
+  
+  .product-detail-card {
+    padding: 20px;
+  }
+  
+  .image-gallery-slider img {
+    height: 300px;
+  }
+  
+  .action-buttons {
+    grid-template-columns: 1fr;
+  }
+}
+/* Add these styles to your existing CSS */
+
+.info-buttons-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 1.5rem 0;
+}
+
+.info-button {
+  padding: 10px 15px;
+  border-radius: 8px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.9rem;
+}
+
+.info-button:hover {
+  background: rgba(0, 168, 255, 0.1);
+  border-color: var(--accent);
+}
+
+.info-button.active {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.info-display {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 12px;
+  padding: 15px;
+  margin-bottom: 1rem;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.info-display h4 {
+  margin-bottom: 8px;
+  color: var(--primary);
+}
+
+.copy-button, .action-button {
+  padding: 8px 16px;
+  margin-top: 10px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.85rem;
+}
+
+.copy-button {
+  background: var(--card-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.copy-button:hover {
+  background: rgba(0, 168, 255, 0.1);
+}
+
+.action-button {
+  background: var(--primary);
+  color: white;
+}
+
+.action-button:hover {
+  background: var(--primary-dark);
+}

@@ -1,0 +1,104 @@
+/* Sidebar Container */
+.sidebar-container {
+  width: 300px;
+  height: 100vh;
+  z-index: 50;
+  position: fixed;
+  top: 0;
+  left: 0;
+  background-color: hsl(0, 13%, 91%);
+  transition: transform 0.3s ease-in-out;
+  display: flex;
+  flex-direction: column;
+  justify-content: start;
+  box-shadow: 4px 0 12px rgba(0, 0, 0, 0.1);
+}
+
+.dark .sidebar-container {
+  background-color: #1f2937;
+}
+
+/* Backdrop */
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.4);
+  z-index: 40;
+}
+
+/* Sidebar Item */
+.sidebar-item {
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  text-decoration: none;
+  font-size: 14px;
+  transition: background-color 0.2s, transform 0.2s, color 0.2s;
+  color: #3c4f6d;
+}
+
+.sidebar-item:hover {
+  background-color: #f3f4f6;
+  transform: scale(1.03);
+  color: #2563eb;
+}
+
+.sidebar-item svg {
+  transition: transform 0.3s, color 0.3s;
+}
+
+.sidebar-item:hover svg {
+  transform: scale(1.15);
+  color: #2563eb;
+}
+
+/* Dark mode overrides */
+.dark .sidebar-item {
+  color: #e5e7eb;
+}
+
+.dark .sidebar-item:hover {
+  background-color: #374151;
+  color: #60a5fa;
+}
+
+.dark .sidebar-item:hover svg {
+  color: #60a5fa;
+}
+
+/* Unify admin panel, dark mode, and logout into sidebar-item style */
+.theme-toggle-button,
+.logout-button {
+  all: unset;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: #3c4f6d;
+  transition: background-color 0.2s, transform 0.2s, color 0.2s;
+}
+
+.theme-toggle-button:hover,
+.logout-button:hover {
+  background-color: #f3f4f6;
+  transform: scale(1.03);
+  color: #2563eb;
+}
+
+.dark .theme-toggle-button,
+.dark .logout-button {
+  color: #e5e7eb;
+}
+
+.dark .theme-toggle-button:hover,
+.dark .logout-button:hover {
+  background-color: #374151;
+  color: #60a5fa;
+}

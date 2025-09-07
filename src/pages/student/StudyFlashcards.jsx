@@ -1,10 +1,9 @@
 // src/pages/student/flashcards/StudyFlashcards.jsx
 import React, { useEffect, useState } from "react";
-import { db } from "@/firebase";
-import { collection, getDocs } from "firebase/firestore";
 import { motion } from "framer-motion";
 import { FaRandom, FaArrowLeft, FaArrowRight, FaCheckCircle } from "react-icons/fa";
-import { useAuth } from "@/AuthContext";
+import { useAuth } from "@/context/AuthContext";
+import { supabase } from "@/supabase";
 
 const StudyFlashcards = () => {
   const { currentUser } = useAuth();
@@ -15,14 +14,23 @@ const StudyFlashcards = () => {
 
   useEffect(() => {
     const fetchCards = async () => {
-      const snapshot = await getDocs(collection(db, "users", currentUser.uid, "flashcards"));
-      let allCards = [];
+      if (!currentUser) return;
 
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        if (Array.isArray(data.cards)) {
-          data.cards.forEach((card) => {
-            allCards.push({ ...card, topic: data.topic || "General" });
+      const { data, error } = await supabase
+        .from("flashcard_sets")
+        .select("topic, cards")
+        .eq("user_id", currentUser.id);
+
+      if (error) {
+        console.error("Error fetching flashcards:", error.message);
+        return;
+      }
+
+      const allCards = [];
+      data.forEach((set) => {
+        if (Array.isArray(set.cards)) {
+          set.cards.forEach((card) => {
+            allCards.push({ ...card, topic: set.topic || "General" });
           });
         }
       });
@@ -30,23 +38,18 @@ const StudyFlashcards = () => {
       setFlashcards(allCards);
     };
 
-    if (currentUser) {
-      fetchCards();
-    }
+    fetchCards();
   }, [currentUser]);
 
   const handleFlip = () => setFlipped(!flipped);
-
   const handleNext = () => {
     setIndex((prev) => (prev + 1 < flashcards.length ? prev + 1 : 0));
     setFlipped(false);
   };
-
   const handlePrev = () => {
     setIndex((prev) => (prev - 1 >= 0 ? prev - 1 : flashcards.length - 1));
     setFlipped(false);
   };
-
   const handleShuffle = () => {
     const shuffledCards = [...flashcards].sort(() => Math.random() - 0.5);
     setFlashcards(shuffledCards);
@@ -84,22 +87,13 @@ const StudyFlashcards = () => {
           </motion.div>
 
           <div className="mt-6 flex justify-center gap-4">
-            <button
-              onClick={handlePrev}
-              className="bg-gray-200 hover:bg-gray-300 p-3 rounded-full"
-            >
+            <button onClick={handlePrev} className="bg-gray-200 hover:bg-gray-300 p-3 rounded-full">
               <FaArrowLeft />
             </button>
-            <button
-              onClick={handleShuffle}
-              className="bg-yellow-300 hover:bg-yellow-400 p-3 rounded-full"
-            >
+            <button onClick={handleShuffle} className="bg-yellow-300 hover:bg-yellow-400 p-3 rounded-full">
               <FaRandom />
             </button>
-            <button
-              onClick={handleNext}
-              className="bg-gray-200 hover:bg-gray-300 p-3 rounded-full"
-            >
+            <button onClick={handleNext} className="bg-gray-200 hover:bg-gray-300 p-3 rounded-full">
               <FaArrowRight />
             </button>
           </div>

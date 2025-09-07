@@ -1,0 +1,111 @@
+.messages-page {
+  display: flex;
+  height: 100vh;
+  background: linear-gradient(to right, #0f0f1a, #1a1a2e);
+  color: #fff;
+  font-family: 'Poppins', sans-serif;
+}
+
+.sidebar {
+  width: 30%;
+  padding: 1rem;
+  border-right: 1px solid #333;
+  overflow-y: auto;
+}
+
+.sidebar .title {
+  font-size: 1.2rem;
+  margin-bottom: 1rem;
+}
+
+.conversation {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0.6rem;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: 0.3s ease;
+}
+
+.conversation:hover,
+.conversation.active {
+  background: #2c2c3e;
+}
+
+.chat-box {
+  width: 70%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+}
+
+.messages {
+  flex-grow: 1;
+  padding: 1rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.message {
+  margin-bottom: 0.5rem;
+  max-width: 70%;
+}
+
+.sent {
+  align-self: flex-end;
+  text-align: right;
+}
+
+.received {
+  align-self: flex-start;
+  text-align: left;
+}
+
+.bubble {
+  padding: 0.6rem 1rem;
+  border-radius: 20px;
+  background-color: #4e4e8f;
+  display: inline-block;
+}
+
+.timestamp {
+  font-size: 0.7rem;
+  color: #aaa;
+}
+
+.input-bar {
+  display: flex;
+  align-items: center;
+  padding: 0.7rem;
+  background: #222;
+  border-top: 1px solid #444;
+}
+
+.input-bar input {
+  flex-grow: 1;
+  padding: 0.5rem 1rem;
+  border-radius: 25px;
+  border: none;
+  outline: none;
+  background: #333;
+  color: white;
+  margin: 0 10px;
+}
+
+.send-btn,
+.emoji-btn {
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+}
+
+.emoji-picker {
+  position: absolute;
+  bottom: 60px;
+  right: 20px;
+  z-index: 10;
+}

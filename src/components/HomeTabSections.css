@@ -1,0 +1,6 @@
+.home-tab-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+  padding: 2rem 1rem;
+}

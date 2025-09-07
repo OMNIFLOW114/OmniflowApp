@@ -1,14 +1,22 @@
 import React from "react";
 import { Navigate, Outlet } from "react-router-dom";
-import { auth } from "@/firebase"; // Firebase auth import to check the user's authentication state
+import { useAuth } from "@/AuthContext"; // Make sure this path is correct
 
 const PrivateRoute = () => {
-  if (!auth.currentUser) {
-    // If no user is authenticated, redirect to the Auth page
-    return <Navigate to="/auth" />;
+  const { user, loading } = useAuth(); // useAuth must provide `user` and `loading`
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen text-gray-500">
+        Checking session...
+      </div>
+    );
   }
 
-  // If user is authenticated, render the children components (the protected routes)
+  if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
+
   return <Outlet />;
 };
 

@@ -1,0 +1,236 @@
+:root {
+  --light-bg: #f9f9f9;
+  --light-card: #ffffff;
+  --light-text: #111111;
+  --light-border: #ddd;
+
+  --dark-bg: #0d1117;
+  --dark-card: #161b22;
+  --dark-text: #f0f6fc;
+  --dark-border: #30363d;
+
+  --accent: #00bcd4;
+}
+
+/* Page Container */
+.admin-installments-page {
+  padding: 2rem 1rem 7rem;
+  background: var(--light-bg);
+  color: var(--light-text);
+  font-family: 'Poppins', sans-serif;
+  min-height: 100vh;
+}
+
+.dark-mode .admin-installments-page {
+  background: var(--dark-bg);
+  color: var(--dark-text);
+}
+
+/* Header */
+.admin-installments-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 2rem;
+  gap: 1rem;
+}
+
+.admin-installments-header h2 {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.admin-installments-header select {
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  background: var(--light-card);
+  border: 1px solid var(--light-border);
+  color: var(--light-text);
+  transition: all 0.3s ease;
+}
+
+.dark-mode .admin-installments-header select {
+  background: var(--dark-card);
+  color: var(--dark-text);
+  border-color: var(--dark-border);
+}
+
+/* Loading */
+.loading {
+  text-align: center;
+  font-size: 1rem;
+  color: #999;
+  margin-top: 2rem;
+}
+
+/* List Grid */
+.installment-list {
+  display: grid;
+  gap: 1.5rem;
+}
+
+/* Card */
+.installment-admin-card {
+  background: var(--light-card);
+  border: 1px solid var(--light-border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s ease;
+}
+
+.installment-admin-card:hover {
+  transform: translateY(-2px);
+}
+
+.dark-mode .installment-admin-card {
+  background: var(--dark-card);
+  border-color: var(--dark-border);
+  box-shadow: 0 0 6px rgba(0, 255, 255, 0.03);
+}
+
+/* Card Contents */
+.installment-admin-card h4 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 0.6rem;
+}
+
+.installment-admin-card p {
+  font-size: 0.95rem;
+  margin: 0.3rem 0;
+  line-height: 1.5;
+}
+
+/* Status Badge */
+.status {
+  padding: 0.2rem 0.6rem;
+  font-size: 0.75rem;
+  border-radius: 6px;
+  font-weight: bold;
+  text-transform: capitalize;
+  display: inline-block;
+}
+
+.status.active {
+  background: #e6f7ff;
+  color: #0050b3;
+}
+
+.status.completed {
+  background: #d9f7be;
+  color: #135200;
+}
+
+.status.cancelled {
+  background: #ffccc7;
+  color: #a8071a;
+}
+
+.status.processed {
+  background: #ffd666;
+  color: #613400;
+}
+
+.status.shipped {
+  background: #b7eb8f;
+  color: #237804;
+}
+
+.status.out_for_delivery {
+  background: #91d5ff;
+  color: #1d39c4;
+}
+
+.status.delivered {
+  background: #87e8de;
+  color: #006d75;
+}
+
+/* Progress Bar */
+.progress-bar {
+  background: #e0e0e0;
+  border-radius: 10px;
+  height: 8px;
+  margin: 0.8rem 0 0.6rem;
+  overflow: hidden;
+}
+
+.dark-mode .progress-bar {
+  background: #444;
+}
+
+.progress-bar .progress {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.4s ease-in-out;
+}
+
+/* Actions */
+.actions {
+  margin-top: 1rem;
+}
+
+.actions label {
+  font-weight: 600;
+  margin-top: 0.6rem;
+  display: block;
+  color: inherit;
+}
+
+.status-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+
+.status-actions button {
+  background: var(--accent);
+  color: #fff;
+  padding: 0.45rem 1rem;
+  border: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.status-actions button:hover {
+  background: #00a2b2;
+}
+
+.dark-mode .status-actions button {
+  background: #00acc1;
+  color: #fff;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .admin-installments-page {
+    padding: 1rem 1rem 7rem;
+  }
+
+  .installment-admin-card {
+    padding: 1rem;
+  }
+
+  .admin-installments-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .status-actions {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .status-actions button {
+    width: 100%;
+  }
+}

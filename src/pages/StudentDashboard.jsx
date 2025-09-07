@@ -1,143 +1,99 @@
-// src/pages/student/StudentDashboard.jsx
+// src/pages/StudentDashboard.jsx
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import { supabase } from "@/supabase";
+import { useAuth } from "@/context/AuthContext";
 import {
-  FaBrain,
-  FaBook,
-  FaCalendarAlt,
-  FaRobot,
-  FaComments,
-  FaBriefcase,
-  FaPlus,
+  FaBrain, FaBook, FaCalendarAlt, FaRobot, FaMoneyBillWave,
+  FaUserGraduate, FaComments, FaHandsHelping, FaTrophy, FaFire, FaStar
 } from "react-icons/fa";
-
-const tiles = [
-  {
-    title: "AI Exam Generator",
-    icon: <FaRobot size={22} />,
-    desc: "Create custom quizzes instantly with AI.",
-    link: "/student/exam-generator",
-    color: "from-purple-500 to-pink-500",
-  },
-  {
-    title: "Flashcards",
-    icon: <FaBrain size={22} />,
-    desc: "Create, review, and master flashcards.",
-    link: "/student/flashcards",
-    color: "from-yellow-400 to-orange-500",
-  },
-  {
-    title: "Past Papers",
-    icon: <FaBook size={22} />,
-    desc: "Access thousands of organized past exams.",
-    link: "/student/past-papers",
-    color: "from-indigo-500 to-blue-500",
-  },
-  {
-    title: "Study Planner",
-    icon: <FaCalendarAlt size={22} />,
-    desc: "Build your ideal weekly study schedule.",
-    link: "/student/planner",
-    color: "from-green-400 to-emerald-600",
-  },
-  {
-    title: "StudyBuddy AI",
-    icon: <FaComments size={22} />,
-    desc: "Ask questions, get explained like a friend.",
-    link: "/student/studybuddy",
-    color: "from-pink-500 to-rose-500",
-  },
-  {
-    title: "Job Matching",
-    icon: <FaBriefcase size={22} />,
-    desc: "Find jobs tailored to your course & skills.",
-    link: "/student/jobs",
-    color: "from-blue-700 to-cyan-500",
-  },
-];
+import "./StudentDashboard.css";
 
 const StudentDashboard = () => {
+  const { user } = useAuth();
   const navigate = useNavigate();
-  const [recentUpdates, setRecentUpdates] = useState([]);
+  const [stats, setStats] = useState({ level: 1, xp: 0, quests: 0 });
+  const [activities, setActivities] = useState([]);
 
   useEffect(() => {
-    setRecentUpdates([
-      "You earned 50 XP in the last study session!",
-      "Your recent flashcard set was successfully uploaded.",
-      "New AI-generated quiz available for your next exam!",
-    ]);
-  }, []);
+    if (!user) return;
+    (async () => {
+      const { data: stu } = await supabase
+        .from("student_stats")
+        .select("level,xp,quests_completed")
+        .eq("user_id", user.id)
+        .single();
+      if (stu) setStats({
+        level: stu.level,
+        xp: stu.xp,
+        quests: stu.quests_completed
+      });
+
+      const { data: acts } = await supabase
+        .from("student_activity")
+        .select("activity,created_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      if (acts) setActivities(acts);
+    })();
+  }, [user]);
+
+  const tiles = [
+    { title: "AI Exam Generator", icon: <FaRobot />, link: "/student/exam-generator", desc: "Create smart quizzes" },
+    { title: "Flashcards", icon: <FaBrain />, link: "/student/flashcards", desc: "Memorize with power" },
+    { title: "Past Papers", icon: <FaBook />, link: "/student/past-papers", desc: "Practice & prepare" },
+    { title: "Study Planner", icon: <FaCalendarAlt />, link: "/student/planner", desc: "Manage your schedule" },
+    { title: "StudyBuddy AI", icon: <FaComments />, link: "/student/studybuddy", desc: "24/7 study support" },
+    { title: "Career Guidance", icon: <FaUserGraduate />, link: "/student/careers", desc: "Explore career paths" },
+    { title: "Scholarships & Loans", icon: <FaMoneyBillWave />, link: "/student/finance", desc: "Get financial help" },
+    { title: "Request Help", icon: <FaHandsHelping />, link: "/student/request-help", desc: "Need support?" }
+  ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-white via-blue-50 to-purple-50 p-5 sm:p-10">
-      {/* Header */}
-      <div className="max-w-4xl mx-auto text-center mb-12">
-        <h1 className="text-4xl sm:text-5xl font-extrabold text-blue-700 mb-2">
-          🎓 Student Assistant
-        </h1>
-        <p className="text-gray-600 text-md sm:text-lg">
-          Your AI-powered academic toolkit. Explore, learn, and achieve more!
-        </p>
-      </div>
+    <div className="student-dashboard">
+      <header className="dashboard-header">
+        <h1>🎓 Student Hub</h1>
+        <p>Welcome back, {user?.user_metadata?.full_name || "Scholar"}!</p>
+      </header>
 
-      {/* 🔔 Recent Updates */}
-      <div className="max-w-4xl mx-auto bg-white p-6 rounded-2xl shadow-md mb-12">
-        <h2 className="text-xl font-bold text-blue-600 mb-4">🔔 Recent Updates</h2>
-        <ul className="space-y-3 text-gray-700">
-          {recentUpdates.map((update, i) => (
-            <motion.li
-              key={i}
-              className="bg-blue-100 p-3 rounded-xl text-sm"
-              whileHover={{ scale: 1.02 }}
-              transition={{ duration: 0.2 }}
-            >
-              {update}
-            </motion.li>
-          ))}
-        </ul>
-      </div>
+      <section className="stats-row">
+        <div className="stat-box"><FaTrophy /> Level <span>{stats.level}</span></div>
+        <div className="stat-box"><FaFire /> XP <span>{stats.xp}</span></div>
+        <div className="stat-box"><FaStar /> Quests <span>{stats.quests}</span></div>
+      </section>
 
-      {/* ⚙️ Main Tiles */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto mb-10">
+      <section className="activity-log">
+        <h2>🧾 Recent Activity</h2>
+        {activities.length === 0 ? (
+          <p className="empty-log">No activity yet. Start your learning journey!</p>
+        ) : (
+          <ul>
+            {activities.map((a, i) => (
+              <li key={i}>{a.activity} — {new Date(a.created_at).toLocaleDateString()}</li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="tiles-grid">
         {tiles.map((tile, i) => (
           <motion.div
             key={i}
+            className="tile-card"
             whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.98 }}
-            className={`p-5 rounded-2xl shadow-lg text-white cursor-pointer bg-gradient-to-br ${tile.color}`}
+            whileTap={{ scale: 0.97 }}
             onClick={() => navigate(tile.link)}
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.1 }}
           >
-            <div className="flex items-center gap-3 mb-2">
-              {tile.icon}
-              <h3 className="text-lg font-bold">{tile.title}</h3>
+            <div className="tile-icon">{tile.icon}</div>
+            <div className="tile-body">
+              <h3>{tile.title}</h3>
+              <p>{tile.desc}</p>
             </div>
-            <p className="text-white/90 text-sm">{tile.desc}</p>
           </motion.div>
         ))}
-      </div>
-
-      {/* 📤 Post Job CTA */}
-      <div className="flex justify-center mb-12">
-        <button
-          onClick={() => navigate("/admin/post-job")}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-xl shadow-md transition-all"
-        >
-          <FaPlus size={14} /> Post a Job
-        </button>
-      </div>
-
-      {/* 💡 Motivation Section */}
-      <div className="max-w-4xl mx-auto bg-white p-6 rounded-2xl shadow-md text-center">
-        <h2 className="text-xl font-bold text-green-600 mb-2">💡 Keep Going!</h2>
-        <p className="text-gray-700">
-          "Success is the sum of small efforts, repeated day in and day out."
-        </p>
-        <p className="text-md text-gray-500 mt-1">Stay consistent. You're doing great!</p>
-      </div>
+      </section>
     </div>
   );
 };

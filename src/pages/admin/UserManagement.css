@@ -1,0 +1,128 @@
+/* src/pages/admin/UserManagement.css */
+.user-management-container {
+  padding: 2rem;
+  color: #fff;
+  background: #111;
+  min-height: 100vh;
+}
+
+.user-management-container h2 {
+  font-size: 2rem;
+  margin-bottom: 1.5rem;
+  color: gold;
+  text-align: center;
+}
+
+.user-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.user-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #222;
+  border: 1px solid #444;
+  border-radius: 12px;
+  padding: 1rem;
+  flex-wrap: wrap;
+}
+
+.user-info {
+  flex: 1;
+  min-width: 220px;
+}
+
+.user-actions {
+  display: flex;
+  gap: 0.8rem;
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.user-actions button {
+  padding: 0.5rem 1rem;
+  font-weight: bold;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.user-actions .ban {
+  background: crimson;
+  color: white;
+}
+
+.user-actions .unban {
+  background: darkgreen;
+  color: white;
+}
+
+.user-actions .grant {
+  background: goldenrod;
+  color: black;
+}
+
+.user-actions .revoke {
+  background: #555;
+  color: white;
+}
+
+.pagination {
+  margin-top: 2rem;
+  text-align: center;
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.pagination button {
+  padding: 0.5rem 1rem;
+  background: #444;
+  border: none;
+  color: white;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.pagination button:disabled {
+  background: #222;
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+  .user-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .user-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+.verified-badge {
+  background-color: #40c057;
+  color: white;
+  font-size: 0.75rem;
+  padding: 2px 6px;
+  margin-left: 6px;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+button.verify {
+  background-color: #40c057;
+  color: white;
+}
+
+button.unverify {
+  background-color: #d9534f;
+  color: white;
+}

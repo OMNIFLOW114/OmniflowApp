@@ -1,18 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
-import {
-  FaUserCircle,
-  FaBell,
-  FaEnvelope,
-  FaHome,
-  FaCompass,
-  FaPlusCircle,
-} from "react-icons/fa";
-import { auth } from "@/firebase";
-import { signOut } from "firebase/auth";
+import { FaBars, FaEnvelope } from "react-icons/fa";
 import SidebarMenu from "./SidebarMenu";
-import TestBackendConnection from "@/components/TestBackendConnection";
+import { supabase } from "@/supabase";
+import { useDarkMode } from "@/context/DarkModeContext"; // ✅ use context
+import "./Home.css";
 
 const getGreeting = () => {
   const hour = new Date().getHours();
@@ -23,14 +16,26 @@ const getGreeting = () => {
 
 const Home = () => {
   const [greeting, setGreeting] = useState(getGreeting());
-  const [userName, setUserName] = useState("");
+  const [userName, setUserName] = useState("there");
   const [showMenu, setShowMenu] = useState(false);
+  const { darkMode, toggleDarkMode } = useDarkMode(); // ✅ global dark mode
   const navigate = useNavigate();
 
   useEffect(() => {
     const interval = setInterval(() => setGreeting(getGreeting()), 60000);
-    const storedUser = JSON.parse(localStorage.getItem("user"));
-    setUserName(storedUser?.displayName || auth.currentUser?.displayName || "there");
+
+    const getUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      setUserName(
+        user?.user_metadata?.full_name ||
+          user?.email?.split("@")[0] ||
+          "there"
+      );
+    };
+
+    getUser();
     return () => clearInterval(interval);
   }, []);
 
@@ -38,7 +43,7 @@ const Home = () => {
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
+      await supabase.auth.signOut();
       navigate("/auth");
     } catch (error) {
       console.error("Logout failed:", error.message);
@@ -47,118 +52,103 @@ const Home = () => {
 
   const tiles = [
     {
-      title: "💰 OmniCurrency",
-      description: "Manage your wallet, deposit, withdraw & earn rewards.",
-      link: "/currency",
-      color: "from-yellow-400 to-orange-500",
+      title: "💎 OmniCash Wallet",
+      description: "Next-gen wallet to send, receive, and grow your OmniCash.",
+      link: "/wallet",
+      color: "linear-gradient(135deg, #FFD700, #000000)",
     },
     {
       title: "🛍️ Trade & Virtual Store",
-      description: "Buy, sell, or dropship goods using OmniCash.",
+      description: "Buy, sell or dropship with OmniCash.",
       link: "/trade",
-      color: "from-pink-500 to-red-600",
+      color: "linear-gradient(135deg, #FF7E5F, #FEB47B)",
     },
     {
       title: "💼 Business Hub",
-      description: "Create your virtual store & post opportunities.",
-      link: "/store/create",
-      color: "from-blue-500 to-indigo-600",
+      description: "Create stores & post work opportunities.",
+      link: "/business-hub",
+      color: "linear-gradient(135deg, #6a11cb, #2575fc)",
     },
     {
       title: "🎓 Student Assistant",
-      description: "AI exam generator, job matching & past paper hub.",
+      description: "AI exam tools, job matching & flashcards.",
       link: "/student",
-      color: "from-green-400 to-emerald-600",
+      color: "linear-gradient(135deg, #a18cd1, #fbc2eb)",
     },
     {
-      title: "📊 Finance Tracker",
-      description: "Track expenses & receive smart money advice.",
-      link: "/finance",
-      color: "from-purple-500 to-fuchsia-600",
+      title: "🌌 OmniVerse Portal",
+      description: "Step into Africa’s most powerful earning ecosystem.",
+      link: "/omniverse",
+      color: "linear-gradient(135deg, #0f0c29, #302b63, #24243e)",
     },
   ];
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-100 via-white to-purple-100">
-      {/* Top Navbar */}
-      <nav className="bg-white shadow-md px-6 py-3 flex justify-between items-center sticky top-0 z-50">
-        <Link to="/" className="text-xl font-bold text-blue-700">OmniFlow</Link>
-        <div className="flex items-center space-x-5">
-          <Link to="/messages" className="text-gray-600 hover:text-blue-600" aria-label="Messages">
-            <FaEnvelope size={20} />
-          </Link>
-          <button onClick={toggleMenu} className="text-gray-600 hover:text-blue-600 focus:outline-none" aria-label="User Menu">
-            <FaUserCircle size={24} />
-          </button>
-        </div>
+    <div className="home-container transition-all">
+      <nav className="navbar">
+        <button onClick={toggleMenu} className="nav-icon">
+          <FaBars size={22} />
+        </button>
+        <Link to="/messages" className="nav-icon">
+          <FaEnvelope size={20} />
+        </Link>
       </nav>
 
-      {showMenu && <SidebarMenu onClose={toggleMenu} onLogout={handleLogout} />}
+      {showMenu && (
+        <SidebarMenu
+          onClose={toggleMenu}
+          onLogout={handleLogout}
+          darkMode={darkMode}
+          toggleDarkMode={toggleDarkMode}
+        />
+      )}
 
-      {/* Greeting and Dashboard */}
+      <motion.div className="omniflow-title">
+        <h1 className="title">Omniflow</h1>
+      </motion.div>
+
       <motion.div
-        className="flex-grow px-6 pt-10 pb-24"
+        className="greeting-section"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.8 }}
       >
-        <div className="max-w-4xl mx-auto text-center">
-          <motion.h1
-            className="text-4xl md:text-5xl font-bold text-gray-800 mb-4"
-            initial={{ y: -20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.3 }}
-          >
-            {greeting}, {userName} 👋
-          </motion.h1>
-          <motion.p
-            className="text-gray-600 text-lg mb-8"
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.5 }}
-          >
-            Here's what's happening in your OmniFlow dashboard today.
-          </motion.p>
-        </div>
-
-        {/* Feature Tiles */}
-        <div className="max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {tiles.map((tile, i) => (
-            <motion.div
-              key={i}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={() => navigate(tile.link)}
-              className={`cursor-pointer p-6 rounded-2xl text-white shadow-xl bg-gradient-to-br ${tile.color}`}
-              title={tile.description}
-            >
-              <h2 className="text-xl font-bold mb-2">{tile.title}</h2>
-              <p className="text-sm text-white/90">{tile.description}</p>
-            </motion.div>
-          ))}
-        </div>
+        <motion.h1
+          initial={{ y: -20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.3 }}
+        >
+          {greeting}, {userName} 👋
+        </motion.h1>
+        <motion.p
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.5 }}
+        >
+          Here's what's happening in your OmniFlow dashboard today.
+        </motion.p>
       </motion.div>
 
-      {/* Backend Test */}
-      <TestBackendConnection />
-
-      {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white shadow-inner py-2 px-6 flex justify-around items-center border-t z-50">
-        <BottomNavLink to="/" icon={<FaHome size={22} />} label="Home" />
-        <BottomNavLink to="/discover" icon={<FaCompass size={22} />} label="Discover" />
-        <BottomNavLink to="/create" icon={<FaPlusCircle size={22} />} label="Create" />
-        <BottomNavLink to="/notifications" icon={<FaBell size={22} />} label="Alerts" />
-      </nav>
+      <div className="tiles-container">
+        {tiles.map((tile, i) => (
+          <motion.div
+            key={i}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => navigate(tile.link)}
+            className="tile dark:shadow-xl dark:shadow-black"
+            style={{
+              backgroundImage: tile.color,
+            }}
+            title={tile.description}
+          >
+            <h2>{tile.title}</h2>
+            <p>{tile.description}</p>
+          </motion.div>
+        ))}
+      </div>
     </div>
   );
 };
-
-// 🔹 Bottom Nav Link Component
-const BottomNavLink = ({ to, icon, label }) => (
-  <Link to={to} className="flex flex-col items-center text-gray-700 hover:text-blue-600 transition">
-    {icon}
-    <span className="text-xs">{label}</span>
-  </Link>
-);
 
 export default Home;

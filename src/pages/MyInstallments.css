@@ -1,0 +1,426 @@
+/* =============================
+   Global Dashboard Styles
+   ============================= */
+.installment-dashboard {
+  font-family: "Inter", "Segoe UI", Roboto, sans-serif;
+  color: #222;
+  background: #f7f9fc;
+  min-height: 100vh;
+  padding: 1.5rem;
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+.installment-dashboard.dark-mode {
+  background: #0d1117;
+  color: #e6edf3;
+}
+
+/* =============================
+   Glass Utility
+   ============================= */
+.glass {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+}
+
+.dark-mode .glass {
+  background: rgba(30, 32, 38, 0.7);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* =============================
+   Header
+   ============================= */
+.installment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 2rem;
+  margin-bottom: 2rem;
+}
+
+.installment-header .title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.installment-header .subtitle {
+  font-size: 0.95rem;
+  opacity: 0.8;
+  margin-top: 0.25rem;
+}
+
+/* =============================
+   Wallet Pill
+   ============================= */
+.wallet-pill {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  background: linear-gradient(135deg, #4e9af1, #0066cc);
+  color: white;
+  padding: 1rem 1.5rem;
+  border-radius: 999px;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.3);
+}
+
+.wallet-label {
+  font-size: 0.75rem;
+  opacity: 0.9;
+}
+
+.wallet-amount {
+  font-size: 1.2rem;
+}
+
+/* =============================
+   Trust Panel
+   ============================= */
+.trust-panel {
+  padding: 1.5rem 2rem;
+  margin-bottom: 2rem;
+}
+
+.trust-panel h3 {
+  margin-top: 0;
+  font-size: 1.2rem;
+}
+
+.trust-panel ul {
+  list-style: none;
+  padding: 0;
+  margin: 0.75rem 0 0;
+}
+
+.trust-panel li {
+  margin-bottom: 0.5rem;
+  padding-left: 1.5rem;
+  position: relative;
+  font-size: 0.9rem;
+}
+
+.trust-panel li::before {
+  content: "•";
+  color: #4e9af1;
+  font-weight: bold;
+  position: absolute;
+  left: 0;
+}
+
+/* =============================
+   Empty & Loading States
+   ============================= */
+.empty-state {
+  text-align: center;
+  padding: 3rem;
+}
+
+.loading {
+  text-align: center;
+  font-size: 1.1rem;
+  padding: 3rem;
+}
+
+/* =============================
+   Cards Grid
+   ============================= */
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.card-media img {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.dark-mode .card-media img {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.card-body {
+  padding: 1.25rem;
+}
+
+.card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.card h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.seller {
+  font-size: 0.85rem;
+  opacity: 0.85;
+  margin: 0.5rem 0 1rem;
+}
+
+/* =============================
+   Tags
+   ============================= */
+.tag-row {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.tag {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+}
+
+.tag-danger {
+  background: #ffebeb;
+  color: #a00;
+}
+
+.tag-warning {
+  background: #fff6e6;
+  color: #b36b00;
+}
+
+.tag-success {
+  background: #e9f9ed;
+  color: #187d44;
+}
+
+/* =============================
+   Progress Bar
+   ============================= */
+.progress-outer {
+  height: 8px;
+  border-radius: 6px;
+  background: #e6e9f0;
+  overflow: hidden;
+}
+
+.dark-mode .progress-outer {
+  background: #2b2f3a;
+}
+
+.progress-inner {
+  height: 100%;
+  background: linear-gradient(90deg, #4e9af1, #0066cc);
+}
+
+.progress-label {
+  font-size: 0.8rem;
+  margin-top: 0.5rem;
+  opacity: 0.8;
+}
+
+/* =============================
+   Card Actions
+   ============================= */
+.card-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.btn {
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.btn.primary {
+  background: linear-gradient(135deg, #4e9af1, #0066cc);
+  color: white;
+}
+
+.btn.primary:hover {
+  filter: brightness(1.05);
+}
+
+.btn.ghost {
+  background: transparent;
+  border: 1px solid currentColor;
+  color: inherit;
+}
+
+.btn.ghost:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* =============================
+   Details Section
+   ============================= */
+.details {
+  margin-top: 1rem;
+  font-size: 0.9rem;
+}
+
+.schedule-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.75rem;
+}
+
+.schedule-table th,
+.schedule-table td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  font-size: 0.85rem;
+}
+
+.dark-mode .schedule-table th,
+.dark-mode .schedule-table td {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* =============================
+   Modal
+   ============================= */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 50;
+  padding: 1rem;
+}
+
+.modal-box {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  max-width: 650px;
+  width: 100%;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.2);
+  animation: fadeInUp 0.3s ease;
+}
+
+.dark-mode .modal-box {
+  background: #161b22;
+  color: #e6edf3;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-grid {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 1.25rem;
+  margin-top: 1rem;
+}
+
+.modal-left img {
+  width: 100%;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.modal-right .big-amount {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0.5rem 0 1rem;
+}
+
+.payment-methods {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin: 1rem 0;
+  font-size: 0.9rem;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.confirm-button {
+  background: linear-gradient(135deg, #28a745, #218838);
+  color: white;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.confirm-button.ghost {
+  background: transparent;
+  border: 1px solid #28a745;
+  color: #28a745;
+}
+
+.cancel-button {
+  background: #e6e9f0;
+  border: none;
+  border-radius: 8px;
+  padding: 0.6rem 1.2rem;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.dark-mode .cancel-button {
+  background: #2b2f3a;
+  color: #e6edf3;
+}
+
+/* =============================
+   Modal Schedule
+   ============================= */
+.history-list {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0 0;
+}
+
+.history-list li {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.4rem 0;
+  font-size: 0.9rem;
+}
+
+.history-list li.paid {
+  color: #187d44;
+}
+
+.history-list li.pending {
+  color: #b36b00;
+}

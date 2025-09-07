@@ -1,0 +1,59 @@
+.settings-container {
+  background-color: #000;
+  color: #FFD700;
+  max-width: 700px;
+  margin: 2rem auto;
+  padding: 2rem;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(255, 215, 0, 0.2);
+}
+
+.settings-title {
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 1.5rem;
+  color: #FFD700;
+}
+
+.settings-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid #FFD70033;
+  padding-bottom: 0.5rem;
+}
+
+.settings-item label {
+  font-weight: 500;
+  color: #FFD700;
+}
+
+.settings-item button,
+.settings-item select {
+  background-color: #111;
+  color: hsl(120, 91%, 48%);
+  border: 1px solid #FFD70055;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.settings-item input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #FFD700;
+  cursor: pointer;
+}
+
+.settings-note {
+  font-size: 0.85rem;
+  color: #FFD70099;
+  margin-top: 0.25rem;
+}
+
+.settings-meta {
+  font-size: 0.75rem;
+  color: #FFD70066;
+  margin-top: 0.25rem;
+}

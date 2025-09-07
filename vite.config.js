@@ -1,31 +1,35 @@
 // vite.config.js
-import dotenv from 'dotenv';
-dotenv.config();
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import dotenv from 'dotenv';
 
-// Load environment variables
+// ✅ Load .env variables before config is evaluated
+dotenv.config();
 
 export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, 'src'),
+      '@': path.resolve(__dirname, 'src'), // ✅ Allows '@/...' imports
     },
   },
   define: {
-    'process.env': process.env, // Makes VITE_OPENAI_API_KEY and others accessible
+    'process.env': JSON.stringify(process.env), // ✅ Fixes: process.env vars must be stringified
   },
   build: {
     target: 'esnext',
-    chunkSizeWarningLimit: 600,
-    sourcemap: true,
-    minify: 'esbuild', // Faster minification
+    // ✅ Reduce memory pressure
+    sourcemap: false, // disable source maps in production builds
+    minify: 'esbuild', // faster & less memory than terser
+    chunkSizeWarningLimit: 1500, // raise limit so Rollup doesn’t waste time analyzing
     rollupOptions: {
       output: {
         manualChunks: {
-          // Optional: separate AI libs like tesseract or heavy dependencies
+          // ✅ Split out heavy deps into separate chunks
+          react: ['react', 'react-dom'],
+          supabase: ['@supabase/supabase-js'],
+          vendor: ['axios', 'lodash'],
           tesseract: ['tesseract.js'],
         },
       },

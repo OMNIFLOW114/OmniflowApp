@@ -1,0 +1,228 @@
+:root {
+  --color-bg-light: #f9f9f9;
+  --color-bg-dark: #111;
+  --color-card-light: #fff;
+  --color-card-dark: #1a1a1a;
+  --color-text-light: #222;
+  --color-text-dark: #eee;
+  --color-border: #ccc;
+  --color-primary: #007bff;
+  --color-success: #28a745;
+  --color-danger: #dc3545;
+  --color-warning: #ffc107;
+  --color-info: #17a2b8;
+  --verified-badge: gold;
+}
+
+/* Global Container */
+.store-oversight-container {
+  padding: 2rem;
+  background-color: var(--color-bg-light);
+  color: var(--color-text-light);
+  transition: all 0.3s ease-in-out;
+}
+
+[data-theme='dark'] .store-oversight-container {
+  background-color: var(--color-bg-dark);
+  color: var(--color-text-dark);
+}
+
+/* Tabs Scrollbar */
+.tab-scroll-wrapper {
+  display: flex;
+  overflow-x: auto;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tab-scroll-wrapper::-webkit-scrollbar {
+  height: 6px;
+}
+.tab-scroll-wrapper::-webkit-scrollbar-thumb {
+  background: #bbb;
+  border-radius: 3px;
+}
+
+.tab-btn {
+  flex: 0 0 auto;
+  padding: 8px 16px;
+  background: transparent;
+  border: none;
+  border-radius: 20px;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--color-text-light);
+  transition: 0.3s ease;
+}
+
+.tab-btn.active {
+  background: var(--color-primary);
+  color: white;
+}
+
+[data-theme='dark'] .tab-btn {
+  color: var(--color-text-dark);
+}
+[data-theme='dark'] .tab-btn.active {
+  background: var(--verified-badge);
+  color: black;
+}
+
+/* Search Input */
+.store-search-input {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  outline: none;
+}
+
+/* Store List Cards */
+.store-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.store-card {
+  flex: 1 1 300px;
+  background-color: var(--color-card-light);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 1rem;
+  position: relative;
+  transition: 0.2s ease;
+}
+
+[data-theme='dark'] .store-card {
+  background-color: var(--color-card-dark);
+}
+
+.store-card.pending {
+  border-left: 5px solid var(--color-warning);
+}
+.store-card.active {
+  border-left: 5px solid var(--color-success);
+}
+.store-card.inactive {
+  border-left: 5px solid var(--color-danger);
+}
+.store-card.selected {
+  outline: 3px solid var(--color-primary);
+}
+
+/* Store Actions */
+.store-actions {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.store-actions button {
+  flex: 1;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background 0.3s ease;
+}
+.store-actions .approve {
+  background: var(--color-success);
+  color: white;
+}
+.store-actions .reject,
+.store-actions .delete {
+  background: var(--color-danger);
+  color: white;
+}
+.store-actions button:hover {
+  filter: brightness(1.1);
+}
+
+/* Bulk Action Bar */
+.bulk-actions {
+  background: var(--color-card-light);
+  border: 1px solid var(--color-border);
+  padding: 10px;
+  margin: 1rem 0;
+  border-radius: 10px;
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+[data-theme='dark'] .bulk-actions {
+  background: var(--color-card-dark);
+  color: var(--color-text-dark);
+}
+
+.bulk-actions button {
+  background: var(--color-primary);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 5px;
+  border: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.bulk-actions button:hover {
+  background: var(--color-success);
+}
+
+/* Modal Overlay */
+.store-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+.store-modal-box {
+  background: var(--color-card-light);
+  padding: 2rem;
+  border-radius: 10px;
+  max-width: 500px;
+  width: 100%;
+  color: var(--color-text-light);
+}
+
+[data-theme='dark'] .store-modal-box {
+  background: var(--color-card-dark);
+  color: var(--color-text-dark);
+}
+
+.close-btn {
+  background: var(--color-danger);
+  color: white;
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: none;
+  margin-top: 1rem;
+  cursor: pointer;
+}
+
+.verified-badge {
+  background: var(--verified-badge);
+  color: black;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  margin-left: 6px;
+}
+
+/* Loading */
+.store-oversight-loading {
+  text-align: center;
+  font-size: 1.2rem;
+  margin-top: 3rem;
+  color: var(--color-text-light);
+}

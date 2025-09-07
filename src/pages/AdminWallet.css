@@ -1,0 +1,201 @@
+:root {
+  --light-bg: #f9fafb;
+  --dark-bg: #0f172a;
+  --light-card: #ffffff;
+  --dark-card: #1e293b;
+  --text-dark: #111827;
+  --text-light: #f3f4f6;
+  --gold: #f59e0b;
+  --border-light: #e5e7eb;
+  --border-dark: #374151;
+}
+
+/* Main container */
+.admin-wallet-container {
+  padding: 2rem;
+  background-color: var(--light-bg);
+  color: var(--text-dark);
+  min-height: 100vh;
+  transition: 0.3s ease;
+}
+
+.dark .admin-wallet-container {
+  background-color: var(--dark-bg);
+  color: var(--text-light);
+}
+
+/* Header */
+.admin-wallet-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.admin-wallet-header h1 {
+  font-size: 2rem;
+  font-weight: 600;
+  margin: 0.5rem 0;
+}
+
+.admin-balance {
+  font-size: 1.8rem;
+  color: var(--gold);
+  font-weight: bold;
+}
+
+.admin-wallet-actions {
+  margin-top: 1rem;
+}
+
+/* Button */
+.btn-glass {
+  padding: 0.6rem 1.2rem;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text-dark);
+  border: 1px solid var(--gold);
+  transition: all 0.3s ease;
+}
+
+.dark .btn-glass {
+  color: var(--text-light);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Grid cards */
+.earning-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2.5rem;
+}
+
+.earning-card {
+  padding: 1.2rem;
+  background-color: var(--light-card);
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  transition: 0.3s ease;
+  border: 2px solid transparent;
+}
+
+.dark .earning-card {
+  background-color: var(--dark-card);
+}
+
+.earning-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 30px rgba(0, 0, 0, 0.08);
+}
+
+.earning-card.selected {
+  border-color: var(--gold);
+}
+
+.icon-title {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+}
+
+.earning-card .amount {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 0.2rem;
+}
+
+.earning-card .percent {
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: #6b7280;
+}
+
+.dark .earning-card .percent {
+  color: #d1d5db;
+}
+
+/* Transactions Table */
+.transactions-table {
+  background-color: var(--light-card);
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.05);
+}
+
+.dark .transactions-table {
+  background-color: var(--dark-card);
+}
+
+.txn-title {
+  font-size: 1.2rem;
+  margin-bottom: 1rem;
+}
+
+.wallet-admin-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.wallet-admin-table thead {
+  background-color: var(--gold);
+  color: white;
+}
+
+.wallet-admin-table th,
+.wallet-admin-table td {
+  padding: 0.75rem;
+  text-align: left;
+  font-size: 0.95rem;
+}
+
+.wallet-admin-table tbody tr:nth-child(even) {
+  background-color: #f3f4f6;
+}
+
+.dark .wallet-admin-table tbody tr:nth-child(even) {
+  background-color: #334155;
+}
+
+.text-gold {
+  color: var(--gold);
+}
+
+.no-txns,
+.loading-text {
+  padding: 1rem;
+  text-align: center;
+  font-size: 1rem;
+  color: #9ca3af;
+}
+
+@media (max-width: 768px) {
+  .earning-cards-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .wallet-admin-table thead {
+    display: none;
+  }
+
+  .wallet-admin-table tr {
+    display: block;
+    margin-bottom: 1rem;
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    padding: 0.6rem;
+  }
+
+  .wallet-admin-table td {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+  }
+}

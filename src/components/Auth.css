@@ -1,0 +1,265 @@
+/* Reset & base styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Inter', sans-serif;
+}
+
+.auth-container {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: linear-gradient(135deg, #1e1e2f, #2d2d44);
+  padding: 2rem;
+  overflow: auto;
+}
+
+/* Glassmorphism form card */
+.auth-form-container {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 1.25rem;
+  padding: 2rem 2.5rem;
+  width: 100%;
+  max-width: 420px;
+  color: #fff;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  animation: fadeIn 0.4s ease-in-out;
+}
+
+.auth-title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 1.5rem;
+  color: #ffffff;
+}
+
+/* Input group */
+.auth-input-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1rem;
+}
+
+.auth-input-group label {
+  margin-bottom: 0.4rem;
+  font-weight: 500;
+  font-size: 0.9rem;
+  color: #d1d1e0;
+}
+
+.auth-input-group input {
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  border: none;
+  background-color: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  font-size: 0.95rem;
+  outline: none;
+  transition: all 0.2s ease-in-out;
+}
+
+.auth-input-group input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.auth-input-group input:focus {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Forgot password */
+.forgot-password {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 1rem;
+}
+
+.forgot-btn {
+  background: none;
+  border: none;
+  color: #9abfff;
+  cursor: pointer;
+  font-size: 0.85rem;
+  text-decoration: underline;
+}
+
+.forgot-btn:hover {
+  color: #cfe1ff;
+}
+
+/* Buttons */
+.submit-btn,
+.google-signin-btn {
+  width: 100%;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  font-weight: 600;
+  font-size: 1rem;
+  margin-top: 0.5rem;
+  transition: all 0.25s ease;
+}
+
+.submit-btn {
+  background-color: #4b6fff;
+  color: white;
+}
+
+.submit-btn:hover {
+  background-color: #3f5fe0;
+}
+
+.google-signin-btn {
+  background-color: white;
+  color: #333;
+  margin-top: 0.75rem;
+  border: none;
+}
+
+.google-signin-btn:hover {
+  background-color: #f0f0f0;
+}
+
+/* Divider */
+.auth-divider {
+  margin: 1.5rem 0 0.75rem;
+  text-align: center;
+  color: #c2c2d6;
+  position: relative;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 40%;
+  height: 1px;
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.auth-divider::before {
+  left: 0;
+}
+
+.auth-divider::after {
+  right: 0;
+}
+
+/* Toggle sign up/login */
+.toggle-form-text {
+  text-align: center;
+  margin-top: 1rem;
+  color: #ccc;
+  font-size: 0.9rem;
+}
+
+.toggle-btn {
+  background: none;
+  border: none;
+  color: #8ab4ff;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.toggle-btn:hover {
+  color: #bfd9ff;
+}
+
+/* Error message */
+.auth-error {
+  background-color: rgba(255, 0, 0, 0.1);
+  color: #ffb3b3;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  margin-bottom: 1rem;
+  font-weight: 500;
+  text-align: center;
+}
+
+/* Modal styling */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  backdrop-filter: blur(4px);
+  background-color: rgba(0, 0, 0, 0.45);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.modal-content {
+  background-color: #1c1c2e;
+  padding: 2rem;
+  border-radius: 1rem;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+  color: white;
+}
+
+.modal-content h3 {
+  margin-bottom: 0.5rem;
+  font-size: 1.4rem;
+}
+
+.modal-content p {
+  margin-bottom: 1.5rem;
+  font-size: 0.95rem;
+  color: #c9c9d9;
+}
+
+.modal-content button {
+  background-color: #4b6fff;
+  color: white;
+  padding: 0.6rem 1.2rem;
+  border-radius: 0.6rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+}
+
+.modal-content button:hover {
+  background-color: #3f5fe0;
+}
+
+/* Fade animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive tweaks */
+@media (max-width: 480px) {
+  .auth-form-container {
+    padding: 1.5rem;
+    border-radius: 1rem;
+  }
+
+  .auth-title {
+    font-size: 1.5rem;
+  }
+
+  .submit-btn,
+  .google-signin-btn {
+    font-size: 0.95rem;
+  }
+
+  .auth-input-group input {
+    font-size: 0.9rem;
+  }
+}

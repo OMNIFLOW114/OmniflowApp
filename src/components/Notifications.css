@@ -1,0 +1,114 @@
+.notifications-page {
+  padding: 2rem;
+  padding-bottom: 6rem; /* 🆕 extra space at the bottom */
+  background: #fff;
+  color: #222;
+  min-height: 100vh;
+  transition: background 0.3s, color 0.3s;
+}
+
+.dark .notifications-page {
+  background: #121212;
+  color: #eee;
+}
+
+.notifications-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.notifications-title {
+  font-size: 2rem;
+  background: linear-gradient(135deg, #0fb0e0, #ff007f);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.notifications-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.notification-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f9f9f9;
+  padding: 1rem;
+  border-radius: 10px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  transition: background 0.2s ease;
+}
+
+.dark .notification-item {
+  background: #1e1e1e;
+}
+
+.notification-item.unread {
+  font-weight: bold;
+}
+
+.notification-content {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.notification-content p {
+  margin: 0.2rem 0;
+  font-size: 0.95rem;
+  color: #555;
+}
+
+.dark .notification-content p {
+  color: #ccc;
+}
+
+.no-notifications-text {
+  text-align: center;
+  margin-top: 3rem;
+  font-style: italic;
+  color: #888;
+}
+
+.mark-all-btn-fixed {
+  margin-top: 2rem;
+  margin-bottom: 1rem; /* 🆕 extra bottom spacing */
+  padding: 0.8rem 1.4rem;
+  background: #0fb0e0;
+  color: white;
+  font-weight: bold;
+  border: none;
+  border-radius: 999px;
+  box-shadow: 0 8px 16px rgba(15, 176, 224, 0.3);
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+  .notification-item {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 1rem;
+  }
+
+  .notification-content {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+
+  .notifications-page {
+    padding: 1rem;
+    padding-bottom: 7rem; /* 🆕 increased space for floating footer safety */
+  }
+
+  .mark-all-btn-fixed {
+    width: 100%;
+    font-size: 1rem;
+    padding: 1rem;
+  }
+}

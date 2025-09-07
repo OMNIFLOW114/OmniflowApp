@@ -1,96 +1,175 @@
-// src/pages/CreateStore.jsx
-import React, { useState } from "react";
-import { db } from "@/firebase";
-import { useAuth } from "@/AuthContext";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { supabase } from "@/supabase";
+import { useAuth } from "@/context/AuthContext";
+import "./CreateStore.css";
 
 const CreateStore = () => {
-  const { currentUser } = useAuth();
-  const [form, setForm] = useState({ name: "", description: "" });
-  const [message, setMessage] = useState("");
+  const [storeData, setStoreData] = useState({
+    name: "",
+    description: "",
+    contactEmail: "",
+    contactPhone: "",
+    location: "",
+    kraPin: "",
+    registrationNumber: "",
+    businessType: "",
+    businessDocument: null,
+    ownerIdCard: null,
+  });
   const [loading, setLoading] = useState(false);
+  const [requestStatus, setRequestStatus] = useState(null);
+  const { user } = useAuth();
   const navigate = useNavigate();
 
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+  useEffect(() => {
+    const fetchExistingRequest = async () => {
+      if (!user?.id) return;
+      const { data } = await supabase
+        .from("store_requests")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (data) {
+        setRequestStatus(data.status);
+      }
+    };
+
+    fetchExistingRequest();
+  }, [user]);
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setStoreData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async () => {
-    if (!form.name.trim() || !form.description.trim()) {
-      return setMessage("⚠️ Please fill in all fields.");
+  const handleFileChange = (e) => {
+    const { name, files } = e.target;
+    if (files.length > 0) {
+      setStoreData((prev) => ({ ...prev, [name]: files[0] }));
     }
+  };
 
+  const uploadFile = async (file, pathPrefix) => {
+    const filePath = `${pathPrefix}/${user.id}_${Date.now()}_${file.name}`;
+    const { error } = await supabase.storage
+      .from("store-documents")
+      .upload(filePath, file);
+    if (error) throw error;
+    return filePath;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!user?.id) return alert("Please login first.");
     setLoading(true);
-    try {
-      const docRef = await addDoc(collection(db, "stores"), {
-        ...form,
-        ownerId: currentUser.uid,
-        createdAt: serverTimestamp(),
-      });
 
-      setMessage("✅ Store created! Redirecting...");
-      setTimeout(() => {
-        navigate(`/store/${docRef.id}`);
-      }, 1500);
+    try {
+      let businessDocPath = null;
+      let idCardPath = null;
+
+      if (storeData.businessDocument)
+        businessDocPath = await uploadFile(storeData.businessDocument, "business-documents");
+      if (storeData.ownerIdCard)
+        idCardPath = await uploadFile(storeData.ownerIdCard, "id-cards");
+
+      const payload = {
+        user_id: user.id,
+        name: storeData.name,
+        description: storeData.description,
+        contact_email: storeData.contactEmail,
+        contact_phone: storeData.contactPhone,
+        location: storeData.location,
+        kra_pin: storeData.kraPin,
+        registration_number: storeData.registrationNumber,
+        business_type: storeData.businessType,
+        business_document: businessDocPath,
+        owner_id_card: idCardPath,
+        status: "pending",
+      };
+
+      const { error } = await supabase.from("store_requests").insert(payload);
+
+      if (error) throw error;
+
+      setRequestStatus("pending");
+      alert("✅ Store request submitted successfully. Await admin approval.");
     } catch (err) {
-      console.error("Failed to create store:", err.message);
-      setMessage("❌ Something went wrong. Try again.");
+      console.error("Store request error:", err);
+      alert("Failed to submit request. Please check your documents and try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <motion.div
-      className="max-w-2xl mx-auto px-4 py-10"
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-    >
-      <h1 className="text-3xl font-bold text-center text-blue-700 mb-6">
-        🏪 Create Your Virtual Store
-      </h1>
-
-      <div className="bg-white shadow-md p-6 rounded-xl space-y-4">
-        <div>
-          <label className="block font-semibold mb-1">Store Name</label>
-          <input
-            type="text"
-            name="name"
-            className="w-full border p-3 rounded focus:ring-2 focus:ring-blue-400"
-            placeholder="e.g. OmniBoutique"
-            value={form.name}
-            onChange={handleChange}
-          />
-        </div>
-
-        <div>
-          <label className="block font-semibold mb-1">Description</label>
-          <textarea
-            name="description"
-            className="w-full border p-3 rounded focus:ring-2 focus:ring-blue-400"
-            placeholder="What do you sell or offer?"
-            value={form.description}
-            onChange={handleChange}
-          />
-        </div>
-
-        <button
-          onClick={handleSubmit}
-          disabled={loading}
-          className={`w-full py-3 rounded-lg font-semibold text-white transition ${
-            loading ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
-          }`}
-        >
-          {loading ? "Creating Store..." : "Create Store"}
-        </button>
-
-        {message && (
-          <p className="text-center text-sm text-gray-600 mt-4">{message}</p>
-        )}
+  if (requestStatus === "pending") {
+    return (
+      <div className="container">
+        <h2>⏳ Request Pending</h2>
+        <p>Your store request is currently under review. Please wait for admin approval.</p>
       </div>
-    </motion.div>
+    );
+  }
+
+  if (requestStatus === "approved") {
+    return (
+      <div className="container">
+        <h2>✅ Store Approved</h2>
+        <p>Your store has already been approved. You can now manage it in your dashboard.</p>
+        <button onClick={() => navigate("/dashboard")}>Go to Dashboard</button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container">
+      <h2>Start Your Verified Store 🛍</h2>
+      <form onSubmit={handleSubmit} className="store-form">
+        <label>Store Name *</label>
+        <input type="text" name="name" value={storeData.name} onChange={handleInputChange} required />
+
+        <label>Description</label>
+        <textarea name="description" value={storeData.description} onChange={handleInputChange} />
+
+        <label>Contact Email *</label>
+        <input type="email" name="contactEmail" value={storeData.contactEmail} onChange={handleInputChange} required />
+
+        <label>Contact Phone *</label>
+        <input type="text" name="contactPhone" value={storeData.contactPhone} onChange={handleInputChange} required />
+
+        <label>Location *</label>
+        <input type="text" name="location" value={storeData.location} onChange={handleInputChange} required />
+
+        <label>KRA PIN *</label>
+        <input type="text" name="kraPin" value={storeData.kraPin} onChange={handleInputChange} required />
+
+        <label>Business Registration Number *</label>
+        <input type="text" name="registrationNumber" value={storeData.registrationNumber} onChange={handleInputChange} required />
+
+        <label>Business Type *</label>
+        <select name="businessType" value={storeData.businessType} onChange={handleInputChange} required>
+          <option value="">Select Type</option>
+          <option value="sole_proprietorship">Sole Proprietorship</option>
+          <option value="limited_liability">Limited Liability Company</option>
+          <option value="partnership">Partnership</option>
+          <option value="corporation">Corporation</option>
+          <option value="ngo">NGO / Trust / CBO</option>
+        </select>
+
+        <label>Upload Business Registration Document</label>
+        <input type="file" accept=".pdf,image/*" name="businessDocument" onChange={handleFileChange} />
+
+        <label>Upload Government-Issued ID</label>
+        <input type="file" accept=".pdf,image/*" name="ownerIdCard" onChange={handleFileChange} />
+
+        <button type="submit" disabled={loading}>
+          {loading ? "Submitting..." : "🚀 Submit for Approval"}
+        </button>
+      </form>
+    </div>
   );
 };
 

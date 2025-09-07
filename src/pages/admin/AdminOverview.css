@@ -1,0 +1,139 @@
+.overview-page {
+  padding: 2rem;
+  background-color: #f9fafb;
+  color: #111827;
+  min-height: 100vh;
+  transition: all 0.3s ease;
+}
+
+.overview-page.dark-mode {
+  background-color: #0b0c10;
+  color: #f3f4f6;
+}
+
+.overview-title {
+  font-size: 2rem;
+  font-weight: 600;
+  margin-bottom: 2rem;
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1.2rem;
+  margin-bottom: 2.5rem;
+}
+
+.kpi-card {
+  background: #ffffff;
+  padding: 1.2rem;
+  border-radius: 10px;
+  text-align: center;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05);
+  transition: 0.3s;
+}
+
+.kpi-card h5 {
+  font-size: 0.9rem;
+  color: #6b7280;
+  margin-bottom: 0.4rem;
+}
+
+.kpi-card p {
+  font-size: 1.4rem;
+  font-weight: bold;
+  color: #111827;
+}
+
+.dark-mode .kpi-card {
+  background: #1f2937;
+  color: #f3f4f6;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+
+.chart-card {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+}
+
+.dark-mode .chart-card {
+  background: #1f2937;
+  color: #f3f4f6;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+}
+
+.chart-card h4 {
+  font-size: 1.2rem;
+  margin-bottom: 1rem;
+}
+
+.activity-feed {
+  background: #ffffff;
+  margin-top: 3rem;
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+}
+
+.activity-feed h4 {
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+  color: #111827;
+}
+
+.activity-feed ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.activity-feed li {
+  padding: 0.8rem 0;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.log-type {
+  font-weight: 600;
+  color: #2563eb;
+  font-size: 0.85rem;
+}
+
+.log-desc {
+  font-size: 0.9rem;
+  color: #374151;
+}
+
+.log-time {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+.dark-mode .activity-feed {
+  background: #1f2937;
+  color: #f3f4f6;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.dark-mode .activity-feed li {
+  border-color: #374151;
+}
+
+@media (max-width: 768px) {
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
+}

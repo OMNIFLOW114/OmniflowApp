@@ -1,0 +1,98 @@
+:root {
+  --sidebar-bg-light: #ffffff;
+  --sidebar-bg-dark: #1a1a1a;
+  --sidebar-text-light: #000;
+  --sidebar-text-dark: #fff;
+  --sidebar-accent: #4caf50;
+}
+
+.student-sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  width: 220px;
+  background-color: var(--sidebar-bg-light);
+  color: var(--sidebar-text-light);
+  padding-top: 70px;
+  border-right: 1px solid #ddd;
+  z-index: 10;
+  transition: background 0.3s;
+}
+
+body.dark .student-sidebar {
+  background-color: var(--sidebar-bg-dark);
+  color: var(--sidebar-text-dark);
+  border-color: #333;
+}
+
+.student-sidebar ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.student-nav-link {
+  display: flex;
+  align-items: center;
+  padding: 12px 20px;
+  text-decoration: none;
+  color: inherit;
+  font-weight: 500;
+  transition: background 0.2s ease;
+}
+
+.student-nav-link .icon {
+  margin-right: 10px;
+  font-size: 1.2rem;
+}
+
+.student-nav-link:hover,
+.student-nav-link.active {
+  background: var(--sidebar-accent);
+  color: #fff;
+}
+
+body.dark .student-nav-link:hover,
+body.dark .student-nav-link.active {
+  background: var(--sidebar-accent);
+  color: #fff;
+}
+
+/* 📱 Mobile: turn into bottom nav */
+@media (max-width: 768px) {
+  .student-sidebar {
+    width: 100%;
+    height: auto;
+    bottom: 0;
+    top: auto;
+    left: 0;
+    display: flex;
+    justify-content: space-around;
+    border-right: none;
+    border-top: 1px solid #ddd;
+    padding: 10px 0;
+  }
+
+  .student-sidebar ul {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+  }
+
+  .student-sidebar li {
+    flex: 1;
+    text-align: center;
+  }
+
+  .student-nav-link {
+    flex-direction: column;
+    padding: 8px 0;
+    font-size: 0.75rem;
+  }
+
+  .student-nav-link .icon {
+    margin-right: 0;
+    font-size: 1rem;
+  }
+}

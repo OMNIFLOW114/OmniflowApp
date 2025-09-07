@@ -1,0 +1,110 @@
+/* src/components/Card.css */
+
+/* Centering the card container */
+.card-container {
+    perspective: 1000px; /* Adds depth for 3D effect */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 50px; /* Adjusted space at top */
+    height: 150px; /* Height of the card */
+    width: 300px; /* Width of the card */
+  }
+  
+  /* The actual card */
+  .card {
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    transition: transform 0.8s ease;
+    position: relative;
+    border-radius: 15px;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+  }
+  
+  /* Flipped card animation */
+  .card.flipped {
+    transform: rotateY(180deg);
+  }
+  
+  /* Front of the card */
+  .card-front,
+  .card-back {
+    backface-visibility: hidden;
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 15px;
+  }
+  
+  /* Front styling - Modern and clean design */
+  .card-front {
+    background: linear-gradient(145deg, #4ecca3, #006a56); /* Fresh green/blue gradient */
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    color: white;
+    font-family: 'Arial', sans-serif;
+    text-align: center;
+  }
+  
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .card-logo {
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin-left: 10px;
+  }
+  
+  .card-chip {
+    font-size: 2rem;
+  }
+  
+  .card-number {
+    font-size: 1.6rem;
+    letter-spacing: 5px;
+    margin-top: 20px;
+  }
+  
+  .card-details {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 20px;
+  }
+  
+  .cardholder,
+  .card-expiry {
+    font-size: 1.1rem;
+  }
+  
+  /* Back of the card - CVC and security strip */
+  .card-back {
+    background-color: #333;
+    color: white;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+  
+  .card-bar {
+    height: 10px;
+    background-color: #444;
+    margin-bottom: 10px;
+  }
+  
+  .card-cvc {
+    font-size: 1.5rem;
+    font-weight: bold;
+    letter-spacing: 2px;
+  }
+  
+  /* Hover effect (optional) */
+  .card-container:hover .card {
+    transform: rotateY(180deg);
+  }
+  

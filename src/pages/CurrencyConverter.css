@@ -1,0 +1,75 @@
+/* src/pages/CurrencyConverter.css */
+
+.converter-container {
+    min-height: 100vh;
+    background: black;
+    color: gold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    font-family: 'Inter', sans-serif;
+  }
+  
+  .converter-card {
+    background: rgba(255, 215, 0, 0.05);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 215, 0, 0.2);
+    border-radius: 20px;
+    max-width: 500px;
+    width: 100%;
+    padding: 2rem;
+    box-shadow: 0 15px 30px rgba(255, 215, 0, 0.1);
+    text-align: center;
+  }
+  
+  .converter-title {
+    font-size: 2rem;
+    font-weight: bold;
+    margin-bottom: 1.5rem;
+  }
+  
+  .converter-input, 
+  .converter-select {
+    width: 100%;
+    padding: 0.75rem;
+    margin-bottom: 1rem;
+    border: 1px solid gold;
+    background: black;
+    color: gold;
+    border-radius: 10px;
+    font-size: 1rem;
+  }
+  
+  .converter-button {
+    width: 100%;
+    padding: 0.8rem;
+    background: gold;
+    color: black;
+    font-weight: bold;
+    border: none;
+    border-radius: 10px;
+    font-size: 1.1rem;
+    transition: transform 0.3s, background 0.3s;
+  }
+  
+  .converter-button:hover {
+    background: #ffe600;
+    transform: scale(1.05);
+  }
+  
+  .result-box {
+    margin-top: 2rem;
+    background: rgba(255, 215, 0, 0.05);
+    padding: 1rem;
+    border-radius: 12px;
+    border: 1px dashed rgba(255, 215, 0, 0.3);
+  }
+  
+  .result-amount {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: gold;
+    margin-top: 0.5rem;
+  }
+  

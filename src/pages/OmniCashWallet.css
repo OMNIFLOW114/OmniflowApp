@@ -1,0 +1,244 @@
+:root {
+  --wallet-bg-light: #ffffff;
+  --wallet-bg-dark: #0c0c0c;
+  --wallet-card-light: rgba(255, 255, 255, 0.6);
+  --wallet-card-dark: rgba(255, 215, 0, 0.07);
+  --wallet-text-light: #000;
+  --wallet-text-dark: #f1f1f1;
+  --wallet-border-light: rgba(200, 200, 200, 0.5);
+  --wallet-border-dark: rgba(255, 215, 0, 0.3);
+  --wallet-accent: #ffd700;
+  --wallet-glass-blur: blur(12px);
+}
+
+/* Layout */
+.wallet-container {
+  min-height: 100vh;
+  padding: 2rem;
+  background-color: var(--wallet-bg-light);
+  color: var(--wallet-text-light);
+  transition: background 0.3s ease;
+}
+
+.dark .wallet-container {
+  background-color: var(--wallet-bg-dark);
+  color: var(--wallet-text-dark);
+}
+
+.wallet-card {
+  background: var(--wallet-card-light);
+  backdrop-filter: var(--wallet-glass-blur);
+  border: 1px solid var(--wallet-border-light);
+  padding: 2rem;
+  border-radius: 20px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.dark .wallet-card {
+  background: var(--wallet-card-dark);
+  border: 1px solid var(--wallet-border-dark);
+}
+
+/* 3D Coin Styling */
+.omnicoin-3d {
+  width: 90px;
+  height: 90px;
+  margin: 0 auto;
+  perspective: 1000px;
+}
+
+.omnicoin-ring {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: radial-gradient(circle at center, #ffe680, #d4af37);
+  box-shadow: inset -2px -2px 4px #fff8dc,
+              inset 3px 3px 8px #b8860b,
+              0 0 14px rgba(255, 215, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #222;
+  animation: coin-spin 5s infinite linear;
+  position: relative;
+  transform-style: preserve-3d;
+}
+
+.omnicoin-ring span {
+  position: absolute;
+  backface-visibility: hidden;
+}
+
+.omnicoin-ring .front {
+  transform: rotateY(0deg);
+}
+
+.omnicoin-ring .back {
+  transform: rotateY(180deg);
+}
+
+.dark .omnicoin-ring {
+  background: radial-gradient(circle at center, #ffd700, #8b7500);
+  color: #000;
+}
+
+/* Coin Spin Animation */
+@keyframes coin-spin {
+  0% { transform: rotateY(0); }
+  100% { transform: rotateY(360deg); }
+}
+
+/* Balance Text */
+.wallet-balance {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-top: 1rem;
+  background: linear-gradient(45deg, #d4af37, #ffcc00);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Actions */
+.wallet-actions {
+  display: flex;
+  justify-content: space-around;
+  margin-top: 1.5rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.wallet-actions button,
+.wallet-btn-currency {
+  padding: 0.8rem 1.4rem;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 12px;
+  border: 1px solid var(--wallet-accent);
+  background: linear-gradient(135deg, #fffbe0, #ffe58a);
+  cursor: pointer;
+}
+
+.dark .wallet-actions button,
+.dark .wallet-btn-currency {
+  background: linear-gradient(135deg, rgba(255, 223, 70, 0.25), rgba(255, 215, 0, 0.1));
+  color: var(--wallet-accent);
+}
+
+.wallet-btn-currency {
+  margin-top: 1.5rem;
+  width: 100%;
+}
+
+/* Glass Modals */
+.deposit-methods,
+.send-form,
+.withdraw-form {
+  margin-top: 2rem;
+  padding: 2rem;
+  border-radius: 16px;
+  background: var(--wallet-card-light);
+  backdrop-filter: var(--wallet-glass-blur);
+  border: 1px solid var(--wallet-border-light);
+}
+
+.dark .deposit-methods,
+.dark .send-form,
+.dark .withdraw-form {
+  background: var(--wallet-card-dark);
+  border: 1px solid var(--wallet-border-dark);
+}
+
+.deposit-methods input,
+.send-form input,
+.withdraw-form input {
+  width: 100%;
+  margin-top: 1rem;
+  padding: 0.75rem;
+  font-size: 1rem;
+  border-radius: 10px;
+  border: 1px solid var(--wallet-border-light);
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.dark .deposit-methods input,
+.dark .send-form input,
+.dark .withdraw-form input {
+  background: rgba(255, 215, 0, 0.05);
+  border: 1px solid var(--wallet-border-dark);
+  color: #fff;
+}
+
+/* Transaction Cards - Safaricom Style */
+.wallet-transaction-timeline {
+  margin-top: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.wallet-transaction-card {
+  padding: 1rem 1.2rem;
+  border-radius: 14px;
+  border-left: 6px solid transparent;
+  border: 1px solid var(--wallet-border-light);
+  background: var(--wallet-card-light);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.dark .wallet-transaction-card {
+  background: var(--wallet-card-dark);
+  border: 1px solid var(--wallet-border-dark);
+}
+
+/* Color code per transaction type */
+.wallet-transaction-card.deposit { border-left-color: green; }
+.wallet-transaction-card.withdraw { border-left-color: red; }
+.wallet-transaction-card.send { border-left-color: orange; }
+.wallet-transaction-card.receive { border-left-color: blue; }
+
+.txn-message {
+  font-size: 1rem;
+  font-weight: 500;
+  margin-bottom: 0.4rem;
+  color: #222;
+}
+
+.dark .txn-message {
+  color: #f1f1f1;
+}
+
+.txn-amount {
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: var(--wallet-accent);
+}
+
+.txn-date {
+  font-size: 0.85rem;
+  color: #777;
+  margin-top: 0.3rem;
+}
+
+.wallet-show-more {
+  margin-top: 1.5rem;
+  font-weight: 500;
+  text-align: center;
+  background: none;
+  border: none;
+  color: var(--wallet-accent);
+  cursor: pointer;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .wallet-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .wallet-actions button {
+    width: 100%;
+  }
+}

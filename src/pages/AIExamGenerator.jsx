@@ -1,12 +1,10 @@
-// src/pages/student/AIExamGenerator.jsx
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import {
   FaRocket, FaSearch, FaFileAlt, FaMicrophone, FaBolt
 } from "react-icons/fa";
-import { useAuth } from "@/AuthContext";
-import { db } from "@/firebase";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { useAuth } from "@/context/AuthContext";
+import { supabase } from "@/supabase";
 import Tesseract from "tesseract.js";
 
 const AIExamGenerator = () => {
@@ -22,18 +20,17 @@ const AIExamGenerator = () => {
   const [assignmentFile, setAssignmentFile] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // 🚀 Call Groq AI (Mixtral or GPT-3.5 turbo)
   const callGroq = async (prompt, type = "general") => {
     try {
       setLoading(true);
       const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`, // ✅ your GROQ API key in .env
+          Authorization: `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "mixtral-8x7b-32768", // or "llama3-70b-8192" if enabled in your account
+          model: "mixtral-8x7b-32768",
           messages: [{ role: "user", content: prompt }],
           temperature: 0.7,
         }),
@@ -42,13 +39,12 @@ const AIExamGenerator = () => {
       const data = await res.json();
       const aiContent = data?.choices?.[0]?.message?.content?.trim() || "❌ No response from AI.";
 
-      // Log interaction in Firestore
       if (currentUser) {
-        await addDoc(collection(db, "users", currentUser.uid, "ai_logs"), {
+        await supabase.from("ai_logs").insert({
+          user_id: currentUser.id,
           type,
           prompt,
           response: aiContent,
-          createdAt: serverTimestamp(),
         });
       }
 

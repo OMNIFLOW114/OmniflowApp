@@ -1,57 +1,41 @@
 // src/context/AuthContext.jsx
-import React, { createContext, useContext, useState, useEffect } from "react";
-import { auth, db } from "@/firebase";
-import { onAuthStateChanged, signOut } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { supabase } from "@/supabase";
 
-// Create context
 const AuthContext = createContext();
 
-export function AuthProvider({ children }) {
-  const [currentUser, setCurrentUser] = useState(null);
-  const [userProfile, setUserProfile] = useState(null); // 🔹 Firestore profile
+export const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setCurrentUser(user);
-      if (user) {
-        try {
-          const userDoc = await getDoc(doc(db, "users", user.uid));
-          if (userDoc.exists()) {
-            setUserProfile(userDoc.data());
-          } else {
-            console.warn("No Firestore profile found for user:", user.uid);
-          }
-        } catch (err) {
-          console.error("Failed to load user profile:", err.message);
-        }
-      } else {
-        setUserProfile(null);
-      }
+    const getSession = async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) console.error("Session error:", error);
+      setUser(session?.user ?? null);
+      setLoading(false);
+    };
+
+    getSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      subscription?.unsubscribe();
+    };
   }, []);
 
-  const logout = () => {
-    signOut(auth)
-      .then(() => {
-        setCurrentUser(null);
-        setUserProfile(null);
-      })
-      .catch((error) => {
-        console.error("Logout failed:", error.message);
-      });
-  };
-
   return (
-    <AuthContext.Provider value={{ currentUser, userProfile, loading, logout }}>
-      {!loading && children}
+    <AuthContext.Provider value={{ user, loading }}>
+      {children}
     </AuthContext.Provider>
   );
-}
+};
 
-// Custom hook
 export const useAuth = () => useContext(AuthContext);
+
+// ✅ Add this line to allow named import of AuthContext
+export { AuthContext };

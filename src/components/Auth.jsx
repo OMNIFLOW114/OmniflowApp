@@ -1,106 +1,192 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Button } from "@/components/ui/button";
-import { auth, googleProvider, db } from "@/firebase"; // ✅ db instead of firestore
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  updateProfile,
-  signInWithPopup,
-  sendPasswordResetEmail,
-} from "firebase/auth";
 import { useNavigate } from "react-router-dom";
-import { doc, setDoc } from "firebase/firestore";
+import { supabase } from "@/supabase";
+import { Button } from "@/components/ui/button";
+import "./Auth.css";
 
 export default function Auth() {
-  const [isSignUp, setIsSignUp] = useState(true);
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    password: "",
-  });
+  const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showModal, setShowModal] = useState(false);
+
+  const [formData, setFormData] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    password: "",
+    inviteCode: "",
+  });
+
   const navigate = useNavigate();
 
-  const toggleForm = () => setIsSignUp(!isSignUp);
+useEffect(() => {
+  const handleRedirectLogin = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
+    if (!user) return;
+
+    const { id, email, user_metadata } = user;
+    const name = user_metadata?.full_name || "No Name";
+    const phone = user_metadata?.phone || "";
+
+    const inviteCode = localStorage.getItem("inviteCode") || generateInviteCode();
+
+    // ✅ Corrected RPC param names
+    const { error: insertError } = await supabase.rpc("insert_user_if_not_exists", {
+      p_user_id: id,
+      p_name: name,
+      p_email: email,
+      p_phone: phone,
+      p_invite_code: inviteCode,
+    });
+
+    if (insertError) {
+      console.error("Insert user RPC failed:", insertError);
+    } else {
+      console.log("✅ Google user synced to `users` table");
+    }
+
+    navigate("/home");
+  };
+
+  handleRedirectLogin();
+
+  const { data: listener } = supabase.auth.onAuthStateChange(
+    async (event, session) => {
+      if (event === "SIGNED_IN" && session?.user) {
+        navigate("/home");
+      }
+    }
+  );
+
+  return () => {
+    listener?.subscription?.unsubscribe();
+  };
+}, []);
+
+
+  const generateInviteCode = () => {
+    return Math.random().toString(36).substring(2, 8).toUpperCase();
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const toggleMode = () => {
+    setError("");
+    setShowModal(false);
+    setIsSignUp((prev) => !prev);
+  };
+
+  const isValidPassword = (pwd) => {
+    return /[a-z]/.test(pwd) &&
+      /[A-Z]/.test(pwd) &&
+      /[0-9]/.test(pwd) &&
+      pwd.length >= 8;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
     setError("");
+    setLoading(true);
+
+    const { name, phone, email, password, inviteCode } = formData;
 
     try {
       if (isSignUp) {
-        const userCredential = await createUserWithEmailAndPassword(
-          auth,
-          formData.email,
-          formData.password
-        );
-
-        await updateProfile(userCredential.user, {
-          displayName: formData.name,
-        });
-
-        const userDocRef = doc(db, "users", userCredential.user.uid); // ✅ using db
-        await setDoc(userDocRef, {
-          name: formData.name,
-          email: formData.email,
-          profileCompleted: false,
-        });
-
-        alert("Account created successfully!");
-        navigate("/profile");
-      } else {
-        const userCredential = await signInWithEmailAndPassword(
-          auth,
-          formData.email,
-          formData.password
-        );
-
-        alert("Logged in successfully!");
-
-        if (!userCredential.user.displayName) {
-          navigate("/profile");
-        } else {
-          navigate("/home");
+        if (!isValidPassword(password)) {
+          throw new Error("Password must include uppercase, lowercase, number, and 8+ characters.");
         }
+
+        const { data, error: signUpErr } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { full_name: name, phone },
+          },
+        });
+
+        if (signUpErr?.message?.includes("already registered")) {
+          setShowModal(true);
+          return;
+        }
+
+        if (signUpErr) throw signUpErr;
+        if (!data.user) throw new Error("Sign up failed.");
+
+        const userId = data.user.id;
+        const newInviteCode = generateInviteCode();
+
+        await supabase.from("users").insert([{
+          id: userId,
+          name,
+          email,
+          phone,
+          profile_completed: false,
+          invite_code: newInviteCode,
+        }]);
+
+        // Handle invite tracking
+        if (inviteCode) {
+          const { data: inviter } = await supabase
+            .from("users")
+            .select("id")
+            .eq("invite_code", inviteCode)
+            .maybeSingle();
+
+          if (inviter) {
+            await supabase.from("referrals").insert([{
+              inviter_id: inviter.id,
+              invitee_id: userId,
+            }]);
+          }
+        }
+
+        // Ensure session
+        if (!data.session) {
+          const { error: loginErr } = await supabase.auth.signInWithPassword({ email, password });
+          if (loginErr) throw loginErr;
+        }
+
+        alert("🎉 Account created successfully!");
+        navigate("/profile");
+
+      } else {
+        const { error: loginErr } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (loginErr) throw loginErr;
+
+        alert("✅ Logged in!");
+        navigate("/home");
       }
-    } catch (error) {
-      setError(error.message);
+
+    } catch (err) {
+      setError(err.message || "Something went wrong.");
     } finally {
       setLoading(false);
     }
   };
 
   const handleGoogleSignIn = async () => {
-    setLoading(true);
     setError("");
-
+    setLoading(true);
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
-
-      // Optional: check if user doc already exists (can add this later)
-      const userDocRef = doc(db, "users", user.uid);
-      await setDoc(userDocRef, {
-        name: user.displayName || "New User",
-        email: user.email,
-        profileCompleted: false,
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth`,
+        },
       });
-
-      if (!user.displayName) {
-        navigate("/profile");
-      } else {
-        navigate("/home");
-      }
-    } catch (error) {
-      setError(error.message);
+      if (error) throw error;
+    } catch (err) {
+      setError(err.message || "Google sign-in failed.");
     } finally {
       setLoading(false);
     }
@@ -108,123 +194,138 @@ export default function Auth() {
 
   const handleForgotPassword = async () => {
     if (!formData.email) {
-      alert("Please enter your email address to reset your password.");
+      setError("Enter your email to reset password.");
       return;
     }
-
-    try {
-      await sendPasswordResetEmail(auth, formData.email);
-      alert("Password reset email sent. Please check your inbox.");
-    } catch (error) {
+    const { error } = await supabase.auth.resetPasswordForEmail(formData.email, {
+      redirectTo: `${window.location.origin}/auth`,
+    });
+    if (error) {
       setError(error.message);
+    } else {
+      alert("📧 Password reset link sent to your email.");
     }
   };
 
-  const inputStyle =
-    "w-full mt-1 p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500";
-
   return (
-    <motion.div
-      className="min-h-screen flex items-center justify-center bg-gradient-to-r from-indigo-500 to-purple-600"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-    >
-      <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-md space-y-6">
-        <h2 className="text-2xl font-bold text-center text-gray-800">
-          {isSignUp ? "Create an Account" : "Welcome Back"}
-        </h2>
+    <motion.div className="auth-container" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+      <motion.div
+        className="auth-form-container glass-card"
+        initial={{ y: 30 }}
+        animate={{ y: 0 }}
+        transition={{ type: "spring", stiffness: 100 }}
+      >
+        <h2 className="auth-title">{isSignUp ? "Create an Account" : "Welcome Back"}</h2>
 
-        {error && <div className="text-red-500 text-center">{error}</div>}
+        {error && <div className="auth-error">{error}</div>}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="auth-form">
           {isSignUp && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Full Name
-              </label>
-              <input
-                type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                className={inputStyle}
-                required
-              />
-            </div>
+            <>
+              <div className="auth-input-group">
+                <label htmlFor="name">Full Name</label>
+                <input
+                  type="text"
+                  id="name"
+                  name="name"
+                  placeholder="Jane Doe"
+                  value={formData.name}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+
+              <div className="auth-input-group">
+                <label htmlFor="phone">Phone Number</label>
+                <input
+                  type="tel"
+                  id="phone"
+                  name="phone"
+                  placeholder="+254712345678"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+
+              <div className="auth-input-group">
+                <label htmlFor="inviteCode">Invite Code (optional)</label>
+                <input
+                  type="text"
+                  id="inviteCode"
+                  name="inviteCode"
+                  placeholder="ABC123"
+                  value={formData.inviteCode}
+                  onChange={handleChange}
+                />
+              </div>
+            </>
           )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Email Address
-            </label>
+          <div className="auth-input-group">
+            <label htmlFor="email">Email Address</label>
             <input
               type="email"
+              id="email"
               name="email"
+              placeholder="you@example.com"
               value={formData.email}
               onChange={handleChange}
-              className={inputStyle}
               required
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Password
-            </label>
+          <div className="auth-input-group">
+            <label htmlFor="password">Password</label>
             <input
               type="password"
+              id="password"
               name="password"
+              placeholder="••••••••"
               value={formData.password}
               onChange={handleChange}
-              className={inputStyle}
               required
             />
           </div>
 
           {!isSignUp && (
-            <div className="text-right">
-              <button
-                type="button"
-                onClick={handleForgotPassword}
-                className="text-sm text-indigo-600 hover:underline"
-              >
+            <div className="forgot-password">
+              <button type="button" className="forgot-btn" onClick={handleForgotPassword}>
                 Forgot Password?
               </button>
             </div>
           )}
 
-          <Button
-            type="submit"
-            className="w-full mt-4 py-2 text-white bg-indigo-600 hover:bg-indigo-700"
-            disabled={loading}
-          >
+          <Button type="submit" className="submit-btn" disabled={loading}>
             {loading ? "Loading..." : isSignUp ? "Sign Up" : "Log In"}
           </Button>
         </form>
 
-        <div className="text-center">
-          <button
-            onClick={handleGoogleSignIn}
-            className="w-full mt-4 py-2 text-white bg-red-500 hover:bg-red-600 rounded-md"
-            disabled={loading}
-          >
-            {loading ? "Loading..." : "Sign In with Google"}
-          </button>
-        </div>
+        <div className="auth-divider">or</div>
 
-        <div className="text-center">
-          <p className="text-sm text-gray-600">
+        <button onClick={handleGoogleSignIn} className="google-signin-btn" disabled={loading}>
+          {loading ? "Please wait..." : "Sign In with Google"}
+        </button>
+
+        <div className="toggle-form-text">
+          <p>
             {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
-            <button
-              type="button"
-              onClick={toggleForm}
-              className="text-indigo-600 font-medium"
-            >
+            <button onClick={toggleMode} className="toggle-btn">
               {isSignUp ? "Log in" : "Sign up"}
             </button>
           </p>
         </div>
-      </div>
+      </motion.div>
+
+      {showModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h3>Account Already Exists</h3>
+            <p>An account with this email already exists. Please log in.</p>
+            <Button onClick={toggleMode}>Proceed to Login</Button>
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 }

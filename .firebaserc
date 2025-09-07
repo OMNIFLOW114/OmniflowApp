@@ -1,8 +1,0 @@
-{
-  "projects": {
-    "default": "omniflow-frontend",
-    "yes": "omniflow-frontend"
-  },
-  "targets": {},
-  "etags": {}
-}
