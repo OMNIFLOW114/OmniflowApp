@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { motion } from "framer-motion";
-import { callGroq } from "@/utils/callGroq"; // you already have this utility
+
 
 const CareerAdvisor = () => {
   const { currentUser } = useAuth();
