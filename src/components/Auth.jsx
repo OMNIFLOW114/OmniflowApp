@@ -3,73 +3,47 @@ import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/supabase";
 import { Button } from "@/components/ui/button";
+import toast from "react-hot-toast"; // ✅ react-hot-toast
 import "./Auth.css";
 
 export default function Auth() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [showModal, setShowModal] = useState(false);
+  const [otpStage, setOtpStage] = useState(false);
+  const [otp, setOtp] = useState("");
 
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
     email: "",
     password: "",
-    inviteCode: "",
   });
 
   const navigate = useNavigate();
 
-useEffect(() => {
-  const handleRedirectLogin = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    const user = session?.user;
-    if (!user) return;
-
-    const { id, email, user_metadata } = user;
-    const name = user_metadata?.full_name || "No Name";
-    const phone = user_metadata?.phone || "";
-
-    const inviteCode = localStorage.getItem("inviteCode") || generateInviteCode();
-
-    // ✅ Corrected RPC param names
-    const { error: insertError } = await supabase.rpc("insert_user_if_not_exists", {
-      p_user_id: id,
-      p_name: name,
-      p_email: email,
-      p_phone: phone,
-      p_invite_code: inviteCode,
-    });
-
-    if (insertError) {
-      console.error("Insert user RPC failed:", insertError);
-    } else {
-      console.log("✅ Google user synced to `users` table");
-    }
-
-    navigate("/home");
-  };
-
-  handleRedirectLogin();
-
-  const { data: listener } = supabase.auth.onAuthStateChange(
-    async (event, session) => {
-      if (event === "SIGNED_IN" && session?.user) {
+  // ✅ Auto-login persistence
+  useEffect(() => {
+    const checkSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session?.user) {
         navigate("/home");
       }
-    }
-  );
+    };
+    checkSession();
 
-  return () => {
-    listener?.subscription?.unsubscribe();
-  };
-}, []);
-
-
-  const generateInviteCode = () => {
-    return Math.random().toString(36).substring(2, 8).toUpperCase();
-  };
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === "SIGNED_IN" && session?.user) {
+          navigate("/home");
+        }
+      }
+    );
+    return () => {
+      listener?.subscription?.unsubscribe();
+    };
+  }, [navigate]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -77,116 +51,116 @@ useEffect(() => {
   };
 
   const toggleMode = () => {
-    setError("");
-    setShowModal(false);
+    setOtpStage(false);
     setIsSignUp((prev) => !prev);
   };
 
-  const isValidPassword = (pwd) => {
-    return /[a-z]/.test(pwd) &&
-      /[A-Z]/.test(pwd) &&
-      /[0-9]/.test(pwd) &&
-      pwd.length >= 8;
-  };
+  const isValidPassword = (pwd) =>
+    /[a-z]/.test(pwd) &&
+    /[A-Z]/.test(pwd) &&
+    /[0-9]/.test(pwd) &&
+    pwd.length >= 8;
 
+  // ✅ Handle Signup/Login
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
     setLoading(true);
-
-    const { name, phone, email, password, inviteCode } = formData;
 
     try {
       if (isSignUp) {
+        const { name, phone, email, password } = formData;
+
         if (!isValidPassword(password)) {
-          throw new Error("Password must include uppercase, lowercase, number, and 8+ characters.");
+          toast.error(
+            "Password must contain uppercase, lowercase, number & be at least 8 characters."
+          );
+          return;
         }
 
         const { data, error: signUpErr } = await supabase.auth.signUp({
           email,
           password,
-          options: {
-            data: { full_name: name, phone },
-          },
+          options: { data: { full_name: name, phone } },
         });
 
-        if (signUpErr?.message?.includes("already registered")) {
-          setShowModal(true);
-          return;
-        }
-
         if (signUpErr) throw signUpErr;
-        if (!data.user) throw new Error("Sign up failed.");
 
-        const userId = data.user.id;
-        const newInviteCode = generateInviteCode();
-
-        await supabase.from("users").insert([{
-          id: userId,
-          name,
-          email,
-          phone,
-          profile_completed: false,
-          invite_code: newInviteCode,
-        }]);
-
-        // Handle invite tracking
-        if (inviteCode) {
-          const { data: inviter } = await supabase
-            .from("users")
-            .select("id")
-            .eq("invite_code", inviteCode)
-            .maybeSingle();
-
-          if (inviter) {
-            await supabase.from("referrals").insert([{
-              inviter_id: inviter.id,
-              invitee_id: userId,
-            }]);
-          }
+        if (phone) {
+          const { error: otpErr } = await supabase.auth.signInWithOtp({ phone });
+          if (otpErr) throw otpErr;
+          setOtpStage(true);
+          toast.success("📱 OTP sent! Enter the 6-digit code.");
+        } else {
+          toast.success("📧 Check your inbox to confirm your email.");
         }
-
-        // Ensure session
-        if (!data.session) {
-          const { error: loginErr } = await supabase.auth.signInWithPassword({ email, password });
-          if (loginErr) throw loginErr;
-        }
-
-        alert("🎉 Account created successfully!");
-        navigate("/profile");
-
       } else {
-        const { error: loginErr } = await supabase.auth.signInWithPassword({
+        const { email, password } = formData;
+        let loginError = null;
+
+        const { error: emailErr } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
 
-        if (loginErr) throw loginErr;
+        if (emailErr) {
+          const { data: userByPhone } = await supabase
+            .from("users")
+            .select("email")
+            .eq("phone", email)
+            .maybeSingle();
 
-        alert("✅ Logged in!");
+          if (userByPhone?.email) {
+            const { error: phoneErr } = await supabase.auth.signInWithPassword({
+              email: userByPhone.email,
+              password,
+            });
+            loginError = phoneErr;
+          } else {
+            loginError = emailErr;
+          }
+        }
+
+        if (loginError) throw loginError;
+
+        toast.success("✅ Welcome back! You are now logged in.");
         navigate("/home");
       }
-
     } catch (err) {
-      setError(err.message || "Something went wrong.");
+      toast.error(err.message || "Something went wrong. Try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ Verify OTP
+  const handleVerifyOtp = async () => {
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        phone: formData.phone,
+        token: otp,
+        type: "sms",
+      });
+      if (error) throw error;
+      toast.success("🎉 Phone verified! Account created successfully.");
+      navigate("/home");
+    } catch (err) {
+      toast.error(err.message || "Invalid OTP. Try again.");
     } finally {
       setLoading(false);
     }
   };
 
   const handleGoogleSignIn = async () => {
-    setError("");
     setLoading(true);
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: {
-          redirectTo: `${window.location.origin}/auth`,
-        },
+        options: { redirectTo: `${window.location.origin}/auth` },
       });
       if (error) throw error;
     } catch (err) {
-      setError(err.message || "Google sign-in failed.");
+      toast.error(err.message || "Google sign-in failed.");
     } finally {
       setLoading(false);
     }
@@ -194,16 +168,16 @@ useEffect(() => {
 
   const handleForgotPassword = async () => {
     if (!formData.email) {
-      setError("Enter your email to reset password.");
+      toast.error("⚠️ Enter your registered email first.");
       return;
     }
     const { error } = await supabase.auth.resetPasswordForEmail(formData.email, {
-      redirectTo: `${window.location.origin}/auth`,
+      redirectTo: `${window.location.origin}/reset-password`,
     });
     if (error) {
-      setError(error.message);
+      toast.error(error.message);
     } else {
-      alert("📧 Password reset link sent to your email.");
+      toast.success("📧 Password reset link sent to your email.");
     }
   };
 
@@ -217,115 +191,109 @@ useEffect(() => {
       >
         <h2 className="auth-title">{isSignUp ? "Create an Account" : "Welcome Back"}</h2>
 
-        {error && <div className="auth-error">{error}</div>}
+        {!otpStage ? (
+          <form onSubmit={handleSubmit} className="auth-form">
+            {isSignUp && (
+              <>
+                <div className="auth-input-group">
+                  <label htmlFor="name">Full Name</label>
+                  <input
+                    type="text"
+                    id="name"
+                    name="name"
+                    placeholder="Jane Doe"
+                    value={formData.name}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
 
-        <form onSubmit={handleSubmit} className="auth-form">
-          {isSignUp && (
-            <>
-              <div className="auth-input-group">
-                <label htmlFor="name">Full Name</label>
-                <input
-                  type="text"
-                  id="name"
-                  name="name"
-                  placeholder="Jane Doe"
-                  value={formData.name}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
+                <div className="auth-input-group">
+                  <label htmlFor="phone">Phone Number</label>
+                  <input
+                    type="tel"
+                    id="phone"
+                    name="phone"
+                    placeholder="+254712345678"
+                    value={formData.phone}
+                    onChange={handleChange}
+                  />
+                </div>
+              </>
+            )}
 
-              <div className="auth-input-group">
-                <label htmlFor="phone">Phone Number</label>
-                <input
-                  type="tel"
-                  id="phone"
-                  name="phone"
-                  placeholder="+254712345678"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-
-              <div className="auth-input-group">
-                <label htmlFor="inviteCode">Invite Code (optional)</label>
-                <input
-                  type="text"
-                  id="inviteCode"
-                  name="inviteCode"
-                  placeholder="ABC123"
-                  value={formData.inviteCode}
-                  onChange={handleChange}
-                />
-              </div>
-            </>
-          )}
-
-          <div className="auth-input-group">
-            <label htmlFor="email">Email Address</label>
-            <input
-              type="email"
-              id="email"
-              name="email"
-              placeholder="you@example.com"
-              value={formData.email}
-              onChange={handleChange}
-              required
-            />
-          </div>
-
-          <div className="auth-input-group">
-            <label htmlFor="password">Password</label>
-            <input
-              type="password"
-              id="password"
-              name="password"
-              placeholder="••••••••"
-              value={formData.password}
-              onChange={handleChange}
-              required
-            />
-          </div>
-
-          {!isSignUp && (
-            <div className="forgot-password">
-              <button type="button" className="forgot-btn" onClick={handleForgotPassword}>
-                Forgot Password?
-              </button>
+            <div className="auth-input-group">
+              <label htmlFor="email">Email Address or Phone</label>
+              <input
+                type="text"
+                id="email"
+                name="email"
+                placeholder="you@example.com or +254712345678"
+                value={formData.email}
+                onChange={handleChange}
+                required
+              />
             </div>
-          )}
 
-          <Button type="submit" className="submit-btn" disabled={loading}>
-            {loading ? "Loading..." : isSignUp ? "Sign Up" : "Log In"}
-          </Button>
-        </form>
+            <div className="auth-input-group">
+              <label htmlFor="password">Password</label>
+              <input
+                type="password"
+                id="password"
+                name="password"
+                placeholder="••••••••"
+                value={formData.password}
+                onChange={handleChange}
+                required
+              />
+            </div>
 
-        <div className="auth-divider">or</div>
+            {!isSignUp && (
+              <div className="forgot-password">
+                <button type="button" className="forgot-btn" onClick={handleForgotPassword}>
+                  Forgot Password?
+                </button>
+              </div>
+            )}
 
-        <button onClick={handleGoogleSignIn} className="google-signin-btn" disabled={loading}>
-          {loading ? "Please wait..." : "Sign In with Google"}
-        </button>
-
-        <div className="toggle-form-text">
-          <p>
-            {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
-            <button onClick={toggleMode} className="toggle-btn">
-              {isSignUp ? "Log in" : "Sign up"}
-            </button>
-          </p>
-        </div>
-      </motion.div>
-
-      {showModal && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <h3>Account Already Exists</h3>
-            <p>An account with this email already exists. Please log in.</p>
-            <Button onClick={toggleMode}>Proceed to Login</Button>
+            <Button type="submit" className="submit-btn" disabled={loading}>
+              {loading ? (isSignUp ? "Creating..." : "Signing in...") : isSignUp ? "Sign Up" : "Log In"}
+            </Button>
+          </form>
+        ) : (
+          <div className="otp-form">
+            <h3>Enter OTP sent to {formData.phone}</h3>
+            <input
+              type="text"
+              maxLength={6}
+              placeholder="123456"
+              value={otp}
+              onChange={(e) => setOtp(e.target.value)}
+              className="otp-input"
+            />
+            <Button onClick={handleVerifyOtp} disabled={loading || otp.length !== 6}>
+              {loading ? "Verifying..." : "Verify OTP"}
+            </Button>
           </div>
-        </div>
-      )}
+        )}
+
+        {!otpStage && (
+          <>
+            <div className="auth-divider">or</div>
+            <button onClick={handleGoogleSignIn} className="google-signin-btn" disabled={loading}>
+              {loading ? "Please wait..." : "Sign In with Google"}
+            </button>
+            <div className="toggle-form-text">
+              <p>
+                {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
+                <button onClick={toggleMode} className="toggle-btn">
+                  {isSignUp ? "Log in" : "Sign up"}
+                </button>
+              </p>
+            </div>
+          </>
+        )}
+      </motion.div>
     </motion.div>
   );
 }
