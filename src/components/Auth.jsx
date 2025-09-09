@@ -1,9 +1,10 @@
+// src/components/Auth.jsx
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/supabase";
 import { Button } from "@/components/ui/button";
-import toast from "react-hot-toast"; // ✅ react-hot-toast
+import toast from "react-hot-toast";
 import "./Auth.css";
 
 export default function Auth() {
@@ -20,30 +21,37 @@ export default function Auth() {
   });
 
   const navigate = useNavigate();
+  const location = useLocation();
 
-  // ✅ Auto-login persistence
+  // ✅ Auto-login persistence (skip if reset token exists)
   useEffect(() => {
     const checkSession = async () => {
+      const urlParams = new URLSearchParams(location.search);
+      const token = urlParams.get("access_token"); // password reset token
+
+      if (token) return; // skip auto-login if resetting password
+
       const {
         data: { session },
       } = await supabase.auth.getSession();
-      if (session?.user) {
-        navigate("/home");
-      }
+      if (session?.user) navigate("/home");
     };
     checkSession();
 
     const { data: listener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        const urlParams = new URLSearchParams(location.search);
+        const token = urlParams.get("access_token");
+        if (token) return; // skip auto-login if resetting password
+
         if (event === "SIGNED_IN" && session?.user) {
           navigate("/home");
         }
       }
     );
-    return () => {
-      listener?.subscription?.unsubscribe();
-    };
-  }, [navigate]);
+
+    return () => listener?.subscription?.unsubscribe();
+  }, [navigate, location.search]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -74,10 +82,11 @@ export default function Auth() {
           toast.error(
             "Password must contain uppercase, lowercase, number & be at least 8 characters."
           );
+          setLoading(false);
           return;
         }
 
-        const { data, error: signUpErr } = await supabase.auth.signUp({
+        const { error: signUpErr } = await supabase.auth.signUp({
           email,
           password,
           options: { data: { full_name: name, phone } },
@@ -91,7 +100,7 @@ export default function Auth() {
           setOtpStage(true);
           toast.success("📱 OTP sent! Enter the 6-digit code.");
         } else {
-          toast.success("📧 Check your inbox to confirm your email.");
+          toast.success(" Check your inbox to confirm your email.");
         }
       } else {
         const { email, password } = formData;
@@ -166,19 +175,19 @@ export default function Auth() {
     }
   };
 
+  // ✅ Forgot password
   const handleForgotPassword = async () => {
     if (!formData.email) {
-      toast.error("⚠️ Enter your registered email first.");
+      toast.error(" Enter your registered email first.");
       return;
     }
+
     const { error } = await supabase.auth.resetPasswordForEmail(formData.email, {
       redirectTo: `${window.location.origin}/reset-password`,
     });
-    if (error) {
-      toast.error(error.message);
-    } else {
-      toast.success("📧 Password reset link sent to your email.");
-    }
+
+    if (error) toast.error(error.message);
+    else toast.success(" Password reset link sent to your email.");
   };
 
   return (
