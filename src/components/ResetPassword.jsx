@@ -1,21 +1,26 @@
-import React, { useState } from "react";
+// src/components/ResetPassword.jsx
+import React, { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { motion } from "framer-motion";
 import { supabase } from "@/supabase";
 import { Button } from "@/components/ui/button";
-import "./Auth.css";
+import toast from "react-hot-toast";
+import "./Auth.css"; // reuse your auth styles
 
 export default function ResetPassword() {
-  const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
-
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
-  const accessToken = searchParams.get("access_token"); // comes from Supabase reset email
+  // Supabase sends the access_token in the URL
+  const token = searchParams.get("access_token");
+
+  useEffect(() => {
+    if (!token) {
+      toast.error("Invalid or missing reset token.");
+      navigate("/auth");
+    }
+  }, [token, navigate]);
 
   const isValidPassword = (pwd) =>
     /[a-z]/.test(pwd) &&
@@ -23,61 +28,40 @@ export default function ResetPassword() {
     /[0-9]/.test(pwd) &&
     pwd.length >= 8;
 
-  const handleResetPassword = async (e) => {
+  const handleReset = async (e) => {
     e.preventDefault();
-    setError("");
-    setMessage("");
-    setLoading(true);
-
-    if (!accessToken) {
-      setError("❌ Invalid or expired reset link.");
-      setLoading(false);
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setError("❌ Passwords do not match.");
-      setLoading(false);
-      return;
-    }
-
     if (!isValidPassword(password)) {
-      setError("❌ Password must include uppercase, lowercase, number, and 8+ characters.");
-      setLoading(false);
+      toast.error(
+        "Password must contain uppercase, lowercase, number & be at least 8 characters."
+      );
       return;
     }
 
+    setLoading(true);
     try {
-      const { error: resetError } = await supabase.auth.updateUser(
+      // Update user password using Supabase
+      const { error } = await supabase.auth.updateUser(
         { password },
-        { accessToken }
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
       );
+      if (error) throw error;
 
-      if (resetError) throw resetError;
-
-      setMessage("✅ Password updated successfully. Redirecting to login...");
-      setTimeout(() => navigate("/auth"), 2000);
+      toast.success("✅ Password reset successfully. Please log in.");
+      navigate("/auth");
     } catch (err) {
-      setError(err.message || "Something went wrong.");
+      toast.error(err.message || "Failed to reset password.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <motion.div className="auth-container" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-      <motion.div
-        className="auth-form-container glass-card"
-        initial={{ y: 30 }}
-        animate={{ y: 0 }}
-        transition={{ type: "spring", stiffness: 100 }}
-      >
-        <h2 className="auth-title">🔑 Reset Password</h2>
-
-        {error && <div className="auth-error">{error}</div>}
-        {message && <div className="auth-success">{message}</div>}
-
-        <form onSubmit={handleResetPassword} className="auth-form">
+    <div className="auth-container">
+      <div className="auth-form-container glass-card">
+        <h2 className="auth-title">Set a New Password</h2>
+        <form onSubmit={handleReset} className="auth-form">
           <div className="auth-input-group">
             <label htmlFor="password">New Password</label>
             <input
@@ -90,25 +74,11 @@ export default function ResetPassword() {
               required
             />
           </div>
-
-          <div className="auth-input-group">
-            <label htmlFor="confirmPassword">Confirm New Password</label>
-            <input
-              type="password"
-              id="confirmPassword"
-              name="confirmPassword"
-              placeholder="••••••••"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-            />
-          </div>
-
-          <Button type="submit" className="submit-btn" disabled={loading}>
-            {loading ? "Updating..." : "Update Password"}
+          <Button type="submit" disabled={loading}>
+            {loading ? "Resetting..." : "Reset Password"}
           </Button>
         </form>
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
 }
