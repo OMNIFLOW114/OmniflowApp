@@ -25,6 +25,7 @@ import Settings from "./components/Settings";
 import BottomNav from "@/components/BottomNav";
 import Vault from "./pages/Vault";
 import ProductDetail from "@/pages/ProductDetail";
+import ResetPassword from "@/components/ResetPassword";
 import Wishlist from "./pages/Wishlist";
 import Cart from "./pages/Cart";
 import BuyerOrders from "@/pages/BuyerOrders";
@@ -136,6 +137,7 @@ function AppRoutes() {
         <Route path="/admin/installments" element={<AdminInstallmentsPage />} />
         <Route path="/admin/overview" element={<AdminOverview />} />
         <Route path="/my-installments" element={<MyInstallments user={User} />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         
 
         <Route path="*" element={<Navigate to="/" replace />} />
