@@ -1,4 +1,3 @@
-// src/components/ResetPassword.jsx
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/supabase";
@@ -10,25 +9,19 @@ export default function ResetPassword() {
   const [loading, setLoading] = useState(false);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [tokenValid, setTokenValid] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
 
-  // ✅ Extract reset token from URL
-  const urlParams = new URLSearchParams(location.search);
-  const accessToken = urlParams.get("access_token");
+  // ✅ Extract token from URL
+  const token = new URLSearchParams(location.search).get("access_token");
 
   useEffect(() => {
-    if (!accessToken) {
+    if (!token) {
       toast.error("Invalid or expired password reset link.");
       navigate("/auth");
-      return;
     }
-
-    // Optionally, you could verify token with Supabase if needed
-    setTokenValid(true);
-  }, [accessToken, navigate]);
+  }, [token, navigate]);
 
   const isValidPassword = (pwd) =>
     /[a-z]/.test(pwd) &&
@@ -53,15 +46,15 @@ export default function ResetPassword() {
 
     setLoading(true);
     try {
-      // Update password with Supabase
-      const { error } = await supabase.auth.updateUser({
-        password,
-      }, { accessToken });
+      const { error } = await supabase.auth.updateUser(
+        { password },
+        { accessToken: token } // ✅ pass the reset token
+      );
 
       if (error) throw error;
 
       toast.success("✅ Password updated successfully!");
-      navigate("/auth");
+      navigate("/auth"); // redirect to login
     } catch (err) {
       toast.error(err.message || "Failed to reset password.");
     } finally {
@@ -69,18 +62,15 @@ export default function ResetPassword() {
     }
   };
 
-  if (!tokenValid) return null;
-
   return (
     <div className="auth-container">
       <div className="auth-form-container glass-card">
         <h2 className="auth-title">Set a New Password</h2>
         <form onSubmit={handleResetPassword} className="auth-form">
           <div className="auth-input-group">
-            <label htmlFor="password">New Password</label>
+            <label>New Password</label>
             <input
               type="password"
-              id="password"
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -89,10 +79,9 @@ export default function ResetPassword() {
           </div>
 
           <div className="auth-input-group">
-            <label htmlFor="confirmPassword">Confirm Password</label>
+            <label>Confirm Password</label>
             <input
               type="password"
-              id="confirmPassword"
               placeholder="••••••••"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
