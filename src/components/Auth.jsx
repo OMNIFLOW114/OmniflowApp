@@ -20,12 +20,11 @@ export default function Auth() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // ✅ Auto-login persistence (skip if reset token exists)
+  // Check existing session
   useEffect(() => {
     const checkSession = async () => {
       const token = new URLSearchParams(location.search).get("access_token");
-      if (token) return; // skip auto-login if reset link
-
+      if (token) return; // skip auto-login if token exists
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) navigate("/home");
     };
@@ -33,11 +32,8 @@ export default function Auth() {
 
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       const token = new URLSearchParams(location.search).get("access_token");
-      if (token) return; // skip auto-login if reset link
-
-      if (event === "SIGNED_IN" && session?.user) {
-        navigate("/home");
-      }
+      if (token) return;
+      if (event === "SIGNED_IN" && session?.user) navigate("/home");
     });
 
     return () => listener?.subscription?.unsubscribe();
@@ -56,7 +52,7 @@ export default function Auth() {
     /[0-9]/.test(pwd) &&
     pwd.length >= 8;
 
-  // ✅ Handle Signup/Login
+  // Handle Signup/Login
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -64,11 +60,8 @@ export default function Auth() {
     try {
       if (isSignUp) {
         const { name, phone, email, password } = formData;
-
         if (!isValidPassword(password)) {
-          toast.error(
-            "Password must contain uppercase, lowercase, number & min 8 characters."
-          );
+          toast.error("Password must contain uppercase, lowercase, number & min 8 characters.");
           setLoading(false);
           return;
         }
@@ -81,13 +74,14 @@ export default function Auth() {
 
         if (signUpErr) throw signUpErr;
 
+        // Optional OTP flow
         if (phone) {
           await supabase.auth.signInWithOtp({ phone });
           navigate("/verify-otp", { state: { emailOrPhone: phone } });
-          toast.success("📱 OTP sent to your phone.");
+          toast.success("OTP sent to your phone.");
         } else {
           navigate("/verify-otp", { state: { emailOrPhone: email } });
-          toast.success("📩 OTP sent to your email.");
+          toast.success("OTP sent to your email.");
         }
       } else {
         const { email, password } = formData;
@@ -113,7 +107,7 @@ export default function Auth() {
 
         if (loginError) throw loginError;
 
-        toast.success("✅ Welcome back! You are now logged in.");
+        toast.success("Welcome back! You are now logged in.");
         navigate("/home");
       }
     } catch (err) {
@@ -123,13 +117,13 @@ export default function Auth() {
     }
   };
 
-  // ✅ Google Sign-in
+  // Google OAuth
   const handleGoogleSignIn = async () => {
     setLoading(true);
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: "https://www.omniflowapp.co.ke/auth" },
+        options: { redirectTo: `${window.location.origin}/auth` },
       });
       if (error) throw error;
     } catch (err) {
@@ -139,7 +133,7 @@ export default function Auth() {
     }
   };
 
-  // ✅ Forgot Password
+  // Forgot password
   const handleForgotPassword = async () => {
     if (!formData.email) {
       toast.error("Enter your registered email first.");
@@ -147,7 +141,7 @@ export default function Auth() {
     }
 
     const { error } = await supabase.auth.resetPasswordForEmail(formData.email, {
-      redirectTo: "https://www.omniflowapp.co.ke/reset-password",
+      redirectTo: "https://www.omniflowapp.co.ke/reset-password", // MUST match Supabase
     });
 
     if (error) toast.error(error.message);
@@ -155,11 +149,7 @@ export default function Auth() {
   };
 
   return (
-    <motion.div
-      className="auth-container"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-    >
+    <motion.div className="auth-container" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
       <motion.div
         className="auth-form-container glass-card"
         initial={{ y: 30 }}
@@ -167,7 +157,6 @@ export default function Auth() {
         transition={{ type: "spring", stiffness: 100 }}
       >
         <h2 className="auth-title">{isSignUp ? "Create an Account" : "Welcome Back"}</h2>
-
         <form onSubmit={handleSubmit} className="auth-form">
           {isSignUp && (
             <>
@@ -183,7 +172,6 @@ export default function Auth() {
                   required
                 />
               </div>
-
               <div className="auth-input-group">
                 <label htmlFor="phone">Phone Number</label>
                 <input
@@ -197,7 +185,6 @@ export default function Auth() {
               </div>
             </>
           )}
-
           <div className="auth-input-group">
             <label>Email Address or Phone</label>
             <input
@@ -209,7 +196,6 @@ export default function Auth() {
               required
             />
           </div>
-
           <div className="auth-input-group">
             <label>Password</label>
             <input
@@ -221,40 +207,21 @@ export default function Auth() {
               required
             />
           </div>
-
           {!isSignUp && (
             <div className="forgot-password">
-              <button
-                type="button"
-                className="forgot-btn"
-                onClick={handleForgotPassword}
-              >
+              <button type="button" className="forgot-btn" onClick={handleForgotPassword}>
                 Forgot Password?
               </button>
             </div>
           )}
-
           <Button type="submit" className="submit-btn" disabled={loading}>
-            {loading
-              ? isSignUp
-                ? "Creating..."
-                : "Signing in..."
-              : isSignUp
-              ? "Sign Up"
-              : "Log In"}
+            {loading ? (isSignUp ? "Creating..." : "Signing in...") : isSignUp ? "Sign Up" : "Log In"}
           </Button>
         </form>
-
         {!isSignUp && <div className="auth-divider">or</div>}
-
-        <button
-          onClick={handleGoogleSignIn}
-          className="google-signin-btn"
-          disabled={loading}
-        >
+        <button onClick={handleGoogleSignIn} className="google-signin-btn" disabled={loading}>
           {loading ? "Please wait..." : "Sign In with Google"}
         </button>
-
         <div className="toggle-form-text">
           <p>
             {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}

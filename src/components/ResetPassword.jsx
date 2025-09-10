@@ -14,17 +14,15 @@ export default function ResetPassword() {
 
   const navigate = useNavigate();
   const location = useLocation();
-
-  // Extract token from URL
   const token = new URLSearchParams(location.search).get("access_token");
 
   useEffect(() => {
     if (!token) {
+      toast.error("Invalid or expired password reset link.");
       setTokenValid(false);
     }
   }, [token]);
 
-  // Password strength validation
   const isValidPassword = (pwd) =>
     /[a-z]/.test(pwd) &&
     /[A-Z]/.test(pwd) &&
@@ -33,14 +31,10 @@ export default function ResetPassword() {
 
   const handleResetPassword = async (e) => {
     e.preventDefault();
-
     if (!isValidPassword(password)) {
-      toast.error(
-        "Password must contain uppercase, lowercase, number & be at least 8 characters."
-      );
+      toast.error("Password must contain uppercase, lowercase, number & at least 8 characters.");
       return;
     }
-
     if (password !== confirmPassword) {
       toast.error("Passwords do not match.");
       return;
@@ -52,28 +46,24 @@ export default function ResetPassword() {
         { password },
         { accessToken: token }
       );
-
       if (error) throw error;
 
-      toast.success("✅ Password updated successfully!");
-      navigate("/auth"); // redirect to login
+      toast.success("Password updated successfully!");
+      navigate("/auth");
     } catch (err) {
-      toast.error(err.message || "Failed to reset password. Link may be expired.");
-      setTokenValid(false);
+      toast.error(err.message || "Failed to reset password.");
     } finally {
       setLoading(false);
     }
   };
 
-  // If token is invalid
   if (!tokenValid) {
     return (
       <div className="auth-container">
         <div className="auth-form-container glass-card">
           <h2 className="auth-title">Reset Password</h2>
           <p style={{ textAlign: "center", color: "#bbb" }}>
-            This link is invalid or has expired. Please request a new password
-            reset from the login page.
+            Invalid or expired link. Request a new password reset from login.
           </p>
           <Button onClick={() => navigate("/auth")}>Go to Login</Button>
         </div>
@@ -90,24 +80,22 @@ export default function ResetPassword() {
             <label>New Password</label>
             <input
               type="password"
-              placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
               required
             />
           </div>
-
           <div className="auth-input-group">
             <label>Confirm Password</label>
             <input
               type="password"
-              placeholder="••••••••"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="••••••••"
               required
             />
           </div>
-
           <Button type="submit" disabled={loading}>
             {loading ? "Updating..." : "Reset Password"}
           </Button>
