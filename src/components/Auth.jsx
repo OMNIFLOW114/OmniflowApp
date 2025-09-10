@@ -24,7 +24,7 @@ export default function Auth() {
   useEffect(() => {
     const checkSession = async () => {
       const token = new URLSearchParams(location.search).get("access_token");
-      if (token) return;
+      if (token) return; // skip auto-login if reset link
 
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) navigate("/home");
@@ -33,7 +33,7 @@ export default function Auth() {
 
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       const token = new URLSearchParams(location.search).get("access_token");
-      if (token) return;
+      if (token) return; // skip auto-login if reset link
 
       if (event === "SIGNED_IN" && session?.user) {
         navigate("/home");
@@ -66,7 +66,9 @@ export default function Auth() {
         const { name, phone, email, password } = formData;
 
         if (!isValidPassword(password)) {
-          toast.error("Password must contain uppercase, lowercase, number & min 8 characters.");
+          toast.error(
+            "Password must contain uppercase, lowercase, number & min 8 characters."
+          );
           setLoading(false);
           return;
         }
@@ -121,12 +123,13 @@ export default function Auth() {
     }
   };
 
+  // ✅ Google Sign-in
   const handleGoogleSignIn = async () => {
     setLoading(true);
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: `${window.location.origin}/auth` },
+        options: { redirectTo: "https://www.omniflowapp.co.ke/auth" },
       });
       if (error) throw error;
     } catch (err) {
@@ -136,7 +139,7 @@ export default function Auth() {
     }
   };
 
-  // ✅ Forgot password
+  // ✅ Forgot Password
   const handleForgotPassword = async () => {
     if (!formData.email) {
       toast.error("Enter your registered email first.");
@@ -144,7 +147,7 @@ export default function Auth() {
     }
 
     const { error } = await supabase.auth.resetPasswordForEmail(formData.email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: "https://www.omniflowapp.co.ke/reset-password",
     });
 
     if (error) toast.error(error.message);
@@ -152,7 +155,11 @@ export default function Auth() {
   };
 
   return (
-    <motion.div className="auth-container" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+    <motion.div
+      className="auth-container"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+    >
       <motion.div
         className="auth-form-container glass-card"
         initial={{ y: 30 }}
@@ -217,20 +224,34 @@ export default function Auth() {
 
           {!isSignUp && (
             <div className="forgot-password">
-              <button type="button" className="forgot-btn" onClick={handleForgotPassword}>
+              <button
+                type="button"
+                className="forgot-btn"
+                onClick={handleForgotPassword}
+              >
                 Forgot Password?
               </button>
             </div>
           )}
 
           <Button type="submit" className="submit-btn" disabled={loading}>
-            {loading ? (isSignUp ? "Creating..." : "Signing in...") : isSignUp ? "Sign Up" : "Log In"}
+            {loading
+              ? isSignUp
+                ? "Creating..."
+                : "Signing in..."
+              : isSignUp
+              ? "Sign Up"
+              : "Log In"}
           </Button>
         </form>
 
         {!isSignUp && <div className="auth-divider">or</div>}
 
-        <button onClick={handleGoogleSignIn} className="google-signin-btn" disabled={loading}>
+        <button
+          onClick={handleGoogleSignIn}
+          className="google-signin-btn"
+          disabled={loading}
+        >
           {loading ? "Please wait..." : "Sign In with Google"}
         </button>
 

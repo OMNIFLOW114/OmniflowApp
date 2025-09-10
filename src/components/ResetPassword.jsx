@@ -20,29 +20,11 @@ export default function ResetPassword() {
 
   useEffect(() => {
     if (!token) {
-      toast.error("Invalid or expired password reset link.");
       setTokenValid(false);
-      return;
     }
-
-    // Optional: verify token exists with Supabase (more advanced)
-    const checkToken = async () => {
-      try {
-        const { data, error } = await supabase.auth.getUser(token);
-        if (error || !data.user) {
-          toast.error("Invalid or expired password reset link.");
-          setTokenValid(false);
-        }
-      } catch (err) {
-        toast.error("Invalid or expired password reset link.");
-        setTokenValid(false);
-      }
-    };
-
-    checkToken();
   }, [token]);
 
-  // Password strength check
+  // Password strength validation
   const isValidPassword = (pwd) =>
     /[a-z]/.test(pwd) &&
     /[A-Z]/.test(pwd) &&
@@ -76,12 +58,14 @@ export default function ResetPassword() {
       toast.success("✅ Password updated successfully!");
       navigate("/auth"); // redirect to login
     } catch (err) {
-      toast.error(err.message || "Failed to reset password.");
+      toast.error(err.message || "Failed to reset password. Link may be expired.");
+      setTokenValid(false);
     } finally {
       setLoading(false);
     }
   };
 
+  // If token is invalid
   if (!tokenValid) {
     return (
       <div className="auth-container">
@@ -102,7 +86,7 @@ export default function ResetPassword() {
       <div className="auth-form-container glass-card">
         <h2 className="auth-title">Set a New Password</h2>
         <form onSubmit={handleResetPassword} className="auth-form">
-          <div className="reset-input auth-input-group">
+          <div className="auth-input-group">
             <label>New Password</label>
             <input
               type="password"
@@ -113,7 +97,7 @@ export default function ResetPassword() {
             />
           </div>
 
-          <div className="reset-input auth-input-group">
+          <div className="auth-input-group">
             <label>Confirm Password</label>
             <input
               type="password"
