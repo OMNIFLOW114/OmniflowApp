@@ -1,18 +1,20 @@
+// src/components/VerifyOtp.jsx
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/supabase";
 import { Button } from "@/components/ui/button";
 import "./Auth.css";
+import toast from "react-hot-toast";
 
 export default function VerifyOtp() {
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-
   const navigate = useNavigate();
   const location = useLocation();
+
   const emailOrPhone = location.state?.emailOrPhone || "";
 
   const handleVerifyOtp = async (e) => {
@@ -23,16 +25,13 @@ export default function VerifyOtp() {
 
     try {
       let result;
-
       if (emailOrPhone.includes("@")) {
-        // Email OTP verification
         result = await supabase.auth.verifyOtp({
           type: "email",
           email: emailOrPhone,
           token: otp,
         });
       } else {
-        // Phone OTP verification
         result = await supabase.auth.verifyOtp({
           type: "sms",
           phone: emailOrPhone,
@@ -55,24 +54,13 @@ export default function VerifyOtp() {
     setError("");
     setMessage("");
     setLoading(true);
-
     try {
       if (emailOrPhone.includes("@")) {
-        // Resend Email OTP
-        const { error } = await supabase.auth.resend({
-          type: "signup",
-          email: emailOrPhone,
-        });
+        const { error } = await supabase.auth.resend({ type: "signup", email: emailOrPhone });
         if (error) throw error;
       } else {
-        // Resend SMS OTP
-        const { error } = await supabase.auth.resend({
-          type: "sms",
-          phone: emailOrPhone,
-        });
-        if (error) throw error;
+        await supabase.auth.signInWithOtp({ phone: emailOrPhone });
       }
-
       setMessage("📩 OTP resent successfully!");
     } catch (err) {
       setError(err.message || "Failed to resend OTP.");
@@ -89,7 +77,7 @@ export default function VerifyOtp() {
         animate={{ y: 0 }}
         transition={{ type: "spring", stiffness: 100 }}
       >
-        <h2 className="auth-title">🔐 Verify Your Account</h2>
+        <h2 className="auth-title">Verify Your Account</h2>
         <p style={{ textAlign: "center", marginBottom: "1rem", color: "#aaa" }}>
           Enter the 6-digit code sent to <strong>{emailOrPhone}</strong>
         </p>
@@ -107,7 +95,6 @@ export default function VerifyOtp() {
             onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
             required
           />
-
           <Button type="submit" className="submit-btn" disabled={loading}>
             {loading ? "Verifying..." : "Verify OTP"}
           </Button>

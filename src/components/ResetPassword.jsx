@@ -1,3 +1,4 @@
+// src/components/ResetPassword.jsx
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/supabase";
@@ -9,11 +10,9 @@ export default function ResetPassword() {
   const [loading, setLoading] = useState(false);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-
   const navigate = useNavigate();
   const location = useLocation();
 
-  // ✅ Extract token from URL
   const token = new URLSearchParams(location.search).get("access_token");
 
   useEffect(() => {
@@ -33,9 +32,7 @@ export default function ResetPassword() {
     e.preventDefault();
 
     if (!isValidPassword(password)) {
-      toast.error(
-        "Password must contain uppercase, lowercase, number & be at least 8 characters."
-      );
+      toast.error("Password must contain uppercase, lowercase, number & min 8 characters.");
       return;
     }
 
@@ -48,13 +45,12 @@ export default function ResetPassword() {
     try {
       const { error } = await supabase.auth.updateUser(
         { password },
-        { accessToken: token } // ✅ pass the reset token
+        { accessToken: token }
       );
-
       if (error) throw error;
 
       toast.success("✅ Password updated successfully!");
-      navigate("/auth"); // redirect to login
+      navigate("/auth");
     } catch (err) {
       toast.error(err.message || "Failed to reset password.");
     } finally {
@@ -77,7 +73,6 @@ export default function ResetPassword() {
               required
             />
           </div>
-
           <div className="auth-input-group">
             <label>Confirm Password</label>
             <input
@@ -88,7 +83,6 @@ export default function ResetPassword() {
               required
             />
           </div>
-
           <Button type="submit" disabled={loading}>
             {loading ? "Updating..." : "Reset Password"}
           </Button>
