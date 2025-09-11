@@ -1,0 +1,336 @@
+/* ===============================
+   Auth Page Styles - Production Ready
+   =============================== */
+
+:root {
+  --bg-dark: #0d0d0d;
+  --card-bg: rgba(255, 255, 255, 0.08);
+  --border-glass: rgba(255, 255, 255, 0.2);
+  --text-light: #f5f5f5;
+  --accent: #ff8c00; /* orange-gold */
+  --accent-hover: #e07a00;
+  --error: #ff4d4f;
+  --success: #4caf50;
+  --transition: 0.3s ease;
+  --radius: 12px;
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+body {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg-dark);
+  color: var(--text-light);
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+/* Container */
+.auth-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  padding: 2rem;
+}
+
+/* Glass card */
+.glass-card {
+  background: var(--card-bg);
+  backdrop-filter: blur(18px) saturate(150%);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius);
+  padding: 2rem;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: var(--shadow);
+  animation: fadeIn 0.6s ease;
+}
+
+/* Titles */
+.auth-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  color: var(--accent);
+}
+
+/* Input Groups */
+.auth-input-group {
+  margin-bottom: 1rem;
+}
+
+.auth-input-group label {
+  display: block;
+  font-size: 0.9rem;
+  margin-bottom: 0.4rem;
+  color: #bbb;
+}
+
+.auth-input-group input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius);
+  font-size: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-light);
+  transition: var(--transition);
+}
+
+.auth-input-group input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Submit Button */
+.submit-btn {
+  width: 100%;
+  padding: 0.85rem 1.2rem;
+  background: var(--accent);
+  color: #000;
+  font-weight: 600;
+  font-size: 1rem;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.submit-btn:hover {
+  background: var(--accent-hover);
+}
+
+/* Divider */
+.auth-divider {
+  margin: 1.5rem 0;
+  text-align: center;
+  font-size: 0.9rem;
+  color: #aaa;
+  position: relative;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  position: absolute;
+  height: 1px;
+  width: 40%;
+  background: #333;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.auth-divider::before {
+  left: 0;
+}
+.auth-divider::after {
+  right: 0;
+}
+
+/* Google Sign-in */
+.google-signin-btn {
+  width: 100%;
+  padding: 0.8rem;
+  border: 1px solid #444;
+  border-radius: var(--radius);
+  background: #111;
+  color: var(--text-light);
+  cursor: pointer;
+  font-weight: 500;
+  transition: var(--transition);
+}
+
+.google-signin-btn:hover {
+  background: #222;
+  border-color: var(--accent);
+}
+
+/* Toggle */
+.toggle-form-text {
+  margin-top: 1.25rem;
+  text-align: center;
+  font-size: 0.95rem;
+  color: #bbb;
+}
+
+.toggle-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
+  margin-left: 0.3rem;
+  transition: var(--transition);
+}
+
+.toggle-btn:hover {
+  color: var(--accent-hover);
+}
+
+/* Error + Success */
+.auth-error {
+  background: rgba(255, 77, 79, 0.1);
+  color: var(--error);
+  padding: 0.75rem;
+  border: 1px solid rgba(255, 77, 79, 0.4);
+  border-radius: var(--radius);
+  margin-bottom: 1rem;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.auth-success {
+  background: rgba(76, 175, 80, 0.1);
+  color: var(--success);
+  padding: 0.75rem;
+  border: 1px solid rgba(76, 175, 80, 0.4);
+  border-radius: var(--radius);
+  margin-bottom: 1rem;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+/* Forgot Password */
+.forgot-password {
+  text-align: right;
+  margin-bottom: 1rem;
+}
+
+.forgot-btn {
+  background: none;
+  border: none;
+  color: #aaa;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.forgot-btn:hover {
+  color: var(--accent);
+}
+
+/* OTP Form */
+.otp-form {
+  text-align: center;
+}
+
+.otp-form h3 {
+  font-size: 1.1rem;
+  margin-bottom: 1rem;
+}
+
+.otp-input {
+  width: 100%;
+  padding: 0.8rem;
+  font-size: 1.25rem;
+  text-align: center;
+  letter-spacing: 6px;
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-light);
+  margin-bottom: 1.2rem;
+  transition: var(--transition);
+}
+
+.otp-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .glass-card {
+    padding: 1.5rem;
+    max-width: 100%;
+  }
+  .auth-title {
+    font-size: 1.5rem;
+  }
+  .otp-input {
+    font-size: 1.1rem;
+  }
+}
+/* ===== Extra for OTP & Reset Password ===== */
+
+/* OTP Code Box */
+.otp-form {
+  margin-top: 1rem;
+  text-align: center;
+}
+
+.otp-input {
+  width: 100%;
+  padding: 1rem;
+  font-size: 1.5rem;
+  text-align: center;
+  letter-spacing: 8px;
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-light);
+  margin-bottom: 1.5rem;
+  transition: var(--transition);
+}
+
+.otp-input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+/* Success + Error messages already included in Auth.css */
+
+/* Resend Button */
+.resend-btn {
+  margin-top: 1rem;
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.resend-btn:hover {
+  color: var(--accent-hover);
+}
+
+/* Reset Password input style */
+.reset-input {
+  margin-bottom: 1rem;
+}
+
+.reset-input input {
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius);
+  font-size: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-light);
+  transition: var(--transition);
+}
+
+.reset-input input:focus {
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.08);
+  outline: none;
+}
