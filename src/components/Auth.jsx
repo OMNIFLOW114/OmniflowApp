@@ -10,6 +10,9 @@ import "./Auth.css";
 export default function Auth() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [otpStage, setOtpStage] = useState(false);
+  const [otp, setOtp] = useState("");
+
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
@@ -20,31 +23,45 @@ export default function Auth() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Check existing session
+  // ✅ Auto-login persistence (skip if reset token exists)
   useEffect(() => {
     const checkSession = async () => {
-      const token = new URLSearchParams(location.search).get("access_token");
-      if (token) return; // skip auto-login if token exists
-      const { data: { session } } = await supabase.auth.getSession();
+      const urlParams = new URLSearchParams(location.search);
+      const token = urlParams.get("access_token"); // password reset token
+
+      if (token) return; // skip auto-login if resetting password
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (session?.user) navigate("/home");
     };
     checkSession();
 
-    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
-      const token = new URLSearchParams(location.search).get("access_token");
-      if (token) return;
-      if (event === "SIGNED_IN" && session?.user) navigate("/home");
-    });
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        const urlParams = new URLSearchParams(location.search);
+        const token = urlParams.get("access_token");
+        if (token) return; // skip auto-login if resetting password
+
+        if (event === "SIGNED_IN" && session?.user) {
+          navigate("/home");
+        }
+      }
+    );
 
     return () => listener?.subscription?.unsubscribe();
   }, [navigate, location.search]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const toggleMode = () => setIsSignUp(prev => !prev);
+  const toggleMode = () => {
+    setOtpStage(false);
+    setIsSignUp((prev) => !prev);
+  };
 
   const isValidPassword = (pwd) =>
     /[a-z]/.test(pwd) &&
@@ -52,7 +69,7 @@ export default function Auth() {
     /[0-9]/.test(pwd) &&
     pwd.length >= 8;
 
-  // Handle Signup/Login
+  // ✅ Handle Signup/Login
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -60,8 +77,11 @@ export default function Auth() {
     try {
       if (isSignUp) {
         const { name, phone, email, password } = formData;
+
         if (!isValidPassword(password)) {
-          toast.error("Password must contain uppercase, lowercase, number & min 8 characters.");
+          toast.error(
+            "Password must contain uppercase, lowercase, number & be at least 8 characters."
+          );
           setLoading(false);
           return;
         }
@@ -69,25 +89,27 @@ export default function Auth() {
         const { error: signUpErr } = await supabase.auth.signUp({
           email,
           password,
-          options: { data: { full_name: name.trim(), phone: phone.trim() || null } },
+          options: { data: { full_name: name, phone } },
         });
 
         if (signUpErr) throw signUpErr;
 
-        // Optional OTP flow
         if (phone) {
-          await supabase.auth.signInWithOtp({ phone });
-          navigate("/verify-otp", { state: { emailOrPhone: phone } });
-          toast.success("OTP sent to your phone.");
+          const { error: otpErr } = await supabase.auth.signInWithOtp({ phone });
+          if (otpErr) throw otpErr;
+          setOtpStage(true);
+          toast.success("📱 OTP sent! Enter the 6-digit code.");
         } else {
-          navigate("/verify-otp", { state: { emailOrPhone: email } });
-          toast.success("OTP sent to your email.");
+          toast.success("📧 Check your inbox to confirm your email.");
         }
       } else {
         const { email, password } = formData;
         let loginError = null;
 
-        const { error: emailErr } = await supabase.auth.signInWithPassword({ email, password });
+        const { error: emailErr } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
 
         if (emailErr) {
           const { data: userByPhone } = await supabase
@@ -102,12 +124,14 @@ export default function Auth() {
               password,
             });
             loginError = phoneErr;
-          } else loginError = emailErr;
+          } else {
+            loginError = emailErr;
+          }
         }
 
         if (loginError) throw loginError;
 
-        toast.success("Welcome back! You are now logged in.");
+        toast.success("✅ Welcome back! You are now logged in.");
         navigate("/home");
       }
     } catch (err) {
@@ -117,7 +141,25 @@ export default function Auth() {
     }
   };
 
-  // Google OAuth
+  // ✅ Verify OTP
+  const handleVerifyOtp = async () => {
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        phone: formData.phone,
+        token: otp,
+        type: "sms",
+      });
+      if (error) throw error;
+      toast.success("🎉 Phone verified! Account created successfully.");
+      navigate("/home");
+    } catch (err) {
+      toast.error(err.message || "Invalid OTP. Try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleGoogleSignIn = async () => {
     setLoading(true);
     try {
@@ -133,19 +175,19 @@ export default function Auth() {
     }
   };
 
-  // Forgot password
+  // ✅ Forgot password
   const handleForgotPassword = async () => {
     if (!formData.email) {
-      toast.error("Enter your registered email first.");
+      toast.error("⚠️ Enter your registered email first.");
       return;
     }
 
     const { error } = await supabase.auth.resetPasswordForEmail(formData.email, {
-      redirectTo: "https://www.omniflowapp.co.ke/reset-password", // MUST match Supabase
+      redirectTo: `${window.location.origin}/reset-password`,
     });
 
     if (error) toast.error(error.message);
-    else toast.success("Password reset link sent to your email.");
+    else toast.success("📧 Password reset link sent to your email.");
   };
 
   return (
@@ -157,79 +199,109 @@ export default function Auth() {
         transition={{ type: "spring", stiffness: 100 }}
       >
         <h2 className="auth-title">{isSignUp ? "Create an Account" : "Welcome Back"}</h2>
-        <form onSubmit={handleSubmit} className="auth-form">
-          {isSignUp && (
-            <>
-              <div className="auth-input-group">
-                <label htmlFor="name">Full Name</label>
-                <input
-                  type="text"
-                  id="name"
-                  name="name"
-                  placeholder="Jane Doe"
-                  value={formData.name}
-                  onChange={handleChange}
-                  required
-                />
+
+        {!otpStage ? (
+          <form onSubmit={handleSubmit} className="auth-form">
+            {isSignUp && (
+              <>
+                <div className="auth-input-group">
+                  <label htmlFor="name">Full Name</label>
+                  <input
+                    type="text"
+                    id="name"
+                    name="name"
+                    placeholder="Jane Doe"
+                    value={formData.name}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
+
+                <div className="auth-input-group">
+                  <label htmlFor="phone">Phone Number</label>
+                  <input
+                    type="tel"
+                    id="phone"
+                    name="phone"
+                    placeholder="+254712345678"
+                    value={formData.phone}
+                    onChange={handleChange}
+                  />
+                </div>
+              </>
+            )}
+
+            <div className="auth-input-group">
+              <label htmlFor="email">Email Address or Phone</label>
+              <input
+                type="text"
+                id="email"
+                name="email"
+                placeholder="you@example.com or +254712345678"
+                value={formData.email}
+                onChange={handleChange}
+                required
+              />
+            </div>
+
+            <div className="auth-input-group">
+              <label htmlFor="password">Password</label>
+              <input
+                type="password"
+                id="password"
+                name="password"
+                placeholder="••••••••"
+                value={formData.password}
+                onChange={handleChange}
+                required
+              />
+            </div>
+
+            {!isSignUp && (
+              <div className="forgot-password">
+                <button type="button" className="forgot-btn" onClick={handleForgotPassword}>
+                  Forgot Password?
+                </button>
               </div>
-              <div className="auth-input-group">
-                <label htmlFor="phone">Phone Number</label>
-                <input
-                  type="tel"
-                  id="phone"
-                  name="phone"
-                  placeholder="+254712345678"
-                  value={formData.phone}
-                  onChange={handleChange}
-                />
-              </div>
-            </>
-          )}
-          <div className="auth-input-group">
-            <label>Email Address or Phone</label>
+            )}
+
+            <Button type="submit" className="submit-btn" disabled={loading}>
+              {loading ? (isSignUp ? "Creating..." : "Signing in...") : isSignUp ? "Sign Up" : "Log In"}
+            </Button>
+          </form>
+        ) : (
+          <div className="otp-form">
+            <h3>Enter OTP sent to {formData.phone}</h3>
             <input
               type="text"
-              name="email"
-              placeholder="you@example.com or +254712345678"
-              value={formData.email}
-              onChange={handleChange}
-              required
+              maxLength={6}
+              placeholder="123456"
+              value={otp}
+              onChange={(e) => setOtp(e.target.value)}
+              className="otp-input"
             />
+            <Button onClick={handleVerifyOtp} disabled={loading || otp.length !== 6}>
+              {loading ? "Verifying..." : "Verify OTP"}
+            </Button>
           </div>
-          <div className="auth-input-group">
-            <label>Password</label>
-            <input
-              type="password"
-              name="password"
-              placeholder="••••••••"
-              value={formData.password}
-              onChange={handleChange}
-              required
-            />
-          </div>
-          {!isSignUp && (
-            <div className="forgot-password">
-              <button type="button" className="forgot-btn" onClick={handleForgotPassword}>
-                Forgot Password?
-              </button>
-            </div>
-          )}
-          <Button type="submit" className="submit-btn" disabled={loading}>
-            {loading ? (isSignUp ? "Creating..." : "Signing in...") : isSignUp ? "Sign Up" : "Log In"}
-          </Button>
-        </form>
-        {!isSignUp && <div className="auth-divider">or</div>}
-        <button onClick={handleGoogleSignIn} className="google-signin-btn" disabled={loading}>
-          {loading ? "Please wait..." : "Sign In with Google"}
-        </button>
-        <div className="toggle-form-text">
-          <p>
-            {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
-            <button onClick={toggleMode} className="toggle-btn">
-              {isSignUp ? "Log in" : "Sign up"}
+        )}
+
+        {!otpStage && (
+          <>
+            <div className="auth-divider">or</div>
+            <button onClick={handleGoogleSignIn} className="google-signin-btn" disabled={loading}>
+              {loading ? "Please wait..." : "Sign In with Google"}
             </button>
-          </p>
-        </div>
+            <div className="toggle-form-text">
+              <p>
+                {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
+                <button onClick={toggleMode} className="toggle-btn">
+                  {isSignUp ? "Log in" : "Sign up"}
+                </button>
+              </p>
+            </div>
+          </>
+        )}
       </motion.div>
     </motion.div>
   );
