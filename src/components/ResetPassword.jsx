@@ -1,6 +1,6 @@
 // src/components/ResetPassword.jsx
 import React, { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/supabase";
 import { Button } from "@/components/ui/button";
 import toast from "react-hot-toast";
@@ -10,18 +10,22 @@ export default function ResetPassword() {
   const [loading, setLoading] = useState(false);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [tokenValid, setTokenValid] = useState(true);
+  const [sessionReady, setSessionReady] = useState(false);
 
   const navigate = useNavigate();
-  const location = useLocation();
-  const token = new URLSearchParams(location.search).get("access_token");
 
   useEffect(() => {
-    if (!token) {
-      toast.error("Invalid or expired password reset link.");
-      setTokenValid(false);
-    }
-  }, [token]);
+    // Listen for Supabase recovery session
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === "PASSWORD_RECOVERY" && session) {
+          setSessionReady(true);
+        }
+      }
+    );
+
+    return () => listener.subscription.unsubscribe();
+  }, []);
 
   const isValidPassword = (pwd) =>
     /[a-z]/.test(pwd) &&
@@ -31,8 +35,11 @@ export default function ResetPassword() {
 
   const handleResetPassword = async (e) => {
     e.preventDefault();
+
     if (!isValidPassword(password)) {
-      toast.error("Password must contain uppercase, lowercase, number & at least 8 characters.");
+      toast.error(
+        "Password must contain uppercase, lowercase, number & at least 8 characters."
+      );
       return;
     }
     if (password !== confirmPassword) {
@@ -42,10 +49,7 @@ export default function ResetPassword() {
 
     setLoading(true);
     try {
-      const { error } = await supabase.auth.updateUser(
-        { password },
-        { accessToken: token }
-      );
+      const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
 
       toast.success("Password updated successfully!");
@@ -57,15 +61,14 @@ export default function ResetPassword() {
     }
   };
 
-  if (!tokenValid) {
+  if (!sessionReady) {
     return (
       <div className="auth-container">
         <div className="auth-form-container glass-card">
           <h2 className="auth-title">Reset Password</h2>
           <p style={{ textAlign: "center", color: "#bbb" }}>
-            Invalid or expired link. Request a new password reset from login.
+            Validating your reset link...
           </p>
-          <Button onClick={() => navigate("/auth")}>Go to Login</Button>
         </div>
       </div>
     );
