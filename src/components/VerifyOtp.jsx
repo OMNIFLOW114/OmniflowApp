@@ -1,5 +1,5 @@
 // src/components/VerifyOtp.jsx
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/supabase";
 import { Button } from "@/components/ui/button";
@@ -7,48 +7,59 @@ import toast from "react-hot-toast";
 import "./Auth.css";
 
 export default function VerifyOtp() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const state = location.state || {};
+  const emailOrPhone = state.emailOrPhone || "";
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { emailOrPhone, type = "email" } = location.state || {};
-
-  // If accessed directly without state, redirect
   useEffect(() => {
     if (!emailOrPhone) {
-      toast.error("Session expired. Please log in again.");
+      toast.error("No OTP session. Go back to login/signup.");
       navigate("/auth");
     }
   }, [emailOrPhone, navigate]);
 
-  // Handle OTP verification
-  const handleVerifyOtp = async (e) => {
+  const handleVerify = async (e) => {
     e.preventDefault();
-
     if (!otp || otp.length < 4) {
-      toast.error("Please enter the full OTP code.");
+      toast.error("Enter the OTP code.");
       return;
     }
-
     setLoading(true);
     try {
-      const { data, error } = await supabase.auth.verifyOtp({
-        type: type === "phone" ? "sms" : "email",
-        token: otp,
-        [type]: emailOrPhone,
-      });
+      const payload = emailOrPhone.includes("@")
+        ? { type: "email", email: emailOrPhone, token: otp }
+        : { type: "sms", phone: emailOrPhone, token: otp };
 
+      const { error } = await supabase.auth.verifyOtp(payload);
       if (error) throw error;
 
-      if (data?.session) {
-        toast.success("✅ OTP verified successfully!");
-        navigate("/home"); // or your dashboard route
-      } else {
-        toast.error("Verification failed. Please try again.");
-      }
+      // On success Supabase often signs the user in; check session and redirect
+      const { data: { session } } = await supabase.auth.getSession();
+      toast.success("Verified successfully!");
+      navigate(session?.user ? "/home" : "/auth");
     } catch (err) {
-      toast.error(err.message || "Invalid OTP code.");
+      toast.error(err?.message || "Invalid OTP.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resendOtp = async () => {
+    setLoading(true);
+    try {
+      if (emailOrPhone.includes("@")) {
+        const { error } = await supabase.auth.resend({ type: "signup", email: emailOrPhone });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.auth.signInWithOtp({ phone: emailOrPhone });
+        if (error) throw error;
+      }
+      toast.success("OTP resent.");
+    } catch (err) {
+      toast.error(err?.message || "Failed to resend OTP.");
     } finally {
       setLoading(false);
     }
@@ -58,37 +69,19 @@ export default function VerifyOtp() {
     <div className="auth-container">
       <div className="auth-form-container glass-card">
         <h2 className="auth-title">Verify OTP</h2>
-        <p style={{ textAlign: "center", color: "#bbb", marginBottom: "20px" }}>
-          Enter the one-time code sent to{" "}
-          <strong>{emailOrPhone}</strong>.
-        </p>
+        <p style={{ textAlign: "center", color: "#bbb" }}>Enter the code sent to <strong>{emailOrPhone}</strong></p>
 
-        <form onSubmit={handleVerifyOtp} className="auth-form">
+        <form onSubmit={handleVerify} className="auth-form">
           <div className="auth-input-group">
-            <label>OTP Code</label>
-            <input
-              type="text"
-              placeholder="Enter your code"
-              value={otp}
-              onChange={(e) => setOtp(e.target.value)}
-              required
-              className="otp-input"
-            />
+            <label>OTP</label>
+            <input value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))} maxLength={6} className="otp-input" placeholder="123456" />
           </div>
 
-          <Button type="submit" disabled={loading} className="auth-button">
-            {loading ? "Verifying..." : "Verify OTP"}
-          </Button>
+          <Button type="submit" disabled={loading}>{loading ? "Verifying..." : "Verify OTP"}</Button>
         </form>
 
-        <div className="auth-footer">
-          <Button
-            variant="link"
-            onClick={() => navigate("/auth")}
-            style={{ marginTop: "12px" }}
-          >
-            Back to Login
-          </Button>
+        <div style={{ marginTop: 12, textAlign: "center" }}>
+          <button className="resend-btn" onClick={resendOtp} disabled={loading}>Resend code</button>
         </div>
       </div>
     </div>
