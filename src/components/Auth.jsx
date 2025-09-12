@@ -5,8 +5,10 @@ import { motion } from "framer-motion";
 import { supabase } from "@/supabase";
 import { Button } from "@/components/ui/button";
 import toast from "react-hot-toast";
-import axios from "axios";
 import "./Auth.css";
+
+const BACKEND_URL = "https://omniflowapp.co.ke"; // Your domain
+const APP_URL = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
 
 export default function Auth() {
   const [searchParams] = useSearchParams();
@@ -21,14 +23,17 @@ export default function Auth() {
     password: "",
   });
   const [otp, setOtp] = useState("");
+  const [recoveryToken, setRecoveryToken] = useState("");
 
-  // 🔹 Detect reset mode via query param
+  // 🔹 Detect URL params for reset/recovery
   useEffect(() => {
     const urlMode = searchParams.get("mode");
-    const emailParam = searchParams.get("email");
-    if (urlMode === "reset" && emailParam) {
+    const token = searchParams.get("access_token") || searchParams.get("token");
+    const type = searchParams.get("type");
+
+    if ((urlMode === "reset" || type === "recovery") && token) {
       setMode("reset");
-      setFormData((prev) => ({ ...prev, email: emailParam }));
+      setRecoveryToken(token);
       toast("Enter your new password to reset.");
     }
   }, [searchParams]);
@@ -36,7 +41,9 @@ export default function Auth() {
   // 🔹 Redirect logged-in users if not resetting password
   useEffect(() => {
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (session?.user && mode !== "reset") {
         navigate("/home");
       }
@@ -59,7 +66,9 @@ export default function Auth() {
   const handleSignup = async (e) => {
     e.preventDefault();
     if (!isValidPassword(formData.password)) {
-      toast.error("Password must include uppercase, lowercase, number, and be 8+ chars.");
+      toast.error(
+        "Password must include uppercase, lowercase, number, and be 8+ chars."
+      );
       return;
     }
     setLoading(true);
@@ -98,7 +107,7 @@ export default function Auth() {
     }
   };
 
-  // 🔹 Forgot password -> server endpoint
+  // 🔹 Forgot password (hit server directly)
   const handleForgotPassword = async () => {
     if (!formData.email) {
       toast.error("Enter your email first.");
@@ -106,46 +115,50 @@ export default function Auth() {
     }
     setLoading(true);
     try {
-      // Call your server to check if user exists
-      const res = await axios.post("/api/reset-password", {
-        email: formData.email,
-        newPassword: "temporary123!", // temp placeholder
+      const res = await fetch(`${BACKEND_URL}/api/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: formData.email, newPassword: "TEMP_PASSWORD123!" }),
       });
-      if (res.data.error) throw new Error(res.data.error);
 
-      // Redirect user immediately to reset page
-      navigate(`/auth?mode=reset&email=${encodeURIComponent(formData.email)}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to send reset link");
+
+      toast.success("Check your email to reset password.");
+      setMode("reset");
     } catch (err) {
-      toast.error(err?.response?.data?.error || err.message || "Failed to initiate reset.");
+      toast.error(err.message || "Reset request failed.");
     } finally {
       setLoading(false);
     }
   };
 
-  // 🔹 Reset password via server
+  // 🔹 Reset password using recovery token (via server)
   const handleResetPassword = async (e) => {
     e.preventDefault();
     if (!isValidPassword(formData.password)) {
       toast.error("Weak password. Must include upper, lower, number, 8+ chars.");
       return;
     }
-    if (!formData.email) {
-      toast.error("Missing email for password reset.");
-      return;
-    }
+
     setLoading(true);
     try {
-      const res = await axios.post("/api/reset-password", {
-        email: formData.email,
-        newPassword: formData.password,
+      const res = await fetch(`${BACKEND_URL}/api/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: formData.email,
+          newPassword: formData.password,
+        }),
       });
-      if (res.data.error) throw new Error(res.data.error);
 
-      toast.success("Password updated! You can now log in.");
-      setMode("login");
-      setFormData((prev) => ({ ...prev, password: "" }));
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to reset password");
+
+      toast.success(data.message || "Password updated!");
+      navigate("/home");
     } catch (err) {
-      toast.error(err?.response?.data?.error || err.message || "Failed to reset password.");
+      toast.error(err.message || "Failed to reset password.");
     } finally {
       setLoading(false);
     }
@@ -180,6 +193,7 @@ export default function Auth() {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
+        options: { redirectTo: `${APP_URL}/auth` },
       });
       if (error) throw error;
     } catch (err) {
