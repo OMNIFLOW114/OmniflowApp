@@ -1,5 +1,6 @@
 /* ===============================
-   Auth Page Styles - Production Ready
+   Auth Page Styles - Production Ready v2
+   Includes logo, Google logo, modern UX
    =============================== */
 
 :root {
@@ -48,15 +49,29 @@ body {
   max-width: 420px;
   box-shadow: var(--shadow);
   animation: fadeIn 0.6s ease;
+  text-align: center;
+}
+
+/* Logo */
+.auth-logo {
+  width: 80px;
+  height: auto;
+  margin-bottom: 1rem;
 }
 
 /* Titles */
 .auth-title {
   font-size: 1.75rem;
   font-weight: 700;
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.5rem;
   text-align: center;
   color: var(--accent);
+}
+
+.auth-subtitle {
+  font-size: 0.95rem;
+  margin-bottom: 1.5rem;
+  color: #bbb;
 }
 
 /* Input Groups */
@@ -143,7 +158,16 @@ body {
   color: var(--text-light);
   cursor: pointer;
   font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
   transition: var(--transition);
+}
+
+.google-signin-btn img {
+  width: 20px;
+  height: 20px;
 }
 
 .google-signin-btn:hover {
@@ -218,63 +242,12 @@ body {
 /* OTP Form */
 .otp-form {
   text-align: center;
+  margin-top: 1rem;
 }
 
 .otp-form h3 {
   font-size: 1.1rem;
   margin-bottom: 1rem;
-}
-
-.otp-input {
-  width: 100%;
-  padding: 0.8rem;
-  font-size: 1.25rem;
-  text-align: center;
-  letter-spacing: 6px;
-  border: 1px solid var(--border-glass);
-  border-radius: var(--radius);
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text-light);
-  margin-bottom: 1.2rem;
-  transition: var(--transition);
-}
-
-.otp-input:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-
-/* Animations */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Responsive */
-@media (max-width: 480px) {
-  .glass-card {
-    padding: 1.5rem;
-    max-width: 100%;
-  }
-  .auth-title {
-    font-size: 1.5rem;
-  }
-  .otp-input {
-    font-size: 1.1rem;
-  }
-}
-/* ===== Extra for OTP & Reset Password ===== */
-
-/* OTP Code Box */
-.otp-form {
-  margin-top: 1rem;
-  text-align: center;
 }
 
 .otp-input {
@@ -295,8 +268,6 @@ body {
   border-color: var(--accent);
   outline: none;
 }
-
-/* Success + Error messages already included in Auth.css */
 
 /* Resend Button */
 .resend-btn {
@@ -333,4 +304,33 @@ body {
   border-color: var(--accent);
   background: rgba(255, 255, 255, 0.08);
   outline: none;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .glass-card {
+    padding: 1.5rem;
+    max-width: 100%;
+  }
+  .auth-title {
+    font-size: 1.5rem;
+  }
+  .otp-input {
+    font-size: 1.2rem;
+  }
+  .auth-logo {
+    width: 60px;
+  }
 }

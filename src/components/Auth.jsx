@@ -1,4 +1,4 @@
-// src/pages/Auth.jsx
+// src/components/Auth.jsx
 import React, { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -13,8 +13,7 @@ export default function Auth() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  // controls which "screen" to show
-  const [mode, setMode] = useState("login"); 
+  const [mode, setMode] = useState("login"); // login | signup | reset | verifyOtp
   const [loading, setLoading] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -25,64 +24,78 @@ export default function Auth() {
   });
   const [otp, setOtp] = useState("");
 
-  // 🔹 detect query params (reset / verifyOtp flows)
+  // 🔹 Detect URL mode (reset-password, etc.)
   useEffect(() => {
     const urlMode = searchParams.get("mode");
     if (urlMode) setMode(urlMode);
 
     const token = searchParams.get("access_token") || searchParams.get("token");
     if (token && urlMode === "reset") {
-      // user clicked reset link
       toast("Enter new password to reset.");
     }
   }, [searchParams]);
 
-  // 🔹 check session and redirect
+  // 🔹 If logged in already, redirect
   useEffect(() => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user && mode !== "reset") navigate("/home");
+      if (session?.user && mode !== "reset") {
+        navigate("/home");
+      }
     };
     checkSession();
   }, [navigate, mode]);
 
+  // 🔹 Helpers
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((p) => ({ ...p, [name]: value }));
   };
 
   const isValidPassword = (pwd) =>
-    /[a-z]/.test(pwd) && /[A-Z]/.test(pwd) && /[0-9]/.test(pwd) && pwd.length >= 8;
+    /[a-z]/.test(pwd) &&
+    /[A-Z]/.test(pwd) &&
+    /[0-9]/.test(pwd) &&
+    pwd.length >= 8;
 
-  // 🔹 Signup / Login
-  const handleAuth = async (e) => {
+  // 🔹 Signup
+  const handleSignup = async (e) => {
+    e.preventDefault();
+    if (!isValidPassword(formData.password)) {
+      toast.error("Password must include uppercase, lowercase, number, and be 8+ chars.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: { data: { full_name: formData.name, phone: formData.phone } },
+      });
+      if (error) throw error;
+      toast.success("Signup successful — please confirm via email.");
+      setMode("login");
+    } catch (err) {
+      toast.error(err?.message || "Signup failed.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 🔹 Login
+  const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
-      if (mode === "signup") {
-        if (!isValidPassword(formData.password)) {
-          toast.error("Password must have uppercase, lowercase, number, and 8+ chars.");
-          return;
-        }
-        const { error } = await supabase.auth.signUp({
-          email: formData.email,
-          password: formData.password,
-          options: { data: { full_name: formData.name, phone: formData.phone } },
-        });
-        if (error) throw error;
-        toast.success("Signup successful — check your email.");
-        setMode("login");
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email: formData.email,
-          password: formData.password,
-        });
-        if (error) throw error;
-        toast.success("Welcome back!");
-        navigate("/home");
-      }
+      const { error } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password,
+      });
+      if (error) throw error;
+      toast.success("Welcome back!");
+      navigate("/home");
     } catch (err) {
-      toast.error(err?.message || "Something went wrong.");
+      toast.error(err?.message || "Login failed.");
     } finally {
       setLoading(false);
     }
@@ -97,7 +110,7 @@ export default function Auth() {
     setLoading(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(formData.email, {
-        redirectTo: `${APP_URL}/auth?mode=reset`,
+        redirectTo: `${APP_URL}/reset-password`,
       });
       if (error) throw error;
       toast.success("Password reset link sent.");
@@ -108,11 +121,11 @@ export default function Auth() {
     }
   };
 
-  // 🔹 Reset password (after Supabase redirects back)
+  // 🔹 Reset password (user clicked link from email)
   const handleResetPassword = async (e) => {
     e.preventDefault();
     if (!isValidPassword(formData.password)) {
-      toast.error("Weak password. Must be strong.");
+      toast.error("Weak password. Must include upper, lower, number, 8+ chars.");
       return;
     }
     setLoading(true);
@@ -129,10 +142,10 @@ export default function Auth() {
     }
   };
 
-  // 🔹 OTP verify
+  // 🔹 Verify phone OTP (optional, after signup)
   const handleVerifyOtp = async () => {
-    if (!formData.phone || otp.length < 4) {
-      toast.error("Enter valid OTP.");
+    if (!formData.phone || otp.length !== 6) {
+      toast.error("Enter valid phone + 6-digit OTP.");
       return;
     }
     setLoading(true);
@@ -146,7 +159,7 @@ export default function Auth() {
       toast.success("Phone verified!");
       navigate("/home");
     } catch (err) {
-      toast.error(err?.message || "Invalid OTP.");
+      toast.error(err?.message || "OTP verification failed.");
     } finally {
       setLoading(false);
     }
@@ -168,28 +181,31 @@ export default function Auth() {
     }
   };
 
-  // 🔹 UI per mode
+  // 🔹 Render forms
   const renderForm = () => {
     switch (mode) {
       case "signup":
+        return (
+          <form onSubmit={handleSignup} className="auth-form">
+            <input name="name" placeholder="Full name" onChange={handleChange} required />
+            <input name="phone" placeholder="+2547..." onChange={handleChange} />
+            <input name="email" type="email" placeholder="Email" onChange={handleChange} required />
+            <input name="password" type="password" placeholder="Password" onChange={handleChange} required />
+            <Button type="submit" disabled={loading}>
+              {loading ? "Creating..." : "Sign up"}
+            </Button>
+          </form>
+        );
       case "login":
         return (
-          <form onSubmit={handleAuth} className="auth-form">
-            {mode === "signup" && (
-              <>
-                <input name="name" placeholder="Full name" onChange={handleChange} />
-                <input name="phone" placeholder="+2547..." onChange={handleChange} />
-              </>
-            )}
-            <input name="email" placeholder="Email" onChange={handleChange} required />
-            <input type="password" name="password" placeholder="Password" onChange={handleChange} required />
-            {mode === "login" && (
-              <button type="button" onClick={handleForgotPassword} className="forgot-btn">
-                Forgot password?
-              </button>
-            )}
+          <form onSubmit={handleLogin} className="auth-form">
+            <input name="email" type="email" placeholder="Email" onChange={handleChange} required />
+            <input name="password" type="password" placeholder="Password" onChange={handleChange} required />
+            <button type="button" onClick={handleForgotPassword} className="forgot-btn">
+              Forgot password?
+            </button>
             <Button type="submit" disabled={loading}>
-              {loading ? "Please wait..." : mode === "signup" ? "Sign up" : "Sign in"}
+              {loading ? "Signing in..." : "Sign in"}
             </Button>
           </form>
         );
@@ -240,6 +256,7 @@ export default function Auth() {
             ? "Verify your phone"
             : "Welcome back"}
         </h2>
+
         {renderForm()}
 
         {mode !== "reset" && mode !== "verifyOtp" && (
@@ -250,8 +267,11 @@ export default function Auth() {
             </button>
             <div className="toggle-form-text">
               <p>
-                {mode === "signup" ? "Already have an account?" : "Don't have one?"}{" "}
-                <button onClick={() => setMode(mode === "signup" ? "login" : "signup")} className="toggle-btn">
+                {mode === "signup" ? "Already have an account?" : "Don't have an account?"}{" "}
+                <button
+                  onClick={() => setMode(mode === "signup" ? "login" : "signup")}
+                  className="toggle-btn"
+                >
                   {mode === "signup" ? "Sign in" : "Sign up"}
                 </button>
               </p>
