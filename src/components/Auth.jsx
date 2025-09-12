@@ -24,13 +24,12 @@ export default function Auth() {
   const [otp, setOtp] = useState("");
   const [recoveryToken, setRecoveryToken] = useState("");
 
-  // 🔹 Detect URL query params for reset or recovery
+  // 🔹 Detect URL params for reset/recovery
   useEffect(() => {
     const urlMode = searchParams.get("mode");
     const token = searchParams.get("access_token") || searchParams.get("token");
-    const type = searchParams.get("type"); // Supabase recovery type
+    const type = searchParams.get("type");
 
-    // If URL has `mode=reset` or `type=recovery` and a token
     if ((urlMode === "reset" || type === "recovery") && token) {
       setMode("reset");
       setRecoveryToken(token);
@@ -38,12 +37,10 @@ export default function Auth() {
     }
   }, [searchParams]);
 
-  // 🔹 Redirect if already logged in (except during reset)
+  // 🔹 Redirect logged-in users if not resetting password
   useEffect(() => {
     const checkSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
       if (session?.user && mode !== "reset") {
         navigate("/home");
       }
@@ -51,10 +48,9 @@ export default function Auth() {
     checkSession();
   }, [navigate, mode]);
 
-  // 🔹 Helpers
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((p) => ({ ...p, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const isValidPassword = (pwd) =>
@@ -136,16 +132,18 @@ export default function Auth() {
       toast.error("Invalid or missing recovery token.");
       return;
     }
+
     setLoading(true);
     try {
+      // Use the token automatically handled by Supabase
       const { error } = await supabase.auth.updateUser({
         password: formData.password,
-        access_token: recoveryToken,
       });
+
       if (error) throw error;
-      toast.success("Password updated! You can now log in.");
+      toast.success("Password updated! Redirecting to homepage...");
       setMode("login");
-      navigate("/auth");
+      navigate("/home");
     } catch (err) {
       toast.error(err?.message || "Failed to reset password.");
     } finally {
