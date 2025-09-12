@@ -1,6 +1,6 @@
 // src/components/Auth.jsx
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { supabase } from "@/supabase";
 import { Button } from "@/components/ui/button";
@@ -10,21 +10,37 @@ import "./Auth.css";
 const APP_URL = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
 
 export default function Auth() {
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  const [mode, setMode] = useState("login"); // login | signup | verifyOtp
+  const [mode, setMode] = useState("login"); // login | signup | reset | verifyOtp
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({ name: "", phone: "", email: "", password: "" });
   const [otp, setOtp] = useState("");
 
-  // Redirect logged-in users
+  // Detect if coming from a recovery link
+  useEffect(() => {
+    const recoveryToken = searchParams.get("token");
+    const type = searchParams.get("type");
+    const email = searchParams.get("email");
+
+    if (type === "recovery" && recoveryToken) {
+      // Open reset page automatically
+      navigate(`/auth/reset?token=${recoveryToken}${email ? `&email=${encodeURIComponent(email)}` : ""}`, { replace: true });
+    }
+  }, [searchParams, navigate]);
+
+  // Redirect logged-in users normally
   useEffect(() => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) navigate("/home");
+      const type = searchParams.get("type");
+      if (session?.user && type !== "recovery") {
+        navigate("/home");
+      }
     };
     checkSession();
-  }, [navigate]);
+  }, [navigate, searchParams]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
