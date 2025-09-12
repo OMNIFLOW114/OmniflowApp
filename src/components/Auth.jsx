@@ -5,9 +5,8 @@ import { motion } from "framer-motion";
 import { supabase } from "@/supabase";
 import { Button } from "@/components/ui/button";
 import toast from "react-hot-toast";
+import axios from "axios";
 import "./Auth.css";
-
-const APP_URL = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
 
 export default function Auth() {
   const [searchParams] = useSearchParams();
@@ -22,17 +21,14 @@ export default function Auth() {
     password: "",
   });
   const [otp, setOtp] = useState("");
-  const [recoveryToken, setRecoveryToken] = useState("");
 
-  // 🔹 Detect URL params for reset/recovery
+  // 🔹 Detect reset mode via query param
   useEffect(() => {
     const urlMode = searchParams.get("mode");
-    const token = searchParams.get("access_token") || searchParams.get("token");
-    const type = searchParams.get("type");
-
-    if ((urlMode === "reset" || type === "recovery") && token) {
+    const emailParam = searchParams.get("email");
+    if (urlMode === "reset" && emailParam) {
       setMode("reset");
-      setRecoveryToken(token);
+      setFormData((prev) => ({ ...prev, email: emailParam }));
       toast("Enter your new password to reset.");
     }
   }, [searchParams]);
@@ -54,15 +50,16 @@ export default function Auth() {
   };
 
   const isValidPassword = (pwd) =>
-    /[a-z]/.test(pwd) && /[A-Z]/.test(pwd) && /[0-9]/.test(pwd) && pwd.length >= 8;
+    /[a-z]/.test(pwd) &&
+    /[A-Z]/.test(pwd) &&
+    /[0-9]/.test(pwd) &&
+    pwd.length >= 8;
 
   // 🔹 Signup
   const handleSignup = async (e) => {
     e.preventDefault();
     if (!isValidPassword(formData.password)) {
-      toast.error(
-        "Password must include uppercase, lowercase, number, and be 8+ chars."
-      );
+      toast.error("Password must include uppercase, lowercase, number, and be 8+ chars.");
       return;
     }
     setLoading(true);
@@ -101,7 +98,7 @@ export default function Auth() {
     }
   };
 
-  // 🔹 Forgot password
+  // 🔹 Forgot password -> server endpoint
   const handleForgotPassword = async () => {
     if (!formData.email) {
       toast.error("Enter your email first.");
@@ -109,43 +106,46 @@ export default function Auth() {
     }
     setLoading(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(formData.email, {
-        redirectTo: `${APP_URL}/auth?mode=reset`,
+      // Call your server to check if user exists
+      const res = await axios.post("/api/reset-password", {
+        email: formData.email,
+        newPassword: "temporary123!", // temp placeholder
       });
-      if (error) throw error;
-      toast.success("Password reset link sent to your email.");
+      if (res.data.error) throw new Error(res.data.error);
+
+      // Redirect user immediately to reset page
+      navigate(`/auth?mode=reset&email=${encodeURIComponent(formData.email)}`);
     } catch (err) {
-      toast.error(err?.message || "Failed to send reset link.");
+      toast.error(err?.response?.data?.error || err.message || "Failed to initiate reset.");
     } finally {
       setLoading(false);
     }
   };
 
-  // 🔹 Reset password using recovery token
+  // 🔹 Reset password via server
   const handleResetPassword = async (e) => {
     e.preventDefault();
     if (!isValidPassword(formData.password)) {
       toast.error("Weak password. Must include upper, lower, number, 8+ chars.");
       return;
     }
-    if (!recoveryToken) {
-      toast.error("Invalid or missing recovery token.");
+    if (!formData.email) {
+      toast.error("Missing email for password reset.");
       return;
     }
-
     setLoading(true);
     try {
-      // Use the token automatically handled by Supabase
-      const { error } = await supabase.auth.updateUser({
-        password: formData.password,
+      const res = await axios.post("/api/reset-password", {
+        email: formData.email,
+        newPassword: formData.password,
       });
+      if (res.data.error) throw new Error(res.data.error);
 
-      if (error) throw error;
-      toast.success("Password updated! Redirecting to homepage...");
+      toast.success("Password updated! You can now log in.");
       setMode("login");
-      navigate("/home");
+      setFormData((prev) => ({ ...prev, password: "" }));
     } catch (err) {
-      toast.error(err?.message || "Failed to reset password.");
+      toast.error(err?.response?.data?.error || err.message || "Failed to reset password.");
     } finally {
       setLoading(false);
     }
@@ -180,7 +180,6 @@ export default function Auth() {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: `${APP_URL}/auth` },
       });
       if (error) throw error;
     } catch (err) {
