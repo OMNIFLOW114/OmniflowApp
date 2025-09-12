@@ -4,25 +4,37 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <!-- ✅ App Title -->
+    <!-- App Title & meta -->
     <title>OmniflowApp</title>
-
-    <!-- ✅ Favicon (replace favicon.png with your logo in /public) -->
     <link rel="icon" type="image/png" href="/favicon.png" />
-
-    <!-- ✅ SEO Meta Tags -->
     <meta name="description" content="OmniflowApp – Your smart marketplace with installments, TradeStore 2.0, and student assistant features." />
-
-    <!-- ✅ Open Graph (for social media previews) -->
     <meta property="og:title" content="OmniflowApp" />
     <meta property="og:description" content="A modern marketplace platform with Lipa Mdogo Mdogo, TradeStore 2.0, and student assistant features." />
     <meta property="og:image" content="/favicon.png" />
     <meta property="og:url" content="https://omniflowapp.co.ke" />
     <meta name="twitter:card" content="summary_large_image" />
-
-    <!-- ✅ PWA Manifest (optional for app-like behavior) -->
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#2563eb" />
+
+    <!-- IMPORTANT: run small preboot script BEFORE app loads -->
+    <script>
+      (function () {
+        // If someone landed here with ?redirect=ENCODED_PATH, restore the original path
+        try {
+          const params = new URLSearchParams(window.location.search);
+          const redirect = params.get("redirect");
+          if (redirect) {
+            // Replace current history entry with the original path (preserve origin)
+            const decoded = decodeURIComponent(redirect);
+            // Use replaceState to avoid polluting history stack
+            history.replaceState({}, "", decoded + window.location.hash);
+          }
+        } catch (e) {
+          // Fail silently — app will still load at / if something goes wrong
+          console.warn("redirect preboot error", e);
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="x-ua-compatible" content="ie=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Not found — redirecting…</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <style>
+      body { font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial; background:#0f172a; color:#fff; display:flex; align-items:center; justify-content:center; height:100vh; margin:0; }
+      .box { text-align:center; max-width:560px; padding:24px; }
+      a { color:#ffd54a; text-decoration:none; }
+    </style>
+    <script>
+      // Immediately redirect to index.html and pass original path in `redirect`
+      (function () {
+        try {
+          var path = location.pathname + location.search;
+          // Avoid infinite loops: if we are already on index.html, stop
+          if (path === "/" || path === "/index.html") return;
+          var encoded = encodeURIComponent(path);
+          // Replace location with index.html and attach original path
+          // Use replace so browser back button doesn't keep the 404 entry
+          location.replace("/?redirect=" + encoded);
+        } catch (e) {
+          // fallback: try simple redirect to root
+          location.replace("/");
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div class="box">
+      <h1>Page not found — redirecting…</h1>
+      <p>If you are not redirected, <a href="/">click here</a>.</p>
+    </div>
+  </body>
+</html>
