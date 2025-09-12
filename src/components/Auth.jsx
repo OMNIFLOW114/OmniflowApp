@@ -24,7 +24,7 @@ export default function Auth() {
   useEffect(() => {
     const urlMode = searchParams.get("mode");
     const token = searchParams.get("access_token") || searchParams.get("token");
-    const email = searchParams.get("email"); // optional email in query
+    const email = searchParams.get("email");
 
     if ((urlMode === "reset" || searchParams.get("type") === "recovery") && token) {
       setMode("reset");
@@ -94,7 +94,7 @@ export default function Auth() {
     }
   };
 
-  // Forgot password → send email link via Supabase
+  // Forgot password → send email pointing to /auth?mode=reset
   const handleForgotPassword = async () => {
     if (!formData.email) {
       toast.error("Enter your email first.");
@@ -106,7 +106,7 @@ export default function Auth() {
         redirectTo: `${APP_URL}/auth?mode=reset&email=${encodeURIComponent(formData.email)}`,
       });
       if (error) throw error;
-      toast.success("Check your email for password reset link.");
+      toast.success("Check your email for the reset link. Do NOT click the Supabase default page.");
     } catch (err) {
       toast.error(err?.message || "Failed to send reset link.");
     } finally {
@@ -114,7 +114,7 @@ export default function Auth() {
     }
   };
 
-  // Reset password using backend
+  // Reset password via backend
   const handleResetPassword = async (e) => {
     e.preventDefault();
     if (!isValidPassword(formData.password)) {
@@ -134,7 +134,7 @@ export default function Auth() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Reset failed");
-      toast.success(data.message || "Password updated!");
+      toast.success(data.message || "Password updated successfully!");
       navigate("/home");
     } catch (err) {
       toast.error(err.message || "Failed to reset password.");
