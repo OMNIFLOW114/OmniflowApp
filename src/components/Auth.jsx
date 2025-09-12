@@ -15,7 +15,6 @@ export default function Auth() {
 
   const [mode, setMode] = useState("login"); // login | signup | reset | verifyOtp
   const [loading, setLoading] = useState(false);
-
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
@@ -23,22 +22,28 @@ export default function Auth() {
     password: "",
   });
   const [otp, setOtp] = useState("");
+  const [recoveryToken, setRecoveryToken] = useState("");
 
-  // 🔹 Detect URL mode (reset-password, etc.)
+  // 🔹 Detect URL query params for reset or recovery
   useEffect(() => {
     const urlMode = searchParams.get("mode");
-    if (urlMode) setMode(urlMode);
-
     const token = searchParams.get("access_token") || searchParams.get("token");
-    if (token && urlMode === "reset") {
-      toast("Enter new password to reset.");
+    const type = searchParams.get("type"); // Supabase recovery type
+
+    // If URL has `mode=reset` or `type=recovery` and a token
+    if ((urlMode === "reset" || type === "recovery") && token) {
+      setMode("reset");
+      setRecoveryToken(token);
+      toast("Enter your new password to reset.");
     }
   }, [searchParams]);
 
-  // 🔹 If logged in already, redirect
+  // 🔹 Redirect if already logged in (except during reset)
   useEffect(() => {
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (session?.user && mode !== "reset") {
         navigate("/home");
       }
@@ -53,16 +58,15 @@ export default function Auth() {
   };
 
   const isValidPassword = (pwd) =>
-    /[a-z]/.test(pwd) &&
-    /[A-Z]/.test(pwd) &&
-    /[0-9]/.test(pwd) &&
-    pwd.length >= 8;
+    /[a-z]/.test(pwd) && /[A-Z]/.test(pwd) && /[0-9]/.test(pwd) && pwd.length >= 8;
 
   // 🔹 Signup
   const handleSignup = async (e) => {
     e.preventDefault();
     if (!isValidPassword(formData.password)) {
-      toast.error("Password must include uppercase, lowercase, number, and be 8+ chars.");
+      toast.error(
+        "Password must include uppercase, lowercase, number, and be 8+ chars."
+      );
       return;
     }
     setLoading(true);
@@ -110,10 +114,10 @@ export default function Auth() {
     setLoading(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(formData.email, {
-        redirectTo: `${APP_URL}/reset-password`,
+        redirectTo: `${APP_URL}/auth?mode=reset`,
       });
       if (error) throw error;
-      toast.success("Password reset link sent.");
+      toast.success("Password reset link sent to your email.");
     } catch (err) {
       toast.error(err?.message || "Failed to send reset link.");
     } finally {
@@ -121,16 +125,23 @@ export default function Auth() {
     }
   };
 
-  // 🔹 Reset password (user clicked link from email)
+  // 🔹 Reset password using recovery token
   const handleResetPassword = async (e) => {
     e.preventDefault();
     if (!isValidPassword(formData.password)) {
       toast.error("Weak password. Must include upper, lower, number, 8+ chars.");
       return;
     }
+    if (!recoveryToken) {
+      toast.error("Invalid or missing recovery token.");
+      return;
+    }
     setLoading(true);
     try {
-      const { error } = await supabase.auth.updateUser({ password: formData.password });
+      const { error } = await supabase.auth.updateUser({
+        password: formData.password,
+        access_token: recoveryToken,
+      });
       if (error) throw error;
       toast.success("Password updated! You can now log in.");
       setMode("login");
@@ -142,7 +153,7 @@ export default function Auth() {
     }
   };
 
-  // 🔹 Verify phone OTP (optional, after signup)
+  // 🔹 Verify phone OTP
   const handleVerifyOtp = async () => {
     if (!formData.phone || otp.length !== 6) {
       toast.error("Enter valid phone + 6-digit OTP.");
