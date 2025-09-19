@@ -1,14 +1,19 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 
 buildscript {
-    
     repositories {
         google()
         mavenCentral()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.2.1'
-        classpath 'com.google.gms:google-services:4.4.0'
+        // ✅ Upgrade Android Gradle Plugin for API 35 support
+        classpath 'com.android.tools.build:gradle:8.6.0'
+        
+        // ✅ Kotlin Gradle Plugin (needed for 'org.jetbrains.kotlin.android')
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.24"
+
+        // ✅ Latest Google Services plugin
+        classpath 'com.google.gms:google-services:4.4.2'
 
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
@@ -24,6 +29,6 @@ allprojects {
     }
 }
 
-task clean(type: Delete) {
-    delete rootProject.buildDir
+tasks.register("clean", Delete) {
+    delete(rootProject.buildDir)
 }

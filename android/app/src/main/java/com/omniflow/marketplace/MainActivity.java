@@ -1,4 +1,4 @@
-package com.omniflow.marketplace;
+package ke.co.omniflowapp;
 
 import com.getcapacitor.BridgeActivity;
 

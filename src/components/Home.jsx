@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import React, { useEffect, useState, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
 import { FaBars, FaEnvelope } from "react-icons/fa";
 import SidebarMenu from "./SidebarMenu";
 import { supabase } from "@/supabase";
-import { useDarkMode } from "@/context/DarkModeContext"; // ✅ use context
+import { useDarkMode } from "@/context/DarkModeContext"; 
 import "./Home.css";
 
 const getGreeting = () => {
@@ -18,28 +18,53 @@ const Home = () => {
   const [greeting, setGreeting] = useState(getGreeting());
   const [userName, setUserName] = useState("there");
   const [showMenu, setShowMenu] = useState(false);
-  const { darkMode, toggleDarkMode } = useDarkMode(); // ✅ global dark mode
+  const { darkMode, toggleDarkMode } = useDarkMode();
   const navigate = useNavigate();
 
+  // Update greeting every minute
   useEffect(() => {
-    const interval = setInterval(() => setGreeting(getGreeting()), 60000);
+    const updateGreeting = () => setGreeting(getGreeting());
+    const timer = setInterval(updateGreeting, 60000);
+    return () => clearInterval(timer);
+  }, []);
 
+  // Supabase user handling
+  useEffect(() => {
     const getUser = async () => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      setUserName(
-        user?.user_metadata?.full_name ||
-          user?.email?.split("@")[0] ||
-          "there"
-      );
+      if (user) {
+        setUserName(
+          user.user_metadata?.full_name ||
+            user.email?.split("@")[0] ||
+            "there"
+        );
+      }
     };
 
     getUser();
-    return () => clearInterval(interval);
+
+    // ✅ subscribe to auth state changes
+    const { data: subscription } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (session?.user) {
+          setUserName(
+            session.user.user_metadata?.full_name ||
+              session.user.email?.split("@")[0] ||
+              "there"
+          );
+        } else {
+          setUserName("there");
+        }
+      }
+    );
+
+    return () => subscription?.subscription.unsubscribe();
   }, []);
 
-  const toggleMenu = () => setShowMenu((prev) => !prev);
+  const toggleMenu = useCallback(() => setShowMenu((prev) => !prev), []);
+  const closeMenu = useCallback(() => setShowMenu(false), []);
 
   const handleLogout = async () => {
     try {
@@ -85,28 +110,46 @@ const Home = () => {
 
   return (
     <div className="home-container transition-all">
+      {/* Navbar */}
       <nav className="navbar">
-        <button onClick={toggleMenu} className="nav-icon">
+        <button
+          onClick={toggleMenu}
+          className="nav-icon"
+          aria-label="Open menu"
+        >
           <FaBars size={22} />
         </button>
-        <Link to="/messages" className="nav-icon">
+        <Link to="/messages" className="nav-icon" aria-label="Messages">
           <FaEnvelope size={20} />
         </Link>
       </nav>
 
-      {showMenu && (
-        <SidebarMenu
-          onClose={toggleMenu}
-          onLogout={handleLogout}
-          darkMode={darkMode}
-          toggleDarkMode={toggleDarkMode}
-        />
-      )}
+      {/* Sidebar */}
+      <AnimatePresence>
+        {showMenu && (
+          <motion.div
+            initial={{ x: "-100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "-100%" }}
+            transition={{ duration: 0.3 }}
+            className="sidebar-wrapper"
+          >
+            <SidebarMenu
+              onClose={closeMenu}
+              onLogout={handleLogout}
+              darkMode={darkMode}
+              toggleDarkMode={toggleDarkMode}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
+      {/* Title */}
       <motion.div className="omniflow-title">
         <h1 className="title">Omniflow</h1>
       </motion.div>
 
+      {/* Greeting */}
       <motion.div
         className="greeting-section"
         initial={{ opacity: 0 }}
@@ -129,23 +172,28 @@ const Home = () => {
         </motion.p>
       </motion.div>
 
+      {/* Tiles */}
       <div className="tiles-container">
-        {tiles.map((tile, i) => (
-          <motion.div
-            key={i}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.97 }}
-            onClick={() => navigate(tile.link)}
-            className="tile dark:shadow-xl dark:shadow-black"
-            style={{
-              backgroundImage: tile.color,
-            }}
-            title={tile.description}
-          >
-            <h2>{tile.title}</h2>
-            <p>{tile.description}</p>
-          </motion.div>
-        ))}
+        {tiles.length > 0 ? (
+          tiles.map((tile, i) => (
+            <motion.div
+              key={i}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => navigate(tile.link)}
+              className={`tile ${darkMode ? "dark-tile" : ""}`}
+              style={{
+                backgroundImage: tile.color,
+              }}
+              title={tile.description}
+            >
+              <h2>{tile.title}</h2>
+              <p>{tile.description}</p>
+            </motion.div>
+          ))
+        ) : (
+          <p className="no-tiles">No features available at the moment.</p>
+        )}
       </div>
     </div>
   );

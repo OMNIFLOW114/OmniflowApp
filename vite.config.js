@@ -3,12 +3,40 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import dotenv from 'dotenv';
+import { VitePWA } from 'vite-plugin-pwa';
 
 // ✅ Load .env variables before config is evaluated
 dotenv.config();
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      includeAssets: ['favicon.svg', 'robots.txt'],
+      manifest: {
+        name: 'Omniflow App',
+        short_name: 'Omniflow',
+        start_url: '.',
+        display: 'standalone',
+        background_color: '#ffffff',
+        theme_color: '#f97316', // orange accent
+        description: 'Your all-in-one marketplace & finance app',
+        icons: [
+          {
+            src: '/icons/icon-192x192.png',
+            sizes: '192x192',
+            type: 'image/png',
+          },
+          {
+            src: '/icons/icon-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+          },
+        ],
+      },
+    }),
+  ],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'), // ✅ Allows '@/...' imports
@@ -19,14 +47,12 @@ export default defineConfig({
   },
   build: {
     target: 'esnext',
-    // ✅ Reduce memory pressure
     sourcemap: false, // disable source maps in production builds
     minify: 'esbuild', // faster & less memory than terser
-    chunkSizeWarningLimit: 1500, // raise limit so Rollup doesn’t waste time analyzing
+    chunkSizeWarningLimit: 1500,
     rollupOptions: {
       output: {
         manualChunks: {
-          // ✅ Split out heavy deps into separate chunks
           react: ['react', 'react-dom'],
           supabase: ['@supabase/supabase-js'],
           vendor: ['axios', 'lodash'],
