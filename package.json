@@ -23,6 +23,7 @@
     "chart.js": "^4.4.9",
     "cropperjs": "^1.5.12",
     "date-fns": "^4.1.0",
+    "dotenv": "^17.2.2",
     "emailjs-com": "^3.2.0",
     "emoji-picker-react": "^4.12.2",
     "framer-motion": "^12.18.1",
