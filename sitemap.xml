@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+
+  <!-- Core Static Pages -->
+  <url><loc>https://omniflowapp.co.ke/</loc><priority>1.0</priority></url>
+  <url><loc>https://omniflowapp.co.ke/trade</loc></url>
+  <url><loc>https://omniflowapp.co.ke/wallet</loc></url>
+  <url><loc>https://omniflowapp.co.ke/student</loc></url>
+  <url><loc>https://omniflowapp.co.ke/profile</loc></url>
+  <url><loc>https://omniflowapp.co.ke/settings</loc></url>
+  <url><loc>https://omniflowapp.co.ke/auth</loc></url>
+  <url><loc>https://omniflowapp.co.ke/wishlist</loc></url>
+  <url><loc>https://omniflowapp.co.ke/cart</loc></url>
+  <url><loc>https://omniflowapp.co.ke/discover</loc></url>
+  <url><loc>https://omniflowapp.co.ke/create</loc></url>
+  <url><loc>https://omniflowapp.co.ke/notifications</loc></url>
+  <url><loc>https://omniflowapp.co.ke/messages</loc></url>
+
+  <!-- Example dynamic product/store pages -->
+  <url><loc>https://omniflowapp.co.ke/dashboard/store/4708be97-1415-41fe-88ca-a4bf75f33f01</loc></url>
+  <url><loc>https://omniflowapp.co.ke/product/5214cd09-8a4d-42a0-9af7-ff22d423c69d</loc></url>
+  <url><loc>https://omniflowapp.co.ke/checkout/b14abd79-4e4e-4f4c-894d-a9cb82590c3e</loc></url>
+
+</urlset>
