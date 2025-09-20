@@ -1,4 +1,3 @@
-// src/components/Auth.jsx
 import React, { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -18,25 +17,36 @@ export default function Auth() {
   const [formData, setFormData] = useState({ name: "", phone: "", email: "", password: "" });
   const [otp, setOtp] = useState("");
 
-  // Detect if coming from a recovery link
+  /**
+   * 🔑 Recovery link handling
+   * If Supabase redirects here with type=recovery, send user to /auth/reset
+   */
   useEffect(() => {
-    const recoveryToken = searchParams.get("token");
     const type = searchParams.get("type");
+    const token = searchParams.get("token");
     const email = searchParams.get("email");
 
-    if (type === "recovery" && recoveryToken) {
-      // Open reset page automatically
-      navigate(`/auth/reset?token=${recoveryToken}${email ? `&email=${encodeURIComponent(email)}` : ""}`, { replace: true });
+    if (type === "recovery" && token) {
+      navigate(
+        `/auth/reset?token=${encodeURIComponent(token)}${
+          email ? `&email=${encodeURIComponent(email)}` : ""
+        }`,
+        { replace: true }
+      );
     }
   }, [searchParams, navigate]);
 
-  // Redirect logged-in users normally
+  /**
+   * 🔑 Normal session handling
+   * Redirect logged-in users to /home, EXCEPT when doing recovery
+   */
   useEffect(() => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       const type = searchParams.get("type");
+
       if (session?.user && type !== "recovery") {
-        navigate("/home");
+        navigate("/home", { replace: true });
       }
     };
     checkSession();
@@ -50,7 +60,7 @@ export default function Auth() {
   const isValidPassword = (pwd) =>
     /[a-z]/.test(pwd) && /[A-Z]/.test(pwd) && /[0-9]/.test(pwd) && pwd.length >= 8;
 
-  // Signup
+  // --- Signup
   const handleSignup = async (e) => {
     e.preventDefault();
     if (!isValidPassword(formData.password)) {
@@ -65,7 +75,7 @@ export default function Auth() {
         options: { data: { full_name: formData.name, phone: formData.phone } },
       });
       if (error) throw error;
-      toast.success("Signup successful — check email for confirmation.");
+      toast.success("Signup successful — check your email for confirmation.");
       setMode("login");
     } catch (err) {
       toast.error(err?.message || "Signup failed.");
@@ -74,7 +84,7 @@ export default function Auth() {
     }
   };
 
-  // Login
+  // --- Login
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -85,7 +95,7 @@ export default function Auth() {
       });
       if (error) throw error;
       toast.success("Welcome back!");
-      navigate("/home");
+      navigate("/home", { replace: true });
     } catch (err) {
       toast.error(err?.message || "Login failed.");
     } finally {
@@ -93,7 +103,7 @@ export default function Auth() {
     }
   };
 
-  // Forgot password → send email to /auth/reset
+  // --- Forgot password
   const handleForgotPassword = async () => {
     if (!formData.email) {
       toast.error("Enter your email first.");
@@ -105,7 +115,7 @@ export default function Auth() {
         redirectTo: `${APP_URL}/auth/reset?email=${encodeURIComponent(formData.email)}`,
       });
       if (error) throw error;
-      toast.success("Check your email — the reset link will open a secure reset page.");
+      toast.success("Check your email for a secure reset link.");
     } catch (err) {
       toast.error(err?.message || "Failed to send reset link.");
     } finally {
@@ -113,7 +123,7 @@ export default function Auth() {
     }
   };
 
-  // OTP verification
+  // --- OTP
   const handleVerifyOtp = async () => {
     if (!formData.phone || otp.length !== 6) {
       toast.error("Enter valid phone + 6-digit OTP.");
@@ -121,10 +131,14 @@ export default function Auth() {
     }
     setLoading(true);
     try {
-      const { error } = await supabase.auth.verifyOtp({ phone: formData.phone, token: otp, type: "sms" });
+      const { error } = await supabase.auth.verifyOtp({
+        phone: formData.phone,
+        token: otp,
+        type: "sms",
+      });
       if (error) throw error;
       toast.success("Phone verified!");
-      navigate("/home");
+      navigate("/home", { replace: true });
     } catch (err) {
       toast.error(err?.message || "OTP verification failed.");
     } finally {
@@ -132,7 +146,7 @@ export default function Auth() {
     }
   };
 
-  // Google OAuth
+  // --- Google
   const handleGoogle = async () => {
     setLoading(true);
     try {
@@ -148,7 +162,7 @@ export default function Auth() {
     }
   };
 
-  // Render forms
+  // --- Form render
   const renderForm = () => {
     switch (mode) {
       case "signup":
@@ -158,7 +172,9 @@ export default function Auth() {
             <input name="phone" placeholder="+2547..." onChange={handleChange} />
             <input name="email" type="email" placeholder="Email" onChange={handleChange} required />
             <input name="password" type="password" placeholder="Password" onChange={handleChange} required />
-            <Button type="submit" disabled={loading}>{loading ? "Creating..." : "Sign up"}</Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? "Creating..." : "Sign up"}
+            </Button>
           </form>
         );
       case "login":
@@ -166,15 +182,27 @@ export default function Auth() {
           <form onSubmit={handleLogin} className="auth-form">
             <input name="email" type="email" placeholder="Email" onChange={handleChange} required />
             <input name="password" type="password" placeholder="Password" onChange={handleChange} required />
-            <button type="button" onClick={handleForgotPassword} className="forgot-btn">Forgot password?</button>
-            <Button type="submit" disabled={loading}>{loading ? "Signing in..." : "Sign in"}</Button>
+            <button type="button" onClick={handleForgotPassword} className="forgot-btn">
+              Forgot password?
+            </button>
+            <Button type="submit" disabled={loading}>
+              {loading ? "Signing in..." : "Sign in"}
+            </Button>
           </form>
         );
       case "verifyOtp":
         return (
           <div className="otp-form">
-            <input className="otp-input" value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))} maxLength={6} placeholder="123456" />
-            <Button onClick={handleVerifyOtp} disabled={loading || otp.length !== 6}>{loading ? "Verifying..." : "Verify OTP"}</Button>
+            <input
+              className="otp-input"
+              value={otp}
+              onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+              maxLength={6}
+              placeholder="123456"
+            />
+            <Button onClick={handleVerifyOtp} disabled={loading || otp.length !== 6}>
+              {loading ? "Verifying..." : "Verify OTP"}
+            </Button>
           </div>
         );
       default:
@@ -186,16 +214,26 @@ export default function Auth() {
     <motion.div className="auth-container" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
       <div className="auth-form-container glass-card">
         <h2 className="auth-title">
-          {mode === "signup" ? "Create an account" : mode === "verifyOtp" ? "Verify your phone" : "Welcome back"}
+          {mode === "signup"
+            ? "Create an account"
+            : mode === "verifyOtp"
+            ? "Verify your phone"
+            : "Welcome back"}
         </h2>
         {renderForm()}
         {mode !== "verifyOtp" && (
           <>
             <div className="auth-divider">or</div>
-            <button onClick={handleGoogle} className="google-signin-btn" disabled={loading}>Continue with Google</button>
+            <button onClick={handleGoogle} className="google-signin-btn" disabled={loading}>
+              Continue with Google
+            </button>
             <div className="toggle-form-text">
-              <p>{mode === "signup" ? "Already have an account?" : "Don't have an account?"}{" "}
-                <button onClick={() => setMode(mode === "signup" ? "login" : "signup")} className="toggle-btn">
+              <p>
+                {mode === "signup" ? "Already have an account?" : "Don't have an account?"}{" "}
+                <button
+                  onClick={() => setMode(mode === "signup" ? "login" : "signup")}
+                  className="toggle-btn"
+                >
                   {mode === "signup" ? "Sign in" : "Sign up"}
                 </button>
               </p>

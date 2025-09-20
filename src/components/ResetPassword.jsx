@@ -1,4 +1,3 @@
-// src/components/ResetPassword.jsx
 import React, { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/supabase";
@@ -14,17 +13,8 @@ export default function ResetPassword() {
   const [loading, setLoading] = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
 
-  const token = searchParams.get("token");
-  const email = searchParams.get("email");
-
   useEffect(() => {
-    if (!token) {
-      toast.error("Invalid or expired reset link.");
-      navigate("/auth");
-      return;
-    }
-
-    // Supabase listens for recovery session
+    // Supabase sends user back here with a recovery session already active
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "PASSWORD_RECOVERY" && session) {
         setSessionReady(true);
@@ -37,9 +27,10 @@ export default function ResetPassword() {
     })();
 
     return () => listener?.subscription?.unsubscribe();
-  }, [token, navigate]);
+  }, []);
 
-  const isValidPassword = (pwd) => /[a-z]/.test(pwd) && /[A-Z]/.test(pwd) && /[0-9]/.test(pwd) && pwd.length >= 8;
+  const isValidPassword = (pwd) =>
+    /[a-z]/.test(pwd) && /[A-Z]/.test(pwd) && /[0-9]/.test(pwd) && pwd.length >= 8;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -56,7 +47,7 @@ export default function ResetPassword() {
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
       toast.success("Password updated successfully! Please login.");
-      navigate("/auth");
+      navigate("/auth", { replace: true });
     } catch (err) {
       toast.error(err?.message || "Failed to reset password.");
     } finally {
@@ -82,13 +73,27 @@ export default function ResetPassword() {
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="auth-input-group">
             <label>New password</label>
-            <input type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <input
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
           </div>
           <div className="auth-input-group">
             <label>Confirm password</label>
-            <input type="password" placeholder="••••••••" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
+            <input
+              type="password"
+              placeholder="••••••••"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+            />
           </div>
-          <Button type="submit" disabled={loading}>{loading ? "Updating..." : "Reset Password"}</Button>
+          <Button type="submit" disabled={loading}>
+            {loading ? "Updating..." : "Reset Password"}
+          </Button>
         </form>
       </div>
     </div>
