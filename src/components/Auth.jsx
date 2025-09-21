@@ -1,3 +1,4 @@
+// src/components/Auth.jsx
 import React, { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -12,41 +13,42 @@ export default function Auth() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  const [mode, setMode] = useState("login"); // login | signup | reset | verifyOtp
+  const [mode, setMode] = useState("login"); // login | signup | verifyOtp
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({ name: "", phone: "", email: "", password: "" });
   const [otp, setOtp] = useState("");
 
-  /**
-   * 🔑 Recovery link handling
-   * If Supabase redirects here with type=recovery, send user to /auth/reset
-   */
+  // Detect recovery link and forward to reset page
   useEffect(() => {
+    const recoveryToken = searchParams.get("token");
     const type = searchParams.get("type");
-    const token = searchParams.get("token");
     const email = searchParams.get("email");
 
-    if (type === "recovery" && token) {
+    if (type === "recovery" && recoveryToken) {
       navigate(
-        `/auth/reset?token=${encodeURIComponent(token)}${
-          email ? `&email=${encodeURIComponent(email)}` : ""
-        }`,
+        `/auth/reset?token=${recoveryToken}${email ? `&email=${encodeURIComponent(email)}` : ""}`,
         { replace: true }
       );
     }
   }, [searchParams, navigate]);
 
-  /**
-   * 🔑 Normal session handling
-   * Redirect logged-in users to /home, EXCEPT when doing recovery
-   */
+  // Redirect logged-in users normally, but exclude recovery session
   useEffect(() => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       const type = searchParams.get("type");
 
-      if (session?.user && type !== "recovery") {
-        navigate("/home", { replace: true });
+      if (session?.user) {
+        if (type === "recovery") {
+          // Stay on reset page instead of home
+          navigate(
+            `/auth/reset?token=${searchParams.get("token")}&email=${encodeURIComponent(
+              session.user.email
+            )}`
+          );
+        } else {
+          navigate("/home");
+        }
       }
     };
     checkSession();
@@ -60,7 +62,7 @@ export default function Auth() {
   const isValidPassword = (pwd) =>
     /[a-z]/.test(pwd) && /[A-Z]/.test(pwd) && /[0-9]/.test(pwd) && pwd.length >= 8;
 
-  // --- Signup
+  // Signup
   const handleSignup = async (e) => {
     e.preventDefault();
     if (!isValidPassword(formData.password)) {
@@ -75,7 +77,7 @@ export default function Auth() {
         options: { data: { full_name: formData.name, phone: formData.phone } },
       });
       if (error) throw error;
-      toast.success("Signup successful — check your email for confirmation.");
+      toast.success("Signup successful — check email for confirmation.");
       setMode("login");
     } catch (err) {
       toast.error(err?.message || "Signup failed.");
@@ -84,7 +86,7 @@ export default function Auth() {
     }
   };
 
-  // --- Login
+  // Login
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -95,7 +97,7 @@ export default function Auth() {
       });
       if (error) throw error;
       toast.success("Welcome back!");
-      navigate("/home", { replace: true });
+      navigate("/home");
     } catch (err) {
       toast.error(err?.message || "Login failed.");
     } finally {
@@ -103,7 +105,7 @@ export default function Auth() {
     }
   };
 
-  // --- Forgot password
+  // Forgot password
   const handleForgotPassword = async () => {
     if (!formData.email) {
       toast.error("Enter your email first.");
@@ -115,7 +117,7 @@ export default function Auth() {
         redirectTo: `${APP_URL}/auth/reset?email=${encodeURIComponent(formData.email)}`,
       });
       if (error) throw error;
-      toast.success("Check your email for a secure reset link.");
+      toast.success("Check your email — the reset link will open a secure reset page.");
     } catch (err) {
       toast.error(err?.message || "Failed to send reset link.");
     } finally {
@@ -123,7 +125,7 @@ export default function Auth() {
     }
   };
 
-  // --- OTP
+  // OTP verification
   const handleVerifyOtp = async () => {
     if (!formData.phone || otp.length !== 6) {
       toast.error("Enter valid phone + 6-digit OTP.");
@@ -138,7 +140,7 @@ export default function Auth() {
       });
       if (error) throw error;
       toast.success("Phone verified!");
-      navigate("/home", { replace: true });
+      navigate("/home");
     } catch (err) {
       toast.error(err?.message || "OTP verification failed.");
     } finally {
@@ -146,7 +148,7 @@ export default function Auth() {
     }
   };
 
-  // --- Google
+  // Google OAuth
   const handleGoogle = async () => {
     setLoading(true);
     try {
@@ -162,7 +164,6 @@ export default function Auth() {
     }
   };
 
-  // --- Form render
   const renderForm = () => {
     switch (mode) {
       case "signup":
@@ -171,7 +172,13 @@ export default function Auth() {
             <input name="name" placeholder="Full name" onChange={handleChange} required />
             <input name="phone" placeholder="+2547..." onChange={handleChange} />
             <input name="email" type="email" placeholder="Email" onChange={handleChange} required />
-            <input name="password" type="password" placeholder="Password" onChange={handleChange} required />
+            <input
+              name="password"
+              type="password"
+              placeholder="Password"
+              onChange={handleChange}
+              required
+            />
             <Button type="submit" disabled={loading}>
               {loading ? "Creating..." : "Sign up"}
             </Button>
@@ -181,7 +188,13 @@ export default function Auth() {
         return (
           <form onSubmit={handleLogin} className="auth-form">
             <input name="email" type="email" placeholder="Email" onChange={handleChange} required />
-            <input name="password" type="password" placeholder="Password" onChange={handleChange} required />
+            <input
+              name="password"
+              type="password"
+              placeholder="Password"
+              onChange={handleChange}
+              required
+            />
             <button type="button" onClick={handleForgotPassword} className="forgot-btn">
               Forgot password?
             </button>

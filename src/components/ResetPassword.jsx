@@ -1,3 +1,4 @@
+// src/components/ResetPassword.jsx
 import React, { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/supabase";
@@ -13,8 +14,16 @@ export default function ResetPassword() {
   const [loading, setLoading] = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
 
+  const token = searchParams.get("token");
+
   useEffect(() => {
-    // Supabase sends user back here with a recovery session already active
+    if (!token) {
+      toast.error("Invalid or expired reset link.");
+      navigate("/auth");
+      return;
+    }
+
+    // Supabase emits PASSWORD_RECOVERY event
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "PASSWORD_RECOVERY" && session) {
         setSessionReady(true);
@@ -27,7 +36,7 @@ export default function ResetPassword() {
     })();
 
     return () => listener?.subscription?.unsubscribe();
-  }, []);
+  }, [token, navigate]);
 
   const isValidPassword = (pwd) =>
     /[a-z]/.test(pwd) && /[A-Z]/.test(pwd) && /[0-9]/.test(pwd) && pwd.length >= 8;
@@ -47,7 +56,7 @@ export default function ResetPassword() {
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
       toast.success("Password updated successfully! Please login.");
-      navigate("/auth", { replace: true });
+      navigate("/auth");
     } catch (err) {
       toast.error(err?.message || "Failed to reset password.");
     } finally {
