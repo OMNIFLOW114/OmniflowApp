@@ -1,6 +1,6 @@
 // src/components/ResetPassword.jsx
 import React, { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/supabase";
 import { Button } from "@/components/ui/button";
 import toast from "react-hot-toast";
@@ -8,35 +8,29 @@ import "./Auth.css";
 
 export default function ResetPassword() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
 
-  const token = searchParams.get("token");
-
   useEffect(() => {
-    if (!token) {
-      toast.error("Invalid or expired reset link.");
-      navigate("/auth");
-      return;
-    }
-
-    // Supabase emits PASSWORD_RECOVERY event
-    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "PASSWORD_RECOVERY" && session) {
-        setSessionReady(true);
+    // Listen for Supabase recovery session
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (event === "PASSWORD_RECOVERY" && session) {
+          setSessionReady(true);
+        }
       }
-    });
+    );
 
+    // Also check immediately if a session is already active (from recovery link)
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) setSessionReady(true);
     })();
 
     return () => listener?.subscription?.unsubscribe();
-  }, [token, navigate]);
+  }, []);
 
   const isValidPassword = (pwd) =>
     /[a-z]/.test(pwd) && /[A-Z]/.test(pwd) && /[0-9]/.test(pwd) && pwd.length >= 8;
@@ -51,6 +45,7 @@ export default function ResetPassword() {
       toast.error("Passwords do not match.");
       return;
     }
+
     setLoading(true);
     try {
       const { error } = await supabase.auth.updateUser({ password });
@@ -69,7 +64,9 @@ export default function ResetPassword() {
       <div className="auth-container">
         <div className="auth-form-container glass-card">
           <h2 className="auth-title">Reset Password</h2>
-          <p style={{ textAlign: "center", color: "#bbb" }}>Validating reset link...</p>
+          <p style={{ textAlign: "center", color: "#bbb" }}>
+            Validating reset link...
+          </p>
         </div>
       </div>
     );
