@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { FaWhatsapp } from "react-icons/fa";
 import "./Profile.css";
 
+
 export default function Profile() {
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
