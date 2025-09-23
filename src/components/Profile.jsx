@@ -3,7 +3,7 @@ import { supabase } from "@/supabase";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { FaWhatsapp } from "react-icons/fa";
-import "./Profile.css";
+import "./profile.css";
 
 
 export default function Profile() {
