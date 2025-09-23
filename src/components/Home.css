@@ -177,3 +177,42 @@
   font-size: 0.75rem;
   margin-top: 0.25rem;
 }
+/* Navbar buttons/icons clean style */
+.profile-icon-wrapper,
+.messages-wrapper {
+  position: relative;
+  display: inline-block;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  outline: none;
+  cursor: pointer;
+}
+
+/* Remove focus outlines */
+.profile-icon-wrapper:focus,
+.messages-wrapper:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Dot indicators */
+.dot {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: #ef4444; /* red dot */
+  border-radius: 50%;
+}
+
+/* Position dots */
+.top-left-dot {
+  top: 0;
+  right: 0;
+}
+
+.top-right-dot {
+  top: 0;
+  right: 0;
+}

@@ -23,27 +23,15 @@ const menuVariants = {
   }),
 };
 
-const SidebarMenu = ({ onClose, onLogout }) => {
+const SidebarMenu = ({ onClose, onLogout, adminAlerts = 0 }) => {
   const { darkMode, toggleDarkMode } = useDarkMode();
   const { user } = useAuth();
   const navigate = useNavigate();
 
   const menuItems = [
-    {
-      icon: <FaUserCircle size={18} />,
-      text: "Profile",
-      link: "/profile",
-    },
-    {
-      icon: <FaCogs size={18} />,
-      text: "Settings",
-      link: "/settings",
-    },
-    {
-      icon: <FaQuestionCircle size={18} />,
-      text: "Help Center",
-      link: "/help",
-    },
+    { icon: <FaUserCircle size={18} />, text: "Profile", link: "/profile" },
+    { icon: <FaCogs size={18} />, text: "Settings", link: "/settings" },
+    { icon: <FaQuestionCircle size={18} />, text: "Help Center", link: "/help" },
   ];
 
   return (
@@ -99,6 +87,11 @@ const SidebarMenu = ({ onClose, onLogout }) => {
               >
                 <FaTools size={18} />
                 <span>Admin Panel</span>
+                {adminAlerts > 0 && (
+                  <span className="admin-alert-badge">
+                    {adminAlerts > 9 ? "9+" : adminAlerts}
+                  </span>
+                )}
               </button>
             </motion.div>
           )}

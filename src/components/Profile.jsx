@@ -1,303 +1,235 @@
 import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { useNavigate } from "react-router-dom";
 import { supabase } from "@/supabase";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { FaWhatsapp } from "react-icons/fa";
+import "./Profile.css";
 
 export default function Profile() {
   const navigate = useNavigate();
-  const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [imageFile, setImageFile] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [generatingBio, setGeneratingBio] = useState(false);
 
-  const [profile, setProfile] = useState({
-    fullName: "",
-    email: "",
-    phone: "",
-    gender: "",
-    birthday: "",
-    address: "",
-    city: "",
-    country: "",
-    jobTitle: "",
-    company: "",
-    linkedIn: "",
-    website: "",
-    skills: "",
-    interests: "",
-    bio: "",
-    profilePicture: "",
-    portfolio: "",
-    twitter: "",
-    facebook: "",
-    instagram: "",
-    github: "",
-    languages: "",
-    aboutMe: "",
-    resume: "",
-  });
-
+  // Fetch user + profile + seller info
   useEffect(() => {
-    const fetchUserAndCheckProfile = async () => {
-      const { data: authData } = await supabase.auth.getUser();
-      const user = authData?.user;
+    const fetchProfile = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return navigate("/login");
 
-      if (!user) {
-        navigate("/login");
-        return;
-      }
-
-      setUser(user);
-      setProfile((prev) => ({
-        ...prev,
-        email: user.email,
-      }));
-
-      const { data: userData, error } = await supabase
+      // Check users table for full name
+      const { data: userMeta } = await supabase
         .from("users")
-        .select("profile_completed")
+        .select("full_name")
         .eq("id", user.id)
         .single();
 
-      if (error) {
-        console.error("Error checking profile:", error.message);
-        return;
+      // Fetch profile
+      let { data: profileData } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+
+      if (!profileData) {
+        // Insert empty profile
+        await supabase.from("profiles").insert({ id: user.id });
+        profileData = {};
       }
 
-      if (userData?.profile_completed) {
-        navigate("/home");
-      }
+      // Check if user is a seller (active store)
+      const { data: storeData } = await supabase
+        .from("stores")
+        .select("*")
+        .eq("owner_email", user.email)
+        .eq("is_active", true)
+        .single();
+
+      setProfile({
+        id: user.id,
+        fullName: userMeta?.full_name || "",
+        email: user.email,
+        phone: profileData.phone || "",
+        gender: profileData.gender || "",
+        birthday: profileData.birthday || "",
+        city: profileData.city || "",
+        country: profileData.country || "",
+        jobTitle: profileData.job_title || "",
+        company: profileData.company || "",
+        linkedIn: profileData.linkedin || "",
+        website: profileData.website || "",
+        twitter: profileData.twitter || "",
+        instagram: profileData.instagram || "",
+        facebook: profileData.facebook || "",
+        github: profileData.github || "",
+        skills: profileData.skills || "",
+        languages: profileData.languages || "",
+        interests: profileData.interests || "",
+        aboutMe: profileData.about_me || "",
+        bio: profileData.bio || "",
+        profilePicture: profileData.profile_picture || "",
+        isSeller: !!storeData,
+      });
     };
 
-    fetchUserAndCheckProfile();
-  }, []);
+    fetchProfile();
+  }, [navigate]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setProfile((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setProfile((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      setImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setProfile((prev) => ({
-          ...prev,
-          profilePicture: reader.result,
-        }));
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleGenerateBio = async () => {
-    setGeneratingBio(true);
-    const { fullName, jobTitle, company, skills, interests } = profile;
-    const generatedBio = `👋 Hi, I'm ${fullName}, a passionate ${jobTitle} at ${company}. I specialize in ${skills}. Outside of work, I enjoy ${interests}. I'm driven by innovation, collaboration, and a love for learning.`;
-    setTimeout(() => {
-      setProfile((prev) => ({ ...prev, bio: generatedBio }));
-      setGeneratingBio(false);
-    }, 1500);
+    if (!file) return;
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => setProfile((prev) => ({ ...prev, profilePicture: reader.result }));
+    reader.readAsDataURL(file);
   };
 
   const handleSave = async () => {
-    if (!profile.fullName || !profile.email || !profile.phone) {
-      alert("Please fill in all the required fields.");
-      return;
-    }
+    if (!profile.phone) return alert("Phone is required");
 
     setSaving(true);
-    setLoading(true);
-
     try {
-      const uid = user?.id;
-      if (!uid) throw new Error("User not authenticated.");
-
       let profilePictureUrl = profile.profilePicture;
 
       if (imageFile) {
-        const fileExt = imageFile.name.split(".").pop();
-        const fileName = `profile_${uid}.${fileExt}`;
-        const { data, error } = await supabase.storage
+        const ext = imageFile.name.split(".").pop();
+        const fileName = `profile_${profile.id}.${ext}`;
+        const { error: uploadError } = await supabase.storage
           .from("profile-pictures")
           .upload(fileName, imageFile, { upsert: true });
+        if (uploadError) throw uploadError;
 
-        if (error) throw error;
-
-        const { data: urlData } = supabase
-          .storage
+        const { data: publicUrl } = supabase.storage
           .from("profile-pictures")
           .getPublicUrl(fileName);
 
-        profilePictureUrl = urlData?.publicUrl;
+        profilePictureUrl = publicUrl.publicUrl;
       }
 
-      await supabase
-        .from("users")
-        .update({
-          ...profile,
-          profilePicture: profilePictureUrl,
-          profile_completed: true,
-        })
-        .eq("id", uid);
+      const updates = {
+        phone: profile.phone,
+        gender: profile.gender,
+        birthday: profile.birthday,
+        city: profile.city,
+        country: profile.country,
+        job_title: profile.jobTitle,
+        company: profile.company,
+        linkedin: profile.linkedIn,
+        website: profile.website,
+        twitter: profile.twitter,
+        instagram: profile.instagram,
+        facebook: profile.facebook,
+        github: profile.github,
+        skills: profile.skills,
+        languages: profile.languages,
+        interests: profile.interests,
+        about_me: profile.aboutMe,
+        bio: profile.bio,
+        profile_picture: profilePictureUrl,
+        updated_at: new Date(),
+      };
+
+      const { error } = await supabase.from("profiles").update(updates).eq("id", profile.id);
+      if (error) throw error;
 
       navigate("/home");
-    } catch (error) {
-      alert("Error saving profile: " + error.message);
+    } catch (err) {
+      alert("Error saving profile: " + err.message);
     } finally {
       setSaving(false);
-      setLoading(false);
     }
   };
 
-  const requiredStyle = "text-red-500 text-sm ml-1";
-
-  const Input = ({ label, name, required = false, type = "text" }) => (
-    <div>
-      <label className="block font-medium text-gray-700">
-        {label}
-        {required && <span className={requiredStyle}>*</span>}
-      </label>
-      <input
-        type={type}
-        name={name}
-        value={profile[name]}
-        onChange={handleChange}
-        className="mt-1 p-3 w-full border rounded-md"
-        required={required}
-      />
-    </div>
-  );
+  if (!profile) return <div className="profile-loading">Loading...</div>;
 
   return (
-    <motion.div
-      className="min-h-screen bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center px-4"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-    >
-      <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-4xl space-y-6">
-        <h2 className="text-3xl font-bold text-center text-gray-800">OmniFlow Profile</h2>
+    <div className="profile-page">
+      <div className="profile-container">
+        <h2 className="profile-heading">My Profile</h2>
 
-        <div className="flex items-center justify-center">
-          <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-200">
-            <img
-              src={profile.profilePicture || "/placeholder-profile.png"}
-              alt="Profile"
-              className="w-full h-full object-cover"
-            />
-          </div>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleImageChange}
-            className="ml-4 p-2 text-gray-700"
-          />
-        </div>
-
-        <div className="space-y-6">
-          <h3 className="text-xl font-semibold text-gray-700">Personal Information</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Input label="Full Name" name="fullName" required />
-            <Input label="Email" name="email" type="email" required />
-            <Input label="Phone Number" name="phone" type="tel" required />
-            <Input label="Gender" name="gender" />
-            <Input label="Birthday" name="birthday" type="date" />
-            <Input label="Address" name="address" />
-            <Input label="City" name="city" />
-            <Input label="Country" name="country" />
-          </div>
-        </div>
-
-        <div className="space-y-6">
-          <h3 className="text-xl font-semibold text-gray-700">Professional Information</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Input label="Job Title" name="jobTitle" />
-            <Input label="Company" name="company" />
-            <Input label="LinkedIn" name="linkedIn" />
-            <Input label="Website" name="website" />
-          </div>
-        </div>
-
-        <div className="space-y-6">
-          <h3 className="text-xl font-semibold text-gray-700">Social Media</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Input label="Twitter" name="twitter" />
-            <Input label="Instagram" name="instagram" />
-            <Input label="Facebook" name="facebook" />
-            <Input label="GitHub" name="github" />
-          </div>
-        </div>
-
-        <div className="space-y-6">
-          <h3 className="text-xl font-semibold text-gray-700">Skills & Interests</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Input label="Skills" name="skills" />
-            <Input label="Languages" name="languages" />
-            <Input label="Interests" name="interests" />
-          </div>
-        </div>
-
-        <div className="space-y-6">
-          <h3 className="text-xl font-semibold text-gray-700">About Me & Bio</h3>
-          <textarea
-            name="aboutMe"
-            value={profile.aboutMe}
-            onChange={handleChange}
-            className="mt-1 p-3 w-full border rounded-md"
-            placeholder="Tell us something about yourself"
-          />
-          <div className="relative">
-            <textarea
-              name="bio"
-              value={profile.bio}
-              onChange={handleChange}
-              className="mt-1 p-3 w-full border rounded-md"
-              placeholder="Professional Bio"
-            />
-            <div className="flex justify-end mt-2">
-              <Button
-                onClick={handleGenerateBio}
-                disabled={generatingBio}
-                className="bg-indigo-600 text-white hover:bg-indigo-700"
-              >
-                {generatingBio ? "Generating..." : "Generate Bio with AI"}
-              </Button>
+        <div className="profile-photo-wrapper">
+          {profile.profilePicture ? (
+            <img src={profile.profilePicture} alt="Profile" className="profile-photo" />
+          ) : (
+            <div className="profile-placeholder">
+              {profile.fullName ? profile.fullName.charAt(0).toUpperCase() : "U"}
+              {profile.whatsappNumber && <FaWhatsapp className="whatsapp-icon" />}
             </div>
+          )}
+
+          <label className="upload-btn">
+            Change Photo
+            <input type="file" accept="image/*" onChange={handleImageChange} hidden />
+          </label>
+
+          <div className="profile-basic-info">
+            <h3>{profile.fullName || "Unnamed User"}</h3>
+            <p>{profile.email}</p>
+            {profile.isSeller && <span className="seller-badge">Seller</span>}
           </div>
         </div>
 
-        <div className="space-y-6">
-          <h3 className="text-xl font-semibold text-gray-700">Portfolio & Resume</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Input label="Portfolio URL" name="portfolio" />
-            <Input label="Resume URL" name="resume" />
+        {/* Personal Info (Required) */}
+        <div className="profile-section">
+          <h3 className="section-title">Personal Information</h3>
+          <div className="grid-2">
+            <input name="phone" placeholder="Phone *" value={profile.phone} onChange={handleChange} required />
+            <input name="gender" placeholder="Gender" value={profile.gender} onChange={handleChange} />
+            <input type="date" name="birthday" value={profile.birthday} onChange={handleChange} />
+            <input name="city" placeholder="City" value={profile.city} onChange={handleChange} />
+            <input name="country" placeholder="Country" value={profile.country} onChange={handleChange} />
           </div>
         </div>
 
-        <div className="pt-6 flex justify-end space-x-4">
-          <Button
-            variant="secondary"
-            onClick={() => navigate("/home")}
-            className="bg-gray-200 hover:bg-gray-300"
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            onClick={handleSave}
-            disabled={saving || loading}
-          >
-            {saving || loading ? "Saving..." : "Save Profile"}
-          </Button>
+        {/* Professional Info (Optional) */}
+        <div className="profile-section">
+          <h3 className="section-title">Professional Information (Optional)</h3>
+          <div className="grid-2">
+            <input name="jobTitle" placeholder="Job Title" value={profile.jobTitle} onChange={handleChange} />
+            <input name="company" placeholder="Company" value={profile.company} onChange={handleChange} />
+            <input name="linkedIn" placeholder="LinkedIn" value={profile.linkedIn} onChange={handleChange} />
+            <input name="website" placeholder="Website" value={profile.website} onChange={handleChange} />
+          </div>
+        </div>
+
+        {/* Social Media (Optional) */}
+        <div className="profile-section">
+          <h3 className="section-title">Social Media (Optional)</h3>
+          <div className="grid-2">
+            <input name="twitter" placeholder="Twitter" value={profile.twitter} onChange={handleChange} />
+            <input name="instagram" placeholder="Instagram" value={profile.instagram} onChange={handleChange} />
+            <input name="facebook" placeholder="Facebook" value={profile.facebook} onChange={handleChange} />
+            <input name="github" placeholder="GitHub" value={profile.github} onChange={handleChange} />
+          </div>
+        </div>
+
+        {/* Skills / Interests (Optional) */}
+        <div className="profile-section">
+          <h3 className="section-title">Skills & Interests (Optional)</h3>
+          <div className="grid-2">
+            <input name="skills" placeholder="Skills" value={profile.skills} onChange={handleChange} />
+            <input name="languages" placeholder="Languages" value={profile.languages} onChange={handleChange} />
+            <input name="interests" placeholder="Interests" value={profile.interests} onChange={handleChange} />
+          </div>
+        </div>
+
+        {/* About & Bio (Optional) */}
+        <div className="profile-section">
+          <h3 className="section-title">About Me & Bio (Optional)</h3>
+          <textarea name="aboutMe" placeholder="Tell us about yourself" value={profile.aboutMe} onChange={handleChange} />
+          <textarea name="bio" placeholder="Professional Bio" value={profile.bio} onChange={handleChange} />
+        </div>
+
+        <div className="actions">
+          <Button onClick={() => navigate("/home")} className="btn-secondary">Cancel</Button>
+          <Button onClick={handleSave} disabled={saving}>{saving ? "Saving..." : "Save Profile"}</Button>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }

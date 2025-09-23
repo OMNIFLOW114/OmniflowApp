@@ -1,62 +1,17 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
 
-/* Tailwind base layers */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Basic reset & font setup */
+/* Keep global neutral only */
 body {
   margin: 0;
   font-family: 'Inter', sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  background-color: white; /* Neutral background that won't override components */
-  color: #111827; /* Neutral dark text */
+  background-color: white;
+  color: #111827;
 }
 
 html {
   scroll-behavior: smooth;
-}
-
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
-}
-
-button,
-input,
-a {
-  transition: all 0.2s ease-in-out;
-}
-
-/* Tailwind-friendly utility styles (no theme enforced) */
-@layer components {
-  .btn-primary {
-    @apply bg-blue-600 text-white font-semibold px-4 py-2 rounded hover:bg-blue-700 transition-all;
-  }
-
-  .btn-danger {
-    @apply bg-red-600 text-white font-semibold px-4 py-2 rounded hover:bg-red-700 transition-all;
-  }
-
-  .card {
-    @apply bg-white rounded-xl shadow-md p-6;
-  }
-}
-
-/* Optional animation */
-@keyframes coin-spin {
-  0% {
-    transform: rotateY(0deg) translateY(0);
-  }
-  50% {
-    transform: rotateY(180deg) translateY(-10px);
-  }
-  100% {
-    transform: rotateY(360deg) translateY(0);
-  }
-}
-
-.animate-coin-spin {
-  animation: coin-spin 3s infinite ease-in-out;
 }

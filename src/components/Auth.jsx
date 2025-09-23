@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { supabase } from "@/supabase";
 import { Button } from "@/components/ui/button";
 import toast from "react-hot-toast";
+import { Loader2 } from "lucide-react";
 import "./Auth.css";
 
 const APP_URL = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
@@ -13,12 +14,12 @@ export default function Auth() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  const [mode, setMode] = useState("login"); // login | signup | verifyOtp
+  const [mode, setMode] = useState("login"); // login | signup | forgot | verifyOtp
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({ name: "", phone: "", email: "", password: "" });
   const [otp, setOtp] = useState("");
 
-  // Detect recovery link and forward to reset page
+  // Reset redirect
   useEffect(() => {
     const recoveryToken = searchParams.get("token");
     const type = searchParams.get("type");
@@ -32,7 +33,7 @@ export default function Auth() {
     }
   }, [searchParams, navigate]);
 
-  // Redirect logged-in users normally, but exclude recovery session
+  // Auto-redirect logged in users
   useEffect(() => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -40,12 +41,7 @@ export default function Auth() {
 
       if (session?.user) {
         if (type === "recovery") {
-          // Stay on reset page instead of home
-          navigate(
-            `/auth/reset?token=${searchParams.get("token")}&email=${encodeURIComponent(
-              session.user.email
-            )}`
-          );
+          navigate(`/auth/reset?token=${searchParams.get("token")}&email=${encodeURIComponent(session.user.email)}`);
         } else {
           navigate("/home");
         }
@@ -77,7 +73,7 @@ export default function Auth() {
         options: { data: { full_name: formData.name, phone: formData.phone } },
       });
       if (error) throw error;
-      toast.success("Signup successful — check email for confirmation.");
+      toast.success("Signup successful — confirm via email.");
       setMode("login");
     } catch (err) {
       toast.error(err?.message || "Signup failed.");
@@ -96,7 +92,7 @@ export default function Auth() {
         password: formData.password,
       });
       if (error) throw error;
-      toast.success("Welcome back!");
+      toast.success("Welcome back 👋");
       navigate("/home");
     } catch (err) {
       toast.error(err?.message || "Login failed.");
@@ -106,7 +102,8 @@ export default function Auth() {
   };
 
   // Forgot password
-  const handleForgotPassword = async () => {
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
     if (!formData.email) {
       toast.error("Enter your email first.");
       return;
@@ -117,7 +114,8 @@ export default function Auth() {
         redirectTo: `${APP_URL}/auth/reset?email=${encodeURIComponent(formData.email)}`,
       });
       if (error) throw error;
-      toast.success("Check your email — the reset link will open a secure reset page.");
+      toast.success("Check your email for a secure reset link.");
+      setMode("login");
     } catch (err) {
       toast.error(err?.message || "Failed to send reset link.");
     } finally {
@@ -125,7 +123,7 @@ export default function Auth() {
     }
   };
 
-  // OTP verification
+  // OTP verify
   const handleVerifyOtp = async () => {
     if (!formData.phone || otp.length !== 6) {
       toast.error("Enter valid phone + 6-digit OTP.");
@@ -139,7 +137,7 @@ export default function Auth() {
         type: "sms",
       });
       if (error) throw error;
-      toast.success("Phone verified!");
+      toast.success("Phone verified 🎉");
       navigate("/home");
     } catch (err) {
       toast.error(err?.message || "OTP verification failed.");
@@ -148,7 +146,7 @@ export default function Auth() {
     }
   };
 
-  // Google OAuth
+  // Google
   const handleGoogle = async () => {
     setLoading(true);
     try {
@@ -172,14 +170,9 @@ export default function Auth() {
             <input name="name" placeholder="Full name" onChange={handleChange} required />
             <input name="phone" placeholder="+2547..." onChange={handleChange} />
             <input name="email" type="email" placeholder="Email" onChange={handleChange} required />
-            <input
-              name="password"
-              type="password"
-              placeholder="Password"
-              onChange={handleChange}
-              required
-            />
+            <input name="password" type="password" placeholder="Password" onChange={handleChange} required />
             <Button type="submit" disabled={loading}>
+              {loading ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
               {loading ? "Creating..." : "Sign up"}
             </Button>
           </form>
@@ -188,19 +181,29 @@ export default function Auth() {
         return (
           <form onSubmit={handleLogin} className="auth-form">
             <input name="email" type="email" placeholder="Email" onChange={handleChange} required />
-            <input
-              name="password"
-              type="password"
-              placeholder="Password"
-              onChange={handleChange}
-              required
-            />
-            <button type="button" onClick={handleForgotPassword} className="forgot-btn">
-              Forgot password?
-            </button>
+            <input name="password" type="password" placeholder="Password" onChange={handleChange} required />
+            <div className="auth-links">
+              <button type="button" onClick={() => setMode("forgot")} className="link-btn">
+                Forgot password?
+              </button>
+            </div>
             <Button type="submit" disabled={loading}>
+              {loading ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
               {loading ? "Signing in..." : "Sign in"}
             </Button>
+          </form>
+        );
+      case "forgot":
+        return (
+          <form onSubmit={handleForgotPassword} className="auth-form">
+            <input name="email" type="email" placeholder="Enter your email" onChange={handleChange} required />
+            <Button type="submit" disabled={loading}>
+              {loading ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
+              {loading ? "Sending..." : "Send Reset Link"}
+            </Button>
+            <button type="button" className="link-btn back-link" onClick={() => setMode("login")}>
+              Back to login
+            </button>
           </form>
         );
       case "verifyOtp":
@@ -214,6 +217,7 @@ export default function Auth() {
               placeholder="123456"
             />
             <Button onClick={handleVerifyOtp} disabled={loading || otp.length !== 6}>
+              {loading ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
               {loading ? "Verifying..." : "Verify OTP"}
             </Button>
           </div>
@@ -224,17 +228,23 @@ export default function Auth() {
   };
 
   return (
-    <motion.div className="auth-container" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+    <motion.div
+      className="auth-container"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+    >
       <div className="auth-form-container glass-card">
         <h2 className="auth-title">
           {mode === "signup"
             ? "Create an account"
+            : mode === "forgot"
+            ? "Reset your password"
             : mode === "verifyOtp"
             ? "Verify your phone"
             : "Welcome back"}
         </h2>
         {renderForm()}
-        {mode !== "verifyOtp" && (
+        {mode === "login" || mode === "signup" ? (
           <>
             <div className="auth-divider">or</div>
             <button onClick={handleGoogle} className="google-signin-btn" disabled={loading}>
@@ -252,7 +262,7 @@ export default function Auth() {
               </p>
             </div>
           </>
-        )}
+        ) : null}
       </div>
     </motion.div>
   );

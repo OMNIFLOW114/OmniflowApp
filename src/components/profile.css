@@ -1,0 +1,207 @@
+.profile-page {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 1.5rem;
+  padding-bottom: 5rem; /* space for bottom nav */
+  background: linear-gradient(to bottom, #e0e7ff, #fdf2f8);
+}
+
+.dark .profile-page {
+  background: linear-gradient(to bottom, #111827, #1f2937);
+}
+
+.profile-container {
+  background: white;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  max-width: 700px;
+  width: 100%;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
+.dark .profile-container {
+  background: #1f2937;
+  color: #e5e7eb;
+}
+
+.profile-heading {
+  text-align: center;
+  font-size: 1.6rem;
+  font-weight: bold;
+  margin-bottom: 1.5rem;
+}
+
+.profile-photo-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.profile-photo {
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #4f46e5;
+  margin-bottom: 0.5rem;
+}
+
+.upload-btn {
+  background: #4f46e5;
+  color: white;
+  padding: 0.4rem 0.8rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.3s;
+}
+
+.upload-btn:hover {
+  background: #4338ca;
+}
+
+.profile-section {
+  margin-bottom: 1.5rem;
+}
+
+.section-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 0.8rem;
+  color: #374151;
+}
+
+.dark .section-title {
+  color: #f3f4f6;
+}
+
+.section-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.8rem;
+}
+
+@media (max-width: 640px) {
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+input,
+textarea {
+  padding: 0.7rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  font-size: 0.95rem;
+  width: 100%;
+  transition: border 0.2s, box-shadow 0.2s;
+}
+
+input:focus,
+textarea:focus {
+  border-color: #4f46e5;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.3);
+}
+
+.dark input,
+.dark textarea {
+  background: #374151;
+  border-color: #4b5563;
+  color: #f9fafb;
+}
+
+.dark input:focus,
+.dark textarea:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.4);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+
+.btn-secondary {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.btn-secondary:hover {
+  background: #d1d5db;
+}
+
+.dark .btn-secondary {
+  background: #374151;
+  color: #f9fafb;
+}
+
+.dark .btn-secondary:hover {
+  background: #4b5563;
+}
+.profile-placeholder {
+  position: relative;
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  background: #f3f4f6;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border: 3px solid #4f46e5;
+  margin-bottom: 0.5rem;
+  overflow: hidden;
+}
+
+.placeholder-icon {
+  font-size: 80px;
+  color: #9ca3af;
+}
+
+.whatsapp-icon {
+  position: absolute;
+  bottom: 5px;
+  right: 5px;
+  font-size: 22px;
+  color: #25d366;
+  background: white;
+  border-radius: 50%;
+  padding: 2px;
+}
+.profile-basic-info {
+  text-align: center;
+  margin-top: 0.5rem;
+}
+
+.profile-basic-info h3 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 0.2rem;
+}
+
+.profile-basic-info p {
+  font-size: 0.95rem;
+  color: #6b7280;
+  margin-bottom: 0.5rem;
+}
+
+.seller-badge {
+  display: inline-block;
+  background: #f59e0b;
+  color: white;
+  font-size: 0.75rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 0.4rem;
+  font-weight: 600;
+}

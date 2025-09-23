@@ -1,20 +1,22 @@
 /* Bottom Navbar */
 .bottom-navbar {
-  background: #fff;
-  padding: 0.5rem 0.75rem;
+  background: linear-gradient(135deg, #ffffffee, #f9fafbee);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  padding: 0.6rem 0.8rem;
   display: flex;
   justify-content: space-around;
   align-items: center;
-  border-top: 1px solid #ddd;
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
   z-index: 50;
-  height: 60px;
+  height: 64px;
+  animation: fadeUp 0.3s ease;
 }
 
-/* Link Styling */
+/* Nav Links */
 .bottom-nav-link {
   display: flex;
   flex-direction: column;
@@ -22,71 +24,90 @@
   justify-content: center;
   flex: 1;
   color: #444;
-  transition: color 0.3s ease, transform 0.2s ease;
   text-decoration: none;
   font-size: 12px;
   position: relative;
-  padding: 4px 0;
-}
-
-/* Active Tab */
-.bottom-nav-link.active {
-  color: #2563eb;
+  transition: transform 0.2s ease, color 0.3s ease;
 }
 
 .bottom-nav-link:hover {
   color: #2563eb;
+  transform: translateY(-2px);
 }
 
-.bottom-nav-link span {
+.bottom-nav-link.active {
+  color: #2563eb;
+}
+
+/* Label */
+.nav-label {
   font-size: 0.75rem;
   margin-top: 0.25rem;
-  text-align: center;
 }
 
-/* Active Indicator Animation (Sliding Dot) */
-.bottom-nav-link .active-indicator {
-  width: 4px;
-  height: 4px;
+/* Active Dot */
+.active-indicator {
+  width: 6px;
+  height: 6px;
   background-color: #2563eb;
   border-radius: 50%;
   position: absolute;
-  bottom: 0;
-  transform: translateY(5px);
-  animation: slideIndicator 0.3s ease-out;
+  bottom: 4px;
+  animation: pop 0.3s ease-out;
 }
 
-/* Sliding Animation */
-@keyframes slideIndicator {
-  0% {
-    width: 0;
-    opacity: 0;
+/* Notification Badge */
+.notif-icon {
+  position: relative;
+}
+
+.notif-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 50%;
+  padding: 3px 6px;
+  min-width: 18px;
+  text-align: center;
+  animation: bounceBadge 1s infinite;
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.5);
+}
+
+/* Animations */
+@keyframes bounceBadge {
+  0%, 100% {
+    transform: scale(1);
   }
-  100% {
-    width: 4px;
-    opacity: 1;
+  50% {
+    transform: scale(1.15);
   }
 }
 
-/* Responsiveness for smaller phones */
+@keyframes pop {
+  0% { transform: scale(0); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes fadeUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* Responsive */
 @media (max-width: 480px) {
   .bottom-navbar {
     height: 56px;
-    padding: 0.4rem 0.5rem;
   }
-
-  .bottom-nav-link span {
+  .nav-label {
     font-size: 0.65rem;
   }
-
-  .bottom-nav-link svg {
-    width: 20px;
-    height: 20px;
-  }
 }
-
 @media (max-width: 360px) {
-  .bottom-nav-link span {
-    display: none; /* hide labels if needed on very small devices */
+  .nav-label {
+    display: none;
   }
 }
