@@ -1,61 +1,144 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "@/supabase";
 import { useAuth } from "@/context/AuthContext";
-import { FaPaperPlane, FaUserCircle, FaSmile } from "react-icons/fa";
+import { 
+  FaPaperPlane, 
+  FaUserCircle, 
+  FaSmile, 
+  FaSearch,
+  FaEllipsisV,
+  FaPhone,
+  FaVideo,
+  FaInfoCircle,
+  FaCheck,
+  FaCheckDouble,
+  FaClock
+} from "react-icons/fa";
+import { motion, AnimatePresence } from "framer-motion";
 import EmojiPicker from "emoji-picker-react";
 import "./Messages.css";
 
 const Messages = () => {
   const { currentUser } = useAuth();
   const [conversations, setConversations] = useState([]);
+  const [filteredConversations, setFilteredConversations] = useState([]);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
-  const [receiverId, setReceiverId] = useState(null);
-  const [typingUsers, setTypingUsers] = useState({});
+  const [activeConversation, setActiveConversation] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [onlineUsers, setOnlineUsers] = useState(new Set());
+  
+  const messagesEndRef = useRef(null);
+  const fileInputRef = useRef(null);
+
+  // Scroll to bottom of messages
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   // Fetch user conversations
   useEffect(() => {
     if (!currentUser) return;
+
     const fetchConversations = async () => {
-      const { data, error } = await supabase.rpc("get_user_conversations", {
-        user_id: currentUser.id,
-      });
-      if (error) console.error(error);
-      else setConversations(data);
+      setIsLoading(true);
+      try {
+        const { data, error } = await supabase.rpc("get_user_conversations", {
+          user_id: currentUser.id,
+        });
+        
+        if (error) throw error;
+        
+        setConversations(data || []);
+        setFilteredConversations(data || []);
+        
+        // Set first conversation as active if available
+        if (data && data.length > 0 && !activeConversation) {
+          setActiveConversation(data[0]);
+        }
+      } catch (error) {
+        console.error("Error fetching conversations:", error);
+      } finally {
+        setIsLoading(false);
+      }
     };
+
     fetchConversations();
   }, [currentUser]);
 
+  // Filter conversations based on search
+  useEffect(() => {
+    if (searchTerm.trim() === "") {
+      setFilteredConversations(conversations);
+    } else {
+      const filtered = conversations.filter(conv =>
+        conv.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        conv.last_message?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      setFilteredConversations(filtered);
+    }
+  }, [searchTerm, conversations]);
+
   // Fetch messages for active conversation
   useEffect(() => {
-    if (!receiverId || !currentUser) return;
+    if (!activeConversation || !currentUser) return;
 
-    const getMessages = async () => {
+    const fetchMessages = async () => {
       const { data, error } = await supabase
         .from("messages")
         .select("*")
         .or(
-          `and(sender_id.eq.${currentUser.id},receiver_id.eq.${receiverId}),and(sender_id.eq.${receiverId},receiver_id.eq.${currentUser.id})`
+          `and(sender_id.eq.${currentUser.id},receiver_id.eq.${activeConversation.user_id}),and(sender_id.eq.${activeConversation.user_id},receiver_id.eq.${currentUser.id})`
         )
-        .order("timestamp", { ascending: true });
-      if (!error) setMessages(data);
+        .order("created_at", { ascending: true });
+
+      if (!error) {
+        setMessages(data || []);
+        
+        // Mark messages as read
+        const unreadMessages = data?.filter(msg => 
+          msg.sender_id === activeConversation.user_id && msg.status === 'unread'
+        );
+        
+        if (unreadMessages && unreadMessages.length > 0) {
+          const messageIds = unreadMessages.map(msg => msg.id);
+          await supabase
+            .from("messages")
+            .update({ status: "read" })
+            .in("id", messageIds);
+        }
+      }
     };
 
-    getMessages();
+    fetchMessages();
 
+    // Real-time subscription for new messages
     const subscription = supabase
-      .channel("realtime-messages")
+      .channel(`messages:${activeConversation.user_id}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages" },
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+          filter: `receiver_id=eq.${currentUser.id}`
+        },
         (payload) => {
-          const msg = payload.new;
-          if (
-            (msg.sender_id === currentUser.id && msg.receiver_id === receiverId) ||
-            (msg.sender_id === receiverId && msg.receiver_id === currentUser.id)
-          ) {
-            setMessages((prev) => [...prev, msg]);
+          const newMsg = payload.new;
+          if (newMsg.sender_id === activeConversation.user_id) {
+            setMessages(prev => [...prev, newMsg]);
+            
+            // Mark as read immediately
+            supabase
+              .from("messages")
+              .update({ status: "read" })
+              .eq("id", newMsg.id);
           }
         }
       )
@@ -64,93 +147,284 @@ const Messages = () => {
     return () => {
       supabase.removeChannel(subscription);
     };
-  }, [receiverId, currentUser]);
+  }, [activeConversation, currentUser]);
 
-  // Send message
+  // Online status simulation (in real app, use presence system)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (conversations.length > 0) {
+        const randomOnline = new Set();
+        conversations.forEach(conv => {
+          if (Math.random() > 0.3) { // 70% chance of being online
+            randomOnline.add(conv.user_id);
+          }
+        });
+        setOnlineUsers(randomOnline);
+      }
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [conversations]);
+
   const sendMessage = async () => {
-    if (newMessage.trim() === "") return;
-    await supabase.from("messages").insert([
-      {
-        sender_id: currentUser.id,
-        receiver_id: receiverId,
-        content: newMessage,
-        timestamp: new Date().toISOString(),
-        status: "unread",
-      },
-    ]);
-    setNewMessage("");
+    if (newMessage.trim() === "" || !activeConversation) return;
+
+    try {
+      const { error } = await supabase.from("messages").insert([
+        {
+          sender_id: currentUser.id,
+          receiver_id: activeConversation.user_id,
+          content: newMessage.trim(),
+          created_at: new Date().toISOString(),
+          status: "sent",
+        },
+      ]);
+
+      if (error) throw error;
+
+      setNewMessage("");
+      setShowEmojiPicker(false);
+    } catch (error) {
+      console.error("Error sending message:", error);
+    }
   };
 
-  // Send typing status
-  useEffect(() => {
-    const updateTyping = async () => {
-      if (!receiverId || !currentUser) return;
-      await supabase
-        .from("messages")
-        .update({ typing: true })
-        .eq("sender_id", currentUser.id)
-        .eq("receiver_id", receiverId);
-    };
-    if (newMessage !== "") updateTyping();
-  }, [newMessage]);
+  const handleKeyPress = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
 
   const handleEmojiSelect = (emojiData) => {
-    setNewMessage((prev) => prev + emojiData.emoji);
-    setShowEmojiPicker(false);
+    setNewMessage(prev => prev + emojiData.emoji);
   };
 
-  return (
-    <div className="messages-page">
-      <div className="sidebar">
-        <h3 className="title">Chats</h3>
-        {conversations.map((conv) => (
-          <div
-            className={`conversation ${conv.id === receiverId ? "active" : ""}`}
-            key={conv.user_id}
-            onClick={() => setReceiverId(conv.user_id)}
-          >
-            <FaUserCircle size={24} />
-            <span>{conv.username || `User ${conv.user_id.slice(0, 6)}`}</span>
-          </div>
-        ))}
-      </div>
+  const formatTime = (timestamp) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffInHours = (now - date) / (1000 * 60 * 60);
 
-      <div className="chat-box">
-        <div className="messages">
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`message ${msg.sender_id === currentUser.id ? "sent" : "received"}`}
-            >
-              <div className="bubble">{msg.content}</div>
-              <span className="timestamp">
-                {new Date(msg.timestamp).toLocaleTimeString()}
-              </span>
-            </div>
-          ))}
+    if (diffInHours < 24) {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } else {
+      return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    }
+  };
+
+  const getMessageStatus = (message) => {
+    if (message.sender_id !== currentUser.id) return null;
+    
+    switch (message.status) {
+      case 'sent':
+        return <FaCheck className="status-icon sent" />;
+      case 'delivered':
+        return <FaCheckDouble className="status-icon delivered" />;
+      case 'read':
+        return <FaCheckDouble className="status-icon read" />;
+      default:
+        return <FaClock className="status-icon pending" />;
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="messages-loading">
+        <div className="loading-spinner"></div>
+        <p>Loading conversations...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="messages-container">
+      {/* Sidebar */}
+      <div className="conversations-sidebar">
+        <div className="sidebar-header">
+          <h2>Messages</h2>
+          <div className="header-actions">
+            <button className="icon-btn">
+              <FaEllipsisV />
+            </button>
+          </div>
         </div>
 
-        <div className="input-bar">
-          <button
-            className="emoji-btn"
-            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-          >
-            <FaSmile size={20} />
-          </button>
+        <div className="search-container">
+          <FaSearch className="search-icon" />
           <input
             type="text"
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            placeholder="Type a magical message..."
+            placeholder="Search conversations..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="search-input"
           />
-          <button className="send-btn" onClick={sendMessage}>
-            <FaPaperPlane size={20} />
-          </button>
         </div>
 
-        {showEmojiPicker && (
-          <div className="emoji-picker">
-            <EmojiPicker onEmojiClick={handleEmojiSelect} />
+        <div className="conversations-list">
+          {filteredConversations.map((conversation) => (
+            <motion.div
+              key={conversation.user_id}
+              className={`conversation-item ${
+                activeConversation?.user_id === conversation.user_id ? "active" : ""
+              }`}
+              onClick={() => setActiveConversation(conversation)}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <div className="avatar-container">
+                <FaUserCircle className="avatar" />
+                {onlineUsers.has(conversation.user_id) && (
+                  <div className="online-indicator"></div>
+                )}
+              </div>
+              
+              <div className="conversation-info">
+                <div className="conversation-header">
+                  <h4 className="username">{conversation.username || `User ${conversation.user_id.slice(-6)}`}</h4>
+                  <span className="time">{formatTime(conversation.last_message_time)}</span>
+                </div>
+                
+                <div className="conversation-preview">
+                  <p className="last-message">{conversation.last_message || "No messages yet"}</p>
+                  {conversation.unread_count > 0 && (
+                    <span className="unread-badge">{conversation.unread_count}</span>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+
+      {/* Chat Area */}
+      <div className="chat-area">
+        {activeConversation ? (
+          <>
+            <div className="chat-header">
+              <div className="chat-partner-info">
+                <div className="avatar-container">
+                  <FaUserCircle className="avatar" />
+                  {onlineUsers.has(activeConversation.user_id) && (
+                    <div className="online-indicator"></div>
+                  )}
+                </div>
+                <div className="partner-details">
+                  <h3>{activeConversation.username || `User ${activeConversation.user_id.slice(-6)}`}</h3>
+                  <span className="status">
+                    {onlineUsers.has(activeConversation.user_id) ? "Online" : "Offline"}
+                  </span>
+                </div>
+              </div>
+              
+              <div className="chat-actions">
+                <button className="icon-btn">
+                  <FaPhone />
+                </button>
+                <button className="icon-btn">
+                  <FaVideo />
+                </button>
+                <button className="icon-btn">
+                  <FaInfoCircle />
+                </button>
+              </div>
+            </div>
+
+            <div className="messages-container">
+              <div className="messages-list">
+                <AnimatePresence>
+                  {messages.map((message) => (
+                    <motion.div
+                      key={message.id}
+                      className={`message ${message.sender_id === currentUser.id ? "sent" : "received"}`}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <div className="message-bubble">
+                        <p>{message.content}</p>
+                        <div className="message-meta">
+                          <span className="time">{formatTime(message.created_at)}</span>
+                          {getMessageStatus(message)}
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+                <div ref={messagesEndRef} />
+              </div>
+            </div>
+
+            <div className="message-input-container">
+              <div className="input-actions">
+                <button 
+                  className="emoji-btn"
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                >
+                  <FaSmile />
+                </button>
+                
+                <button 
+                  className="attachment-btn"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  +
+                </button>
+                
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    // Handle file upload
+                    console.log("File selected:", e.target.files[0]);
+                  }}
+                />
+              </div>
+              
+              <div className="message-input-wrapper">
+                <textarea
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Type a message..."
+                  rows="1"
+                  className="message-input"
+                />
+              </div>
+              
+              <button 
+                className="send-btn"
+                onClick={sendMessage}
+                disabled={!newMessage.trim()}
+              >
+                <FaPaperPlane />
+              </button>
+            </div>
+
+            <AnimatePresence>
+              {showEmojiPicker && (
+                <motion.div
+                  className="emoji-picker-container"
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                >
+                  <EmojiPicker 
+                    onEmojiClick={handleEmojiSelect}
+                    width="100%"
+                    height="350px"
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </>
+        ) : (
+          <div className="no-conversation-selected">
+            <div className="welcome-message">
+              <FaUserCircle size={64} />
+              <h3>Welcome to Messages</h3>
+              <p>Select a conversation to start chatting</p>
+            </div>
           </div>
         )}
       </div>

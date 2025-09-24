@@ -5,7 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { toast } from "react-hot-toast";
 import {
   FaStore, FaSearch, FaUser, FaTags, FaStar, FaBolt,
-  FaFire, FaBars, FaExclamationTriangle
+  FaFire, FaBars, FaExclamationTriangle, FaSlidersH
 } from "react-icons/fa";
 import InfiniteScroll from "react-infinite-scroll-component";
 import ReactModal from "react-modal";
@@ -14,7 +14,7 @@ import FlashDeals from "@/components/FlashDeals";
 import FeaturedHighlights from "@/components/FeaturedHighlights";
 import PromotedCarousel from "@/components/PromotedCarousel";
 import HomeTabSections from "@/components/HomeTabSections";
-import AdvancedFilterSidebar from "@/components/AdvancedFilterSidebar";
+import AdvancedFilterOverlay from "@/components/AdvancedFilterOverlay";
 
 import "./TradeStore.css";
 
@@ -43,37 +43,45 @@ const ProductCard = ({ product, onClick }) => {
         />
         {getBadge()}
       </div>
-      <h3>{product.name}</h3>
-      <div className="stars">
-        {[...Array(Math.round(product.rating || 0))].map((_, i) => (
-          <FaStar key={i} className="star-filled" />
-        ))}
-      </div>
+      
+      <div className="product-card-content">
+        <h3>{product.name}</h3>
+        
+        <div className="stars">
+          {[...Array(5)].map((_, i) => (
+            <FaStar key={i} className={i < Math.round(product.rating || 0) ? "star-filled" : "star-empty"} />
+          ))}
+        </div>
 
-
-      <div className="price-row">
-        {hasDiscount ? (
-          <>
-            <span className="price-old">
-              KSH {Number(product.price).toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </span>
-            <span className="price-new">
-              KSH {Number(discountedPrice).toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </span>
-            <span className="discount">-{product.discount}%</span>
-          </>
-        ) : (
+        <div className="price-container">
+          <div className="price-main-row">
+            {hasDiscount && (
+              <span className="price-old">
+                KSH {Number(product.price).toLocaleString("en-KE")}
+              </span>
+            )}
+            {hasDiscount && (
+              <span className="discount">-{product.discount}%</span>
+            )}
+          </div>
           <span className="price-new">
-            KSH {Number(product.price).toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            KSH {Number(hasDiscount ? discountedPrice : product.price).toLocaleString("en-KE")}
           </span>
-        )}
-      </div>
+        </div>
 
-      <div className="meta">
-        <span><FaTags /> {product.category}</span>
-        <span>Stock: {product.stock_quantity}</span>
+        <div className="product-info">
+          <div className="info-row category-row">
+            <span><FaTags /> {product.category || "Uncategorized"}</span>
+          </div>
+          <div className="info-row stock-row">
+            <span>Stock: {product.stock_quantity}</span>
+          </div>
+        </div>
+
+        <div className="seller-row">
+          <FaUser /> Seller Hidden
+        </div>
       </div>
-      <div className="seller"><FaUser /> Seller Hidden</div>
     </div>
   );
 };
@@ -154,9 +162,15 @@ const OmniMarket = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [hasInstallmentPlan, setHasInstallmentPlan] = useState(false);
   const [filters, setFilters] = useState({
-    category: "", minPrice: "", maxPrice: "", minRating: 0, inStock: false
+    category: "", 
+    minPrice: "", 
+    maxPrice: "", 
+    minRating: 0, 
+    inStock: false,
+    sortBy: "newest",
+    quickFilter: ""
   });
-  const [showFilterDrawer, setShowFilterDrawer] = useState(false);
+  const [showFilterOverlay, setShowFilterOverlay] = useState(false);
   const pageSize = 20;
 
   useEffect(() => {
@@ -219,21 +233,96 @@ const OmniMarket = () => {
 
   useEffect(() => {
     let result = [...products];
-    if (search) result = result.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
-    if (filters.category) result = result.filter((p) => p.category?.toLowerCase().trim() === filters.category);
-    if (filters.minPrice) result = result.filter((p) => parseFloat(p.price) >= parseFloat(filters.minPrice));
-    if (filters.maxPrice) result = result.filter((p) => parseFloat(p.price) <= parseFloat(filters.maxPrice));
-    if (filters.minRating) result = result.filter((p) => p.rating >= filters.minRating);
-    if (filters.inStock) result = result.filter((p) => p.stock_quantity > 0);
+    
+    // Apply search filter
+    if (search) {
+      result = result.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
+    }
+    
+    // Apply category filter
+    if (filters.category) {
+      result = result.filter((p) => p.category?.toLowerCase().trim() === filters.category);
+    }
+    
+    // Apply price range filter
+    if (filters.minPrice) {
+      result = result.filter((p) => parseFloat(p.price) >= parseFloat(filters.minPrice));
+    }
+    if (filters.maxPrice) {
+      result = result.filter((p) => parseFloat(p.price) <= parseFloat(filters.maxPrice));
+    }
+    
+    // Apply rating filter
+    if (filters.minRating) {
+      result = result.filter((p) => p.rating >= filters.minRating);
+    }
+    
+    // Apply stock filter
+    if (filters.inStock) {
+      result = result.filter((p) => p.stock_quantity > 0);
+    }
+    
+    // Apply quick filters
+    if (filters.quickFilter) {
+      switch (filters.quickFilter) {
+        case "flash":
+          result = result.filter((p) => p.is_flash_sale);
+          break;
+        case "trending":
+          result = result.filter((p) => p.is_trending || p.views > 20);
+          break;
+        case "featured":
+          result = result.filter((p) => p.is_featured);
+          break;
+        case "discounted":
+          result = result.filter((p) => parseFloat(p.discount || 0) > 0);
+          break;
+      }
+    }
+    
+    // Apply sorting
+    switch (filters.sortBy) {
+      case "price-low":
+        result.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
+        break;
+      case "price-high":
+        result.sort((a, b) => parseFloat(b.price) - parseFloat(a.price));
+        break;
+      case "rating":
+        result.sort((a, b) => parseFloat(b.rating) - parseFloat(a.rating));
+        break;
+      case "popular":
+        result.sort((a, b) => parseFloat(b.views) - parseFloat(a.views));
+        break;
+      default:
+        // newest first (default)
+        result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        break;
+    }
 
+    // Apply tab filters
     switch (activeTab) {
-      case "Flash Sale": result = result.filter((p) => p.is_flash_sale); break;
-      case "Trending": result = result.filter((p) => p.is_trending || p.views > 20); break;
-      case "Discounted": result = result.filter((p) => parseFloat(p.discount || 0) > 0); break;
-      case "Featured": result = result.filter((p) => p.is_featured); break;
-      case "Electronics": result = result.filter((p) => p.category?.toLowerCase() === "electronics"); break;
-      case "Fashion": result = result.filter((p) => p.category?.toLowerCase().includes("fashion")); break;
-      case "Home": result = result.filter((p) => p.category?.toLowerCase().includes("home")); break;
+      case "Flash Sale": 
+        result = result.filter((p) => p.is_flash_sale); 
+        break;
+      case "Trending": 
+        result = result.filter((p) => p.is_trending || p.views > 20); 
+        break;
+      case "Discounted": 
+        result = result.filter((p) => parseFloat(p.discount || 0) > 0); 
+        break;
+      case "Featured": 
+        result = result.filter((p) => p.is_featured); 
+        break;
+      case "Electronics": 
+        result = result.filter((p) => p.category?.toLowerCase() === "electronics"); 
+        break;
+      case "Fashion": 
+        result = result.filter((p) => p.category?.toLowerCase().includes("fashion")); 
+        break;
+      case "Home": 
+        result = result.filter((p) => p.category?.toLowerCase().includes("home")); 
+        break;
     }
 
     setFiltered(result);
@@ -252,17 +341,14 @@ const OmniMarket = () => {
             </button>
           )}
           <PromotedCarousel />
-          <button className="glass-button" onClick={() => setShowFilterDrawer(!showFilterDrawer)}>
-            <FaBars style={{ marginRight: 6 }} /> Filters
+          <button 
+            className="glass-button" 
+            onClick={() => setShowFilterOverlay(true)}
+          >
+            <FaSlidersH style={{ marginRight: 6 }} /> Filters
           </button>
         </div>
       </header>
-
-      {showFilterDrawer && (
-        <div className="filter-drawer">
-          <AdvancedFilterSidebar filters={filters} setFilters={setFilters} />
-        </div>
-      )}
 
       <FlashDeals />
       <FeaturedHighlights />
@@ -308,6 +394,15 @@ const OmniMarket = () => {
           ))}
         </div>
       </InfiniteScroll>
+
+      {showFilterOverlay && (
+        <AdvancedFilterOverlay
+          filters={filters}
+          setFilters={setFilters}
+          onClose={() => setShowFilterOverlay(false)}
+          productCount={filtered.length}
+        />
+      )}
     </div>
   );
 };
