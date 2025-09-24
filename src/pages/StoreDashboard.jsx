@@ -2,7 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FaHome, FaBox, FaCommentDots, FaUpload, FaSmile, FaClipboardCheck, FaBoxOpen,
-  FaUser, FaMapMarkerAlt, FaMoneyBillAlt, FaMoneyBillWave,
+  FaUser, FaMapMarkerAlt, FaMoneyBillAlt, FaMoneyBillWave, FaArrowLeft, FaArrowRight,
 } from 'react-icons/fa';
 import { useDropzone } from 'react-dropzone';
 import { supabase } from '../lib/supabaseClient';
@@ -32,6 +32,7 @@ const StoreDashboard = () => {
   const [savingProductId, setSavingProductId] = useState(null);
   const [requiredInfoDrafts, setRequiredInfoDrafts] = useState({});
   const [savingDetails, setSavingDetails] = useState({});
+  const [currentImageIndices, setCurrentImageIndices] = useState({}); // Track current image index for each product
 
   const getNextStatus = (current) => {
     const flow = ["pending", "processing", "shipped", "out for delivery", "delivered"];
@@ -195,7 +196,11 @@ const StoreDashboard = () => {
       .eq('store_id', store?.id)
       .order('created_at', { ascending: false });
 
-    if (data) setProducts(data);
+    if (data) {
+      setProducts(data);
+      // Initialize image indices for each product
+      setCurrentImageIndices(data.reduce((acc, p) => ({ ...acc, [p.id]: 0 }), {}));
+    }
     if (error) toast.error("Failed to load products.");
     setLoadingProducts(false);
   };
@@ -382,6 +387,20 @@ const StoreDashboard = () => {
     }
   };
 
+  const handleImageChange = (productId, direction) => {
+    setCurrentImageIndices((prev) => {
+      const images = products.find((p) => p.id === productId)?.image_gallery || [];
+      const currentIndex = prev[productId] || 0;
+      let newIndex;
+      if (direction === 'next') {
+        newIndex = (currentIndex + 1) % images.length;
+      } else {
+        newIndex = (currentIndex - 1 + images.length) % images.length;
+      }
+      return { ...prev, [productId]: newIndex };
+    });
+  };
+
   useEffect(() => {
     if (!products?.length) return;
 
@@ -451,6 +470,8 @@ const StoreDashboard = () => {
                     const draft = requiredInfoDrafts[p.id];
                     const isSaving = savingDetails[p.id];
                     const showForm = draft?.isOpen || needsInfo;
+                    const images = p.image_gallery?.length ? p.image_gallery : ['/placeholder.jpg'];
+                    const currentImageIndex = currentImageIndices[p.id] || 0;
 
                     return (
                       <motion.div
@@ -461,20 +482,38 @@ const StoreDashboard = () => {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
                       >
-                        <div
-                          className="image-scroll-wrapper"
-                          onTouchStart={() => {
-                            if (!localStorage.getItem('swipeHintShown')) {
-                              toast.info('Swipe to view more images');
-                              localStorage.setItem('swipeHintShown', 'true');
-                            }
-                          }}
-                        >
-                          <div className="image-scroll">
-                            {(p.image_gallery?.length ? p.image_gallery : ['/placeholder.jpg']).map((img, j) => (
-                              <img key={j} src={img} alt={`img-${j}`} className="scroll-image" />
-                            ))}
-                          </div>
+                        <div className="image-container">
+                          <img
+                            src={images[currentImageIndex]}
+                            alt={p.name}
+                            className="product-image"
+                          />
+                          {images.length > 1 && (
+                            <div className="image-nav">
+                              <button
+                                className="image-nav-btn"
+                                onClick={() => handleImageChange(p.id, 'prev')}
+                                disabled={currentImageIndex === 0}
+                              >
+                                <FaArrowLeft />
+                              </button>
+                              <div className="image-dots">
+                                {images.map((_, i) => (
+                                  <span
+                                    key={i}
+                                    className={`dot ${i === currentImageIndex ? 'active' : ''}`}
+                                  />
+                                ))}
+                              </div>
+                              <button
+                                className="image-nav-btn"
+                                onClick={() => handleImageChange(p.id, 'next')}
+                                disabled={currentImageIndex === images.length - 1}
+                              >
+                                <FaArrowRight />
+                              </button>
+                            </div>
+                          )}
                         </div>
                         <h4 className="product-title">{p.name}</h4>
                         <p className="product-description">{p.description}</p>

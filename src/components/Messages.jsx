@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/supabase";
 import { useAuth } from "@/context/AuthContext";
 import { 
@@ -22,6 +22,7 @@ const Messages = () => {
   const { currentUser } = useAuth();
   const [conversations, setConversations] = useState([]);
   const [filteredConversations, setFilteredConversations] = useState([]);
+  const [searchUsers, setSearchUsers] = useState([]);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [activeConversation, setActiveConversation] = useState(null);
@@ -42,103 +43,164 @@ const Messages = () => {
     scrollToBottom();
   }, [messages]);
 
-  // Fetch user conversations
-  useEffect(() => {
+  // Fetch conversations
+  const fetchConversations = useCallback(async () => {
     if (!currentUser) return;
+    setIsLoading(true);
+    try {
+      const { data: allMsgs, error } = await supabase
+        .from("messages")
+        .select(`
+          *,
+          sender:sender_id(name, email),
+          receiver:receiver_id(name, email)
+        `)
+        .or(`sender_id.eq.${currentUser.id},receiver_id.eq.${currentUser.id}`)
+        .order("created_at", { ascending: false });
 
-    const fetchConversations = async () => {
-      setIsLoading(true);
-      try {
-        const { data, error } = await supabase.rpc("get_user_conversations", {
-          user_id: currentUser.id,
-        });
-        
-        if (error) throw error;
-        
-        setConversations(data || []);
-        setFilteredConversations(data || []);
-        
-        // Set first conversation as active if available
-        if (data && data.length > 0 && !activeConversation) {
-          setActiveConversation(data[0]);
+      if (error) throw error;
+
+      const convMap = new Map();
+
+      (allMsgs || []).forEach((msg) => {
+        const isSent = msg.sender_id === currentUser.id;
+        const otherId = isSent ? msg.receiver_id : msg.sender_id;
+        const otherUser = isSent ? msg.receiver : msg.sender;
+        const unread = isSent ? 0 : (msg.status === "unread" ? 1 : 0);
+
+        if (!convMap.has(otherId)) {
+          convMap.set(otherId, {
+            user_id: otherId,
+            username: otherUser.name || otherUser.email?.split("@")[0] || `User ${otherId.slice(-6)}`,
+            last_message: msg.content,
+            last_message_time: msg.created_at,
+            unread_count: unread,
+          });
+        } else {
+          const conv = convMap.get(otherId);
+          if (new Date(msg.created_at) > new Date(conv.last_message_time)) {
+            conv.last_message = msg.content;
+            conv.last_message_time = msg.created_at;
+          }
+          conv.unread_count += unread;
         }
-      } catch (error) {
-        console.error("Error fetching conversations:", error);
-      } finally {
-        setIsLoading(false);
+      });
+
+      const convList = Array.from(convMap.values()).sort(
+        (a, b) => new Date(b.last_message_time) - new Date(a.last_message_time)
+      );
+
+      setConversations(convList);
+      setFilteredConversations(convList);
+
+      if (convList.length > 0 && !activeConversation) {
+        setActiveConversation(convList[0]);
       }
-    };
+    } catch (error) {
+      console.error("Error fetching conversations:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentUser, activeConversation]);
 
-    fetchConversations();
-  }, [currentUser]);
-
-  // Filter conversations based on search
   useEffect(() => {
-    if (searchTerm.trim() === "") {
-      setFilteredConversations(conversations);
-    } else {
-      const filtered = conversations.filter(conv =>
-        conv.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        conv.last_message?.toLowerCase().includes(searchTerm.toLowerCase())
+    fetchConversations();
+  }, [fetchConversations]);
+
+  // Search users
+  useEffect(() => {
+    if (!searchTerm.trim() || !currentUser) {
+      setSearchUsers([]);
+      const filtered = conversations.filter((conv) =>
+        conv.username.toLowerCase().includes(searchTerm.toLowerCase())
       );
       setFilteredConversations(filtered);
+      return;
     }
-  }, [searchTerm, conversations]);
+
+    const fetchSearchUsers = async () => {
+      const { data, error } = await supabase
+        .from("users")
+        .select("id, name, email")
+        .or(`name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`)
+        .neq("id", currentUser.id);
+
+      if (error) {
+        console.error("Error searching users:", error);
+        return;
+      }
+
+      const existingIds = conversations.map((c) => c.user_id);
+      const newUsers = data.filter((u) => !existingIds.includes(u.id));
+
+      setSearchUsers(newUsers);
+    };
+
+    fetchSearchUsers();
+
+    // Filter existing conversations
+    const filtered = conversations.filter((conv) =>
+      conv.username.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    setFilteredConversations(filtered);
+  }, [searchTerm, conversations, currentUser]);
 
   // Fetch messages for active conversation
   useEffect(() => {
-    if (!activeConversation || !currentUser) return;
+    if (!activeConversation?.user_id || !currentUser) {
+      setMessages([]);
+      return;
+    }
 
     const fetchMessages = async () => {
       const { data, error } = await supabase
         .from("messages")
-        .select("*")
+        .select(`
+          *,
+          sender:sender_id(name, email),
+          receiver:receiver_id(name, email)
+        `)
         .or(
           `and(sender_id.eq.${currentUser.id},receiver_id.eq.${activeConversation.user_id}),and(sender_id.eq.${activeConversation.user_id},receiver_id.eq.${currentUser.id})`
         )
         .order("created_at", { ascending: true });
 
-      if (!error) {
-        setMessages(data || []);
-        
-        // Mark messages as read
-        const unreadMessages = data?.filter(msg => 
-          msg.sender_id === activeConversation.user_id && msg.status === 'unread'
-        );
-        
-        if (unreadMessages && unreadMessages.length > 0) {
-          const messageIds = unreadMessages.map(msg => msg.id);
-          await supabase
-            .from("messages")
-            .update({ status: "read" })
-            .in("id", messageIds);
-        }
+      if (error) {
+        console.error("Error fetching messages:", error);
+        return;
+      }
+
+      setMessages(data || []);
+
+      // Mark unread as read
+      const unreadMessages = data?.filter(
+        (msg) => msg.sender_id === activeConversation.user_id && msg.status === "unread"
+      );
+      if (unreadMessages?.length > 0) {
+        const messageIds = unreadMessages.map((msg) => msg.id);
+        await supabase.from("messages").update({ status: "read" }).in("id", messageIds);
       }
     };
 
     fetchMessages();
 
-    // Real-time subscription for new messages
+    // Subscription for incoming messages
     const subscription = supabase
-      .channel(`messages:${activeConversation.user_id}`)
+      .channel(`messages:${currentUser.id}`)
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
           table: "messages",
-          filter: `receiver_id=eq.${currentUser.id}`
+          filter: `receiver_id=eq.${currentUser.id}`,
         },
         (payload) => {
           const newMsg = payload.new;
           if (newMsg.sender_id === activeConversation.user_id) {
-            setMessages(prev => [...prev, newMsg]);
-            
-            // Mark as read immediately
-            supabase
-              .from("messages")
-              .update({ status: "read" })
-              .eq("id", newMsg.id);
+            setMessages((prev) => [...prev, newMsg]);
+            // Mark as read
+            supabase.from("messages").update({ status: "read" }).eq("id", newMsg.id);
           }
         }
       )
@@ -149,13 +211,13 @@ const Messages = () => {
     };
   }, [activeConversation, currentUser]);
 
-  // Online status simulation (in real app, use presence system)
+  // Online status simulation
   useEffect(() => {
     const interval = setInterval(() => {
       if (conversations.length > 0) {
         const randomOnline = new Set();
-        conversations.forEach(conv => {
-          if (Math.random() > 0.3) { // 70% chance of being online
+        conversations.forEach((conv) => {
+          if (Math.random() > 0.3) {
             randomOnline.add(conv.user_id);
           }
         });
@@ -167,10 +229,10 @@ const Messages = () => {
   }, [conversations]);
 
   const sendMessage = async () => {
-    if (newMessage.trim() === "" || !activeConversation) return;
+    if (newMessage.trim() === "" || !activeConversation?.user_id) return;
 
     try {
-      const { error } = await supabase.from("messages").insert([
+      const { data: [newMsg], error } = await supabase.from("messages").insert([
         {
           sender_id: currentUser.id,
           receiver_id: activeConversation.user_id,
@@ -178,12 +240,19 @@ const Messages = () => {
           created_at: new Date().toISOString(),
           status: "sent",
         },
-      ]);
+      ]).select();
 
       if (error) throw error;
 
+      setMessages((prev) => [...prev, newMsg]);
       setNewMessage("");
       setShowEmojiPicker(false);
+
+      // If new conversation, refresh conversations list
+      if (activeConversation.isNew) {
+        await fetchConversations();
+        setActiveConversation((prev) => ({ ...prev, isNew: false }));
+      }
     } catch (error) {
       console.error("Error sending message:", error);
     }
@@ -197,7 +266,7 @@ const Messages = () => {
   };
 
   const handleEmojiSelect = (emojiData) => {
-    setNewMessage(prev => prev + emojiData.emoji);
+    setNewMessage((prev) => prev + emojiData.emoji);
   };
 
   const formatTime = (timestamp) => {
@@ -206,9 +275,9 @@ const Messages = () => {
     const diffInHours = (now - date) / (1000 * 60 * 60);
 
     if (diffInHours < 24) {
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     } else {
-      return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+      return date.toLocaleDateString([], { month: "short", day: "numeric" });
     }
   };
 
@@ -216,15 +285,25 @@ const Messages = () => {
     if (message.sender_id !== currentUser.id) return null;
     
     switch (message.status) {
-      case 'sent':
+      case "sent":
         return <FaCheck className="status-icon sent" />;
-      case 'delivered':
+      case "delivered":
         return <FaCheckDouble className="status-icon delivered" />;
-      case 'read':
+      case "read":
         return <FaCheckDouble className="status-icon read" />;
       default:
         return <FaClock className="status-icon pending" />;
     }
+  };
+
+  const handleStartNewChat = (user) => {
+    setActiveConversation({
+      user_id: user.id,
+      username: user.name || user.email?.split("@")[0] || `User ${user.id.slice(-6)}`,
+      isNew: true,
+    });
+    setSearchTerm("");
+    setSearchUsers([]);
   };
 
   if (isLoading) {
@@ -253,7 +332,7 @@ const Messages = () => {
           <FaSearch className="search-icon" />
           <input
             type="text"
-            placeholder="Search conversations..."
+            placeholder="Search users or conversations..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="search-input"
@@ -280,7 +359,7 @@ const Messages = () => {
               
               <div className="conversation-info">
                 <div className="conversation-header">
-                  <h4 className="username">{conversation.username || `User ${conversation.user_id.slice(-6)}`}</h4>
+                  <h4 className="username">{conversation.username}</h4>
                   <span className="time">{formatTime(conversation.last_message_time)}</span>
                 </div>
                 
@@ -293,6 +372,36 @@ const Messages = () => {
               </div>
             </motion.div>
           ))}
+
+          {searchUsers.length > 0 && (
+            <div className="new-chat-section">
+              <h4>New Chats</h4>
+              {searchUsers.map((user) => (
+                <motion.div
+                  key={user.id}
+                  className="conversation-item new-chat"
+                  onClick={() => handleStartNewChat(user)}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <div className="avatar-container">
+                    <FaUserCircle className="avatar" />
+                  </div>
+                  
+                  <div className="conversation-info">
+                    <div className="conversation-header">
+                      <h4 className="username">{user.name || user.email}</h4>
+                      <span className="time">Start new chat</span>
+                    </div>
+                    
+                    <div className="conversation-preview">
+                      <p className="last-message">Begin conversation</p>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -309,7 +418,7 @@ const Messages = () => {
                   )}
                 </div>
                 <div className="partner-details">
-                  <h3>{activeConversation.username || `User ${activeConversation.user_id.slice(-6)}`}</h3>
+                  <h3>{activeConversation.username}</h3>
                   <span className="status">
                     {onlineUsers.has(activeConversation.user_id) ? "Online" : "Offline"}
                   </span>
@@ -375,7 +484,6 @@ const Messages = () => {
                   ref={fileInputRef}
                   style={{ display: 'none' }}
                   onChange={(e) => {
-                    // Handle file upload
                     console.log("File selected:", e.target.files[0]);
                   }}
                 />
@@ -423,7 +531,7 @@ const Messages = () => {
             <div className="welcome-message">
               <FaUserCircle size={64} />
               <h3>Welcome to Messages</h3>
-              <p>Select a conversation to start chatting</p>
+              <p>Select a conversation to start chatting or search for a user</p>
             </div>
           </div>
         )}
