@@ -105,15 +105,14 @@ export default function Auth() {
     }
     setLoading(true);
     try {
-      const { data, error } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: { data: { full_name: formData.name, phone: formData.phone } },
       });
       if (error) throw error;
       toast.success("Signup successful — confirm via email.");
-      // Redirect to profile page instead of switching to login
-      navigate("/profile");
+      setMode("login");
       setFormData({ name: "", phone: "", email: "", password: "" });
       setErrors({});
     } catch (err) {
