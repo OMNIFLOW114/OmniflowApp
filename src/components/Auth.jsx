@@ -1,11 +1,10 @@
-// src/components/Auth.jsx
 import React, { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { supabase } from "@/supabase";
 import { Button } from "@/components/ui/button";
 import toast from "react-hot-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, Eye, EyeOff } from "lucide-react";
 import "./Auth.css";
 
 const APP_URL = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
@@ -18,6 +17,9 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({ name: "", phone: "", email: "", password: "" });
   const [otp, setOtp] = useState("");
+  const [errors, setErrors] = useState({});
+  const [showPassword, setShowPassword] = useState(false);
+  const [otpResendCooldown, setOtpResendCooldown] = useState(0);
 
   // Reset redirect
   useEffect(() => {
@@ -25,9 +27,9 @@ export default function Auth() {
     const type = searchParams.get("type");
     const email = searchParams.get("email");
 
-    if (type === "recovery" && recoveryToken) {
+    if (type === "recovery" && recoveryToken && email) {
       navigate(
-        `/auth/reset?token=${recoveryToken}${email ? `&email=${encodeURIComponent(email)}` : ""}`,
+        `/auth/reset?token=${recoveryToken}&email=${encodeURIComponent(email)}`,
         { replace: true }
       );
     }
@@ -36,55 +38,97 @@ export default function Auth() {
   // Auto-redirect logged in users
   useEffect(() => {
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      const type = searchParams.get("type");
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        const type = searchParams.get("type");
 
-      if (session?.user) {
-        if (type === "recovery") {
-          navigate(`/auth/reset?token=${searchParams.get("token")}&email=${encodeURIComponent(session.user.email)}`);
-        } else {
-          navigate("/home");
+        if (session?.user) {
+          if (type === "recovery") {
+            navigate(`/auth/reset?token=${searchParams.get("token")}&email=${encodeURIComponent(session.user.email)}`);
+          } else {
+            navigate("/home");
+          }
         }
+      } catch (err) {
+        console.error("Session check failed:", err.message);
+        toast.error("Failed to verify session. Please try again.");
       }
     };
     checkSession();
   }, [navigate, searchParams]);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+  const validatePhone = (phone) => {
+    const phoneRegex = /^\+254\d{9}$/;
+    return phoneRegex.test(phone);
+  };
+
+  const validateEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
   };
 
   const isValidPassword = (pwd) =>
     /[a-z]/.test(pwd) && /[A-Z]/.test(pwd) && /[0-9]/.test(pwd) && pwd.length >= 8;
 
-  // Signup
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+
+    // Real-time validation
+    setErrors((prev) => ({
+      ...prev,
+      [name]:
+        name === "email" && value && !validateEmail(value)
+          ? "Invalid email format"
+          : name === "phone" && value && !validatePhone(value)
+          ? "Phone must be in +254XXXXXXXXX format"
+          : name === "password" && value && !isValidPassword(value)
+          ? "Password must include uppercase, lowercase, number, and be 8+ chars"
+          : "",
+    }));
+  };
+
   const handleSignup = async (e) => {
     e.preventDefault();
+    if (!validateEmail(formData.email)) {
+      toast.error("Please enter a valid email.");
+      return;
+    }
     if (!isValidPassword(formData.password)) {
-      toast.error("Password must include uppercase, lowercase, number & 8+ chars.");
+      toast.error("Password must include uppercase, lowercase, number, and be 8+ chars.");
+      return;
+    }
+    if (formData.phone && !validatePhone(formData.phone)) {
+      toast.error("Phone must be in +254XXXXXXXXX format.");
       return;
     }
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: { data: { full_name: formData.name, phone: formData.phone } },
       });
       if (error) throw error;
       toast.success("Signup successful — confirm via email.");
-      setMode("login");
+      // Redirect to profile page instead of switching to login
+      navigate("/profile");
+      setFormData({ name: "", phone: "", email: "", password: "" });
+      setErrors({});
     } catch (err) {
-      toast.error(err?.message || "Signup failed.");
+      toast.error(err.message || "Signup failed. Email may already be in use.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Login
   const handleLogin = async (e) => {
     e.preventDefault();
+    if (!validateEmail(formData.email)) {
+      toast.error("Please enter a valid email.");
+      return;
+    }
     setLoading(true);
     try {
       const { error } = await supabase.auth.signInWithPassword({
@@ -94,18 +138,23 @@ export default function Auth() {
       if (error) throw error;
       toast.success("Welcome back 👋");
       navigate("/home");
+      setFormData({ name: "", phone: "", email: "", password: "" });
+      setErrors({});
     } catch (err) {
-      toast.error(err?.message || "Login failed.");
+      toast.error(err.message || "Invalid email or password.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Forgot password
   const handleForgotPassword = async (e) => {
     e.preventDefault();
     if (!formData.email) {
-      toast.error("Enter your email first.");
+      toast.error("Please enter your email.");
+      return;
+    }
+    if (!validateEmail(formData.email)) {
+      toast.error("Please enter a valid email.");
       return;
     }
     setLoading(true);
@@ -116,17 +165,39 @@ export default function Auth() {
       if (error) throw error;
       toast.success("Check your email for a secure reset link.");
       setMode("login");
+      setFormData({ name: "", phone: "", email: "", password: "" });
+      setErrors({});
     } catch (err) {
-      toast.error(err?.message || "Failed to send reset link.");
+      toast.error(err.message || "Failed to send reset link.");
     } finally {
       setLoading(false);
     }
   };
 
-  // OTP verify
+  const handleSendOtp = async () => {
+    if (!formData.phone || !validatePhone(formData.phone)) {
+      toast.error("Please enter a valid phone number in +254XXXXXXXXX format.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        phone: formData.phone,
+      });
+      if (error) throw error;
+      toast.success("OTP sent to your phone.");
+      setMode("verifyOtp");
+      setOtpResendCooldown(30); // 30-second cooldown
+    } catch (err) {
+      toast.error(err.message || "Failed to send OTP.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleVerifyOtp = async () => {
-    if (!formData.phone || otp.length !== 6) {
-      toast.error("Enter valid phone + 6-digit OTP.");
+    if (!formData.phone || !validatePhone(formData.phone) || otp.length !== 6) {
+      toast.error("Enter a valid phone number and 6-digit OTP.");
       return;
     }
     setLoading(true);
@@ -139,14 +210,16 @@ export default function Auth() {
       if (error) throw error;
       toast.success("Phone verified 🎉");
       navigate("/home");
+      setFormData({ name: "", phone: "", email: "", password: "" });
+      setOtp("");
+      setErrors({});
     } catch (err) {
-      toast.error(err?.message || "OTP verification failed.");
+      toast.error(err.message || "OTP verification failed.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Google
   const handleGoogle = async () => {
     setLoading(true);
     try {
@@ -156,22 +229,92 @@ export default function Auth() {
       });
       if (error) throw error;
     } catch (err) {
-      toast.error(err?.message || "Google login failed.");
+      toast.error(err.message || "Google login failed.");
     } finally {
       setLoading(false);
     }
   };
 
+  useEffect(() => {
+    if (otpResendCooldown > 0) {
+      const timer = setTimeout(() => setOtpResendCooldown(otpResendCooldown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [otpResendCooldown]);
+
   const renderForm = () => {
     switch (mode) {
       case "signup":
         return (
-          <form onSubmit={handleSignup} className="auth-form">
-            <input name="name" placeholder="Full name" onChange={handleChange} required />
-            <input name="phone" placeholder="+2547..." onChange={handleChange} />
-            <input name="email" type="email" placeholder="Email" onChange={handleChange} required />
-            <input name="password" type="password" placeholder="Password" onChange={handleChange} required />
-            <Button type="submit" disabled={loading}>
+          <form onSubmit={handleSignup} className="auth-form" aria-labelledby="signup-title">
+            <div className="form-group">
+              <label htmlFor="name">Full Name</label>
+              <input
+                id="name"
+                name="name"
+                placeholder="Full name"
+                onChange={handleChange}
+                value={formData.name}
+                required
+                aria-invalid={!!errors.name}
+                aria-describedby={errors.name ? "name-error" : undefined}
+              />
+              {errors.name && <span id="name-error" className="error-text">{errors.name}</span>}
+            </div>
+            <div className="form-group">
+              <label htmlFor="phone">Phone Number</label>
+              <input
+                id="phone"
+                name="phone"
+                placeholder="+2547..."
+                onChange={handleChange}
+                value={formData.phone}
+                aria-invalid={!!errors.phone}
+                aria-describedby={errors.phone ? "phone-error" : undefined}
+              />
+              {errors.phone && <span id="phone-error" className="error-text">{errors.phone}</span>}
+            </div>
+            <div className="form-group">
+              <label htmlFor="email">Email</label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                placeholder="Email"
+                onChange={handleChange}
+                value={formData.email}
+                required
+                aria-invalid={!!errors.email}
+                aria-describedby={errors.email ? "email-error" : undefined}
+              />
+              {errors.email && <span id="email-error" className="error-text">{errors.email}</span>}
+            </div>
+            <div className="form-group">
+              <label htmlFor="password">Password</label>
+              <div className="password-wrapper">
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Password"
+                  onChange={handleChange}
+                  value={formData.password}
+                  required
+                  aria-invalid={!!errors.password}
+                  aria-describedby={errors.password ? "password-error" : undefined}
+                />
+                <button
+                  type="button"
+                  className="password-toggle"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+              {errors.password && <span id="password-error" className="error-text">{errors.password}</span>}
+            </div>
+            <Button type="submit" disabled={loading || Object.values(errors).some((e) => e)}>
               {loading ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
               {loading ? "Creating..." : "Sign up"}
             </Button>
@@ -179,15 +322,56 @@ export default function Auth() {
         );
       case "login":
         return (
-          <form onSubmit={handleLogin} className="auth-form">
-            <input name="email" type="email" placeholder="Email" onChange={handleChange} required />
-            <input name="password" type="password" placeholder="Password" onChange={handleChange} required />
+          <form onSubmit={handleLogin} className="auth-form" aria-labelledby="login-title">
+            <div className="form-group">
+              <label htmlFor="email">Email</label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                placeholder="Email"
+                onChange={handleChange}
+                value={formData.email}
+                required
+                aria-invalid={!!errors.email}
+                aria-describedby={errors.email ? "email-error" : undefined}
+              />
+              {errors.email && <span id="email-error" className="error-text">{errors.email}</span>}
+            </div>
+            <div className="form-group">
+              <label htmlFor="password">Password</label>
+              <div className="password-wrapper">
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Password"
+                  onChange={handleChange}
+                  value={formData.password}
+                  required
+                  aria-invalid={!!errors.password}
+                  aria-describedby={errors.password ? "password-error" : undefined}
+                />
+                <button
+                  type="button"
+                  className="password-toggle"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+              {errors.password && <span id="password-error" className="error-text">{errors.password}</span>}
+            </div>
             <div className="auth-links">
               <button type="button" onClick={() => setMode("forgot")} className="link-btn">
                 Forgot password?
               </button>
+              <button type="button" onClick={handleSendOtp} className="link-btn">
+                Login with OTP
+              </button>
             </div>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading || Object.values(errors).some((e) => e)}>
               {loading ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
               {loading ? "Signing in..." : "Sign in"}
             </Button>
@@ -195,9 +379,23 @@ export default function Auth() {
         );
       case "forgot":
         return (
-          <form onSubmit={handleForgotPassword} className="auth-form">
-            <input name="email" type="email" placeholder="Enter your email" onChange={handleChange} required />
-            <Button type="submit" disabled={loading}>
+          <form onSubmit={handleForgotPassword} className="auth-form" aria-labelledby="forgot-title">
+            <div className="form-group">
+              <label htmlFor="email">Email</label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                placeholder="Enter your email"
+                onChange={handleChange}
+                value={formData.email}
+                required
+                aria-invalid={!!errors.email}
+                aria-describedby={errors.email ? "email-error" : undefined}
+              />
+              {errors.email && <span id="email-error" className="error-text">{errors.email}</span>}
+            </div>
+            <Button type="submit" disabled={loading || Object.values(errors).some((e) => e)}>
               {loading ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
               {loading ? "Sending..." : "Send Reset Link"}
             </Button>
@@ -208,18 +406,47 @@ export default function Auth() {
         );
       case "verifyOtp":
         return (
-          <div className="otp-form">
-            <input
-              className="otp-input"
-              value={otp}
-              onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-              maxLength={6}
-              placeholder="123456"
-            />
-            <Button onClick={handleVerifyOtp} disabled={loading || otp.length !== 6}>
+          <div className="otp-form" aria-labelledby="otp-title">
+            <div className="form-group">
+              <label htmlFor="phone">Phone Number</label>
+              <input
+                id="phone"
+                name="phone"
+                placeholder="+2547..."
+                onChange={handleChange}
+                value={formData.phone}
+                required
+                aria-invalid={!!errors.phone}
+                aria-describedby={errors.phone ? "phone-error" : undefined}
+              />
+              {errors.phone && <span id="phone-error" className="error-text">{errors.phone}</span>}
+            </div>
+            <div className="form-group">
+              <label htmlFor="otp">OTP</label>
+              <input
+                id="otp"
+                className="otp-input"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+                maxLength={6}
+                placeholder="123456"
+                required
+                aria-describedby="otp-hint"
+              />
+              <span id="otp-hint" className="hint-text">Enter the 6-digit code sent to your phone.</span>
+            </div>
+            <Button onClick={handleVerifyOtp} disabled={loading || otp.length !== 6 || Object.values(errors).some((e) => e)}>
               {loading ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
               {loading ? "Verifying..." : "Verify OTP"}
             </Button>
+            <button
+              type="button"
+              className="link-btn"
+              onClick={handleSendOtp}
+              disabled={loading || otpResendCooldown > 0}
+            >
+              {otpResendCooldown > 0 ? `Resend OTP in ${otpResendCooldown}s` : "Resend OTP"}
+            </button>
           </div>
         );
       default:
@@ -232,9 +459,21 @@ export default function Auth() {
       className="auth-container"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
+      role="main"
     >
       <div className="auth-form-container glass-card">
-        <h2 className="auth-title">
+        <h2
+          className="auth-title"
+          id={
+            mode === "signup"
+              ? "signup-title"
+              : mode === "forgot"
+              ? "forgot-title"
+              : mode === "verifyOtp"
+              ? "otp-title"
+              : "login-title"
+          }
+        >
           {mode === "signup"
             ? "Create an account"
             : mode === "forgot"
@@ -247,13 +486,19 @@ export default function Auth() {
         {mode === "login" || mode === "signup" ? (
           <>
             <div className="auth-divider">or</div>
-            <button onClick={handleGoogle} className="google-signin-btn" disabled={loading}>
+            <button
+              onClick={handleGoogle}
+              className="google-signin-btn"
+              disabled={loading}
+              aria-label="Sign in with Google"
+            >
               Continue with Google
             </button>
             <div className="toggle-form-text">
               <p>
                 {mode === "signup" ? "Already have an account?" : "Don't have an account?"}{" "}
                 <button
+                  type="button"
                   onClick={() => setMode(mode === "signup" ? "login" : "signup")}
                   className="toggle-btn"
                 >
