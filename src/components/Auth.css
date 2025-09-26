@@ -1,159 +1,177 @@
-:root {
-  --light-bg: #f1f1f1;
-  --light-card: #fff;
-  --light-text: #000;
-  --light-border: #ccc;
-  --light-secondary: #666;
-  --dark-bg: #111;
-  --dark-card: #1e1e1e;
-  --dark-text: #fff;
-  --dark-border: #444;
-  --dark-secondary: #aaa;
-  --accent: #00e0ff;
-  --danger: crimson;
-  --success: #28a745;
-}
+/* Auth.css - Production-ready styles for Auth component */
 
-html.light {
-  background: var(--light-bg);
-  color: var(--light-text);
-}
-
-html.dark {
-  background: var(--dark-bg);
-  color: var(--dark-text);
+/* Reset and base styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
 body {
-  margin: 0;
-  font-family: 'Poppins', sans-serif;
-  transition: all 0.3s ease;
-  background: inherit;
-  color: inherit;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  line-height: 1.5;
+  color: var(--text-color);
+  background-color: var(--bg-color);
 }
 
+/* CSS Variables for themes */
+:root {
+  --bg-color: #ffffff;
+  --text-color: #1a1a1a;
+  --accent-color: #0070f3;
+  --border-color: #e0e0e0;
+  --error-color: #e53e3e;
+  --success-color: #38a169;
+  --muted-color: #718096;
+  --card-bg: rgba(255, 255, 255, 0.8);
+  --card-border: rgba(0, 0, 0, 0.1);
+  --input-bg: #ffffff;
+  --input-border: #d1d5db;
+  --button-bg: var(--accent-color);
+  --button-text: #ffffff;
+  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --glass-blur: blur(10px);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-color: #1a1a1a;
+    --text-color: #f0f0f0;
+    --accent-color: #4299e1;
+    --border-color: #4a4a4a;
+    --error-color: #fc8181;
+    --success-color: #68d391;
+    --muted-color: #a0aec0;
+    --card-bg: rgba(26, 26, 26, 0.8);
+    --card-border: rgba(255, 255, 255, 0.1);
+    --input-bg: #2d2d2d;
+    --input-border: #4a5568;
+    --button-bg: var(--accent-color);
+    --button-text: #1a1a1a;
+    --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+    --glass-blur: blur(10px);
+  }
+}
+
+/* Override for app toggle - assuming .dark class on html or body */
+.dark {
+  --bg-color: #1a1a1a;
+  --text-color: #f0f0f0;
+  --accent-color: #4299e1;
+  --border-color: #4a4a4a;
+  --error-color: #fc8181;
+  --success-color: #68d391;
+  --muted-color: #a0aec0;
+  --card-bg: rgba(26, 26, 26, 0.8);
+  --card-border: rgba(255, 255, 255, 0.1);
+  --input-bg: #2d2d2d;
+  --input-border: #4a5568;
+  --button-bg: var(--accent-color);
+  --button-text: #1a1a1a;
+  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+  --glass-blur: blur(10px);
+}
+
+/* Auth container */
 .auth-container {
   display: flex;
   justify-content: center;
   align-items: center;
   min-height: 100vh;
   padding: 1rem;
-  background: var(--light-bg);
+  background-color: var(--bg-color);
 }
 
-html.dark .auth-container {
-  background: var(--dark-bg);
-}
-
-.auth-form-container {
+/* Glass card effect */
+.glass-card {
   max-width: 400px;
   width: 100%;
   padding: 2rem;
-  background: var(--light-card);
-  border-radius: 16px;
-  box-shadow: 0 4px 12px rgba(0, 255, 255, 0.1);
-  border: 1px solid var(--light-border);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 1rem;
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow);
 }
 
-html.dark .auth-form-container {
-  background: var(--dark-card);
-  border-color: var(--dark-border);
-}
-
+/* Title */
 .auth-title {
   font-size: 1.5rem;
   font-weight: 600;
-  color: var(--accent);
   margin-bottom: 1.5rem;
   text-align: center;
+  color: var(--text-color);
 }
 
+/* Forms */
 .auth-form, .otp-form {
   display: flex;
   flex-direction: column;
   gap: 1rem;
 }
 
+/* Form groups */
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 0.25rem;
 }
 
-.form-group label {
-  font-size: 0.9rem;
+label {
+  font-size: 0.875rem;
   font-weight: 500;
-  color: var(--light-text);
+  color: var(--text-color);
 }
 
-html.dark .form-group label {
-  color: var(--dark-text);
-}
-
-.auth-form input, .otp-form input {
-  padding: 0.8rem;
-  border: 1px solid var(--light-border);
-  border-radius: 8px;
+input {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--input-border);
+  border-radius: 0.5rem;
+  background-color: var(--input-bg);
+  color: var(--text-color);
   font-size: 1rem;
-  background: var(--light-card);
-  color: var(--light-text);
-  transition: border-color 0.3s ease;
+  transition: border-color 0.2s ease;
 }
 
-html.dark .auth-form input, html.dark .otp-form input {
-  background: var(--dark-card);
-  border-color: var(--dark-border);
-  color: var(--dark-text);
-}
-
-.auth-form input:focus, .otp-form input:focus {
+input:focus {
   outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(0, 224, 255, 0.2);
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 2px rgba(66, 153, 225, 0.2);
 }
 
-.auth-form input[aria-invalid="true"], .otp-form input[aria-invalid="true"] {
-  border-color: var(--danger);
+input::placeholder {
+  color: var(--muted-color);
 }
 
+/* Error text */
 .error-text {
-  font-size: 0.8rem;
-  color: var(--danger);
+  font-size: 0.75rem;
+  color: var(--error-color);
+  margin-top: 0.25rem;
 }
 
-.hint-text {
-  font-size: 0.8rem;
-  color: var(--light-secondary);
-}
-
-html.dark .hint-text {
-  color: var(--dark-secondary);
-}
-
+/* Password wrapper */
 .password-wrapper {
   position: relative;
-  display: flex;
-  align-items: center;
 }
 
 .password-toggle {
   position: absolute;
-  right: 10px;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
   background: none;
   border: none;
   cursor: pointer;
-  color: var(--light-secondary);
+  color: var(--muted-color);
+  transition: color 0.2s ease;
 }
 
-html.dark .password-toggle {
-  color: var(--dark-secondary);
+.password-toggle:hover {
+  color: var(--text-color);
 }
 
-.password-toggle:focus {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
+/* Auth links */
 .auth-links {
   display: flex;
   justify-content: space-between;
@@ -163,224 +181,145 @@ html.dark .password-toggle {
 .link-btn {
   background: none;
   border: none;
-  color: var(--accent);
-  font-size: 0.9rem;
+  color: var(--accent-color);
+  font-size: 0.875rem;
   cursor: pointer;
-  transition: color 0.3s ease;
+  text-decoration: underline;
+  transition: color 0.2s ease;
 }
 
 .link-btn:hover {
-  color: #00c0e0;
-}
-
-.link-btn:focus {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  color: darken(var(--accent-color), 10%);
 }
 
 .back-link {
   margin-top: 1rem;
-  display: block;
+  width: 100%;
   text-align: center;
 }
 
+/* OTP input */
+.otp-input {
+  text-align: center;
+  letter-spacing: 1rem;
+  font-size: 1.25rem;
+  padding: 0.75rem;
+}
+
+/* Hint text */
+.hint-text {
+  font-size: 0.75rem;
+  color: var(--muted-color);
+  margin-top: 0.25rem;
+}
+
+/* Divider */
 .auth-divider {
-  text-align: center;
+  display: flex;
+  align-items: center;
   margin: 1.5rem 0;
-  color: var(--light-secondary);
-  position: relative;
+  color: var(--muted-color);
 }
 
-html.dark .auth-divider {
-  color: var(--dark-secondary);
-}
-
-.auth-divider::before, .auth-divider::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  width: 40%;
-  height: 1px;
-  background: var(--light-border);
-}
-
-.auth-divider::before {
-  left: 0;
-}
-
+.auth-divider::before,
 .auth-divider::after {
-  right: 0;
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid var(--border-color);
 }
 
-html.dark .auth-divider::before, html.dark .auth-divider::after {
-  background: var(--dark-border);
+.auth-divider span {
+  padding: 0 1rem;
+  font-size: 0.875rem;
 }
 
+/* Google button */
 .google-signin-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  padding: 0.8rem;
-  border: 1px solid var(--light-border);
-  border-radius: 8px;
-  background: var(--light-card);
-  color: var(--light-text);
-  font-size: 1rem;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background-color: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 0.5rem;
+  color: var(--text-color);
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.3s ease;
-}
-
-html.dark .google-signin-btn {
-  background: var(--dark-card);
-  border-color: var(--dark-border);
-  color: var(--dark-text);
+  transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
 .google-signin-btn:hover {
-  background: rgba(0, 224, 255, 0.1);
+  background-color: lighten(var(--input-bg), 5%);
+  border-color: var(--accent-color);
 }
 
-.google-signin-btn:focus {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+.google-icon {
+  width: 20px;
+  height: 20px;
 }
 
-.google-signin-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
+/* Toggle text */
 .toggle-form-text {
   text-align: center;
   margin-top: 1.5rem;
-  font-size: 0.9rem;
-  color: var(--light-secondary);
-}
-
-html.dark .toggle-form-text {
-  color: var(--dark-secondary);
+  font-size: 0.875rem;
+  color: var(--muted-color);
 }
 
 .toggle-btn {
   background: none;
   border: none;
-  color: var(--accent);
-  font-weight: 600;
+  color: var(--accent-color);
   cursor: pointer;
-  transition: color 0.3s ease;
+  text-decoration: underline;
+  font-weight: 500;
+  transition: color 0.2s ease;
 }
 
 .toggle-btn:hover {
-  color: #00c0e0;
+  color: darken(var(--accent-color), 10%);
 }
 
-.toggle-btn:focus {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+/* Loader - assuming shadcn Button handles, but override if needed */
+button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
-.otp-input {
-  text-align: center;
-  font-size: 1.2rem;
-  letter-spacing: 0.2rem;
+/* Toast styles - for react-hot-toast */
+.toast {
+  background: var(--card-bg);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  box-shadow: var(--shadow);
 }
 
-/* Responsive Design */
+.toast-success {
+  border-color: var(--success-color);
+}
+
+.toast-error {
+  border-color: var(--error-color);
+}
+
+/* Responsive */
 @media (max-width: 480px) {
-  .auth-form-container {
+  .glass-card {
     padding: 1.5rem;
-    margin: 0 1rem;
   }
 
   .auth-title {
-    font-size: 1.3rem;
-  }
-
-  .auth-form input, .otp-form input {
-    padding: 0.7rem;
-    font-size: 0.9rem;
-  }
-
-  .google-signin-btn, .link-btn, .toggle-btn {
-    font-size: 0.85rem;
-  }
-
-  .auth-links {
-    flex-direction: column;
-    gap: 0.5rem;
-    align-items: center;
+    font-size: 1.25rem;
   }
 }
-/* Input Groups (for consistency) */
-.auth-input-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  margin-bottom: 1rem;
-}
 
-.auth-input-group label {
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--light-text);
-}
-
-html.dark .auth-input-group label {
-  color: var(--dark-text);
-}
-
-/* Reuse form-group from Auth.jsx for new structure */
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  margin-bottom: 1rem;
-}
-
-.loading-text {
+/* No internet message - style for potential custom error */
+.no-internet {
   text-align: center;
-  color: var(--accent);
-  font-style: italic;
-  padding: 2rem;
-}
-
-/* Back Link */
-.back-link {
+  color: var(--error-color);
+  font-size: 0.875rem;
   margin-top: 1rem;
-  display: block;
-  text-align: center;
-  background: none;
-  border: none;
-  color: var(--accent);
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: color 0.3s ease;
-}
-
-.back-link:hover {
-  color: #00c0e0;
-}
-
-.back-link:focus {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-/* Responsive Adjustments */
-@media (max-width: 480px) {
-  .auth-form-container {
-    padding: 1.5rem;
-    margin: 0 1rem;
-  }
-
-  .auth-title {
-    font-size: 1.3rem;
-  }
-
-  .password-wrapper input {
-    padding: 0.7rem;
-    font-size: 0.9rem;
-  }
 }

@@ -1,110 +1,243 @@
-// src/components/ResetPassword.jsx
-import React, { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 import { supabase } from "@/supabase";
 import { Button } from "@/components/ui/button";
 import toast from "react-hot-toast";
+import { Loader2, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import "./Auth.css";
 
 export default function ResetPassword() {
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [sessionReady, setSessionReady] = useState(false);
+  const [verifying, setVerifying] = useState(true);
+  const [verified, setVerified] = useState(false);
+  const [formData, setFormData] = useState({ 
+    password: "", 
+    confirmPassword: "" 
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [errors, setErrors] = useState({});
 
   const token = searchParams.get("token");
 
   useEffect(() => {
     if (!token) {
-      toast.error("Invalid or expired reset link.");
+      toast.error("Invalid reset link");
       navigate("/auth");
       return;
     }
 
-    // Supabase emits PASSWORD_RECOVERY event
-    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "PASSWORD_RECOVERY" && session) {
-        setSessionReady(true);
-      }
-    });
-
-    (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) setSessionReady(true);
-    })();
-
-    return () => listener?.subscription?.unsubscribe();
+    verifyToken();
   }, [token, navigate]);
+
+  const verifyToken = async () => {
+    try {
+      setVerifying(true);
+      
+      // First, get the session to check if we're already authenticated
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.user) {
+        // User is already authenticated, proceed with password reset
+        setVerified(true);
+        setVerifying(false);
+        return;
+      }
+
+      // If no session, try to verify the token
+      const { error } = await supabase.auth.verifyOtp({
+        token_hash: token,
+        type: 'recovery',
+      });
+
+      if (error) throw error;
+      
+      setVerified(true);
+      toast.success("Please set your new password");
+    } catch (err) {
+      console.error("Token verification failed:", err);
+      toast.error("Reset link has expired or is invalid");
+      navigate("/auth");
+    } finally {
+      setVerifying(false);
+    }
+  };
 
   const isValidPassword = (pwd) =>
     /[a-z]/.test(pwd) && /[A-Z]/.test(pwd) && /[0-9]/.test(pwd) && pwd.length >= 8;
 
-  const handleSubmit = async (e) => {
+  const validateForm = () => {
+    const newErrors = {};
+    
+    if (!formData.password) {
+      newErrors.password = "Password is required";
+    } else if (!isValidPassword(formData.password)) {
+      newErrors.password = "Password must include uppercase, lowercase, number, and be 8+ chars";
+    }
+    
+    if (!formData.confirmPassword) {
+      newErrors.confirmPassword = "Please confirm your password";
+    } else if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = "Passwords do not match";
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleResetPassword = async (e) => {
     e.preventDefault();
-    if (!isValidPassword(password)) {
-      toast.error("Password must include uppercase, lowercase, number & 8+ chars.");
+    
+    if (!validateForm()) {
       return;
     }
-    if (password !== confirmPassword) {
-      toast.error("Passwords do not match.");
-      return;
-    }
+
     setLoading(true);
     try {
-      const { error } = await supabase.auth.updateUser({ password });
+      const { error } = await supabase.auth.updateUser({
+        password: formData.password
+      });
+
       if (error) throw error;
-      toast.success("Password updated successfully! Please login.");
+
+      toast.success("Password reset successfully! You can now login with your new password.");
+      
+      // Sign out the user after password reset for security
+      await supabase.auth.signOut();
+      
       navigate("/auth");
     } catch (err) {
-      toast.error(err?.message || "Failed to reset password.");
+      toast.error(err.message || "Failed to reset password. The link may have expired.");
     } finally {
       setLoading(false);
     }
   };
 
-  if (!sessionReady) {
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: "" }));
+    }
+  };
+
+  if (verifying) {
     return (
       <div className="auth-container">
-        <div className="auth-form-container glass-card">
-          <h2 className="auth-title">Reset Password</h2>
-          <p style={{ textAlign: "center", color: "#bbb" }}>Validating reset link...</p>
+        <div className="auth-form-container glass-card text-center">
+          <h2 className="auth-title">Verifying Reset Link</h2>
+          <Loader2 className="animate-spin h-8 w-8 mx-auto mt-4 text-blue-600" />
+          <p className="mt-4 text-gray-600">Please wait while we verify your reset link...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!verified) {
+    return (
+      <div className="auth-container">
+        <div className="auth-form-container glass-card text-center">
+          <h2 className="auth-title text-red-600">Invalid Reset Link</h2>
+          <p className="mt-4 text-gray-600">The reset link is invalid or has expired.</p>
+          <Button onClick={() => navigate("/auth")} className="mt-4">
+            Back to Login
+          </Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="auth-container">
+    <motion.div
+      className="auth-container"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
+    >
       <div className="auth-form-container glass-card">
-        <h2 className="auth-title">Set a New Password</h2>
-        <form onSubmit={handleSubmit} className="auth-form">
-          <div className="auth-input-group">
-            <label>New password</label>
-            <input
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+        <button 
+          onClick={() => navigate("/auth")}
+          className="back-button"
+          aria-label="Back to login"
+        >
+          <ArrowLeft size={20} />
+        </button>
+        
+        <h2 className="auth-title">Set New Password</h2>
+        <p className="auth-subtitle">Enter your new password below</p>
+        
+        <form onSubmit={handleResetPassword} className="auth-form">
+          <div className="form-group">
+            <label htmlFor="password">New Password</label>
+            <div className="password-wrapper">
+              <input
+                id="password"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                placeholder="Enter new password"
+                value={formData.password}
+                onChange={handleInputChange}
+                required
+                aria-invalid={!!errors.password}
+                aria-describedby={errors.password ? "password-error" : undefined}
+              />
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
+            {errors.password && (
+              <span id="password-error" className="error-text">{errors.password}</span>
+            )}
           </div>
-          <div className="auth-input-group">
-            <label>Confirm password</label>
-            <input
-              type="password"
-              placeholder="••••••••"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-            />
+
+          <div className="form-group">
+            <label htmlFor="confirmPassword">Confirm Password</label>
+            <div className="password-wrapper">
+              <input
+                id="confirmPassword"
+                name="confirmPassword"
+                type={showConfirmPassword ? "text" : "password"}
+                placeholder="Confirm new password"
+                value={formData.confirmPassword}
+                onChange={handleInputChange}
+                required
+                aria-invalid={!!errors.confirmPassword}
+                aria-describedby={errors.confirmPassword ? "confirmPassword-error" : undefined}
+              />
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+              >
+                {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
+            {errors.confirmPassword && (
+              <span id="confirmPassword-error" className="error-text">{errors.confirmPassword}</span>
+            )}
           </div>
-          <Button type="submit" disabled={loading}>
-            {loading ? "Updating..." : "Reset Password"}
+
+          <Button 
+            type="submit" 
+            disabled={loading}
+            className="w-full"
+          >
+            {loading ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
+            {loading ? "Resetting..." : "Reset Password"}
           </Button>
         </form>
       </div>
-    </div>
+    </motion.div>
   );
 }
