@@ -24,8 +24,9 @@ class AuthErrorBoundary extends Component {
           <h2>Oops, Something Went Wrong</h2>
           <p>
             {this.state.error?.message || "An unexpected error occurred."}
-            {this.state.error?.message.includes("VITE_SUPABASE_URL")
-              ? " Please check your environment variables (VITE_SUPABASE_URL) and ensure they are correctly set in your .env file."
+            {this.state.error?.message.includes("VITE_SUPABASE_URL") ||
+            this.state.error?.message.includes("VITE_SUPABASE_ANON_KEY")
+              ? " Please check your environment variables (VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY) in your .env file."
               : ""}
           </p>
           <Button
@@ -54,18 +55,23 @@ export default function Auth() {
   const [otpResendCooldown, setOtpResendCooldown] = useState(0);
   const [attemptCount, setAttemptCount] = useState(0);
   const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
+  const [envError, setEnvError] = useState(null);
 
   // Validate environment variables
   useEffect(() => {
-    if (!import.meta.env.VITE_SUPABASE_URL) {
-      toast.error("Missing VITE_SUPABASE_URL in environment variables. Please check your .env file.");
-      throw new Error("VITE_SUPABASE_URL is undefined. Please set it in your .env file.");
+    if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+      const errorMessage = "Missing Supabase configuration. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file.";
+      setEnvError(errorMessage);
+      toast.error(errorMessage);
+    } else {
+      setEnvError(null);
     }
   }, []);
 
   // Handle OAuth callback and password reset
   useEffect(() => {
     const handleAuthCallback = async () => {
+      if (envError) return; // Skip if environment variables are missing
       const code = searchParams.get("code");
       const type = searchParams.get("type");
       const recoveryToken = searchParams.get("access_token");
@@ -126,11 +132,12 @@ export default function Auth() {
       }
     };
     handleAuthCallback();
-  }, [searchParams, navigate]);
+  }, [searchParams, navigate, envError]);
 
   // Auto-redirect logged-in users
   useEffect(() => {
     const checkSession = async () => {
+      if (envError) return; // Skip if environment variables are missing
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
         if (error) throw error;
@@ -153,6 +160,7 @@ export default function Auth() {
     checkSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (envError) return; // Skip if environment variables are missing
       if (event === "SIGNED_IN" && session?.user) {
         const isResetFlow = window.location.pathname.includes("/auth/reset");
         if (!isResetFlow) {
@@ -165,7 +173,7 @@ export default function Auth() {
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate, searchParams]);
+  }, [navigate, searchParams, envError]);
 
   // Input validation and sanitization
   const validatePhone = (phone) => /^\+254\d{9}$/.test(phone);
@@ -233,6 +241,10 @@ export default function Auth() {
 
   const handleSignup = async (e) => {
     e.preventDefault();
+    if (envError) {
+      toast.error("Cannot sign up due to missing Supabase configuration.");
+      return;
+    }
     if (attemptCount >= 5) {
       toast.error("Too many attempts. Please wait a minute and try again.");
       return;
@@ -287,6 +299,10 @@ export default function Auth() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    if (envError) {
+      toast.error("Cannot sign in due to missing Supabase configuration.");
+      return;
+    }
     if (attemptCount >= 5) {
       toast.error("Too many attempts. Please wait a minute and try again.");
       return;
@@ -331,6 +347,10 @@ export default function Auth() {
 
   const handleForgotPassword = async (e) => {
     e.preventDefault();
+    if (envError) {
+      toast.error("Cannot reset password due to missing Supabase configuration.");
+      return;
+    }
     if (attemptCount >= 5) {
       toast.error("Too many attempts. Please wait a minute and try again.");
       return;
@@ -367,6 +387,10 @@ export default function Auth() {
   };
 
   const handleSendOtp = async () => {
+    if (envError) {
+      toast.error("Cannot send OTP due to missing Supabase configuration.");
+      return;
+    }
     if (attemptCount >= 5) {
       toast.error("Too many attempts. Please wait a minute and try again.");
       return;
@@ -407,6 +431,10 @@ export default function Auth() {
   };
 
   const handleVerifyOtp = async () => {
+    if (envError) {
+      toast.error("Cannot verify OTP due to missing Supabase configuration.");
+      return;
+    }
     if (attemptCount >= 5) {
       toast.error("Too many attempts. Please wait a minute and try again.");
       return;
@@ -447,6 +475,10 @@ export default function Auth() {
   };
 
   const handleGoogle = async () => {
+    if (envError) {
+      toast.error("Cannot sign in with Google due to missing Supabase configuration.");
+      return;
+    }
     setLoading(true);
     try {
       if (process.env.NODE_ENV !== "production") {
@@ -564,7 +596,7 @@ export default function Auth() {
             <Button
               type="submit"
               className="auth-button"
-              disabled={loading || Object.values(errors).some((e) => e)}
+              disabled={loading || Object.values(errors).some((e) => e) || envError}
             >
               {loading ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
               {loading ? "Creating..." : "Sign up"}
@@ -635,7 +667,7 @@ export default function Auth() {
             <Button
               type="submit"
               className="auth-button"
-              disabled={loading || Object.values(errors).some((e) => e)}
+              disabled={loading || Object.values(errors).some((e) => e) || envError}
             >
               {loading ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
               {loading ? "Signing in..." : "Sign in"}
@@ -663,7 +695,7 @@ export default function Auth() {
             <Button
               type="submit"
               className="auth-button"
-              disabled={loading || Object.values(errors).some((e) => e)}
+              disabled={loading || Object.values(errors).some((e) => e) || envError}
             >
               {loading ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
               {loading ? "Sending..." : "Send Reset Link"}
@@ -694,6 +726,12 @@ export default function Auth() {
       >
         <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
         <div className="auth-form-container glass-card">
+          {envError && (
+            <div className="env-error-message">
+              <p>{envError}</p>
+              <p>Please update your .env file and reload the page.</p>
+            </div>
+          )}
           <h2
             className="auth-title"
             id={
@@ -719,7 +757,7 @@ export default function Auth() {
               <button
                 onClick={handleGoogle}
                 className="google-signin-btn"
-                disabled={loading}
+                disabled={loading || envError}
                 aria-label="Sign in with Google"
               >
                 <svg className="google-icon" viewBox="0 0 24 24" width="20" height="20">
@@ -827,7 +865,7 @@ export default function Auth() {
                   <Button
                     onClick={handleSendOtp}
                     className="auth-button"
-                    disabled={loading || otpResendCooldown > 0 || !!errors.phone}
+                    disabled={loading || otpResendCooldown > 0 || !!errors.phone || envError}
                   >
                     {loading ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
                     {otpResendCooldown > 0 ? `Resend OTP in ${otpResendCooldown}s` : "Send OTP"}
@@ -835,7 +873,7 @@ export default function Auth() {
                   <Button
                     onClick={handleVerifyOtp}
                     className="auth-button"
-                    disabled={loading || otp.length !== 6 || !!errors.phone}
+                    disabled={loading || otp.length !== 6 || !!errors.phone || envError}
                   >
                     {loading ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
                     Verify OTP
