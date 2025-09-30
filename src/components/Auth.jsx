@@ -91,27 +91,27 @@ useEffect(() => {
       return;
     }
 
-    // Handle OAuth success (Google login redirect with ?code=...)
-    if (code) {
-      try {
-        // Supabase automatically exchanges the code for a session in browser
-        const { data, error } = await supabase.auth.getSession();
-        if (error) throw error;
+// Handle OAuth success (Google login redirect with ?code=...)
+if (code) {
+  try {
+    // ✅ Correct: exchange the code for a session
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error) throw error;
 
-        if (data?.session?.user) {
-          toast.success("Successfully signed in with Google");
-          window.history.replaceState({}, document.title, window.location.pathname);
-          navigate("/home");
-        } else {
-          toast.error("No valid user session after Google sign-in. Please try again.");
-          window.history.replaceState({}, document.title, window.location.pathname);
-        }
-      } catch (err) {
-        toast.error(err.message || "Google authentication failed. Try incognito mode.");
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
-      return;
+    if (data?.session?.user) {
+      toast.success("Successfully signed in with Google");
+      window.history.replaceState({}, document.title, window.location.pathname);
+      navigate("/home");
+    } else {
+      toast.error("No valid user session after Google sign-in. Please try again.");
+      window.history.replaceState({}, document.title, window.location.pathname);
     }
+  } catch (err) {
+    toast.error(err.message || "Google authentication failed. Try incognito mode.");
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+  return;
+}
 
     // Handle password recovery (reset link flow)
     if (type === "recovery" && recoveryToken) {
