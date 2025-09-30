@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/supabase";
-import { FaBell, FaCheckCircle } from "react-icons/fa";
-import { motion } from "framer-motion";
+import { FaBell, FaCheckCircle, FaTrash, FaSearch, FaFilter } from "react-icons/fa";
+import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
 import { useNotificationBadge } from "@/context/NotificationBadgeContext";
 import "./Notifications.css";
@@ -10,9 +10,50 @@ const Notifications = () => {
   const { user } = useAuth();
   const { setGlobalUnreadCount } = useNotificationBadge();
   const [notifications, setNotifications] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filter, setFilter] = useState("all"); // all, unread, read
   const [loading, setLoading] = useState(true);
 
-  // Insert welcome messages if not exists
+  // Time ago function
+  const timeAgo = (timestamp) => {
+    const now = new Date();
+    const date = new Date(timestamp);
+    const diff = now - date;
+    const seconds = Math.floor(diff / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    if (seconds < 60) return `${seconds}s ago`;
+    if (minutes < 60) return `${minutes}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    return `${days}d ago`;
+  };
+
+  // Group notifications by date
+  const groupedNotifications = useMemo(() => {
+    const groups = {};
+    const filteredNotifs = notifications
+      .filter(n => {
+        if (filter === "unread") return !n.read;
+        if (filter === "read") return n.read;
+        return true;
+      })
+      .filter(n => 
+        n.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        n.message.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+
+    filteredNotifs.forEach(n => {
+      const date = new Date(n.created_at).toLocaleDateString();
+      if (!groups[date]) groups[date] = [];
+      groups[date].push(n);
+    });
+
+    return groups;
+  }, [notifications, searchQuery, filter]);
+
+  // Insert welcome notifications
   const insertWelcomeNotifications = async () => {
     if (!user?.id) return;
     const { data: existing, error } = await supabase
@@ -33,8 +74,7 @@ const Notifications = () => {
       },
       {
         title: "🔥 Let's Go!",
-        message:
-          "Tap into power. Explore OmniCash, OmniHub & unlock your potential.",
+        message: "Tap into power. Explore OmniCash, OmniHub & unlock your potential.",
         color: "crimson",
       },
     ];
@@ -66,7 +106,8 @@ const Notifications = () => {
         .from("notifications")
         .select("*")
         .or(`user_id.eq.${user.id},user_id.is.null`)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(100); // Limit for performance
 
       if (error) throw error;
 
@@ -80,137 +121,115 @@ const Notifications = () => {
   };
 
   const markAsRead = async (id) => {
-    // Optimistic update
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-    );
-    setGlobalUnreadCount((prev) => Math.max(prev - 1, 0));
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    setGlobalUnreadCount(prev => prev - 1);
 
-    const { error } = await supabase
-      .from("notifications")
-      .update({ read: true })
-      .eq("id", id)
-      .select();
+    await supabase.from("notifications").update({ read: true }).eq("id", id);
+  };
 
-    if (error) {
-      console.error("Failed to mark as read:", error);
-      fetchNotifications(); // fallback
-    }
+  const deleteNotification = async (id) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+    await supabase.from("notifications").delete().eq("id", id);
   };
 
   const markAllAsRead = async () => {
-    const unreadIds = notifications.filter((n) => !n.read).map((n) => n.id);
-    if (unreadIds.length === 0) return;
+    const unreadIds = notifications.filter(n => !n.read).map(n => n.id);
+    if (!unreadIds.length) return;
 
-    // Optimistically mark all read in UI
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
     setGlobalUnreadCount(0);
 
-    const { error } = await supabase
-      .from("notifications")
-      .update({ read: true })
-      .in("id", unreadIds);
+    await supabase.from("notifications").update({ read: true }).in("id", unreadIds);
+  };
 
-    if (error) {
-      console.error("Failed to mark all as read:", error);
-      fetchNotifications();
-    }
+  const clearAll = async () => {
+    setNotifications([]);
+    setGlobalUnreadCount(0);
+    await supabase.from("notifications").delete().eq("user_id", user.id);
   };
 
   useEffect(() => {
-    if (!user) return;
+    if (user) {
+      fetchNotifications();
 
-    fetchNotifications();
+      const channel = supabase
+        .channel("notifications")
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications" }, fetchNotifications)
+        .subscribe();
 
-    const channel = supabase
-      .channel("notifications_listener")
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "notifications",
-        },
-        () => fetchNotifications()
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+      return () => channel.unsubscribe();
+    }
   }, [user]);
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
-
-  if (!user) return <div className="notifications-page">Authenticating...</div>;
-  if (loading) return <div className="notifications-page">Loading...</div>;
+  if (loading) return <div className="notifications-loading">Loading notifications...</div>;
 
   return (
-    <div className="notifications-page">
-      <motion.div
-        className="notifications-header"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.8 }}
-      >
-        <h1 className="notifications-title">Alerts & Notifications</h1>
-      </motion.div>
+    <div className="notifications-container">
+      <header className="notifications-header">
+        <h1>Notifications</h1>
+        <div className="header-controls">
+          <div className="search-bar">
+            <FaSearch />
+            <input 
+              type="text" 
+              placeholder="Search notifications..." 
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <div className="filter-buttons">
+            <button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>All</button>
+            <button className={filter === "unread" ? "active" : ""} onClick={() => setFilter("unread")}>Unread</button>
+            <button className={filter === "read" ? "active" : ""} onClick={() => setFilter("read")}>Read</button>
+          </div>
+        </div>
+      </header>
 
-      <motion.div className="notifications-list">
-        {notifications.length === 0 ? (
-          <p className="no-notifications-text">
-            You're all caught up — no new notifications.
-          </p>
+      <main className="notifications-main">
+        {Object.keys(groupedNotifications).length === 0 ? (
+          <div className="no-notifications">
+            <FaBell size={80} />
+            <h2>No Notifications</h2>
+            <p>You're all caught up. Check back later!</p>
+          </div>
         ) : (
-          notifications.map((n) => {
-            const highlightColor =
-              n.color === "gold"
-                ? "#FFD700"
-                : n.color === "crimson"
-                ? "#DC143C"
-                : "#55f";
-
-            return (
-              <motion.div
-                key={n.id}
-                className={`notification-item ${n.read ? "read" : "unread"}`}
-                whileHover={{ scale: 1.02 }}
-                transition={{ duration: 0.2 }}
-                onClick={() => markAsRead(n.id)}
-                style={{
-                  borderLeft: `5px solid ${highlightColor}`,
-                }}
-              >
-                <div className="notification-content">
-                  <FaBell size={22} color={highlightColor} />
-                  <div>
-                    <h4 style={{ color: highlightColor }}>{n.title}</h4>
-                    <p style={{ color: "#aaa" }}>{n.message}</p>
-                  </div>
-                </div>
-                {!n.read && (
-                  <FaCheckCircle size={18} color={highlightColor} />
-                )}
-              </motion.div>
-            );
-          })
+          Object.entries(groupedNotifications).map(([date, notifs]) => (
+            <section key={date} className="notification-group">
+              <h3>{date === new Date().toLocaleDateString() ? "Today" : date}</h3>
+              <AnimatePresence>
+                {notifs.map(n => (
+                  <motion.div
+                    key={n.id}
+                    className={`notification-card ${n.read ? "read" : ""}`}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <div className="notification-icon" style={{ backgroundColor: n.color === "gold" ? "#FFD70033" : n.color === "crimson" ? "#DC143C33" : "#007bff33" }}>
+                      <FaBell />
+                    </div>
+                    <div className="notification-details">
+                      <h4>{n.title}</h4>
+                      <p>{n.message}</p>
+                      <span className="time">{timeAgo(n.created_at)}</span>
+                    </div>
+                    <div className="notification-actions">
+                      {!n.read && <button onClick={() => markAsRead(n.id)}><FaCheckCircle /></button>}
+                      <button onClick={() => deleteNotification(n.id)}><FaTrash /></button>
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </section>
+          ))
         )}
-      </motion.div>
+      </main>
 
-      <motion.button
-        className="mark-all-btn-fixed"
-        onClick={markAllAsRead}
-        disabled={unreadCount === 0}
-        style={{
-          opacity: unreadCount === 0 ? 0.4 : 1,
-          cursor: unreadCount === 0 ? "not-allowed" : "pointer",
-        }}
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-      >
-        Mark All as Read
-      </motion.button>
+      <footer className="notifications-footer">
+        <button onClick={markAllAsRead} disabled={!notifications.some(n => !n.read)}>Mark All as Read</button>
+        <button onClick={clearAll} disabled={!notifications.length}>Clear All</button>
+      </footer>
     </div>
   );
 };

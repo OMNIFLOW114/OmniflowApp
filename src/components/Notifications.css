@@ -1,114 +1,307 @@
-.notifications-page {
-  padding: 2rem;
-  padding-bottom: 6rem; /* 🆕 extra space at the bottom */
-  background: #fff;
-  color: #222;
+/* Notifications.css - Professional Modern UI/UX */
+
+/* Variables */
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8f9fa;
+  --bg-accent: #e9ecef;
+  --text-primary: #101828;
+  --text-secondary: #475467;
+  --text-muted: #667085;
+  --border-color: #d0d5dd;
+  --accent-primary: #007bff;
+  --accent-hover: #0056b3;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --font-size-sm: 0.875rem;
+  --font-size-md: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.5rem;
+  --bottom-nav-height: 60px; /* Adjust based on your app's bottom nav */
+}
+
+[data-theme="dark"] {
+  --bg-primary: #101828;
+  --bg-secondary: #1d2939;
+  --bg-accent: #344054;
+  --text-primary: #f9fafb;
+  --text-secondary: #d0d5dd;
+  --text-muted: #98a2b3;
+  --border-color: #344054;
+  --accent-primary: #4dabf7;
+  --accent-hover: #339af0;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.24);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.25), 0 2px 4px rgba(0, 0, 0, 0.22);
+}
+
+/* Container */
+.notifications-container {
+  max-width: 600px;
+  margin: 0 auto;
   min-height: 100vh;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  padding-bottom: calc(var(--bottom-nav-height) + var(--space-lg));
   transition: background 0.3s, color 0.3s;
 }
 
-.dark .notifications-page {
-  background: #121212;
-  color: #eee;
-}
-
+/* Header */
 .notifications-header {
-  text-align: center;
-  margin-bottom: 2rem;
+  padding: var(--space-xl) var(--space-lg) var(--space-lg);
+  border-bottom: 1px solid var(--border-color);
 }
 
-.notifications-title {
-  font-size: 2rem;
-  background: linear-gradient(135deg, #0fb0e0, #ff007f);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+.notifications-header h1 {
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  margin: 0 0 var(--space-md);
 }
 
-.notifications-list {
+.header-controls {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--space-md);
 }
 
-.notification-item {
+.search-bar {
+  position: relative;
+}
+
+.search-bar input {
+  width: 100%;
+  padding: var(--space-md);
+  padding-left: var(--space-xl);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: var(--font-size-md);
+}
+
+.search-bar svg {
+  position: absolute;
+  left: var(--space-md);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+}
+
+.filter-buttons {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: #f9f9f9;
-  padding: 1rem;
-  border-radius: 10px;
+  gap: var(--space-sm);
+}
+
+.filter-buttons button {
+  flex: 1;
+  padding: var(--space-md);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-weight: 500;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  transition: background 0.2s ease;
+  transition: all 0.2s;
 }
 
-.dark .notification-item {
-  background: #1e1e1e;
-}
-
-.notification-item.unread {
-  font-weight: bold;
-}
-
-.notification-content {
-  display: flex;
-  gap: 1rem;
-  align-items: center;
-}
-
-.notification-content p {
-  margin: 0.2rem 0;
-  font-size: 0.95rem;
-  color: #555;
-}
-
-.dark .notification-content p {
-  color: #ccc;
-}
-
-.no-notifications-text {
-  text-align: center;
-  margin-top: 3rem;
-  font-style: italic;
-  color: #888;
-}
-
-.mark-all-btn-fixed {
-  margin-top: 2rem;
-  margin-bottom: 1rem; /* 🆕 extra bottom spacing */
-  padding: 0.8rem 1.4rem;
-  background: #0fb0e0;
+.filter-buttons button.active {
+  background: var(--accent-primary);
   color: white;
-  font-weight: bold;
-  border: none;
-  border-radius: 999px;
-  box-shadow: 0 8px 16px rgba(15, 176, 224, 0.3);
-  display: block;
-  margin-left: auto;
-  margin-right: auto;
+  border-color: var(--accent-primary);
 }
 
-/* Mobile Responsiveness */
-@media (max-width: 768px) {
-  .notification-item {
-    flex-direction: column;
-    align-items: flex-start;
-    padding: 1rem;
+/* Main */
+.notifications-main {
+  padding: var(--space-lg);
+}
+
+/* Group */
+.notification-group h3 {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: var(--space-lg) 0 var(--space-md);
+  position: sticky;
+  top: 0;
+  background: var(--bg-primary);
+  padding: var(--space-sm) 0;
+  z-index: 5;
+}
+
+/* Card */
+.notification-card {
+  display: flex;
+  align-items: center;
+  padding: var(--space-md);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  margin-bottom: var(--space-md);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.2s;
+}
+
+.notification-card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.notification-card.read {
+  background: var(--bg-accent);
+}
+
+.notification-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: var(--space-md);
+}
+
+.notification-details {
+  flex: 1;
+}
+
+.notification-details h4 {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  margin: 0 0 var(--space-xs);
+}
+
+.notification-details p {
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+  margin: 0 0 var(--space-xs);
+}
+
+.notification-details .time {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.notification-actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.notification-actions button {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.notification-actions button:hover {
+  color: var(--accent-primary);
+}
+
+/* No Notifications */
+.no-notifications {
+  text-align: center;
+  padding: var(--space-xl);
+}
+
+.no-notifications svg {
+  color: var(--text-muted);
+  margin-bottom: var(--space-md);
+}
+
+.no-notifications h2 {
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  margin: 0 0 var(--space-sm);
+}
+
+.no-notifications p {
+  font-size: var(--font-size-md);
+  color: var(--text-secondary);
+}
+
+/* Footer */
+.notifications-footer {
+  position: fixed;
+  bottom: var(--bottom-nav-height);
+  left: 0;
+  right: 0;
+  display: flex;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  background: var(--bg-primary);
+  border-top: 1px solid var(--border-color);
+  max-width: 600px;
+  margin: 0 auto;
+  z-index: 10;
+}
+
+.notifications-footer button {
+  flex: 1;
+  padding: var(--space-md);
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--accent-primary);
+  color: white;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.notifications-footer button:hover {
+  background: var(--accent-hover);
+}
+
+.notifications-footer button:disabled {
+  background: var(--bg-accent);
+  cursor: not-allowed;
+}
+
+/* Loading */
+.notifications-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  font-size: var(--font-size-lg);
+  color: var(--text-secondary);
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .notifications-container {
+    max-width: 100%;
   }
 
-  .notification-content {
-    flex-direction: row;
-    align-items: flex-start;
+  .notifications-header {
+    padding: var(--space-lg) var(--space-md);
   }
 
-  .notifications-page {
-    padding: 1rem;
-    padding-bottom: 7rem; /* 🆕 increased space for floating footer safety */
+  .header-controls {
+    gap: var(--space-sm);
   }
 
-  .mark-all-btn-fixed {
-    width: 100%;
-    font-size: 1rem;
-    padding: 1rem;
+  .notifications-main {
+    padding: var(--space-md);
   }
+
+  .notifications-footer {
+    padding: var(--space-sm);
+  }
+}
+
+/* Scrollbar */
+.notifications-main::-webkit-scrollbar {
+  width: 6px;
+}
+
+.notifications-main::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: var(--radius-md);
 }
