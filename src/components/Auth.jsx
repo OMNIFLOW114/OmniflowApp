@@ -91,27 +91,36 @@ useEffect(() => {
       return;
     }
 
-// Handle OAuth success (Google login redirect with ?code=...)
-if (code) {
-  try {
-    // ✅ Correct: exchange the code for a session
-    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-    if (error) throw error;
+    // Handle OAuth success (Google login redirect with ?code=...)
+    if (code) {
+      try {
+        // Exchange code for session
+        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) {
+          if (error.message.includes("already registered")) {
+            toast.error("This email is already registered. Please sign in with email/password or link your Google account.");
+            setMode("login");
+            return;
+          }
+          throw error;
+        }
 
-    if (data?.session?.user) {
-      toast.success("Successfully signed in with Google");
-      window.history.replaceState({}, document.title, window.location.pathname);
-      navigate("/home");
-    } else {
-      toast.error("No valid user session after Google sign-in. Please try again.");
-      window.history.replaceState({}, document.title, window.location.pathname);
+        if (data?.session?.user) {
+          await syncUserData(data.session.user); // Sync user data
+          toast.success("Successfully signed in with Google");
+          window.history.replaceState({}, document.title, window.location.pathname);
+          navigate("/home");
+        } else {
+          toast.error("No valid user session after Google sign-in. Please try again.");
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+      } catch (err) {
+        console.error("OAuth callback error:", err); // Log for debugging
+        toast.error(err.message || "Google authentication failed. Try incognito mode or check OAuth setup.");
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+      return;
     }
-  } catch (err) {
-    toast.error(err.message || "Google authentication failed. Try incognito mode.");
-    window.history.replaceState({}, document.title, window.location.pathname);
-  }
-  return;
-}
 
     // Handle password recovery (reset link flow)
     if (type === "recovery" && recoveryToken) {
@@ -234,6 +243,27 @@ if (code) {
       return !!data;
     } catch (err) {
       return false; // Fail silently to avoid blocking sign-up
+    }
+  };
+
+  // Sync user data after Google sign-in
+  const syncUserData = async (user) => {
+    try {
+      const { data, error } = await supabase
+        .from("users")
+        .upsert(
+          {
+            id: user.id,
+            email: user.email,
+            full_name: user.user_metadata?.full_name || user.email.split("@")[0],
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "id" }
+        );
+      if (error) throw error;
+      console.log("User data synced:", data);
+    } catch (err) {
+      console.error("Error syncing user data:", err);
     }
   };
 
@@ -497,17 +527,21 @@ if (code) {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${APP_URL}/auth/callback`,
+          redirectTo: `${APP_URL}/auth/callback`, // Ensure this matches Supabase and Google Cloud Console
           queryParams: {
             access_type: "offline",
             prompt: "select_account",
             scope: "email profile",
           },
+          shouldCreateUser: true, // Explicitly allow user creation for new users
         },
       });
       if (error) throw error;
     } catch (err) {
-      toast.error(err.message || "Google login failed. Try again or use incognito mode.");
+      console.error("Google OAuth error:", err); // Log for debugging
+      toast.error(
+        err.message || "Google login failed. Try again, use incognito mode, or check OAuth configuration."
+      );
       setLoading(false);
     }
   };
