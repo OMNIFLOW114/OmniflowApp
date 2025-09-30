@@ -194,26 +194,30 @@ export default function ProductDetail() {
   }, [id, user]);
 
   // ——— Messaging ———
-  const handleSendMessage = async () => {
-    if (!user?.id) return toast.error("Login to send message.");
-    if (!message.trim()) return toast.error("Message is empty.");
-    setSending(true);
-    const { error } = await supabase.from("store_messages").insert([
-      {
-        store_id: storeId,
-        product_id: product.id,
-        user_id: user.id,
-        sender_role: "buyer",
-        content: message.trim(),
-      },
-    ]);
-    setSending(false);
-    if (error) toast.error("Message failed");
-    else {
-      toast.success("Message sent");
-      setMessage("");
-    }
-  };
+const handleSendMessage = async () => {
+  if (!user?.id) return toast.error("Login to send message.");
+  if (!message.trim()) return toast.error("Message is empty.");
+  setSending(true);
+  const { error } = await supabase.from("store_messages").insert([
+    {
+      store_id: storeId,
+      product_id: product.id,
+      user_id: user.id,
+      sender_role: "buyer",
+      content: message.trim(),
+      status: "sent",
+    },
+  ]);
+  setSending(false);
+  if (error) {
+    console.error("Error sending message:", error);
+    toast.error("Message failed");
+  } else {
+    toast.success("Message sent! Redirecting to Messages...");
+    setMessage("");
+    navigate("/messages");
+  }
+};
 
   // ——— Rate product ———
   const handleRateProduct = async () => {
