@@ -20,56 +20,7 @@ import "./TradeStore.css";
 
 const tabs = ["All", "Flash Sale", "Electronics", "Fashion", "Home", "Trending", "Discounted", "Featured"];
 
-// Custom hook to fetch average ratings for products
-const useProductRatings = (productIds) => {
-  const [ratings, setRatings] = useState({});
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!productIds || productIds.length === 0) return;
-
-    const fetchRatings = async () => {
-      setLoading(true);
-      try {
-        const { data, error } = await supabase
-          .from("ratings")
-          .select("product_id, rating")
-          .in("product_id", productIds);
-
-        if (error) throw error;
-
-        // Calculate average ratings per product
-        const ratingsByProduct = data.reduce((acc, item) => {
-          if (!acc[item.product_id]) {
-            acc[item.product_id] = { total: 0, count: 0 };
-          }
-          acc[item.product_id].total += item.rating;
-          acc[item.product_id].count += 1;
-          return acc;
-        }, {});
-
-        // Convert to average ratings
-        const averageRatings = {};
-        Object.keys(ratingsByProduct).forEach(productId => {
-          const { total, count } = ratingsByProduct[productId];
-          averageRatings[productId] = count > 0 ? total / count : 0;
-        });
-
-        setRatings(averageRatings);
-      } catch (error) {
-        console.error("Error fetching ratings:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchRatings();
-  }, [productIds]);
-
-  return { ratings, loading };
-};
-
-const ProductCard = ({ product, averageRating, onClick }) => {
+const ProductCard = ({ product, onClick }) => {
   const getBadge = () => {
     if (product.is_flash_sale) return <span className="badge flash"><FaBolt /> Flash</span>;
     if (product.is_trending) return <span className="badge trending"><FaFire /> Trending</span>;
@@ -82,9 +33,8 @@ const ProductCard = ({ product, averageRating, onClick }) => {
     ? product.price * (1 - parseFloat(product.discount) / 100)
     : product.price;
 
-  // Use dynamic average rating if available, fallback to product.rating
-  const displayRating = averageRating !== undefined ? averageRating : (product.rating || 0);
-  const roundedRating = Math.round(displayRating);
+  const averageRating = product.average_rating || 0;
+  const ratingCount = product.rating_count || 0;
 
   return (
     <div className="product-card" onClick={onClick}>
@@ -102,14 +52,9 @@ const ProductCard = ({ product, averageRating, onClick }) => {
         
         <div className="stars">
           {[...Array(5)].map((_, i) => (
-            <FaStar 
-              key={i} 
-              className={i < roundedRating ? "star-filled" : "star-empty"} 
-            />
+            <FaStar key={i} className={i < Math.round(averageRating) ? "star-filled" : "star-empty"} />
           ))}
-          <span className="rating-text">
-            ({displayRating > 0 ? displayRating.toFixed(1) : 'No ratings'})
-          </span>
+          <span className="rating-text">({averageRating.toFixed(1)} - {ratingCount} reviews)</span>
         </div>
 
         <div className="price-container">
@@ -232,10 +177,6 @@ const OmniMarket = () => {
   const [showFilterOverlay, setShowFilterOverlay] = useState(false);
   const pageSize = 20;
 
-  // Get product IDs for rating lookup
-  const productIds = products.map(p => p.id);
-  const { ratings: productRatings } = useProductRatings(productIds);
-
   useEffect(() => {
     if (!user?.id) return;
     supabase.from("users").select("dark_mode").eq("id", user.id).single()
@@ -267,7 +208,7 @@ const OmniMarket = () => {
     const { data, error } = await supabase
       .from("products")
       .select(`id, name, description, price, discount, stock_quantity,
-        category, tags, image_gallery, created_at, views, rating,
+        category, tags, image_gallery, created_at, views,
         is_featured, is_rare_drop, is_flash_sale, is_trending,
         stores(id, is_active)`)
       .eq("visibility", "public")
@@ -275,18 +216,38 @@ const OmniMarket = () => {
       .order("created_at", { ascending: false })
       .range(offset, offset + pageSize - 1);
 
-    if (error) return toast.error("Failed to load products");
+    if (error) {
+      console.error("Failed to load products:", error);
+      return toast.error("Failed to load products");
+    }
 
     const valid = data.filter((p) => p.stores?.is_active);
     if (valid.length < pageSize) setHasMore(false);
 
-    const withImages = valid.map((p) => ({
+    // Fetch average ratings and count from product_ratings view
+    const productIds = valid.map((p) => p.id);
+    const { data: ratingsData, error: ratingsError } = await supabase
+      .from("product_ratings")
+      .select("product_id, avg_rating, rating_count")
+      .in("product_id", productIds);
+
+    if (ratingsError) {
+      console.error("Failed to load ratings:", ratingsError);
+      toast.error("Failed to load product ratings");
+    }
+
+    const ratingsAvgMap = new Map(ratingsData?.map((r) => [r.product_id, r.avg_rating]) || []);
+    const ratingsCountMap = new Map(ratingsData?.map((r) => [r.product_id, r.rating_count]) || []);
+
+    const withImagesAndRatings = valid.map((p) => ({
       ...p,
-      imageUrl: getImageUrl(p.image_gallery?.[0])
+      imageUrl: getImageUrl(p.image_gallery?.[0]),
+      average_rating: ratingsAvgMap.get(p.id) || 0,
+      rating_count: ratingsCountMap.get(p.id) || 0
     }));
 
     setProducts((prev) => {
-      const combined = [...prev, ...withImages];
+      const combined = [...prev, ...withImagesAndRatings];
       return Array.from(new Map(combined.map((p) => [p.id, p])).values());
     });
     setPage((prev) => prev + 1);
@@ -315,12 +276,9 @@ const OmniMarket = () => {
       result = result.filter((p) => parseFloat(p.price) <= parseFloat(filters.maxPrice));
     }
     
-    // Apply rating filter - Now using dynamic ratings
+    // Apply rating filter
     if (filters.minRating) {
-      result = result.filter((p) => {
-        const productRating = productRatings[p.id] || p.rating || 0;
-        return productRating >= filters.minRating;
-      });
+      result = result.filter((p) => p.average_rating >= filters.minRating);
     }
     
     // Apply stock filter
@@ -346,7 +304,7 @@ const OmniMarket = () => {
       }
     }
     
-    // Apply sorting - Updated to use dynamic ratings
+    // Apply sorting
     switch (filters.sortBy) {
       case "price-low":
         result.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
@@ -355,11 +313,7 @@ const OmniMarket = () => {
         result.sort((a, b) => parseFloat(b.price) - parseFloat(a.price));
         break;
       case "rating":
-        result.sort((a, b) => {
-          const ratingA = productRatings[a.id] || a.rating || 0;
-          const ratingB = productRatings[b.id] || b.rating || 0;
-          return ratingB - ratingA;
-        });
+        result.sort((a, b) => parseFloat(b.average_rating) - parseFloat(a.average_rating));
         break;
       case "popular":
         result.sort((a, b) => parseFloat(b.views) - parseFloat(a.views));
@@ -396,7 +350,7 @@ const OmniMarket = () => {
     }
 
     setFiltered(result);
-  }, [products, search, filters, activeTab, productRatings]);
+  }, [products, search, filters, activeTab]);
 
   return (
     <div className={`marketplace-wrapper ${isDarkMode ? "dark" : "light"}`}>
@@ -460,12 +414,7 @@ const OmniMarket = () => {
       >
         <div className="product-grid">
           {filtered.map((p) => (
-            <ProductCard 
-              key={p.id} 
-              product={p} 
-              averageRating={productRatings[p.id]}
-              onClick={() => navigate(`/product/${p.id}`)} 
-            />
+            <ProductCard key={p.id} product={p} onClick={() => navigate(`/product/${p.id}`)} />
           ))}
         </div>
       </InfiniteScroll>
