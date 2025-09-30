@@ -48,6 +48,7 @@ export default function Auth() {
   const navigate = useNavigate();
   const [mode, setMode] = useState("login");
   const [loading, setLoading] = useState(false);
+  const [otpLoading, setOtpLoading] = useState(false); // New state for OTP-specific loading
   const [formData, setFormData] = useState({ name: "", phone: "", email: "", password: "" });
   const [otp, setOtp] = useState("");
   const [errors, setErrors] = useState({});
@@ -68,76 +69,66 @@ export default function Auth() {
     }
   }, []);
 
-  // Handle OAuth callback and password reset
-  useEffect(() => {
-    const handleAuthCallback = async () => {
-      if (envError) return; // Skip if environment variables are missing
-      const code = searchParams.get("code");
-      const type = searchParams.get("type");
-      const recoveryToken = searchParams.get("access_token");
-      const errorParam = searchParams.get("error");
-      const errorDescription = searchParams.get("error_description");
+// Handle OAuth callback and password reset
+useEffect(() => {
+  const handleAuthCallback = async () => {
+    if (envError) return;
 
-      if (errorParam) {
-        toast.error(
-          `Google Sign-In failed: ${errorParam}${
-            errorDescription ? ` - ${errorDescription}` : ""
-          }. Try again or use incognito mode.`
-        );
-        window.history.replaceState({}, document.title, window.location.pathname);
-        return;
-      }
+    const code = searchParams.get("code");
+    const type = searchParams.get("type");
+    const recoveryToken = searchParams.get("access_token");
+    const errorParam = searchParams.get("error");
+    const errorDescription = searchParams.get("error_description");
 
-      if (code) {
-        try {
-          if (process.env.NODE_ENV !== "production") {
-            console.log("Exchanging OAuth code:", code);
-          }
-          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-          if (error) {
-            if (error.message.includes("expired") || error.message.includes("invalid_grant")) {
-              toast.error("OAuth code expired or invalid. Please try signing in again.");
-            } else if (error.message.includes("invalid request")) {
-              toast.error("Invalid OAuth request. Please try again or use incognito mode.");
-            } else {
-              toast.error(error.message || "Google authentication failed");
-            }
-            if (process.env.NODE_ENV !== "production") {
-              console.error("Exchange error:", error);
-            }
-            window.history.replaceState({}, document.title, window.location.pathname);
-            return;
-          }
+    // Handle OAuth error response from Google
+    if (errorParam) {
+      toast.error(
+        `Google Sign-In failed: ${errorParam}${
+          errorDescription ? ` - ${errorDescription}` : ""
+        }. Try again or use incognito mode.`
+      );
+      window.history.replaceState({}, document.title, window.location.pathname);
+      return;
+    }
 
-          if (data.session?.user) {
-            if (process.env.NODE_ENV !== "production") {
-              console.log("Session established:", data.session.user);
-            }
-            toast.success("Successfully signed in with Google");
-            window.history.replaceState({}, document.title, window.location.pathname);
-            navigate("/home");
-          } else {
-            toast.error("No valid user session after Google sign-in. Please try again.");
-            window.history.replaceState({}, document.title, window.location.pathname);
-          }
-        } catch (err) {
-          if (process.env.NODE_ENV !== "production") {
-            console.error("Callback error:", err);
-          }
-          toast.error(err.message || "Google authentication failed. Try incognito mode.");
+    // Handle OAuth success (Google login redirect with ?code=...)
+    if (code) {
+      try {
+        // Supabase automatically exchanges the code for a session in browser
+        const { data, error } = await supabase.auth.getSession();
+        if (error) throw error;
+
+        if (data?.session?.user) {
+          toast.success("Successfully signed in with Google");
+          window.history.replaceState({}, document.title, window.location.pathname);
+          navigate("/home");
+        } else {
+          toast.error("No valid user session after Google sign-in. Please try again.");
           window.history.replaceState({}, document.title, window.location.pathname);
         }
-      } else if (type === "recovery" && recoveryToken) {
-        navigate(`/auth/reset?access_token=${recoveryToken}`, { replace: true });
+      } catch (err) {
+        toast.error(err.message || "Google authentication failed. Try incognito mode.");
+        window.history.replaceState({}, document.title, window.location.pathname);
       }
-    };
-    handleAuthCallback();
-  }, [searchParams, navigate, envError]);
+      return;
+    }
+
+    // Handle password recovery (reset link flow)
+    if (type === "recovery" && recoveryToken) {
+      // Redirect user to your custom reset page with the token
+      navigate(`/auth/reset?access_token=${recoveryToken}`, { replace: true });
+      return;
+    }
+  };
+
+  handleAuthCallback();
+}, [searchParams, navigate, envError]);
+
 
   // Auto-redirect logged-in users
   useEffect(() => {
     const checkSession = async () => {
-      if (envError) return; // Skip if environment variables are missing
+      if (envError) return;
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
         if (error) throw error;
@@ -145,28 +136,20 @@ export default function Auth() {
           window.location.pathname.includes("/auth/reset") ||
           searchParams.get("type") === "recovery";
         if (session?.user && !isResetFlow) {
-          if (process.env.NODE_ENV !== "production") {
-            console.log("Redirecting to /home with user:", session.user);
-          }
           navigate("/home");
         }
       } catch (err) {
-        if (process.env.NODE_ENV !== "production") {
-          console.error("Session check failed:", err.message);
-        }
+        // Silent error handling for production
       }
     };
 
     checkSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (envError) return; // Skip if environment variables are missing
+      if (envError) return;
       if (event === "SIGNED_IN" && session?.user) {
         const isResetFlow = window.location.pathname.includes("/auth/reset");
         if (!isResetFlow) {
-          if (process.env.NODE_ENV !== "production") {
-            console.log("Auth state changed to SIGNED_IN:", session.user);
-          }
           navigate("/home");
         }
       }
@@ -239,6 +222,21 @@ export default function Auth() {
     }));
   }, []);
 
+  // Check if email exists in users table
+  const checkEmailExists = async (email) => {
+    try {
+      const { data, error } = await supabase
+        .from("users")
+        .select("email")
+        .eq("email", email)
+        .maybeSingle();
+      if (error) throw error;
+      return !!data;
+    } catch (err) {
+      return false; // Fail silently to avoid blocking sign-up
+    }
+  };
+
   const handleSignup = async (e) => {
     e.preventDefault();
     if (envError) {
@@ -263,6 +261,17 @@ export default function Auth() {
     }
     setLoading(true);
     try {
+      // Check if email already exists
+      const emailExists = await checkEmailExists(formData.email);
+      if (emailExists) {
+        toast.error("This email is already registered. Redirecting to login...");
+        setTimeout(() => {
+          setMode("login");
+          setFormData((prev) => ({ ...prev, password: "" }));
+        }, 2000);
+        return;
+      }
+
       const { error } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -271,19 +280,8 @@ export default function Auth() {
           emailRedirectTo: `${APP_URL}/auth/callback`,
         },
       });
-      if (error) {
-        const errorInfo = getErrorMessage(error);
-        if (errorInfo.type === "user_exists") {
-          toast.error(errorInfo.message);
-          setTimeout(() => {
-            setMode("login");
-            setFormData((prev) => ({ ...prev, password: "" }));
-          }, 2000);
-          return;
-        }
-        throw error;
-      }
-      toast.success("Signup successful — please check your email to confirm your account.");
+      if (error) throw error;
+      toast.success("Account created successfully! Please check your email to confirm.");
       setMode("login");
       setFormData({ name: "", phone: "", email: "", password: "" });
       setErrors({});
@@ -386,6 +384,21 @@ export default function Auth() {
     }
   };
 
+  // Check if phone exists in users table
+  const checkPhoneExists = async (phone) => {
+    try {
+      const { data, error } = await supabase
+        .from("users")
+        .select("phone")
+        .eq("phone", phone)
+        .maybeSingle();
+      if (error) throw error;
+      return !!data;
+    } catch (err) {
+      return false; // Fail silently to avoid blocking OTP flow
+    }
+  };
+
   const handleSendOtp = async () => {
     if (envError) {
       toast.error("Cannot send OTP due to missing Supabase configuration.");
@@ -399,26 +412,26 @@ export default function Auth() {
       toast.error("Please enter a valid phone number in +254XXXXXXXXX format.");
       return;
     }
-    setLoading(true);
+    setOtpLoading(true);
     try {
+      // Check if phone exists
+      const phoneExists = await checkPhoneExists(formData.phone);
+      if (!phoneExists) {
+        toast.error("No account found with this phone number. Please sign up first.");
+        setIsOtpModalOpen(false);
+        setTimeout(() => setMode("signup"), 2000);
+        return;
+      }
+
       const { error } = await supabase.auth.signInWithOtp({
         phone: formData.phone,
         options: {
-          shouldCreateUser: true,
+          shouldCreateUser: false, // Prevent user creation for login
           data: { full_name: formData.name },
         },
       });
-      if (error) {
-        const errorInfo = getErrorMessage(error);
-        if (errorInfo.type === "user_exists") {
-          toast.error("This phone number is already registered. Please login instead.");
-          setIsOtpModalOpen(false);
-          setMode("login");
-          return;
-        }
-        throw error;
-      }
-      toast.success("OTP sent to your phone.");
+      if (error) throw error;
+      toast.success("OTP sent to your phone via SMS.");
       setOtpResendCooldown(60);
       setAttemptCount(0);
     } catch (err) {
@@ -426,7 +439,7 @@ export default function Auth() {
       toast.error(errorInfo.message);
       setAttemptCount((prev) => prev + 1);
     } finally {
-      setLoading(false);
+      setOtpLoading(false);
     }
   };
 
@@ -443,7 +456,7 @@ export default function Auth() {
       toast.error("Enter a valid phone number and 6-digit OTP.");
       return;
     }
-    setLoading(true);
+    setOtpLoading(true);
     try {
       const { error } = await supabase.auth.verifyOtp({
         phone: formData.phone,
@@ -458,7 +471,7 @@ export default function Auth() {
         }
         throw error;
       }
-      toast.success("Phone verified 🎉");
+      toast.success("Logged in successfully with OTP 🎉");
       setIsOtpModalOpen(false);
       navigate("/home");
       setFormData({ name: "", phone: "", email: "", password: "" });
@@ -470,7 +483,7 @@ export default function Auth() {
       toast.error(errorInfo.message);
       setAttemptCount((prev) => prev + 1);
     } finally {
-      setLoading(false);
+      setOtpLoading(false);
     }
   };
 
@@ -481,9 +494,6 @@ export default function Auth() {
     }
     setLoading(true);
     try {
-      if (process.env.NODE_ENV !== "production") {
-        console.log("Starting Google OAuth flow");
-      }
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
@@ -497,9 +507,6 @@ export default function Auth() {
       });
       if (error) throw error;
     } catch (err) {
-      if (process.env.NODE_ENV !== "production") {
-        console.error("Google OAuth error:", err);
-      }
       toast.error(err.message || "Google login failed. Try again or use incognito mode.");
       setLoading(false);
     }
@@ -775,7 +782,7 @@ export default function Auth() {
                   />
                   <path
                     fill="#EA4335"
-                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.60 3.3-4.53 6.16-4.53z"
                   />
                 </svg>
                 Continue with Google
@@ -865,18 +872,18 @@ export default function Auth() {
                   <Button
                     onClick={handleSendOtp}
                     className="auth-button"
-                    disabled={loading || otpResendCooldown > 0 || !!errors.phone || envError}
+                    disabled={otpLoading || loading || otpResendCooldown > 0 || !!errors.phone || envError}
                   >
-                    {loading ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
-                    {otpResendCooldown > 0 ? `Resend OTP in ${otpResendCooldown}s` : "Send OTP"}
+                    {otpLoading ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
+                    {otpResendCooldown > 0 ? `Resend OTP in ${otpResendCooldown}s` : otpLoading ? "Sending OTP..." : "Send OTP"}
                   </Button>
                   <Button
                     onClick={handleVerifyOtp}
                     className="auth-button"
-                    disabled={loading || otp.length !== 6 || !!errors.phone || envError}
+                    disabled={otpLoading || loading || otp.length !== 6 || !!errors.phone || envError}
                   >
-                    {loading ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
-                    Verify OTP
+                    {otpLoading ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
+                    {otpLoading ? "Verifying..." : "Verify OTP"}
                   </Button>
                 </div>
               </motion.div>
