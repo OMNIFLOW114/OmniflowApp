@@ -48,7 +48,7 @@ export default function Auth() {
   const navigate = useNavigate();
   const [mode, setMode] = useState("login");
   const [loading, setLoading] = useState(false);
-  const [otpLoading, setOtpLoading] = useState(false); // New state for OTP-specific loading
+  const [otpLoading, setOtpLoading] = useState(false);
   const [formData, setFormData] = useState({ name: "", phone: "", email: "", password: "" });
   const [otp, setOtp] = useState("");
   const [errors, setErrors] = useState({});
@@ -69,70 +69,65 @@ export default function Auth() {
     }
   }, []);
 
-// Handle OAuth callback and password reset
-useEffect(() => {
-  const handleAuthCallback = async () => {
-    if (envError) return;
+  // Handle OAuth callback and password reset
+  useEffect(() => {
+    const handleAuthCallback = async () => {
+      if (envError) return;
 
-    const code = searchParams.get("code");
-    const type = searchParams.get("type");
-    const recoveryToken = searchParams.get("access_token");
-    const errorParam = searchParams.get("error");
-    const errorDescription = searchParams.get("error_description");
+      const code = searchParams.get("code");
+      const type = searchParams.get("type");
+      const recoveryToken = searchParams.get("access_token");
+      const errorParam = searchParams.get("error");
+      const errorDescription = searchParams.get("error_description");
 
-    // Handle OAuth error response from Google
-    if (errorParam) {
-      toast.error(
-        `Google Sign-In failed: ${errorParam}${
-          errorDescription ? ` - ${errorDescription}` : ""
-        }. Try again or use incognito mode.`
-      );
-      window.history.replaceState({}, document.title, window.location.pathname);
-      return;
-    }
-
-    // Handle OAuth success (Google login redirect with ?code=...)
-    if (code) {
-      try {
-        // Exchange code for session
-        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-        if (error) {
-          if (error.message.includes("already registered")) {
-            toast.error("This email is already registered. Please sign in with email/password or link your Google account.");
-            setMode("login");
-            return;
-          }
-          throw error;
-        }
-
-        if (data?.session?.user) {
-          await syncUserData(data.session.user); // Sync user data
-          toast.success("Successfully signed in with Google");
-          window.history.replaceState({}, document.title, window.location.pathname);
-          navigate("/home");
-        } else {
-          toast.error("No valid user session after Google sign-in. Please try again.");
-          window.history.replaceState({}, document.title, window.location.pathname);
-        }
-      } catch (err) {
-        console.error("OAuth callback error:", err); // Log for debugging
-        toast.error(err.message || "Google authentication failed. Try incognito mode or check OAuth setup.");
+      // Handle OAuth error response from Google
+      if (errorParam) {
+        toast.error(
+          `Google Sign-In failed: ${errorParam}${errorDescription ? ` - ${errorDescription}` : ""}. Try again or use incognito mode.`
+        );
         window.history.replaceState({}, document.title, window.location.pathname);
+        return;
       }
-      return;
-    }
 
-    // Handle password recovery (reset link flow)
-    if (type === "recovery" && recoveryToken) {
-      // Redirect user to your custom reset page with the token
-      navigate(`/auth/reset?access_token=${recoveryToken}`, { replace: true });
-      return;
-    }
-  };
+      // Handle OAuth success (Google login redirect with ?code=...)
+      if (code) {
+        try {
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) {
+            if (error.message.includes("already registered")) {
+              toast.error("This email is already registered. Please sign in with email/password or link your Google account.");
+              setMode("login");
+              return;
+            }
+            throw error;
+          }
 
-  handleAuthCallback();
-}, [searchParams, navigate, envError]);
+          if (data?.session?.user) {
+            await syncUserData(data.session.user);
+            toast.success("Successfully signed in with Google");
+            window.history.replaceState({}, document.title, window.location.pathname);
+            navigate("/home");
+          } else {
+            toast.error("No valid user session after Google sign-in. Please try again.");
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
+        } catch (err) {
+          console.error("OAuth callback error:", err);
+          toast.error(err.message || "Google authentication failed. Try incognito mode or check OAuth setup.");
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+        return;
+      }
 
+      // Handle password recovery
+      if (type === "recovery" && recoveryToken) {
+        navigate(`/auth/reset?access_token=${recoveryToken}`, { replace: true });
+        return;
+      }
+    };
+
+    handleAuthCallback();
+  }, [searchParams, navigate, envError]);
 
   // Auto-redirect logged-in users
   useEffect(() => {
@@ -148,7 +143,7 @@ useEffect(() => {
           navigate("/home");
         }
       } catch (err) {
-        // Silent error handling for production
+        console.error("Session check error:", err);
       }
     };
 
@@ -242,7 +237,8 @@ useEffect(() => {
       if (error) throw error;
       return !!data;
     } catch (err) {
-      return false; // Fail silently to avoid blocking sign-up
+      console.error("Error checking email:", err);
+      return false;
     }
   };
 
@@ -255,7 +251,8 @@ useEffect(() => {
           {
             id: user.id,
             email: user.email,
-            full_name: user.user_metadata?.full_name || user.email.split("@")[0],
+            full_name: user.user_metadata?.full_name || formData.name || user.email.split("@")[0],
+            phone: formData.phone,
             updated_at: new Date().toISOString(),
           },
           { onConflict: "id" }
@@ -291,7 +288,6 @@ useEffect(() => {
     }
     setLoading(true);
     try {
-      // Check if email already exists
       const emailExists = await checkEmailExists(formData.email);
       if (emailExists) {
         toast.error("This email is already registered. Redirecting to login...");
@@ -302,7 +298,7 @@ useEffect(() => {
         return;
       }
 
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: {
@@ -311,6 +307,7 @@ useEffect(() => {
         },
       });
       if (error) throw error;
+      await syncUserData(data.user);
       toast.success("Account created successfully! Please check your email to confirm.");
       setMode("login");
       setFormData({ name: "", phone: "", email: "", password: "" });
@@ -425,7 +422,8 @@ useEffect(() => {
       if (error) throw error;
       return !!data;
     } catch (err) {
-      return false; // Fail silently to avoid blocking OTP flow
+      console.error("Error checking phone:", err);
+      return false;
     }
   };
 
@@ -444,7 +442,6 @@ useEffect(() => {
     }
     setOtpLoading(true);
     try {
-      // Check if phone exists
       const phoneExists = await checkPhoneExists(formData.phone);
       if (!phoneExists) {
         toast.error("No account found with this phone number. Please sign up first.");
@@ -456,7 +453,7 @@ useEffect(() => {
       const { error } = await supabase.auth.signInWithOtp({
         phone: formData.phone,
         options: {
-          shouldCreateUser: false, // Prevent user creation for login
+          shouldCreateUser: false,
           data: { full_name: formData.name },
         },
       });
@@ -527,18 +524,18 @@ useEffect(() => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${APP_URL}/auth/callback`, // Ensure this matches Supabase and Google Cloud Console
+          redirectTo: `https://kkxgrrcbyluhdfsoywvd.supabase.co/auth/v1/callback`,
           queryParams: {
             access_type: "offline",
             prompt: "select_account",
             scope: "email profile",
           },
-          shouldCreateUser: true, // Explicitly allow user creation for new users
+          shouldCreateUser: true,
         },
       });
       if (error) throw error;
     } catch (err) {
-      console.error("Google OAuth error:", err); // Log for debugging
+      console.error("Google OAuth error:", err);
       toast.error(
         err.message || "Google login failed. Try again, use incognito mode, or check OAuth configuration."
       );
