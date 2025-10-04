@@ -1,60 +1,116 @@
-// src/pages/admin/StoreOversight.jsx
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/supabase';
-import {
-  FaCheck, FaTimes, FaEye, FaTrashAlt
-} from 'react-icons/fa';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  FiSearch, 
+  FiFilter, 
+  FiEye, 
+  FiTrash2, 
+  FiCheckCircle, 
+  FiXCircle,
+  FiAlertCircle,
+  FiBriefcase,
+  FiUser,
+  FiMapPin,
+  FiMail,
+  FiPhone,
+  FiFileText,
+  FiDownload,
+  FiChevronLeft,
+  FiChevronRight
+} from 'react-icons/fi';
+import { FaStore, FaCheck, FaTimes, FaCrown, FaBan } from 'react-icons/fa';
+import { toast } from 'react-hot-toast';
 import './StoreOversight.css';
 
-const TABS = ['All', 'Pending', 'Active', 'Inactive', 'Verified', 'Unverified'];
+const TABS = [
+  { key: 'all', label: 'All Stores', icon: <FiBriefcase /> },
+  { key: 'pending', label: 'Pending Requests', icon: <FiAlertCircle /> },
+  { key: 'active', label: 'Active', icon: <FiCheckCircle /> },
+  { key: 'inactive', label: 'Inactive', icon: <FiXCircle /> },
+  { key: 'verified', label: 'Verified', icon: <FaCheck /> },
+  { key: 'unverified', label: 'Unverified', icon: <FiXCircle /> }
+];
 
 const StoreOversight = () => {
   const [stores, setStores] = useState([]);
   const [requests, setRequests] = useState([]);
   const [selectedStore, setSelectedStore] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState('All');
+  const [activeTab, setActiveTab] = useState('all');
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(null);
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+
+  const STORES_PER_PAGE = 9;
 
   const adminUserUUID = '755ed9e9-69f6-459c-ad44-d1b93b80a4c6';
 
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [storesResponse, requestsResponse] = await Promise.all([
+        supabase.from('stores').select('*', { count: 'exact' }),
+        supabase.from('store_requests').select('*')
+      ]);
+
+      setStores(storesResponse.data || []);
+      setRequests(requestsResponse.data || []);
+      setTotalCount(storesResponse.count || 0);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      toast.error('Failed to load store data');
+    }
+    setLoading(false);
+  };
+
   useEffect(() => {
-    const fetchAll = async () => {
-      const { data: storeData } = await supabase.from('stores').select('*');
-      const { data: requestData } = await supabase.from('store_requests').select('*');
-      setStores(storeData || []);
-      setRequests(requestData || []);
-      setLoading(false);
-    };
-    fetchAll();
+    fetchData();
   }, []);
 
   const handleSearch = (e) => setSearchTerm(e.target.value);
 
   const filteredStores = stores.filter(store => {
-    const matchSearch = store.name?.toLowerCase().includes(searchTerm.toLowerCase()) || store.owner_id?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchSearch = store.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                       store.owner_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                       store.location?.toLowerCase().includes(searchTerm.toLowerCase());
 
     switch (activeTab) {
-      case 'Active':
+      case 'active':
         return matchSearch && store.is_active;
-      case 'Inactive':
+      case 'inactive':
         return matchSearch && !store.is_active;
-      case 'Verified':
+      case 'verified':
         return matchSearch && store.is_verified;
-      case 'Unverified':
+      case 'unverified':
         return matchSearch && !store.is_verified;
-      case 'All':
+      case 'all':
       default:
         return matchSearch;
     }
   });
 
-  const updateStoreStatus = async (id, updates) => {
+  const paginatedStores = filteredStores.slice(
+    (page - 1) * STORES_PER_PAGE,
+    page * STORES_PER_PAGE
+  );
+
+  const totalPages = Math.ceil(filteredStores.length / STORES_PER_PAGE);
+
+  const updateStoreStatus = async (id, updates, actionName) => {
+    setActionLoading(`${id}-${actionName}`);
     const { error } = await supabase.from('stores').update(updates).eq('id', id);
-    if (!error) {
+    
+    if (error) {
+      console.error('Update error:', error);
+      toast.error(`Failed to ${actionName}`);
+    } else {
       const updated = stores.map(s => s.id === id ? { ...s, ...updates } : s);
       setStores(updated);
+      toast.success(`Store ${actionName} successfully`);
     }
+    setActionLoading(null);
   };
 
   const toggleStoreStatus = async (store) => {
@@ -62,23 +118,23 @@ const StoreOversight = () => {
       is_active: !store.is_active,
       deactivation_reason: store.is_active ? 'Deactivated by admin' : null
     };
-    await updateStoreStatus(store.id, updates);
+    await updateStoreStatus(store.id, updates, store.is_active ? 'deactivated' : 'activated');
   };
 
   const toggleVerification = async (store) => {
     const updates = store.is_verified
       ? { is_verified: false, verified_at: null, verified_by: null }
       : {
-        is_verified: true,
-        verified_at: new Date().toISOString(),
-        verified_by: adminUserUUID
-      };
-    await updateStoreStatus(store.id, updates);
+          is_verified: true,
+          verified_at: new Date().toISOString(),
+          verified_by: adminUserUUID
+        };
+    await updateStoreStatus(store.id, updates, store.is_verified ? 'unverified' : 'verified');
   };
 
   const approveStoreRequest = async (request) => {
-    if (!window.confirm(`Approve store "${request.name}" for user ${request.user_id}?`)) return;
-
+    setActionLoading(`approve-${request.id}`);
+    
     const payload = {
       owner_id: request.user_id,
       name: request.name,
@@ -94,150 +150,584 @@ const StoreOversight = () => {
       verified_at: new Date().toISOString()
     };
 
-    const { error: insertError } = await supabase.from('stores').insert(payload);
-    const { error: deleteError } = await supabase.from('store_requests').delete().eq('id', request.id);
+    try {
+      const { error: insertError } = await supabase.from('stores').insert(payload);
+      const { error: deleteError } = await supabase.from('store_requests').delete().eq('id', request.id);
 
-    if (insertError || deleteError) {
-      console.error('Store approval failed:', insertError || deleteError);
-      return;
+      if (insertError || deleteError) {
+        throw new Error(insertError?.message || deleteError?.message);
+      }
+
+      setStores((prev) => [...prev, { ...payload, id: request.id }]);
+      setRequests((prev) => prev.filter((r) => r.id !== request.id));
+
+      await supabase.from('notifications').insert({
+        user_id: request.user_id,
+        title: 'Store Approved',
+        message: 'Your store has been approved and is now live!',
+        type: 'store',
+        read: false,
+        color: 'success',
+      });
+
+      toast.success('Store request approved successfully');
+    } catch (error) {
+      console.error('Store approval failed:', error);
+      toast.error('Failed to approve store request');
     }
-
-    setStores((prev) => [...prev, payload]);
-    setRequests((prev) => prev.filter((r) => r.id !== request.id));
-
-    await supabase.from('notifications').insert({
-      user_id: request.user_id,
-      title: '✅ Store Approved',
-      message: 'Your store has been approved and is now live!',
-      type: 'store',
-      read: false,
-      color: 'success',
-    });
+    setActionLoading(null);
   };
 
   const rejectStoreRequest = async (request) => {
-    if (!window.confirm(`Reject store request "${request.name}"?`)) return;
+    setActionLoading(`reject-${request.id}`);
+    
+    try {
+      const { error } = await supabase.from('store_requests').delete().eq('id', request.id);
+      if (error) throw error;
 
-    const { error } = await supabase.from('store_requests').delete().eq('id', request.id);
-    if (!error) {
       setRequests((prev) => prev.filter((r) => r.id !== request.id));
+
       await supabase.from('notifications').insert({
         user_id: request.user_id,
-        title: '❌ Store Request Rejected',
+        title: 'Store Request Rejected',
         message: 'Your store request was rejected by admin.',
         type: 'store',
         read: false,
         color: 'error',
       });
+
+      toast.success('Store request rejected');
+    } catch (error) {
+      console.error('Rejection failed:', error);
+      toast.error('Failed to reject store request');
     }
+    setActionLoading(null);
   };
 
   const deleteStore = async (store) => {
-    if (!window.confirm(`Permanently delete store "${store.name}"?`)) return;
-    await supabase.from('stores').delete().eq('id', store.id);
-    setStores((prev) => prev.filter((s) => s.id !== store.id));
+    setActionLoading(`delete-${store.id}`);
+    
+    try {
+      const { error } = await supabase.from('stores').delete().eq('id', store.id);
+      if (error) throw error;
+
+      setStores((prev) => prev.filter((s) => s.id !== store.id));
+      toast.success('Store deleted successfully');
+    } catch (error) {
+      console.error('Deletion failed:', error);
+      toast.error('Failed to delete store');
+    }
+    setActionLoading(null);
   };
 
-  if (loading) return <div className="store-oversight-loading">Loading stores...</div>;
+  const getStoreStatus = (store) => {
+    if (!store.is_active) {
+      return { label: 'Inactive', color: 'var(--danger-color)', icon: <FiXCircle /> };
+    }
+    if (store.is_verified) {
+      return { label: 'Verified', color: 'var(--success-color)', icon: <FiCheckCircle /> };
+    }
+    return { label: 'Active', color: 'var(--warning-color)', icon: <FiAlertCircle /> };
+  };
+
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="store-oversight-loading">
+        <div className="loading-spinner"></div>
+        <p>Loading stores...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="store-oversight-container">
-      <h2>🛠️ Store Oversight</h2>
-
-      <div className="tab-buttons">
-        {TABS.map(tab => (
-          <button
-            key={tab}
-            className={`tab-btn ${tab === activeTab ? 'active' : ''}`}
-            onClick={() => setActiveTab(tab)}
-          >
-            {tab}
-          </button>
-        ))}
-      </div>
-
-      {activeTab === 'Pending' && (
-        <>
-          <h3>📝 Pending Store Requests</h3>
-          <div className="store-list">
-            {requests.map((req) => (
-              <div key={req.id} className="store-card pending">
-                <h4>{req.name}</h4>
-                <p><strong>Owner:</strong> {req.user_id}</p>
-                <p><strong>Location:</strong> {req.location}</p>
-                <p><strong>Type:</strong> {req.business_type}</p>
-                <p>
-                  📎 <a href={`https://kkxgrrcbyluhdfsoywvd.supabase.co/storage/v1/object/public/store-documents/${req.business_document}`} target="_blank" rel="noreferrer">Business Doc</a>
-                  &nbsp;|&nbsp;
-                  🆔 <a href={`https://kkxgrrcbyluhdfsoywvd.supabase.co/storage/v1/object/public/store-documents/${req.owner_id_card}`} target="_blank" rel="noreferrer">ID Doc</a>
-                </p>
-                <div className="store-actions">
-                  <button onClick={() => approveStoreRequest(req)} className="approve">✅ Approve</button>
-                  <button onClick={() => rejectStoreRequest(req)} className="reject">❌ Reject</button>
-                </div>
-              </div>
-            ))}
+      <motion.div
+        className="store-oversight-header"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <div className="header-content">
+          <div className="header-title">
+            <FaStore className="header-icon" />
+            <div>
+              <h1>Store Oversight</h1>
+              <p>Monitor and manage store accounts and requests</p>
+            </div>
           </div>
-        </>
-      )}
-
-      {activeTab !== 'Pending' && (
-        <>
-          <input
-            type="text"
-            className="store-search-input"
-            placeholder="🔍 Search stores or owner ID"
-            value={searchTerm}
-            onChange={handleSearch}
-          />
-
-          <h3>🏪 {activeTab} Stores</h3>
-          <div className="store-list">
-            {filteredStores.map((store) => (
-              <div key={store.id} className={`store-card ${store.is_active ? 'active' : 'inactive'}`}>
-                <h4>{store.name} {store.is_verified && <span className="verified-badge">✔ Verified</span>}</h4>
-                <p><strong>Owner:</strong> {store.owner_id}</p>
-                <p><strong>Status:</strong> {store.is_active ? '🟢 Active' : '🔴 Inactive'}</p>
-                <p><strong>Location:</strong> {store.location}</p>
-                <div className="store-actions">
-                  <button onClick={() => setSelectedStore(store)}><FaEye /> Review</button>
-                  <button onClick={() => toggleStoreStatus(store)}>
-                    {store.is_active ? 'Deactivate' : 'Activate'}
-                  </button>
-                  <button onClick={() => toggleVerification(store)}>
-                    {store.is_verified ? 'Unverify' : 'Verify'}
-                  </button>
-                  <button onClick={() => deleteStore(store)} className="delete"><FaTrashAlt /> Delete</button>
-                </div>
+          <div className="header-stats">
+            <div className="stat-card">
+              <FaStore className="stat-icon" />
+              <div>
+                <span className="stat-number">{stores.length}</span>
+                <span className="stat-label">Total Stores</span>
               </div>
-            ))}
-          </div>
-        </>
-      )}
-
-      {selectedStore && (
-        <div className="store-modal-overlay">
-          <div className="store-modal-box">
-            <h3>📄 Store Details</h3>
-            <p><strong>ID:</strong> {selectedStore.id}</p>
-            <p><strong>Description:</strong> {selectedStore.description}</p>
-            <p><strong>Email:</strong> {selectedStore.contact_email}</p>
-            <p><strong>Phone:</strong> {selectedStore.contact_phone}</p>
-            <p><strong>Location:</strong> {selectedStore.location}</p>
-            {selectedStore.business_document && (
-              <p>
-                📎 <a href={`https://kkxgrrcbyluhdfsoywvd.supabase.co/storage/v1/object/public/store-documents/${selectedStore.business_document}`} target="_blank" rel="noreferrer">View Business Doc</a>
-              </p>
-            )}
-            {selectedStore.owner_id_card && (
-              <p>
-                🆔 <a href={`https://kkxgrrcbyluhdfsoywvd.supabase.co/storage/v1/object/public/store-documents/${selectedStore.owner_id_card}`} target="_blank" rel="noreferrer">View ID Card</a>
-              </p>
-            )}
-            <button className="close-btn" onClick={() => setSelectedStore(null)}>Close</button>
+            </div>
+            <div className="stat-card">
+              <FiAlertCircle className="stat-icon" />
+              <div>
+                <span className="stat-number">{requests.length}</span>
+                <span className="stat-label">Pending Requests</span>
+              </div>
+            </div>
           </div>
         </div>
-      )}
+      </motion.div>
+
+      <div className="store-oversight-content">
+        {/* Tabs Section */}
+        <motion.section
+          className="tabs-section"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+        >
+          <div className="tab-buttons">
+            {TABS.map(tab => (
+              <motion.button
+                key={tab.key}
+                className={`tab-btn ${tab.key === activeTab ? 'active' : ''}`}
+                onClick={() => {
+                  setActiveTab(tab.key);
+                  setPage(1);
+                }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                {tab.icon}
+                {tab.label}
+              </motion.button>
+            ))}
+          </div>
+        </motion.section>
+
+        {/* Controls Section */}
+        <motion.section
+          className="controls-section"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+        >
+          <div className="search-bar">
+            <FiSearch className="search-icon" />
+            <input
+              type="text"
+              placeholder="Search stores by name, owner ID, or location..."
+              value={searchTerm}
+              onChange={handleSearch}
+            />
+          </div>
+        </motion.section>
+
+        {/* Content Section */}
+        {activeTab === 'pending' ? (
+          <motion.section
+            className="requests-section"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+          >
+            <div className="section-header">
+              <h2>Pending Store Requests</h2>
+              <span className="request-count">{requests.length} requests</span>
+            </div>
+
+            {requests.length === 0 ? (
+              <div className="empty-state">
+                <FiCheckCircle className="empty-icon" />
+                <h3>No pending requests</h3>
+                <p>All store requests have been processed</p>
+              </div>
+            ) : (
+              <div className="requests-grid">
+                {requests.map((request, index) => (
+                  <motion.div
+                    key={request.id}
+                    className="request-card"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: index * 0.1 }}
+                    whileHover={{ y: -2, transition: { duration: 0.2 } }}
+                  >
+                    <div className="request-header">
+                      <div className="store-avatar">
+                        <FiBriefcase />
+                      </div>
+                      <div className="request-info">
+                        <h3>{request.name}</h3>
+                        <p>Owner: {request.user_id}</p>
+                      </div>
+                      <div className="request-status pending">
+                        <FiAlertCircle />
+                        Pending Review
+                      </div>
+                    </div>
+
+                    <div className="request-details">
+                      <div className="detail-item">
+                        <FiMapPin className="detail-icon" />
+                        <span>{request.location || 'No location specified'}</span>
+                      </div>
+                      <div className="detail-item">
+                        <FiUser className="detail-icon" />
+                        <span>{request.business_type || 'No type specified'}</span>
+                      </div>
+                      {(request.business_document || request.owner_id_card) && (
+                        <div className="document-links">
+                          {request.business_document && (
+                            <a 
+                              href={`https://kkxgrrcbyluhdfsoywvd.supabase.co/storage/v1/object/public/store-documents/${request.business_document}`} 
+                              target="_blank" 
+                              rel="noreferrer"
+                              className="doc-link"
+                            >
+                              <FiFileText />
+                              Business Document
+                              <FiDownload />
+                            </a>
+                          )}
+                          {request.owner_id_card && (
+                            <a 
+                              href={`https://kkxgrrcbyluhdfsoywvd.supabase.co/storage/v1/object/public/store-documents/${request.owner_id_card}`} 
+                              target="_blank" 
+                              rel="noreferrer"
+                              className="doc-link"
+                            >
+                              <FiFileText />
+                              ID Document
+                              <FiDownload />
+                            </a>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="request-actions">
+                      <motion.button
+                        className="approve-btn"
+                        onClick={() => approveStoreRequest(request)}
+                        disabled={actionLoading === `approve-${request.id}`}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                      >
+                        {actionLoading === `approve-${request.id}` ? (
+                          <div className="loading-dots"></div>
+                        ) : (
+                          <>
+                            <FiCheckCircle />
+                            Approve
+                          </>
+                        )}
+                      </motion.button>
+                      <motion.button
+                        className="reject-btn"
+                        onClick={() => rejectStoreRequest(request)}
+                        disabled={actionLoading === `reject-${request.id}`}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                      >
+                        {actionLoading === `reject-${request.id}` ? (
+                          <div className="loading-dots"></div>
+                        ) : (
+                          <>
+                            <FiXCircle />
+                            Reject
+                          </>
+                        )}
+                      </motion.button>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </motion.section>
+        ) : (
+          <motion.section
+            className="stores-section"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+          >
+            <div className="section-header">
+              <h2>
+                {TABS.find(tab => tab.key === activeTab)?.label} 
+                <span className="store-count">({filteredStores.length} stores)</span>
+              </h2>
+            </div>
+
+            {filteredStores.length === 0 ? (
+              <div className="empty-state">
+                <FiBriefcase className="empty-icon" />
+                <h3>No stores found</h3>
+                <p>Try adjusting your search or filter criteria</p>
+              </div>
+            ) : (
+              <>
+                <div className="stores-grid">
+                  {paginatedStores.map((store, index) => {
+                    const status = getStoreStatus(store);
+                    
+                    return (
+                      <motion.div
+                        key={store.id}
+                        className="store-card"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: index * 0.1 }}
+                        whileHover={{ y: -2, transition: { duration: 0.2 } }}
+                      >
+                        <div className="store-header">
+                          <div className="store-avatar">
+                            {store.is_verified ? <FaCheck /> : <FiBriefcase />}
+                          </div>
+                          <div className="store-info">
+                            <h3>{store.name}</h3>
+                            <p>Owner: {store.owner_id}</p>
+                          </div>
+                          <div 
+                            className="store-status"
+                            style={{ backgroundColor: `${status.color}15`, color: status.color }}
+                          >
+                            {status.icon}
+                            {status.label}
+                          </div>
+                        </div>
+
+                        <div className="store-details">
+                          <div className="detail-item">
+                            <FiMapPin className="detail-icon" />
+                            <span>{store.location || 'No location'}</span>
+                          </div>
+                          <div className="detail-item">
+                            <FiMail className="detail-icon" />
+                            <span>{store.contact_email || 'No email'}</span>
+                          </div>
+                          <div className="detail-item">
+                            <FiPhone className="detail-icon" />
+                            <span>{store.contact_phone || 'No phone'}</span>
+                          </div>
+                          {store.verified_at && (
+                            <div className="detail-item">
+                              <FiCheckCircle className="detail-icon" />
+                              <span>Verified {formatDate(store.verified_at)}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="store-actions">
+                          <motion.button
+                            className="view-btn"
+                            onClick={() => setSelectedStore(store)}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                          >
+                            <FiEye />
+                            Details
+                          </motion.button>
+                          <motion.button
+                            className={`status-btn ${store.is_active ? 'deactivate' : 'activate'}`}
+                            onClick={() => toggleStoreStatus(store)}
+                            disabled={actionLoading === `${store.id}-${store.is_active ? 'deactivated' : 'activated'}`}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                          >
+                            {actionLoading === `${store.id}-${store.is_active ? 'deactivated' : 'activated'}` ? (
+                              <div className="loading-dots"></div>
+                            ) : (
+                              <>
+                                {store.is_active ? <FiXCircle /> : <FiCheckCircle />}
+                                {store.is_active ? 'Deactivate' : 'Activate'}
+                              </>
+                            )}
+                          </motion.button>
+                          <motion.button
+                            className={`verify-btn ${store.is_verified ? 'unverify' : 'verify'}`}
+                            onClick={() => toggleVerification(store)}
+                            disabled={actionLoading === `${store.id}-${store.is_verified ? 'unverified' : 'verified'}`}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                          >
+                            {actionLoading === `${store.id}-${store.is_verified ? 'unverified' : 'verified'}` ? (
+                              <div className="loading-dots"></div>
+                            ) : (
+                              <>
+                                {store.is_verified ? <FiXCircle /> : <FiCheckCircle />}
+                                {store.is_verified ? 'Unverify' : 'Verify'}
+                              </>
+                            )}
+                          </motion.button>
+                          <motion.button
+                            className="delete-btn"
+                            onClick={() => deleteStore(store)}
+                            disabled={actionLoading === `delete-${store.id}`}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                          >
+                            {actionLoading === `delete-${store.id}` ? (
+                              <div className="loading-dots"></div>
+                            ) : (
+                              <>
+                                <FiTrash2 />
+                                Delete
+                              </>
+                            )}
+                          </motion.button>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <motion.div
+                    className="pagination"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.4 }}
+                  >
+                    <button
+                      onClick={() => setPage(p => Math.max(p - 1, 1))}
+                      disabled={page === 1}
+                      className="pagination-btn"
+                    >
+                      <FiChevronLeft />
+                      Previous
+                    </button>
+                    
+                    <div className="pagination-info">
+                      Page <strong>{page}</strong> of <strong>{totalPages}</strong>
+                    </div>
+                    
+                    <button
+                      onClick={() => setPage(p => Math.min(p + 1, totalPages))}
+                      disabled={page === totalPages}
+                      className="pagination-btn"
+                    >
+                      Next
+                      <FiChevronRight />
+                    </button>
+                  </motion.div>
+                )}
+              </>
+            )}
+          </motion.section>
+        )}
+      </div>
+
+      {/* Store Details Modal */}
+      <AnimatePresence>
+        {selectedStore && (
+          <motion.div
+            className="store-modal-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setSelectedStore(null)}
+          >
+            <motion.div
+              className="store-modal"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="modal-header">
+                <h3>Store Details</h3>
+                <button 
+                  className="close-btn"
+                  onClick={() => setSelectedStore(null)}
+                >
+                  <FiXCircle />
+                </button>
+              </div>
+
+              <div className="modal-content">
+                <div className="store-detail-section">
+                  <h4>Basic Information</h4>
+                  <div className="detail-grid">
+                    <div className="detail-item">
+                      <strong>Store ID:</strong>
+                      <span>{selectedStore.id}</span>
+                    </div>
+                    <div className="detail-item">
+                      <strong>Owner ID:</strong>
+                      <span>{selectedStore.owner_id}</span>
+                    </div>
+                    <div className="detail-item">
+                      <strong>Store Name:</strong>
+                      <span>{selectedStore.name}</span>
+                    </div>
+                    <div className="detail-item">
+                      <strong>Description:</strong>
+                      <span>{selectedStore.description || 'No description'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="store-detail-section">
+                  <h4>Contact Information</h4>
+                  <div className="detail-grid">
+                    <div className="detail-item">
+                      <strong>Email:</strong>
+                      <span>{selectedStore.contact_email || 'No email'}</span>
+                    </div>
+                    <div className="detail-item">
+                      <strong>Phone:</strong>
+                      <span>{selectedStore.contact_phone || 'No phone'}</span>
+                    </div>
+                    <div className="detail-item">
+                      <strong>Location:</strong>
+                      <span>{selectedStore.location || 'No location'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="store-detail-section">
+                  <h4>Documents</h4>
+                  <div className="document-links">
+                    {selectedStore.business_document && (
+                      <a 
+                        href={`https://kkxgrrcbyluhdfsoywvd.supabase.co/storage/v1/object/public/store-documents/${selectedStore.business_document}`} 
+                        target="_blank" 
+                        rel="noreferrer"
+                        className="doc-link"
+                      >
+                        <FiFileText />
+                        View Business Document
+                        <FiDownload />
+                      </a>
+                    )}
+                    {selectedStore.owner_id_card && (
+                      <a 
+                        href={`https://kkxgrrcbyluhdfsoywvd.supabase.co/storage/v1/object/public/store-documents/${selectedStore.owner_id_card}`} 
+                        target="_blank" 
+                        rel="noreferrer"
+                        className="doc-link"
+                      >
+                        <FiFileText />
+                        View ID Card
+                        <FiDownload />
+                      </a>
+                    )}
+                    {!selectedStore.business_document && !selectedStore.owner_id_card && (
+                      <p className="no-documents">No documents available</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

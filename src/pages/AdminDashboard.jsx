@@ -48,6 +48,7 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [adminStats, setAdminStats] = useState({
     totalUsers: 0,
     totalStores: 0,
@@ -687,13 +688,42 @@ const AdminDashboard = () => {
     navigate('/');
   };
 
+  const toggleSidebar = () => {
+    if (window.innerWidth <= 768) {
+      setMobileSidebarOpen(!mobileSidebarOpen);
+    } else {
+      setSidebarOpen(!sidebarOpen);
+    }
+  };
+
+  const handleNavClick = (path) => {
+    navigate(path);
+    if (window.innerWidth <= 768) {
+      setMobileSidebarOpen(false);
+    }
+  };
+
   return (
     <div className={`admin-layout ${darkMode ? "dark-mode" : ""}`}>
+      {/* Mobile Overlay */}
+      <AnimatePresence>
+        {mobileSidebarOpen && (
+          <motion.div
+            className="mobile-sidebar-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setMobileSidebarOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
       <motion.aside
-        className="admin-sidebar"
+        className={`admin-sidebar ${sidebarOpen ? 'expanded' : 'collapsed'} ${mobileSidebarOpen ? 'mobile-open' : ''}`}
         initial={false}
         animate={{
           width: sidebarOpen ? 280 : 80,
+          x: mobileSidebarOpen ? 0 : (window.innerWidth <= 768 ? -280 : 0),
           transition: { duration: 0.3, ease: "easeInOut" },
         }}
       >
@@ -724,7 +754,7 @@ const AdminDashboard = () => {
             <motion.button
               key={index}
               className={`nav-item ${location.pathname === module.path ? 'active' : ''}`}
-              onClick={() => navigate(module.path)}
+              onClick={() => handleNavClick(module.path)}
               whileHover={{ x: 8 }}
               whileTap={{ scale: 0.95 }}
               initial={{ opacity: 0, x: -20 }}
@@ -786,14 +816,14 @@ const AdminDashboard = () => {
         </div>
       </motion.aside>
 
-      <main className="admin-main">
+      <main className={`admin-main ${sidebarOpen ? 'expanded' : 'collapsed'}`}>
         <header className="admin-topbar">
           <div className="topbar-left">
             <button
               className="sidebar-toggle"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
+              onClick={toggleSidebar}
             >
-              {sidebarOpen ? <FiX size={20} /> : <FiMenu size={20} />}
+              {sidebarOpen || mobileSidebarOpen ? <FiX size={20} /> : <FiMenu size={20} />}
             </button>
             <div className="breadcrumb">
               <h1>
