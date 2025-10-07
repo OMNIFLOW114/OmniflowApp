@@ -1,11 +1,9 @@
-// src/components/CreateStore.jsx
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/supabase";
 import { useAuth } from "@/context/AuthContext";
 import { useDarkMode } from "@/context/DarkModeContext";
 import { ToastContainer, toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
 import {
   FiChevronRight,
   FiChevronLeft,
@@ -15,6 +13,7 @@ import {
   FiXCircle,
   FiLoader,
 } from "react-icons/fi";
+import "react-toastify/dist/ReactToastify.css";
 import "./CreateStore.css";
 
 const Spinner = ({ size = 24 }) => (
@@ -32,11 +31,14 @@ const Spinner = ({ size = 24 }) => (
 const CreateStore = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { darkMode } = useDarkMode(); // integrates with your global toggle
+  const location = useLocation();
+  const { darkMode } = useDarkMode();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [requestStatus, setRequestStatus] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [isEligible, setIsEligible] = useState(null);
+  const [totalStores, setTotalStores] = useState(0);
   const [storeData, setStoreData] = useState({
     name: "",
     description: "",
@@ -65,7 +67,7 @@ const CreateStore = () => {
         if (error && error.code !== "PGRST116") {
           console.warn("fetchExistingRequest error:", error);
         }
-        if (data) setRequestStatus(data.status);
+        setRequestStatus(data ? data.status : null);
       } catch (err) {
         console.error(err);
       } finally {
@@ -74,6 +76,57 @@ const CreateStore = () => {
     };
     fetchExistingRequest();
   }, [user]);
+
+  useEffect(() => {
+    if (user && !requestStatus) {
+      async function fetchEligibility() {
+        setLoading(true);
+        try {
+          const { count } = await supabase
+            .from("stores")
+            .select("*", { count: "exact", head: true });
+          const { data: subscription } = await supabase
+            .from("subscriptions")
+            .select("id")
+            .eq("user_id", user.id)
+            .eq("status", "active")
+            .maybeSingle();
+          setTotalStores(count || 0);
+          setIsEligible((count || 0) < 1000 || !!subscription);
+        } catch (err) {
+          console.error(err);
+          toast.error("Failed to check eligibility");
+          setIsEligible(true); // Fallback
+        } finally {
+          setLoading(false);
+        }
+      }
+      fetchEligibility();
+    }
+  }, [user, requestStatus]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const sessionId = params.get("session_id");
+    if (sessionId && user) {
+      async function verifySession() {
+        try {
+          const { data, error } = await supabase.functions.invoke("verify-checkout-session", {
+            body: { session_id: sessionId },
+          });
+          if (error) throw error;
+          if (data.subscription && data.subscription.status === "active") {
+            toast.success("Subscription successful! You can now create your store.");
+            setIsEligible(true);
+          }
+        } catch (err) {
+          console.error(err);
+          toast.error("Failed to verify subscription.");
+        }
+      }
+      verifySession();
+    }
+  }, [location, user]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -87,7 +140,6 @@ const CreateStore = () => {
       return;
     }
     const file = files[0];
-    // Basic client-side file size check (10MB)
     if (file.size > 10 * 1024 * 1024) {
       toast.error("File too large. Limit is 10MB.");
       return;
@@ -114,7 +166,6 @@ const CreateStore = () => {
       return;
     }
 
-    // Basic validation before submit
     if (!storeData.name || !storeData.contactEmail || !storeData.contactPhone || !storeData.location) {
       toast.error("Please complete the required fields in Step 1.");
       setStep(1);
@@ -129,7 +180,6 @@ const CreateStore = () => {
     setSubmitting(true);
 
     try {
-      // upload files if present
       let businessDocPath = null;
       let idCardPath = null;
 
@@ -169,21 +219,20 @@ const CreateStore = () => {
     }
   };
 
-  // ===== small helpers =====
   const fileLabel = (file) => (file ? `${file.name}` : "No file selected");
 
-  // ===== Status screens =====
-  if (loading)
+  if (loading) {
     return (
       <div className={`create-store-page ${darkMode ? "dark" : "light"}`}>
         <div className="cs-container cs-center">
           <Spinner size={40} />
-          <div className="cs-loading-text">Checking request status...</div>
+          <div className="cs-loading-text">Checking status...</div>
         </div>
       </div>
     );
+  }
 
-  if (requestStatus === "pending")
+  if (requestStatus === "pending") {
     return (
       <div className={`create-store-page ${darkMode ? "dark" : "light"}`}>
         <div className="cs-container cs-center cs-card-status">
@@ -206,8 +255,9 @@ const CreateStore = () => {
         <ToastContainer position="bottom-center" />
       </div>
     );
+  }
 
-  if (requestStatus === "approved")
+  if (requestStatus === "approved") {
     return (
       <div className={`create-store-page ${darkMode ? "dark" : "light"}`}>
         <div className="cs-container cs-center cs-card-status">
@@ -225,14 +275,72 @@ const CreateStore = () => {
         <ToastContainer position="bottom-center" />
       </div>
     );
+  }
 
-  // ===== main multi-step form =====
+  if (requestStatus === "rejected") {
+    return (
+      <div className={`create-store-page ${darkMode ? "dark" : "light"}`}>
+        <div className="cs-container cs-center cs-card-status">
+          <div className="cs-status-icon rejected">
+            <FiXCircle size={36} />
+          </div>
+          <h3 className="cs-status-title">Request Rejected</h3>
+          <p className="cs-status-desc">Your store request was rejected. Please review your details or contact support.</p>
+          <div className="cs-status-actions">
+            <button className="cs-btn" onClick={() => setRequestStatus(null)}>
+              Resubmit Request
+            </button>
+            <a href="mailto:support@omniflow.ai" className="cs-btn cs-btn-muted">
+              Contact Support
+            </a>
+          </div>
+        </div>
+        <ToastContainer position="bottom-center" />
+      </div>
+    );
+  }
+
+  if (isEligible === null) {
+    return (
+      <div className={`create-store-page ${darkMode ? "dark" : "light"}`}>
+        <div className="cs-container cs-center">
+          <Spinner size={40} />
+          <div className="cs-loading-text">Checking eligibility...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isEligible) {
+    return (
+      <div className={`create-store-page ${darkMode ? "dark" : "light"}`}>
+        <div className="cs-container cs-center cs-card-status">
+          <h3 className="cs-status-title">Premium Subscription Required</h3>
+          <p className="cs-status-desc">
+            We have reached {totalStores} stores. The free creation offer for the first 1000 stores has ended. 
+            To create a store, subscribe to our premium plan.
+          </p>
+          <div className="cs-status-actions">
+            <button className="cs-btn cs-btn-primary" onClick={() => navigate("/store/premium")}>
+              Go to Premium
+            </button>
+          </div>
+        </div>
+        <ToastContainer position="bottom-center" />
+      </div>
+    );
+  }
+
   return (
     <div className={`create-store-page ${darkMode ? "dark" : "light"}`}>
-      {/* small page shell */}
       <div className="cs-container" role="main">
         <div className="cs-header">
           <h2 className="cs-title">Create a Verified Store</h2>
+          {totalStores < 1000 && (
+            <p className="cs-offer-text">
+              Limited Offer: Free store creation for the first 1000 users! ({1000 - totalStores} slots left)
+            </p>
+          )}
           <div className="cs-progress">
             <div className={`cs-step ${step >= 1 ? "active" : ""}`}>1</div>
             <div className="cs-progress-line" />
@@ -242,7 +350,6 @@ const CreateStore = () => {
         </div>
 
         <form className="cs-form" onSubmit={handleSubmit} noValidate>
-          {/* Step 1 */}
           <div className={`cs-step-panel ${step === 1 ? "visible" : "hidden"}`}>
             <label className="cs-label">Store Name *</label>
             <input
@@ -305,7 +412,6 @@ const CreateStore = () => {
                 type="button"
                 className="cs-btn cs-btn-muted"
                 onClick={() => {
-                  // basic validation for step 1
                   if (!storeData.name || !storeData.contactEmail || !storeData.contactPhone || !storeData.location) {
                     toast.error("Please fill required fields before continuing.");
                     return;
@@ -319,7 +425,6 @@ const CreateStore = () => {
             </div>
           </div>
 
-          {/* Step 2 */}
           <div className={`cs-step-panel ${step === 2 ? "visible" : "hidden"}`}>
             <label className="cs-label">KRA PIN *</label>
             <input
@@ -425,7 +530,6 @@ const CreateStore = () => {
         </form>
       </div>
 
-      {/* overlay loader when submitting */}
       {submitting && (
         <div className="cs-overlay" aria-hidden>
           <div className="cs-overlay-inner">

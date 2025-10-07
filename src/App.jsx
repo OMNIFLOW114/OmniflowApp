@@ -41,7 +41,7 @@ import CreateStore from "./pages/CreateStore";
 import StoreDashboard from "./pages/StoreDashboard";
 import MyInstallments from "./pages/MyInstallments"; // ✅ make sure the path matches
 import Checkout from "@/pages/Checkout";
-
+import Premium from './pages/Premium';
 
 // Business
 import BusinessHub from "./pages/business/BusinessHub";
@@ -150,7 +150,7 @@ function AppRoutes() {
         <Route path="/my-installments" element={<MyInstallments user={User} />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/verify-otp" element={<VerifyOtp />} />   
-        
+        <Route path="/store/premium" element={<Premium />} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

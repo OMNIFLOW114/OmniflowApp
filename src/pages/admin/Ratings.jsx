@@ -15,7 +15,7 @@ import {
   FiShield,
   FiStar,
 } from "react-icons/fi";
-import { FaCrown, FaShieldAlt, FaChartLine, FaArrowUp, FaTrashRestore, FaFileExport, FaFilter } from "react-icons/fa";
+import { FaCrown, FaShieldAlt, FaChartLine, FaArrowUp, FaTrashRestore, FaFileExport, FaFilter, FaSpinner } from "react-icons/fa";
 import "./Ratings.css";
 
 const RATINGS_PER_PAGE = 12;

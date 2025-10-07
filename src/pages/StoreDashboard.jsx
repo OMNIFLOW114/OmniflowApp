@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   FaHome, FaBox, FaCommentDots, FaUpload, FaSmile, FaClipboardCheck, FaBoxOpen,
   FaUser, FaMapMarkerAlt, FaMoneyBillAlt, FaMoneyBillWave, FaArrowLeft, FaArrowRight,
+  FaChartLine, FaCreditCard, FaMoneyCheckAlt, FaShoppingBag, FaDollarSign,
+  FaStore, FaUsers, FaStar
 } from 'react-icons/fa';
 import { useDropzone } from 'react-dropzone';
 import { supabase } from '../lib/supabaseClient';
@@ -32,12 +34,178 @@ const StoreDashboard = () => {
   const [savingProductId, setSavingProductId] = useState(null);
   const [requiredInfoDrafts, setRequiredInfoDrafts] = useState({});
   const [savingDetails, setSavingDetails] = useState({});
-  const [currentImageIndices, setCurrentImageIndices] = useState({}); // Track current image index for each product
+  const [currentImageIndices, setCurrentImageIndices] = useState({});
+  
+  // ENHANCED STATES FOR ALL DATA
+  const [dashboardStats, setDashboardStats] = useState({
+    totalEarnings: 0,
+    pendingPayouts: 0,
+    completedPayouts: 0,
+    lipaPolepoleEarnings: 0,
+    thisMonthEarnings: 0,
+    totalOrders: 0,
+    successfulOrders: 0,
+    totalRevenue: 0,
+    walletBalance: 0
+  });
+  const [paymentHistory, setPaymentHistory] = useState([]);
+  const [loadingEarnings, setLoadingEarnings] = useState(false);
+  const [lipaPolepoleProducts, setLipaPolepoleProducts] = useState([]);
+  const [storePerformance, setStorePerformance] = useState({
+    sellerScore: 0,
+    totalRatings: 0,
+    averageRating: 0
+  });
 
   const getNextStatus = (current) => {
     const flow = ["pending", "processing", "shipped", "out for delivery", "delivered"];
     const index = flow.indexOf(current?.toLowerCase());
     return index >= 0 && index < flow.length - 1 ? flow[index + 1] : null;
+  };
+
+  // COMPREHENSIVE DATA FETCHING FUNCTION
+  const fetchDashboardData = async () => {
+    if (!store || !user) return;
+    
+    setLoadingEarnings(true);
+    try {
+      // Fetch store info with performance metrics
+      const { data: storeData, error: storeError } = await supabase
+        .from('stores')
+        .select('seller_score, total_orders, successful_orders')
+        .eq('owner_id', user.id)
+        .single();
+
+      if (!storeError && storeData) {
+        setStorePerformance({
+          sellerScore: storeData.seller_score || 0,
+          totalRatings: storeData.successful_orders || 0,
+          averageRating: storeData.seller_score || 0
+        });
+      }
+
+      // Fetch orders with proper columns
+      const { data: ordersData, error: ordersError } = await supabase
+        .from('orders')
+        .select('total_price, status, created_at, escrow_released, price_paid, delivery_fee')
+        .eq('store_id', store.id);
+
+      if (ordersError) {
+        console.error('Orders fetch error:', ordersError);
+        throw ordersError;
+      }
+
+      // Calculate comprehensive earnings
+      const totalRevenue = ordersData?.reduce((sum, order) => sum + (order.total_price || 0), 0) || 0;
+      const totalEarnings = ordersData?.reduce((sum, order) => sum + (order.price_paid || 0), 0) || 0;
+      
+      // Pending payouts = orders where escrow not released
+      const pendingPayouts = ordersData
+        ?.filter(order => !order.escrow_released && ['delivered', 'completed'].includes(order.status?.toLowerCase()))
+        .reduce((sum, order) => sum + (order.price_paid || 0), 0) || 0;
+      
+      // Completed payouts = orders where escrow is released
+      const completedPayouts = ordersData
+        ?.filter(order => order.escrow_released)
+        .reduce((sum, order) => sum + (order.price_paid || 0), 0) || 0;
+
+      // This month's earnings
+      const thisMonth = new Date();
+      const thisMonthEarnings = ordersData
+        ?.filter(order => {
+          const orderDate = new Date(order.created_at);
+          return orderDate.getMonth() === thisMonth.getMonth() && 
+                 orderDate.getFullYear() === thisMonth.getFullYear();
+        })
+        .reduce((sum, order) => sum + (order.price_paid || 0), 0) || 0;
+
+      // Fetch Lipa Polepole earnings
+      const { data: installmentData, error: installmentError } = await supabase
+        .from('installment_orders')
+        .select('total_price, amount_paid, status')
+        .eq('seller_id', user.id);
+
+      const lipaPolepoleEarnings = installmentData
+        ?.filter(order => order.status === 'completed')
+        .reduce((sum, order) => sum + (order.amount_paid || 0), 0) || 0;
+
+      // Fetch wallet balance
+      const { data: walletData, error: walletError } = await supabase
+        .from('wallets')
+        .select('balance')
+        .eq('user_id', user.id)
+        .single();
+
+      const walletBalance = walletData?.balance || 0;
+
+      // Calculate successful orders
+      const successfulOrders = ordersData?.filter(order => 
+        ['delivered', 'completed'].includes(order.status?.toLowerCase())
+      ).length || 0;
+
+      setDashboardStats({
+        totalEarnings,
+        pendingPayouts,
+        completedPayouts,
+        lipaPolepoleEarnings,
+        thisMonthEarnings,
+        totalOrders: ordersData?.length || 0,
+        successfulOrders,
+        totalRevenue,
+        walletBalance
+      });
+
+      // Fetch payment history from wallet transactions
+      const { data: paymentData, error: paymentError } = await supabase
+        .from('wallet_transactions')
+        .select('*')
+        .eq('seller_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (!paymentError && paymentData) {
+        setPaymentHistory(paymentData.map(payment => ({
+          id: payment.id,
+          amount: payment.amount,
+          created_at: payment.created_at,
+          status: payment.status,
+          payment_method: payment.payment_method || 'Wallet',
+          reference_id: payment.reference || `TXN-${payment.id.slice(0, 8)}`,
+          type: payment.type,
+          description: payment.description
+        })));
+      } else {
+        // Fallback to orders if no wallet transactions
+        const { data: orderPayments, error: orderPaymentsError } = await supabase
+          .from('orders')
+          .select('id, price_paid as amount, created_at, status')
+          .eq('store_id', store.id)
+          .in('status', ['delivered', 'completed'])
+          .order('created_at', { ascending: false })
+          .limit(10);
+
+        if (!orderPaymentsError && orderPayments) {
+          setPaymentHistory(orderPayments.map(payment => ({
+            id: payment.id,
+            amount: payment.amount,
+            created_at: payment.created_at,
+            status: 'completed',
+            payment_method: 'Order Payment',
+            reference_id: `ORD-${payment.id.slice(0, 8)}`,
+            type: 'sale',
+            description: 'Product sale'
+          })));
+        }
+      }
+
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+      if (!error.message?.includes('column') && !error.message?.includes('does not exist')) {
+        toast.error('Failed to load dashboard data');
+      }
+    } finally {
+      setLoadingEarnings(false);
+    }
   };
 
   const updateOrderStatus = async (orderId, newStatus) => {
@@ -133,7 +301,7 @@ const StoreDashboard = () => {
     if (!user?.id) return;
     const { data, error } = await supabase
       .from('users')
-      .select('name')
+      .select('name, email, avatar_url')
       .eq('id', user.id)
       .single();
     if (data) setUserInfo(data);
@@ -165,7 +333,7 @@ const StoreDashboard = () => {
       if (!store) return;
       const { data, error } = await supabase
         .from('orders')
-        .select('*, buyer:buyer_id(name), product:product_id(name)')
+        .select('*, buyer:buyer_id(name, phone), product:product_id(name, price)')
         .eq('store_id', store.id)
         .order('created_at', { ascending: false });
 
@@ -179,12 +347,16 @@ const StoreDashboard = () => {
     fetchOrders();
   }, [store]);
 
+  // ENHANCED NAV ITEMS
   const navItems = [
     { id: 'overview', label: 'Overview', icon: <FaHome /> },
     { id: 'products', label: 'Products', icon: <FaBox /> },
+    { id: 'earnings', label: 'Earnings', icon: <FaChartLine /> },
+    { id: 'payments', label: 'Payments', icon: <FaCreditCard /> },
+    { id: 'lipa-products', label: 'Lipa Products', icon: <FaShoppingBag /> },
     { id: 'chat', label: 'Support', icon: <FaCommentDots /> },
     { id: 'orders', label: 'Orders', icon: <FaClipboardCheck /> },
-    { id: 'installments', label: 'Installments', icon: <FaMoneyBillWave /> },
+    { id: 'installments', label: 'Lipa Orders', icon: <FaMoneyBillWave /> },
   ];
 
   const fetchProducts = async () => {
@@ -217,7 +389,25 @@ const StoreDashboard = () => {
   }, [initialDeposit, installments]);
 
   useEffect(() => {
-    if (store) fetchProducts();
+    if (store) {
+      fetchProducts();
+      fetchDashboardData();
+      
+      // Fetch Lipa Polepole products
+      const fetchLipaProducts = async () => {
+        const { data: lipaProducts, error } = await supabase
+          .from('products')
+          .select('*')
+          .eq('store_id', store.id)
+          .eq('lipa_polepole', true)
+          .order('created_at', { ascending: false });
+
+        if (!error && lipaProducts) {
+          setLipaPolepoleProducts(lipaProducts);
+        }
+      };
+      fetchLipaProducts();
+    }
   }, [store]);
 
   const fetchMessages = async () => {
@@ -300,7 +490,7 @@ const StoreDashboard = () => {
           }
         : null,
       category: form.category.value,
-      stock: parseInt(form.stock.value),
+      stock_quantity: parseInt(form.stock.value),
       tags: form.tags.value ? form.tags.value.split(',').map(tag => tag.trim()) : [],
       discount: parseFloat(form.discount.value) || 0,
       description: form.description.value,
@@ -337,6 +527,7 @@ const StoreDashboard = () => {
       form.reset();
       setSection('overview');
       fetchProducts();
+      fetchDashboardData();
     } else {
       toast.error("Failed to post product.");
       console.error('Insert error:', error);
@@ -354,6 +545,7 @@ const StoreDashboard = () => {
     if (!error) {
       toast.success("Product deleted!");
       fetchProducts();
+      fetchDashboardData();
     } else {
       toast.error("Failed to delete.");
       console.error('Delete error:', error);
@@ -374,6 +566,7 @@ const StoreDashboard = () => {
     if (!error) {
       toast.success('Product deleted!');
       fetchProducts();
+      fetchDashboardData();
     } else {
       toast.error('Delete failed!');
     }
@@ -444,9 +637,19 @@ const StoreDashboard = () => {
       </nav>
       <main className="glass-main">
         <div className="glass-topbar">
-          <span>Welcome, {userInfo?.name || 'Seller'}</span>
+          <div className="welcome-section">
+            <span>Welcome, {userInfo?.name || 'Seller'}</span>
+            {store && <span className="store-name">{store.name}</span>}
+          </div>
+          {dashboardStats.walletBalance > 0 && (
+            <div className="wallet-balance">
+              <FaDollarSign />
+              <span>Ksh {dashboardStats.walletBalance.toLocaleString()}</span>
+            </div>
+          )}
         </div>
         <AnimatePresence mode="wait">
+          {/* ENHANCED OVERVIEW SECTION */}
           {section === 'overview' && (
             <motion.section
               key="overview"
@@ -457,30 +660,372 @@ const StoreDashboard = () => {
               transition={{ duration: 0.4 }}
             >
               <h3>Store Overview</h3>
-              <ul>
-                <li>Total Products: {products.length}</li>
-                <li>Messages: {messages.length}</li>
-              </ul>
-              {loadingProducts ? (
-                <p className="loading-text">Loading products...</p>
+              <div className="overview-stats">
+                <div className="stat-card">
+                  <FaBox className="stat-icon" />
+                  <div className="stat-info">
+                    <h4>Total Products</h4>
+                    <p className="stat-number">{products.length}</p>
+                  </div>
+                </div>
+                <div className="stat-card">
+                  <FaClipboardCheck className="stat-icon" />
+                  <div className="stat-info">
+                    <h4>Total Orders</h4>
+                    <p className="stat-number">{dashboardStats.totalOrders}</p>
+                    <small>{dashboardStats.successfulOrders} successful</small>
+                  </div>
+                </div>
+                <div className="stat-card">
+                  <FaMoneyCheckAlt className="stat-icon" />
+                  <div className="stat-info">
+                    <h4>Total Earnings</h4>
+                    <p className="stat-number">Ksh {dashboardStats.totalEarnings.toLocaleString()}</p>
+                  </div>
+                </div>
+                <div className="stat-card">
+                  <FaShoppingBag className="stat-icon" />
+                  <div className="stat-info">
+                    <h4>Lipa Products</h4>
+                    <p className="stat-number">{lipaPolepoleProducts.length}</p>
+                  </div>
+                </div>
+                <div className="stat-card">
+                  <FaStar className="stat-icon" />
+                  <div className="stat-info">
+                    <h4>Seller Score</h4>
+                    <p className="stat-number">{storePerformance.sellerScore.toFixed(1)}</p>
+                    <small>{storePerformance.totalRatings} ratings</small>
+                  </div>
+                </div>
+                <div className="stat-card">
+                  <FaChartLine className="stat-icon" />
+                  <div className="stat-info">
+                    <h4>This Month</h4>
+                    <p className="stat-number">Ksh {dashboardStats.thisMonthEarnings.toLocaleString()}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="overview-content">
+                <div className="recent-products-section">
+                  <h4>Recent Products</h4>
+                  {loadingProducts ? (
+                    <p className="loading-text">Loading products...</p>
+                  ) : products.length === 0 ? (
+                    <div className="empty-state compact">
+                      <FaBox size={32} />
+                      <p>No products yet</p>
+                      <small>Create your first product to get started</small>
+                    </div>
+                  ) : (
+                    <div className="compact-product-grid">
+                      {products.slice(0, 6).map((p) => {
+                        const needsInfo = !p.warranty || !p.return_policy || !p.delivery_methods;
+                        const draft = requiredInfoDrafts[p.id];
+                        const isSaving = savingDetails[p.id];
+                        const showForm = draft?.isOpen || needsInfo;
+                        const images = p.image_gallery?.length ? p.image_gallery : ['/placeholder.jpg'];
+                        const currentImageIndex = currentImageIndices[p.id] || 0;
+
+                        return (
+                          <motion.div
+                            key={p.id}
+                            className="compact-product-card"
+                            layout
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                          >
+                            <div className="compact-image-container">
+                              <img
+                                src={images[currentImageIndex]}
+                                alt={p.name}
+                                className="compact-product-image"
+                              />
+                              {images.length > 1 && (
+                                <div className="compact-image-nav">
+                                  <button
+                                    className="compact-image-nav-btn"
+                                    onClick={() => handleImageChange(p.id, 'prev')}
+                                    disabled={currentImageIndex === 0}
+                                  >
+                                    <FaArrowLeft size={10} />
+                                  </button>
+                                  <div className="compact-image-dots">
+                                    {images.map((_, i) => (
+                                      <span
+                                        key={i}
+                                        className={`compact-dot ${i === currentImageIndex ? 'active' : ''}`}
+                                      />
+                                    ))}
+                                  </div>
+                                  <button
+                                    className="compact-image-nav-btn"
+                                    onClick={() => handleImageChange(p.id, 'next')}
+                                    disabled={currentImageIndex === images.length - 1}
+                                  >
+                                    <FaArrowRight size={10} />
+                                  </button>
+                                </div>
+                              )}
+                              {p.lipa_polepole && (
+                                <div className="compact-lipa-badge">
+                                  <FaMoneyBillWave size={10} /> Lipa
+                                </div>
+                              )}
+                            </div>
+                            <div className="compact-product-info">
+                              <h5 className="compact-product-title">{p.name}</h5>
+                              <p className="compact-product-price">Ksh {p.price}</p>
+                              <div className="compact-product-meta">
+                                <span>Stock: {p.stock_quantity}</span>
+                                {p.discount > 0 && <span className="discount">{p.discount}% off</span>}
+                              </div>
+                            </div>
+                            {showForm && (
+                              <motion.div
+                                className="compact-required-info"
+                                layout
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                              >
+                                <h6>Complete Details</h6>
+                                <div className="compact-form-actions">
+                                  <button
+                                    className="compact-save-btn"
+                                    onClick={() => saveRequiredInfo(p.id)}
+                                    disabled={isSaving}
+                                  >
+                                    {isSaving ? '...' : 'Save'}
+                                  </button>
+                                </div>
+                              </motion.div>
+                            )}
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div className="overview-actions">
+                  <button 
+                    className="view-all-btn"
+                    onClick={() => setSection('products')}
+                  >
+                    View All Products
+                  </button>
+                  <button 
+                    className="add-product-btn"
+                    onClick={() => setSection('products')}
+                  >
+                    <FaBox /> Add New Product
+                  </button>
+                </div>
+              </div>
+            </motion.section>
+          )}
+
+          {/* ENHANCED EARNINGS SECTION */}
+          {section === 'earnings' && (
+            <motion.section
+              key="earnings"
+              className="glass-section"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.4 }}
+            >
+              <h3>Earnings Overview</h3>
+              {loadingEarnings ? (
+                <p className="loading-text">Loading earnings data...</p>
+              ) : (
+                <div className="earnings-dashboard">
+                  <div className="earnings-cards">
+                    <div className="earnings-card">
+                      <div className="earnings-icon total">
+                        <FaMoneyCheckAlt />
+                      </div>
+                      <div className="earnings-info">
+                        <h4>Total Earnings</h4>
+                        <p className="earnings-amount">Ksh {dashboardStats.totalEarnings.toLocaleString()}</p>
+                        <span className="earnings-subtitle">Amount received</span>
+                      </div>
+                    </div>
+                    <div className="earnings-card">
+                      <div className="earnings-icon pending">
+                        <FaCreditCard />
+                      </div>
+                      <div className="earnings-info">
+                        <h4>Pending Payouts</h4>
+                        <p className="earnings-amount">Ksh {dashboardStats.pendingPayouts.toLocaleString()}</p>
+                        <span className="earnings-subtitle">Awaiting escrow release</span>
+                      </div>
+                    </div>
+                    <div className="earnings-card">
+                      <div className="earnings-icon completed">
+                        <FaMoneyBillWave />
+                      </div>
+                      <div className="earnings-info">
+                        <h4>Completed Payouts</h4>
+                        <p className="earnings-amount">Ksh {dashboardStats.completedPayouts.toLocaleString()}</p>
+                        <span className="earnings-subtitle">Escrow released</span>
+                      </div>
+                    </div>
+                    <div className="earnings-card">
+                      <div className="earnings-icon month">
+                        <FaChartLine />
+                      </div>
+                      <div className="earnings-info">
+                        <h4>This Month</h4>
+                        <p className="earnings-amount">Ksh {dashboardStats.thisMonthEarnings.toLocaleString()}</p>
+                        <span className="earnings-subtitle">Current month earnings</span>
+                      </div>
+                    </div>
+                    <div className="earnings-card">
+                      <div className="earnings-icon lipa">
+                        <FaShoppingBag />
+                      </div>
+                      <div className="earnings-info">
+                        <h4>Lipa Polepole</h4>
+                        <p className="earnings-amount">Ksh {dashboardStats.lipaPolepoleEarnings.toLocaleString()}</p>
+                        <span className="earnings-subtitle">Installment sales</span>
+                      </div>
+                    </div>
+                    <div className="earnings-card">
+                      <div className="earnings-icon wallet">
+                        <FaDollarSign />
+                      </div>
+                      <div className="earnings-info">
+                        <h4>Wallet Balance</h4>
+                        <p className="earnings-amount">Ksh {dashboardStats.walletBalance.toLocaleString()}</p>
+                        <span className="earnings-subtitle">Available funds</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="performance-metrics">
+                    <h4>Store Performance</h4>
+                    <div className="metrics-grid">
+                      <div className="metric-item">
+                        <span className="metric-label">Total Revenue</span>
+                        <span className="metric-value">Ksh {dashboardStats.totalRevenue.toLocaleString()}</span>
+                      </div>
+                      <div className="metric-item">
+                        <span className="metric-label">Successful Orders</span>
+                        <span className="metric-value">{dashboardStats.successfulOrders} / {dashboardStats.totalOrders}</span>
+                      </div>
+                      <div className="metric-item">
+                        <span className="metric-label">Success Rate</span>
+                        <span className="metric-value">
+                          {dashboardStats.totalOrders > 0 
+                            ? ((dashboardStats.successfulOrders / dashboardStats.totalOrders) * 100).toFixed(1)
+                            : 0}%
+                        </span>
+                      </div>
+                      <div className="metric-item">
+                        <span className="metric-label">Seller Score</span>
+                        <span className="metric-value">{storePerformance.sellerScore.toFixed(1)}/5</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </motion.section>
+          )}
+
+          {/* ENHANCED PAYMENTS SECTION */}
+          {section === 'payments' && (
+            <motion.section
+              key="payments"
+              className="glass-section"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.4 }}
+            >
+              <h3>Payment History</h3>
+              {loadingEarnings ? (
+                <p className="loading-text">Loading payment history...</p>
+              ) : paymentHistory.length === 0 ? (
+                <div className="empty-state">
+                  <FaCreditCard size={48} />
+                  <p>No payment history found</p>
+                  <small>Your payment history will appear here once you start receiving payments</small>
+                </div>
+              ) : (
+                <div className="payments-table-container">
+                  <div className="payments-table">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Date</th>
+                          <th>Amount</th>
+                          <th>Type</th>
+                          <th>Status</th>
+                          <th>Method</th>
+                          <th>Reference</th>
+                          <th>Description</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {paymentHistory.map((payment) => (
+                          <tr key={payment.id}>
+                            <td>{new Date(payment.created_at).toLocaleDateString()}</td>
+                            <td className="amount">Ksh {payment.amount?.toLocaleString()}</td>
+                            <td>
+                              <span className={`payment-type type-${payment.type}`}>
+                                {payment.type}
+                              </span>
+                            </td>
+                            <td>
+                              <span className={`payment-status status-${payment.status}`}>
+                                {payment.status}
+                              </span>
+                            </td>
+                            <td>{payment.payment_method || 'Wallet'}</td>
+                            <td className="reference">{payment.reference_id}</td>
+                            <td className="description">{payment.description || 'N/A'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </motion.section>
+          )}
+
+          {/* LIPA PRODUCTS SECTION */}
+          {section === 'lipa-products' && (
+            <motion.section
+              key="lipa-products"
+              className="glass-section"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.4 }}
+            >
+              <h3>Lipa Polepole Products</h3>
+              {lipaPolepoleProducts.length === 0 ? (
+                <div className="empty-state">
+                  <FaShoppingBag size={48} />
+                  <p>No Lipa Polepole products</p>
+                  <small>Enable "Sell via Lipa Polepole" when creating products to see them here</small>
+                </div>
               ) : (
                 <div className="product-gallery">
-                  {products.map((p) => {
-                    const needsInfo = !p.warranty || !p.return_policy || !p.delivery_methods;
-                    const draft = requiredInfoDrafts[p.id];
-                    const isSaving = savingDetails[p.id];
-                    const showForm = draft?.isOpen || needsInfo;
+                  {lipaPolepoleProducts.map((p) => {
                     const images = p.image_gallery?.length ? p.image_gallery : ['/placeholder.jpg'];
                     const currentImageIndex = currentImageIndices[p.id] || 0;
 
                     return (
                       <motion.div
                         key={p.id}
-                        className="product-card-glass"
-                        layout
+                        className="product-card-glass lipa-product-card"
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
                       >
                         <div className="image-container">
                           <img
@@ -515,95 +1060,29 @@ const StoreDashboard = () => {
                             </div>
                           )}
                         </div>
-                        <h4 className="product-title">{p.name}</h4>
+                        <div className="lipa-product-header">
+                          <h4 className="product-title">{p.name}</h4>
+                          <div className="lipa-badge">
+                            <FaMoneyBillWave /> Lipa Polepole
+                          </div>
+                        </div>
                         <p className="product-description">{p.description}</p>
-                        <small className="product-meta">
-                          Category: {p.category} | Stock: {p.stock}
-                        </small>
-                        <small className="product-meta">
-                          Price: Ksh {p.price} | Discount: {p.discount}%
-                        </small>
-                        {showForm && (
-                          <motion.div
-                            className="required-info-form"
-                            layout
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                          >
-                            <h5>Complete Product Details</h5>
-                            <label>
-                              Warranty:
-                              <select
-                                value={draft?.warranty ?? ''}
-                                onChange={(e) => updateDraftField(p.id, 'warranty', e.target.value)}
-                              >
-                                <option value="">Select</option>
-                                <option value="No warranty">No warranty</option>
-                                <option value="6 months">6 months</option>
-                                <option value="1 year">1 year</option>
-                              </select>
-                            </label>
-                            <label>
-                              Return Policy:
-                              <input
-                                type="text"
-                                value={draft?.return_policy ?? ''}
-                                onChange={(e) => updateDraftField(p.id, 'return_policy', e.target.value)}
-                                placeholder="e.g., 7 days return, No returns"
-                              />
-                            </label>
-                            <label>
-                              Delivery Options:
-                              <div className="checkbox-group">
-                                <label>
-                                  <input
-                                    type="checkbox"
-                                    checked={!!draft?.delivery?.pickup}
-                                    onChange={(e) => updateDraftDelivery(p.id, 'pickup', e.target.checked)}
-                                  />
-                                  Pickup station
-                                </label>
-                                <label>
-                                  <input
-                                    type="checkbox"
-                                    checked={!!draft?.delivery?.door}
-                                    onChange={(e) => updateDraftDelivery(p.id, 'door', e.target.checked)}
-                                  />
-                                  Door delivery
-                                </label>
-                              </div>
-                            </label>
-                            <div style={{ display: 'flex', gap: 8 }}>
-                              <button
-                                className={`save-btn ${isSaving ? 'saving' : ''}`}
-                                onClick={() => saveRequiredInfo(p.id)}
-                                disabled={isSaving}
-                              >
-                                {isSaving ? 'Saving...' : 'Save'}
-                              </button>
-                              {!needsInfo && (
-                                <button
-                                  type="button"
-                                  className="cancel-btn"
-                                  onClick={() =>
-                                    setRequiredInfoDrafts(prev => ({
-                                      ...prev,
-                                      [p.id]: { ...(prev[p.id] || {}), isOpen: false }
-                                    }))
-                                  }
-                                >
-                                  Cancel
-                                </button>
-                              )}
+                        <div className="lipa-details">
+                          <div className="installment-plan">
+                            <strong>Installment Plan:</strong>
+                            <div className="plan-details">
+                              <span>Initial: {p.installment_plan?.initial_percent}%</span>
+                              <span>Installments: {p.installment_plan?.installments?.length || 0}</span>
                             </div>
-                          </motion.div>
-                        )}
+                          </div>
+                        </div>
+                        <small className="product-meta">
+                          Price: Ksh {p.price} | Stock: {p.stock_quantity}
+                        </small>
                         <div className="product-actions">
-                          {!p.hasBeenEdited && (
-                            <button className="edit-btn" onClick={() => handleEditClick(p)}>
-                              Edit
-                            </button>
-                          )}
+                          <button className="edit-btn" onClick={() => handleEditClick(p)}>
+                            Edit
+                          </button>
                           <button className="delete-btn" onClick={() => confirmDelete(p.id)}>
                             Delete
                           </button>
@@ -615,6 +1094,8 @@ const StoreDashboard = () => {
               )}
             </motion.section>
           )}
+
+          {/* EXISTING PRODUCTS SECTION */}
           {section === 'products' && (
             <motion.section
               key="products"
@@ -737,6 +1218,8 @@ const StoreDashboard = () => {
               </form>
             </motion.section>
           )}
+
+          {/* EXISTING CHAT SECTION */}
           {section === 'chat' && (
             <motion.section
               key="chat"
@@ -799,6 +1282,8 @@ const StoreDashboard = () => {
               </div>
             </motion.section>
           )}
+
+          {/* EXISTING ORDERS SECTION */}
           {section === 'orders' && (
             <motion.section
               key="orders"
@@ -859,6 +1344,8 @@ const StoreDashboard = () => {
               )}
             </motion.section>
           )}
+
+          {/* EXISTING INSTALLMENTS SECTION */}
           {section === 'installments' && (
             <motion.section
               key="installments"

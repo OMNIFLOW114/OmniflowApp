@@ -94,36 +94,76 @@ const CreateStoreButton = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [storeInfo, setStoreInfo] = useState(null);
+  const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
   const [showBlockedModal, setShowBlockedModal] = useState(false);
 
   useEffect(() => {
     if (!user?.id) return;
-    supabase.from("stores")
+
+    // Check for active subscription
+    supabase
+      .from("subscriptions")
+      .select("id, status")
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (error && error.code !== "PGRST116") {
+          console.error("Subscription fetch error:", error);
+          return;
+        }
+        setHasActiveSubscription(!!data);
+      });
+
+    // Check for store
+    supabase
+      .from("stores")
       .select("id, contact_email, contact_phone, location, is_active")
       .eq("owner_id", user.id)
       .single()
-      .then(({ data }) => data && setStoreInfo(data));
+      .then(({ data, error }) => {
+        if (error && error.code !== "PGRST116") {
+          console.error("Store fetch error:", error);
+          return;
+        }
+        setStoreInfo(data);
+      });
   }, [user]);
 
   const handleClick = () => {
-    if (!user) return toast.error("Please log in to start selling.");
-    if (!storeInfo) return navigate("/store/create");
-
-    const { id, contact_email, contact_phone, location, is_active } = storeInfo;
-    const incomplete = !contact_email || !contact_phone || !location;
-    if (!is_active) return setShowBlockedModal(true);
-    if (incomplete) {
-      toast("Please complete your store setup.");
-      return navigate("/store/create");
+    if (!user) {
+      toast.error("Please log in to start selling.");
+      return;
     }
-    navigate(`/dashboard/store/${id}`);
+
+    if (storeInfo) {
+      const { id, contact_email, contact_phone, location, is_active } = storeInfo;
+      const incomplete = !contact_email || !contact_phone || !location;
+      if (!is_active) {
+        setShowBlockedModal(true);
+        return;
+      }
+      if (incomplete) {
+        toast("Please complete your store setup.");
+        navigate("/store/create");
+        return;
+      }
+      navigate(`/dashboard/store/${id}`);
+      return;
+    }
+
+    if (hasActiveSubscription) {
+      navigate("/store/create");
+    } else {
+      navigate("/store/premium");
+    }
   };
 
   return (
     <>
       <button className="glass-button" onClick={handleClick}>
         <FaStore style={{ marginRight: 6 }} />
-        {storeInfo ? "Manage Store" : "Upgrade to own a store"}
+        {storeInfo ? "Manage Your Store" : "Become a Seller"}
       </button>
 
       <ReactModal
@@ -224,7 +264,6 @@ const OmniMarket = () => {
     const valid = data.filter((p) => p.stores?.is_active);
     if (valid.length < pageSize) setHasMore(false);
 
-    // Fetch average ratings and count from product_ratings view
     const productIds = valid.map((p) => p.id);
     const { data: ratingsData, error: ratingsError } = await supabase
       .from("product_ratings")
@@ -258,17 +297,14 @@ const OmniMarket = () => {
   useEffect(() => {
     let result = [...products];
     
-    // Apply search filter
     if (search) {
       result = result.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
     }
     
-    // Apply category filter
     if (filters.category) {
       result = result.filter((p) => p.category?.toLowerCase().trim() === filters.category);
     }
     
-    // Apply price range filter
     if (filters.minPrice) {
       result = result.filter((p) => parseFloat(p.price) >= parseFloat(filters.minPrice));
     }
@@ -276,17 +312,14 @@ const OmniMarket = () => {
       result = result.filter((p) => parseFloat(p.price) <= parseFloat(filters.maxPrice));
     }
     
-    // Apply rating filter
     if (filters.minRating) {
       result = result.filter((p) => p.average_rating >= filters.minRating);
     }
     
-    // Apply stock filter
     if (filters.inStock) {
       result = result.filter((p) => p.stock_quantity > 0);
     }
     
-    // Apply quick filters
     if (filters.quickFilter) {
       switch (filters.quickFilter) {
         case "flash":
@@ -304,7 +337,6 @@ const OmniMarket = () => {
       }
     }
     
-    // Apply sorting
     switch (filters.sortBy) {
       case "price-low":
         result.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
@@ -319,12 +351,10 @@ const OmniMarket = () => {
         result.sort((a, b) => parseFloat(b.views) - parseFloat(a.views));
         break;
       default:
-        // newest first (default)
         result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
         break;
     }
 
-    // Apply tab filters
     switch (activeTab) {
       case "Flash Sale": 
         result = result.filter((p) => p.is_flash_sale); 
