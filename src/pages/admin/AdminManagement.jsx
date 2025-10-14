@@ -1,3 +1,5 @@
+// AdminManagement.jsx (Updated and Fixed)
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/supabase';
@@ -45,21 +47,24 @@ const AdminManagement = () => {
       'manage_ratings',
       'manage_installments',
       'view_reports',
-      'manage_promotions'
+      'manage_promotions',
+      'manage_admins',
+      'manage_settings',
+      'manage_database',
     ],
     moderator: [
       'view_dashboard',
       'manage_products',
       'manage_categories',
       'manage_ratings',
-      'view_reports'
+      'view_reports',
     ],
     support: [
       'view_dashboard',
       'manage_users',
       'manage_messages',
-      'view_reports'
-    ]
+      'view_reports',
+    ],
   };
 
   useEffect(() => {
@@ -113,32 +118,48 @@ const AdminManagement = () => {
         if (error) throw error;
         toast.success('Admin updated successfully');
       } else {
-        // Check if admin with this email already exists
-        const { data: existingAdmins, error: checkError } = await supabase
-          .from('admin_users')
-          .select('id, email')
-          .eq('email', formData.email);
+        // Fetch user_id from users table
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('id')
+          .eq('email', formData.email)
+          .single();
 
-        if (checkError) {
-          console.error('Error checking existing admin:', checkError);
-        }
-
-        // If we found an existing admin with this email
-        if (existingAdmins && existingAdmins.length > 0) {
-          toast.error('An admin with this email already exists');
+        if (userError || !userData) {
+          toast.error('User with this email not found in users table');
           return;
         }
 
-        // Create new admin - DON'T include user_id since it's nullable and causes issues
+        const userId = userData.id;
+
+        // Check if admin with this user_id already exists
+        const { data: existingAdmin, error: checkError } = await supabase
+          .from('admin_users')
+          .select('id')
+          .eq('user_id', userId)
+          .single();
+
+        if (checkError && checkError.code !== 'PGRST116') {
+          console.error('Error checking existing admin:', checkError);
+          toast.error('Error checking existing admin');
+          return;
+        }
+
+        if (existingAdmin) {
+          toast.error('An admin with this user already exists');
+          return;
+        }
+
+        // Create new admin with user_id and email
         const { data: newAdmin, error } = await supabase
           .from('admin_users')
           .insert([{
+            user_id: userId,
             email: formData.email,
             role: formData.role,
             permissions: availablePermissions[formData.role] || [],
             is_active: true,
             created_by: currentUser.id
-            // Don't include user_id - let it be null to avoid UUID issues
           }])
           .select()
           .single();
@@ -146,7 +167,7 @@ const AdminManagement = () => {
         if (error) {
           console.error('Database error:', error);
           if (error.code === '23505') {
-            toast.error('An admin with this email already exists');
+            toast.error('An admin with this user already exists');
           } else {
             toast.error('Failed to create admin: ' + error.message);
           }

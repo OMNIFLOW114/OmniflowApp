@@ -1,13 +1,5 @@
 /* StoreDashboard.css - Complete Enhanced Version */
 
-html, body, #root {
-  height: 100%;
-  width: 100%;
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
 :root {
   --light-bg: #f8fafc;
   --light-card: #ffffff;
@@ -26,7 +18,15 @@ html, body, #root {
   --info: #0891b2;
 }
 
-/* Dark mode class-based system */
+/* Base Styles */
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
 html.light {
   background: var(--light-bg);
   color: var(--light-text);
@@ -416,6 +416,7 @@ html.dark .compact-product-meta {
   font-weight: 600;
 }
 
+/* Required Info Form Styles */
 .compact-required-info {
   margin-top: 0.8rem;
   padding: 0.8rem;
@@ -429,6 +430,74 @@ html.dark .compact-product-meta {
   font-size: 0.8rem;
   color: var(--accent);
   font-weight: 600;
+}
+
+.required-fields-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  margin-bottom: 0.8rem;
+}
+
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.field-group label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--accent);
+  margin: 0;
+}
+
+.field-group select {
+  padding: 0.4rem;
+  border: 1px solid var(--light-border);
+  border-radius: 6px;
+  background: var(--light-card);
+  color: var(--light-text);
+  font-size: 0.8rem;
+}
+
+html.dark .field-group select {
+  background: var(--dark-card);
+  border-color: var(--dark-border);
+  color: var(--dark-text);
+}
+
+.delivery-options label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 0.3rem;
+  display: block;
+}
+
+.checkbox-group-compact {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.3rem;
+}
+
+.checkbox-group-compact label {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  font-weight: normal;
+  color: var(--light-text);
+  cursor: pointer;
+}
+
+html.dark .checkbox-group-compact label {
+  color: var(--dark-text);
+}
+
+.checkbox-group-compact input[type="checkbox"] {
+  margin: 0;
+  width: auto;
 }
 
 .compact-form-actions {
@@ -446,6 +515,7 @@ html.dark .compact-product-meta {
   cursor: pointer;
   transition: background 0.3s ease;
   font-weight: 600;
+  width: 100%;
 }
 
 .compact-save-btn:hover:not(:disabled) {
@@ -1818,88 +1888,6 @@ html.dark .dashboard-footer {
   font-size: 0.95rem;
 }
 
-/* Required Info Form */
-.required-info-form {
-  margin-top: 1rem;
-  padding: 1rem;
-  background: rgba(37, 99, 235, 0.04);
-  border: 1px solid var(--light-border);
-  border-radius: 12px;
-}
-
-html.dark .required-info-form {
-  border-color: var(--dark-border);
-  background: rgba(37, 99, 235, 0.02);
-}
-
-.required-info-form h5 {
-  margin-bottom: 0.8rem;
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--accent);
-}
-
-.required-info-form label {
-  display: block;
-  font-size: 0.9rem;
-  font-weight: 500;
-  margin-bottom: 0.5rem;
-  color: inherit;
-}
-
-.required-info-form select,
-.required-info-form input {
-  width: 100%;
-  padding: 0.5rem;
-  margin-bottom: 0.8rem;
-  border-radius: 8px;
-  border: 1px solid var(--light-border);
-  background: var(--light-card);
-  color: var(--light-text);
-}
-
-html.dark .required-info-form select,
-html.dark .required-info-form input {
-  border-color: var(--dark-border);
-  background: var(--dark-card);
-  color: var(--dark-text);
-}
-
-.checkbox-group {
-  display: flex;
-  gap: 1rem;
-  margin-top: 0.3rem;
-  flex-wrap: wrap;
-}
-
-.checkbox-group label {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-  font-size: 0.9rem;
-  cursor: pointer;
-}
-
-.save-btn {
-  padding: 0.6rem 1rem;
-  background: var(--accent);
-  color: #ffffff;
-  border: none;
-  border-radius: 8px;
-  font-weight: bold;
-  cursor: pointer;
-  transition: background 0.3s ease;
-}
-
-.save-btn:hover {
-  background: #1d4ed8;
-}
-
-.save-btn.saving {
-  opacity: 0.6;
-  cursor: wait;
-}
-
 /* Responsive Design */
 @media (max-width: 768px) {
   .glass-main {
@@ -1955,7 +1943,7 @@ html.dark .required-info-form input {
     margin: 1rem;
   }
   
-  .checkbox-group {
+  .checkbox-group-compact {
     flex-direction: column;
     gap: 0.5rem;
   }

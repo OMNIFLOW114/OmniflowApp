@@ -191,7 +191,7 @@ const Premium = () => {
             Wallet Balance: KSH {walletBalance.toFixed(2)}
           </p>
         )}
-        {totalStores < 6 ? (
+        {totalStores < 1000 ? (
           <p className="cs-offer-text">
             Limited Offer: Free store creation for the first 1000 stores! ({6 - totalStores} slots left)
           </p>
@@ -213,7 +213,7 @@ const Premium = () => {
               <button
                 className="cs-btn cs-btn-primary"
                 onClick={
-                  totalStores < 6
+                  totalStores < 1000
                     ? () => {
                         console.log("Navigating to /store/create for", plan.name);
                         navigate("/store/create");
@@ -230,7 +230,7 @@ const Premium = () => {
                   <>
                     <Spinner size={18} /> Processing...
                   </>
-                ) : totalStores < 6 ? (
+                ) : totalStores < 1000 ? (
                   "Create Free Store"
                 ) : (
                   `Subscribe to ${plan.name}`

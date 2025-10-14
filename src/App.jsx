@@ -64,7 +64,6 @@ import ProductModeration from "./pages/admin/ProductModeration";
 import MessageMonitoring from './pages/admin/MessageMonitoring';
 import SystemSettings from './pages/admin/SystemSettings';
 import Ratings from "./pages/admin/Ratings";
-import AdminOverview from "@/pages/admin/AdminOverview";
 import AdminInstallmentsPage from "./pages/admin/AdminInstallments";
 import CategoryManagement from '@/pages/admin/CategoryManagement';
 import FinancialControl from '@/pages/admin/FinancialControl';
@@ -72,7 +71,7 @@ import ReportsAnalytics from '@/pages/admin/ReportsAnalytics';
 import AdminManagement from '@/pages/admin/AdminManagement';
 import PromotionsOffers from '@/pages/admin/PromotionsOffers';
 import DatabaseManagement from '@/pages/admin/DatabaseManagement';
-
+import DashboardOverview from '@/pages/admin/DashboardOverview';
 function ScrollToTop() {
   const { pathname } = useLocation();
   React.useEffect(() => {
@@ -145,7 +144,7 @@ function AppRoutes() {
         <Route path="/admin/reports" element={<ReportsAnalytics />} />
         <Route path="/admin/admins" element={<AdminManagement />} />
         <Route path="/admin/promotions" element={<PromotionsOffers />} />
-        <Route path="/admin/overview" element={<AdminOverview />} />
+        <Route path="admin-overview" element={<DashboardOverview />} />
         <Route path="/admin/database" element={<DatabaseManagement />} />
         <Route path="/my-installments" element={<MyInstallments user={User} />} />
         <Route path="/reset-password" element={<ResetPassword />} />

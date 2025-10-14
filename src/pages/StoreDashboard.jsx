@@ -36,7 +36,6 @@ const StoreDashboard = () => {
   const [savingDetails, setSavingDetails] = useState({});
   const [currentImageIndices, setCurrentImageIndices] = useState({});
   
-  // ENHANCED STATES FOR ALL DATA
   const [dashboardStats, setDashboardStats] = useState({
     totalEarnings: 0,
     pendingPayouts: 0,
@@ -63,13 +62,11 @@ const StoreDashboard = () => {
     return index >= 0 && index < flow.length - 1 ? flow[index + 1] : null;
   };
 
-  // COMPREHENSIVE DATA FETCHING FUNCTION
   const fetchDashboardData = async () => {
     if (!store || !user) return;
     
     setLoadingEarnings(true);
     try {
-      // Fetch store info with performance metrics
       const { data: storeData, error: storeError } = await supabase
         .from('stores')
         .select('seller_score, total_orders, successful_orders')
@@ -84,7 +81,6 @@ const StoreDashboard = () => {
         });
       }
 
-      // Fetch orders with proper columns
       const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
         .select('total_price, status, created_at, escrow_released, price_paid, delivery_fee')
@@ -95,21 +91,17 @@ const StoreDashboard = () => {
         throw ordersError;
       }
 
-      // Calculate comprehensive earnings
       const totalRevenue = ordersData?.reduce((sum, order) => sum + (order.total_price || 0), 0) || 0;
       const totalEarnings = ordersData?.reduce((sum, order) => sum + (order.price_paid || 0), 0) || 0;
       
-      // Pending payouts = orders where escrow not released
       const pendingPayouts = ordersData
         ?.filter(order => !order.escrow_released && ['delivered', 'completed'].includes(order.status?.toLowerCase()))
         .reduce((sum, order) => sum + (order.price_paid || 0), 0) || 0;
       
-      // Completed payouts = orders where escrow is released
       const completedPayouts = ordersData
         ?.filter(order => order.escrow_released)
         .reduce((sum, order) => sum + (order.price_paid || 0), 0) || 0;
 
-      // This month's earnings
       const thisMonth = new Date();
       const thisMonthEarnings = ordersData
         ?.filter(order => {
@@ -119,7 +111,6 @@ const StoreDashboard = () => {
         })
         .reduce((sum, order) => sum + (order.price_paid || 0), 0) || 0;
 
-      // Fetch Lipa Polepole earnings
       const { data: installmentData, error: installmentError } = await supabase
         .from('installment_orders')
         .select('total_price, amount_paid, status')
@@ -129,7 +120,6 @@ const StoreDashboard = () => {
         ?.filter(order => order.status === 'completed')
         .reduce((sum, order) => sum + (order.amount_paid || 0), 0) || 0;
 
-      // Fetch wallet balance
       const { data: walletData, error: walletError } = await supabase
         .from('wallets')
         .select('balance')
@@ -138,7 +128,6 @@ const StoreDashboard = () => {
 
       const walletBalance = walletData?.balance || 0;
 
-      // Calculate successful orders
       const successfulOrders = ordersData?.filter(order => 
         ['delivered', 'completed'].includes(order.status?.toLowerCase())
       ).length || 0;
@@ -155,7 +144,6 @@ const StoreDashboard = () => {
         walletBalance
       });
 
-      // Fetch payment history from wallet transactions
       const { data: paymentData, error: paymentError } = await supabase
         .from('wallet_transactions')
         .select('*')
@@ -175,7 +163,6 @@ const StoreDashboard = () => {
           description: payment.description
         })));
       } else {
-        // Fallback to orders if no wallet transactions
         const { data: orderPayments, error: orderPaymentsError } = await supabase
           .from('orders')
           .select('id, price_paid as amount, created_at, status')
@@ -347,7 +334,6 @@ const StoreDashboard = () => {
     fetchOrders();
   }, [store]);
 
-  // ENHANCED NAV ITEMS
   const navItems = [
     { id: 'overview', label: 'Overview', icon: <FaHome /> },
     { id: 'products', label: 'Products', icon: <FaBox /> },
@@ -370,8 +356,26 @@ const StoreDashboard = () => {
 
     if (data) {
       setProducts(data);
-      // Initialize image indices for each product
       setCurrentImageIndices(data.reduce((acc, p) => ({ ...acc, [p.id]: 0 }), {}));
+      
+      // Initialize required info drafts for products that need completion
+      const drafts = {};
+      data.forEach(product => {
+        const needsInfo = !product.warranty || !product.return_policy || !product.delivery_methods;
+        if (needsInfo) {
+          drafts[product.id] = {
+            warranty: product.warranty || '',
+            return_policy: product.return_policy || '',
+            delivery: {
+              pickup: (product.delivery_methods?.pickup === 'Yes') || false,
+              door: (product.delivery_methods?.door === 'Yes') || false,
+            },
+            isOpen: true,
+            dirty: false,
+          };
+        }
+      });
+      setRequiredInfoDrafts(drafts);
     }
     if (error) toast.error("Failed to load products.");
     setLoadingProducts(false);
@@ -393,7 +397,6 @@ const StoreDashboard = () => {
       fetchProducts();
       fetchDashboardData();
       
-      // Fetch Lipa Polepole products
       const fetchLipaProducts = async () => {
         const { data: lipaProducts, error } = await supabase
           .from('products')
@@ -526,7 +529,7 @@ const StoreDashboard = () => {
       setFiles([]);
       form.reset();
       setSection('overview');
-      fetchProducts();
+      await fetchProducts();
       fetchDashboardData();
     } else {
       toast.error("Failed to post product.");
@@ -594,30 +597,6 @@ const StoreDashboard = () => {
     });
   };
 
-  useEffect(() => {
-    if (!products?.length) return;
-
-    setRequiredInfoDrafts(prev => {
-      const next = { ...prev };
-      products.forEach(p => {
-        const needsInfo = !p.warranty || !p.return_policy || !p.delivery_methods;
-        if (needsInfo && !next[p.id]) {
-          next[p.id] = {
-            warranty: p.warranty || '',
-            return_policy: p.return_policy || '',
-            delivery: {
-              pickup: (p.delivery_methods?.pickup === 'Yes') || false,
-              door: (p.delivery_methods?.door === 'Yes') || false,
-            },
-            isOpen: true,
-            dirty: false,
-          };
-        }
-      });
-      return next;
-    });
-  }, [products]);
-
   return (
     <div className="dashboard-glass">
       <nav className="tabs-container">
@@ -649,7 +628,6 @@ const StoreDashboard = () => {
           )}
         </div>
         <AnimatePresence mode="wait">
-          {/* ENHANCED OVERVIEW SECTION */}
           {section === 'overview' && (
             <motion.section
               key="overview"
@@ -790,14 +768,68 @@ const StoreDashboard = () => {
                                 initial={{ opacity: 0, scale: 0.95 }}
                                 animate={{ opacity: 1, scale: 1 }}
                               >
-                                <h6>Complete Details</h6>
+                                <h6>Complete Product Details</h6>
+                                <div className="required-fields-compact">
+                                  <div className="field-group">
+                                    <label>Warranty:</label>
+                                    <select 
+                                      value={draft?.warranty || ''}
+                                      onChange={(e) => updateDraftField(p.id, 'warranty', e.target.value)}
+                                    >
+                                      <option value="">Select warranty</option>
+                                      <option value="No warranty">No warranty</option>
+                                      <option value="1 month">1 month</option>
+                                      <option value="3 months">3 months</option>
+                                      <option value="6 months">6 months</option>
+                                      <option value="1 year">1 year</option>
+                                      <option value="2 years">2 years</option>
+                                    </select>
+                                  </div>
+                                  
+                                  <div className="field-group">
+                                    <label>Return Policy:</label>
+                                    <select 
+                                      value={draft?.return_policy || ''}
+                                      onChange={(e) => updateDraftField(p.id, 'return_policy', e.target.value)}
+                                    >
+                                      <option value="">Select return policy</option>
+                                      <option value="No returns">No returns</option>
+                                      <option value="7 days return">7 days return</option>
+                                      <option value="14 days return">14 days return</option>
+                                      <option value="30 days return">30 days return</option>
+                                    </select>
+                                  </div>
+                                  
+                                  <div className="delivery-options">
+                                    <label>Delivery Options:</label>
+                                    <div className="checkbox-group-compact">
+                                      <label>
+                                        <input
+                                          type="checkbox"
+                                          checked={draft?.delivery?.pickup || false}
+                                          onChange={(e) => updateDraftDelivery(p.id, 'pickup', e.target.checked)}
+                                        />
+                                        Pickup
+                                      </label>
+                                      <label>
+                                        <input
+                                          type="checkbox"
+                                          checked={draft?.delivery?.door || false}
+                                          onChange={(e) => updateDraftDelivery(p.id, 'door', e.target.checked)}
+                                        />
+                                        Door Delivery
+                                      </label>
+                                    </div>
+                                  </div>
+                                </div>
+                                
                                 <div className="compact-form-actions">
                                   <button
                                     className="compact-save-btn"
                                     onClick={() => saveRequiredInfo(p.id)}
-                                    disabled={isSaving}
+                                    disabled={isSaving || !draft?.warranty || !draft?.return_policy}
                                   >
-                                    {isSaving ? '...' : 'Save'}
+                                    {isSaving ? 'Saving...' : 'Save Details'}
                                   </button>
                                 </div>
                               </motion.div>
@@ -827,7 +859,6 @@ const StoreDashboard = () => {
             </motion.section>
           )}
 
-          {/* ENHANCED EARNINGS SECTION */}
           {section === 'earnings' && (
             <motion.section
               key="earnings"
@@ -935,7 +966,6 @@ const StoreDashboard = () => {
             </motion.section>
           )}
 
-          {/* ENHANCED PAYMENTS SECTION */}
           {section === 'payments' && (
             <motion.section
               key="payments"
@@ -997,7 +1027,6 @@ const StoreDashboard = () => {
             </motion.section>
           )}
 
-          {/* LIPA PRODUCTS SECTION */}
           {section === 'lipa-products' && (
             <motion.section
               key="lipa-products"
@@ -1095,7 +1124,6 @@ const StoreDashboard = () => {
             </motion.section>
           )}
 
-          {/* EXISTING PRODUCTS SECTION */}
           {section === 'products' && (
             <motion.section
               key="products"
@@ -1219,7 +1247,6 @@ const StoreDashboard = () => {
             </motion.section>
           )}
 
-          {/* EXISTING CHAT SECTION */}
           {section === 'chat' && (
             <motion.section
               key="chat"
@@ -1283,7 +1310,6 @@ const StoreDashboard = () => {
             </motion.section>
           )}
 
-          {/* EXISTING ORDERS SECTION */}
           {section === 'orders' && (
             <motion.section
               key="orders"
@@ -1345,7 +1371,6 @@ const StoreDashboard = () => {
             </motion.section>
           )}
 
-          {/* EXISTING INSTALLMENTS SECTION */}
           {section === 'installments' && (
             <motion.section
               key="installments"

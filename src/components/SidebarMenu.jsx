@@ -13,6 +13,7 @@ import { motion } from "framer-motion";
 import { useDarkMode } from "@/context/DarkModeContext";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/supabase";
+import { toast } from "react-hot-toast";
 import "./SidebarMenu.css";
 
 const menuVariants = {
@@ -33,6 +34,23 @@ const SidebarMenu = ({ onClose, onLogout, adminAlerts = 0 }) => {
 
   const SUPER_ADMIN_EMAIL = "omniflow718@gmail.com";
 
+  // Log activity to admin_activities table
+  const logActivity = async (action, target_type = null, target_id = null) => {
+    try {
+      await supabase
+        .from('admin_activities')
+        .insert({
+          performed_by: user?.id,
+          action,
+          target_type,
+          target_id,
+          user_agent: navigator.userAgent,
+        });
+    } catch (error) {
+      console.error('Error logging activity:', error);
+    }
+  };
+
   // Check if user is an active admin
   useEffect(() => {
     const checkAdminStatus = async () => {
@@ -43,24 +61,56 @@ const SidebarMenu = ({ onClose, onLogout, adminAlerts = 0 }) => {
       }
 
       try {
-        // Check if user exists in admin_users table by user_id and is active
+        // Fetch admin record by user_id
         const { data, error } = await supabase
           .from('admin_users')
-          .select('id, is_active')
+          .select('id, is_active, role')
           .eq('user_id', user.id)
-          .eq('is_active', true)
           .single();
 
         if (error && error.code !== 'PGRST116') {
           console.error('Error checking admin status:', error);
+          toast.error('Failed to verify admin status');
+          setIsAdmin(false);
+          setLoading(false);
+          return;
         }
 
-        // If user is found by user_id and active in admin_users table, or is the super admin email
-        const isUserAdmin = (data && data.is_active) || user.email === SUPER_ADMIN_EMAIL;
-        setIsAdmin(isUserAdmin);
+        // If admin record exists and is active, grant access
+        if (data && data.is_active) {
+          setIsAdmin(true);
+          await logActivity('admin_panel_access_attempt', 'admin_user', data.id);
+        } else if (user.email === SUPER_ADMIN_EMAIL && !data) {
+          // Auto-create super admin if no record exists
+          const { error: insertError } = await supabase
+            .from('admin_users')
+            .insert([
+              {
+                user_id: user.id,
+                email: user.email,
+                role: 'super_admin',
+                permissions: ['all'],
+                is_active: true,
+                created_by: user.id,
+              },
+            ]);
+
+          if (insertError) {
+            console.error('Error creating super admin:', insertError);
+            toast.error('Failed to initialize super admin');
+            setIsAdmin(false);
+          } else {
+            setIsAdmin(true);
+            await logActivity('super_admin_created', 'admin_user', user.id);
+          }
+        } else {
+          setIsAdmin(false);
+          await logActivity('admin_panel_access_denied', 'user', user.id);
+        }
       } catch (error) {
         console.error('Error checking admin status:', error);
-        setIsAdmin(user.email === SUPER_ADMIN_EMAIL);
+        toast.error('Error verifying admin privileges');
+        setIsAdmin(false);
       } finally {
         setLoading(false);
       }
@@ -75,9 +125,17 @@ const SidebarMenu = ({ onClose, onLogout, adminAlerts = 0 }) => {
     { icon: <FaQuestionCircle size={18} />, text: "Help Center", link: "/help" },
   ];
 
-  const handleAdminClick = () => {
-    onClose();
-    navigate("/admin-dashboard");
+  const handleAdminClick = async () => {
+    try {
+      await logActivity('admin_panel_navigated', 'admin_dashboard', null);
+      navigate("/admin-dashboard");
+      toast.success('Redirecting to Admin Dashboard');
+      onClose();
+    } catch (error) {
+      console.error('Error navigating to admin dashboard:', error);
+      toast.error('Failed to access Admin Dashboard');
+      navigate('/');
+    }
   };
 
   if (loading) {
