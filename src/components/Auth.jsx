@@ -8,6 +8,7 @@ import { Loader2, Eye, EyeOff, X } from "lucide-react";
 import "./Auth.css";
 
 const APP_URL = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
+const APP_DOMAIN = "omniflowapp.co.ke";
 
 // Error Boundary Component
 class AuthErrorBoundary extends Component {
@@ -17,6 +18,10 @@ class AuthErrorBoundary extends Component {
     return { hasError: true, error };
   }
 
+  componentDidCatch(error, errorInfo) {
+    console.error("Auth Error Boundary:", error, errorInfo);
+  }
+
   render() {
     if (this.state.hasError) {
       return (
@@ -24,8 +29,8 @@ class AuthErrorBoundary extends Component {
           <h2>Oops, Something Went Wrong</h2>
           <p>
             {this.state.error?.message || "An unexpected error occurred."}
-            {this.state.error?.message.includes("VITE_SUPABASE_URL") ||
-            this.state.error?.message.includes("VITE_SUPABASE_ANON_KEY")
+            {this.state.error?.message?.includes("VITE_SUPABASE_URL") ||
+            this.state.error?.message?.includes("VITE_SUPABASE_ANON_KEY")
               ? " Please check your environment variables (VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY) in your .env file."
               : ""}
           </p>
@@ -49,7 +54,12 @@ export default function Auth() {
   const [mode, setMode] = useState("login");
   const [loading, setLoading] = useState(false);
   const [otpLoading, setOtpLoading] = useState(false);
-  const [formData, setFormData] = useState({ name: "", phone: "", email: "", password: "" });
+  const [formData, setFormData] = useState({ 
+    name: "", 
+    phone: "", 
+    email: "", 
+    password: "" 
+  });
   const [otp, setOtp] = useState("");
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
@@ -73,23 +83,32 @@ export default function Auth() {
 
   // Validate environment variables
   useEffect(() => {
-    if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    
+    if (!supabaseUrl || !supabaseKey) {
       const errorMessage = "Missing Supabase configuration. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file.";
       setEnvError(errorMessage);
       toast.error(errorMessage);
+      console.error("Environment variables missing:", { supabaseUrl, supabaseKey });
     } else {
       setEnvError(null);
     }
   }, []);
 
-  // Handle OAuth callback and password reset
+  // Handle OAuth callback and password reset - UPDATED
   useEffect(() => {
     const handleAuthCallback = async () => {
       if (envError) return;
 
+      const hash = window.location.hash;
+      const urlParams = new URLSearchParams(hash.substring(1));
+      const accessToken = urlParams.get('access_token');
+      const type = urlParams.get('type');
+      const tokenHash = urlParams.get('token_hash');
+
+      const searchParams = new URLSearchParams(window.location.search);
       const code = searchParams.get("code");
-      const type = searchParams.get("type");
-      const recoveryToken = searchParams.get("access_token");
       const errorParam = searchParams.get("error");
       const errorDescription = searchParams.get("error_description");
 
@@ -105,6 +124,7 @@ export default function Auth() {
       // Handle OAuth success (Google login redirect with ?code=...)
       if (code) {
         try {
+          setLoading(true);
           const { data, error } = await supabase.auth.exchangeCodeForSession(code);
           if (error) {
             if (error.message.includes("already registered")) {
@@ -128,13 +148,17 @@ export default function Auth() {
           console.error("OAuth callback error:", err);
           toast.error(err.message || "Google authentication failed. Try incognito mode or check OAuth setup.");
           window.history.replaceState({}, document.title, window.location.pathname);
+        } finally {
+          setLoading(false);
         }
         return;
       }
 
-      // Handle password recovery
-      if (type === "recovery" && recoveryToken) {
-        navigate(`/auth/reset?access_token=${recoveryToken}`, { replace: true });
+      // Handle password recovery from email link - UPDATED
+      if (type === "recovery" && (accessToken || tokenHash)) {
+        console.log("Password recovery detected, redirecting to reset page...");
+        // Redirect to reset password page - the token will be in the URL
+        navigate("/reset-password", { replace: true });
         return;
       }
     };
@@ -150,7 +174,7 @@ export default function Auth() {
         const { data: { session }, error } = await supabase.auth.getSession();
         if (error) throw error;
         const isResetFlow =
-          window.location.pathname.includes("/auth/reset") ||
+          window.location.pathname.includes("/reset-password") ||
           searchParams.get("type") === "recovery";
         if (session?.user && !isResetFlow) {
           navigate("/home");
@@ -162,13 +186,19 @@ export default function Auth() {
 
     checkSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (envError) return;
+      
       if (event === "SIGNED_IN" && session?.user) {
-        const isResetFlow = window.location.pathname.includes("/auth/reset");
+        const isResetFlow = window.location.pathname.includes("/reset-password");
         if (!isResetFlow) {
+          await syncUserData(session.user);
           navigate("/home");
         }
+      }
+      
+      if (event === "PASSWORD_RECOVERY") {
+        navigate("/reset-password", { replace: true });
       }
     });
 
@@ -204,7 +234,7 @@ export default function Auth() {
       message.includes("invalid email or password")
     ) {
       return {
-        message: "User not found. Please check your credentials or sign up.",
+        message: "Invalid email or password. Please check your credentials.",
         type: "user_not_found",
       };
     }
@@ -212,6 +242,12 @@ export default function Auth() {
       return {
         message: "Too many attempts. Please wait a minute and try again.",
         type: "rate_limit",
+      };
+    }
+    if (message.includes("password recovery")) {
+      return {
+        message: "Password reset failed. Please try again.",
+        type: "recovery_error",
       };
     }
     return {
@@ -224,19 +260,35 @@ export default function Auth() {
     const { name, value } = e.target;
     const sanitizedValue = sanitizeInput(value);
     setFormData((prev) => ({ ...prev, [name]: sanitizedValue }));
+    
+    // Clear specific error when user starts typing
     setErrors((prev) => ({
       ...prev,
-      [name]:
-        name === "email" && value && !validateEmail(sanitizedValue)
-          ? "Invalid email format"
-          : name === "phone" && value && !validatePhone(sanitizedValue)
-          ? "Phone must be in +254XXXXXXXXX format"
-          : name === "password" && value && !isValidPassword(sanitizedValue)
-          ? "Password must include uppercase, lowercase, number, and be 8+ chars"
-          : name === "name" && value && sanitizedValue.length < 2
-          ? "Name must be at least 2 characters"
-          : "",
+      [name]: "",
     }));
+
+    // Real-time validation
+    if (name === "email" && value && !validateEmail(sanitizedValue)) {
+      setErrors((prev) => ({ 
+        ...prev, 
+        [name]: "Please enter a valid email address" 
+      }));
+    } else if (name === "phone" && value && !validatePhone(sanitizedValue)) {
+      setErrors((prev) => ({ 
+        ...prev, 
+        [name]: "Phone must be in +254XXXXXXXXX format" 
+      }));
+    } else if (name === "password" && value && !isValidPassword(sanitizedValue)) {
+      setErrors((prev) => ({ 
+        ...prev, 
+        [name]: "Password must include uppercase, lowercase, number, and be 8+ characters" 
+      }));
+    } else if (name === "name" && value && sanitizedValue.length < 2) {
+      setErrors((prev) => ({ 
+        ...prev, 
+        [name]: "Name must be at least 2 characters" 
+      }));
+    }
   }, []);
 
   // Check if email exists in users table
@@ -255,25 +307,33 @@ export default function Auth() {
     }
   };
 
-  // Sync user data after Google sign-in
+  // Sync user data after sign-in/sign-up
   const syncUserData = async (user) => {
     try {
-      const { data, error } = await supabase
+      if (!user?.id) return;
+
+      const { error } = await supabase
         .from("users")
         .upsert(
           {
             id: user.id,
             email: user.email,
-            full_name: user.user_metadata?.full_name || formData.name || user.email.split("@")[0],
-            phone: formData.phone,
+            full_name: user.user_metadata?.full_name || formData.name || user.email?.split("@")[0] || "User",
+            phone: formData.phone || user.user_metadata?.phone,
             updated_at: new Date().toISOString(),
           },
-          { onConflict: "id" }
+          { 
+            onConflict: 'id',
+            ignoreDuplicates: false
+          }
         );
-      if (error) throw error;
-      console.log("User data synced:", data);
+      
+      if (error) {
+        console.error("Error syncing user data:", error);
+        // Don't throw error here as it shouldn't block auth flow
+      }
     } catch (err) {
-      console.error("Error syncing user data:", err);
+      console.error("Unexpected error syncing user data:", err);
     }
   };
 
@@ -287,18 +347,25 @@ export default function Auth() {
       toast.error("Too many attempts. Please wait a minute and try again.");
       return;
     }
+
+    // Validate all fields
+    if (!formData.name || formData.name.length < 2) {
+      toast.error("Please enter your full name (at least 2 characters).");
+      return;
+    }
     if (!validateEmail(formData.email)) {
-      toast.error("Please enter a valid email.");
+      toast.error("Please enter a valid email address.");
       return;
     }
     if (!isValidPassword(formData.password)) {
-      toast.error("Password must include uppercase, lowercase, number, and be 8+ chars.");
+      toast.error("Password must include uppercase, lowercase, number, and be 8+ characters.");
       return;
     }
     if (formData.phone && !validatePhone(formData.phone)) {
       toast.error("Phone must be in +254XXXXXXXXX format.");
       return;
     }
+
     setLoading(true);
     try {
       const emailExists = await checkEmailExists(formData.email);
@@ -315,17 +382,24 @@ export default function Auth() {
         email: formData.email,
         password: formData.password,
         options: {
-          data: { full_name: formData.name, phone: formData.phone },
+          data: { 
+            full_name: formData.name, 
+            phone: formData.phone 
+          },
           emailRedirectTo: `${APP_URL}/auth/callback`,
         },
       });
+      
       if (error) throw error;
-      await syncUserData(data.user);
-      toast.success("Account created successfully! Please check your email to confirm.");
-      setMode("login");
-      setFormData({ name: "", phone: "", email: "", password: "" });
-      setErrors({});
-      setAttemptCount(0);
+
+      if (data.user) {
+        await syncUserData(data.user);
+        toast.success("Account created successfully! Please check your email to confirm your account.");
+        setMode("login");
+        setFormData({ name: "", phone: "", email: "", password: "" });
+        setErrors({});
+        setAttemptCount(0);
+      }
     } catch (err) {
       const errorInfo = getErrorMessage(err);
       toast.error(errorInfo.message);
@@ -346,34 +420,44 @@ export default function Auth() {
       return;
     }
     if (!validateEmail(formData.email)) {
-      toast.error("Please enter a valid email.");
+      toast.error("Please enter a valid email address.");
       return;
     }
+    if (!formData.password) {
+      toast.error("Please enter your password.");
+      return;
+    }
+
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password,
       });
+      
       if (error) {
         const errorInfo = getErrorMessage(error);
         if (errorInfo.type === "user_not_found") {
-          toast.error(errorInfo.message);
+          toast.error("Invalid email or password. Please check your credentials.");
           setTimeout(() => {
-            if (window.confirm("Would you like to create a new account?")) {
+            if (window.confirm("No account found with this email. Would you like to create a new account?")) {
               setMode("signup");
               setFormData((prev) => ({ ...prev, password: "" }));
             }
-          }, 2000);
+          }, 1500);
           return;
         }
         throw error;
       }
-      toast.success("Welcome back 👋");
-      navigate("/home");
-      setFormData({ name: "", phone: "", email: "", password: "" });
-      setErrors({});
-      setAttemptCount(0);
+
+      if (data?.user) {
+        await syncUserData(data.user);
+        toast.success("Welcome back! 👋");
+        navigate("/home");
+        setFormData({ name: "", phone: "", email: "", password: "" });
+        setErrors({});
+        setAttemptCount(0);
+      }
     } catch (err) {
       const errorInfo = getErrorMessage(err);
       toast.error(errorInfo.message);
@@ -383,6 +467,7 @@ export default function Auth() {
     }
   };
 
+  // UPDATED: handleForgotPassword function
   const handleForgotPassword = async (e) => {
     e.preventDefault();
     if (envError) {
@@ -394,14 +479,16 @@ export default function Auth() {
       return;
     }
     if (!formData.email || !validateEmail(formData.email)) {
-      toast.error("Please enter a valid email.");
+      toast.error("Please enter a valid email address.");
       return;
     }
+
     setLoading(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(formData.email, {
-        redirectTo: `${APP_URL}/auth/reset`,
+        redirectTo: `${APP_URL}/auth/confirm`,
       });
+      
       if (error) {
         const errorInfo = getErrorMessage(error);
         if (errorInfo.type === "user_not_found") {
@@ -410,9 +497,10 @@ export default function Auth() {
         }
         throw error;
       }
-      toast.success("Password reset link sent. Check your email.");
+      
+      toast.success("Password reset link sent! Check your email for instructions.");
       setMode("login");
-      setFormData({ name: "", phone: "", email: "", password: "" });
+      setFormData((prev) => ({ ...prev, password: "" }));
       setErrors({});
       setAttemptCount(0);
     } catch (err) {
@@ -453,6 +541,7 @@ export default function Auth() {
       toast.error("Please enter a valid phone number in +254XXXXXXXXX format.");
       return;
     }
+
     setOtpLoading(true);
     try {
       const phoneExists = await checkPhoneExists(formData.phone);
@@ -467,10 +556,11 @@ export default function Auth() {
         phone: formData.phone,
         options: {
           shouldCreateUser: false,
-          data: { full_name: formData.name },
         },
       });
+      
       if (error) throw error;
+      
       toast.success("OTP sent to your phone via SMS.");
       setOtpResendCooldown(60);
       setAttemptCount(0);
@@ -492,17 +582,23 @@ export default function Auth() {
       toast.error("Too many attempts. Please wait a minute and try again.");
       return;
     }
-    if (!formData.phone || !validatePhone(formData.phone) || otp.length !== 6) {
-      toast.error("Enter a valid phone number and 6-digit OTP.");
+    if (!formData.phone || !validatePhone(formData.phone)) {
+      toast.error("Please enter a valid phone number.");
       return;
     }
+    if (otp.length !== 6) {
+      toast.error("Please enter the 6-digit OTP sent to your phone.");
+      return;
+    }
+
     setOtpLoading(true);
     try {
-      const { error } = await supabase.auth.verifyOtp({
+      const { data, error } = await supabase.auth.verifyOtp({
         phone: formData.phone,
         token: otp,
         type: "sms",
       });
+      
       if (error) {
         const errorInfo = getErrorMessage(error);
         if (errorInfo.type === "user_not_found") {
@@ -511,13 +607,17 @@ export default function Auth() {
         }
         throw error;
       }
-      toast.success("Logged in successfully with OTP 🎉");
-      setIsOtpModalOpen(false);
-      navigate("/home");
-      setFormData({ name: "", phone: "", email: "", password: "" });
-      setOtp("");
-      setErrors({});
-      setAttemptCount(0);
+
+      if (data?.user) {
+        await syncUserData(data.user);
+        toast.success("Logged in successfully with OTP! 🎉");
+        setIsOtpModalOpen(false);
+        navigate("/home");
+        setFormData({ name: "", phone: "", email: "", password: "" });
+        setOtp("");
+        setErrors({});
+        setAttemptCount(0);
+      }
     } catch (err) {
       const errorInfo = getErrorMessage(err);
       toast.error(errorInfo.message);
@@ -537,20 +637,20 @@ export default function Auth() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `https://kkxgrrcbyluhdfsoywvd.supabase.co/auth/v1/callback`,
+          redirectTo: `${APP_URL}/auth/callback`,
           queryParams: {
             access_type: "offline",
             prompt: "select_account",
-            scope: "email profile",
           },
-          shouldCreateUser: true,
         },
       });
+      
       if (error) throw error;
+      // User will be redirected, no need to setLoading(false) here
     } catch (err) {
       console.error("Google OAuth error:", err);
       toast.error(
-        err.message || "Google login failed. Try again, use incognito mode, or check OAuth configuration."
+        err.message || "Google login failed. Try again or use incognito mode."
       );
       setLoading(false);
     }
@@ -578,11 +678,11 @@ export default function Auth() {
         return (
           <form onSubmit={handleSignup} className="auth-form" aria-labelledby="signup-title">
             <div className="form-group">
-              <label htmlFor="name">Full Name</label>
+              <label htmlFor="name">Full Name *</label>
               <input
                 id="name"
                 name="name"
-                placeholder="Full name"
+                placeholder="Enter your full name"
                 onChange={handleChange}
                 value={formData.name}
                 required
@@ -592,7 +692,7 @@ export default function Auth() {
               {errors.name && <span id="name-error" className="error-text">{errors.name}</span>}
             </div>
             <div className="form-group">
-              <label htmlFor="phone">Phone Number (Optional)</label>
+              <label htmlFor="phone">Phone Number</label>
               <input
                 id="phone"
                 name="phone"
@@ -605,12 +705,12 @@ export default function Auth() {
               {errors.phone && <span id="phone-error" className="error-text">{errors.phone}</span>}
             </div>
             <div className="form-group">
-              <label htmlFor="email">Email</label>
+              <label htmlFor="email">Email *</label>
               <input
                 id="email"
                 name="email"
                 type="email"
-                placeholder="Email"
+                placeholder="Enter your email"
                 onChange={handleChange}
                 value={formData.email}
                 required
@@ -620,13 +720,13 @@ export default function Auth() {
               {errors.email && <span id="email-error" className="error-text">{errors.email}</span>}
             </div>
             <div className="form-group">
-              <label htmlFor="password">Password</label>
+              <label htmlFor="password">Password *</label>
               <div className="password-wrapper">
                 <input
                   id="password"
                   name="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="Password"
+                  placeholder="Create a strong password"
                   onChange={handleChange}
                   value={formData.password}
                   required
@@ -643,6 +743,9 @@ export default function Auth() {
                 </button>
               </div>
               {errors.password && <span id="password-error" className="error-text">{errors.password}</span>}
+              <div className="password-hint">
+                Password must contain uppercase, lowercase, number, and be at least 8 characters
+              </div>
             </div>
             <Button
               type="submit"
@@ -650,7 +753,7 @@ export default function Auth() {
               disabled={loading || Object.values(errors).some((e) => e) || envError}
             >
               {loading ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
-              {loading ? "Creating..." : "Sign up"}
+              {loading ? "Creating Account..." : "Create Account"}
             </Button>
           </form>
         );
@@ -658,12 +761,12 @@ export default function Auth() {
         return (
           <form onSubmit={handleLogin} className="auth-form" aria-labelledby="login-title">
             <div className="form-group">
-              <label htmlFor="email">Email</label>
+              <label htmlFor="email">Email *</label>
               <input
                 id="email"
                 name="email"
                 type="email"
-                placeholder="Email"
+                placeholder="Enter your email"
                 onChange={handleChange}
                 value={formData.email}
                 required
@@ -673,13 +776,13 @@ export default function Auth() {
               {errors.email && <span id="email-error" className="error-text">{errors.email}</span>}
             </div>
             <div className="form-group">
-              <label htmlFor="password">Password</label>
+              <label htmlFor="password">Password *</label>
               <div className="password-wrapper">
                 <input
                   id="password"
                   name="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="Password"
+                  placeholder="Enter your password"
                   onChange={handleChange}
                   value={formData.password}
                   required
@@ -721,7 +824,7 @@ export default function Auth() {
               disabled={loading || Object.values(errors).some((e) => e) || envError}
             >
               {loading ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
-              {loading ? "Signing in..." : "Sign in"}
+              {loading ? "Signing In..." : "Sign In"}
             </Button>
           </form>
         );
@@ -729,12 +832,12 @@ export default function Auth() {
         return (
           <form onSubmit={handleForgotPassword} className="auth-form" aria-labelledby="forgot-title">
             <div className="form-group">
-              <label htmlFor="email">Email</label>
+              <label htmlFor="email">Email *</label>
               <input
                 id="email"
                 name="email"
                 type="email"
-                placeholder="Enter your email"
+                placeholder="Enter your email address"
                 onChange={handleChange}
                 value={formData.email}
                 required
@@ -749,7 +852,7 @@ export default function Auth() {
               disabled={loading || Object.values(errors).some((e) => e) || envError}
             >
               {loading ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
-              {loading ? "Sending..." : "Send Reset Link"}
+              {loading ? "Sending Reset Link..." : "Send Reset Link"}
             </Button>
             <button
               type="button"
@@ -775,7 +878,19 @@ export default function Auth() {
         transition={{ duration: 0.3 }}
         role="main"
       >
-        <Toaster position="top-center" toastOptions={{ duration: 10 }} />
+        <Toaster 
+          position="top-center" 
+          toastOptions={{ 
+            duration: 5000,
+            style: {
+              background: '#363636',
+              color: '#fff',
+            },
+            success: {
+              duration: 3000,
+            },
+          }} 
+        />
         <div className="auth-form-container glass-card">
           {envError && (
             <div className="env-error-message">
@@ -797,7 +912,7 @@ export default function Auth() {
               ? "Create an Account"
               : mode === "forgot"
               ? "Reset Your Password"
-              : "Welcome to OmniFlow"}
+              : "Welcome to Omniflow App"}
           </h2>
           {renderForm()}
           {(mode === "login" || mode === "signup") && (
@@ -879,7 +994,7 @@ export default function Auth() {
                   Login with OTP
                 </h3>
                 <div className="form-group">
-                  <label htmlFor="otp-phone">Phone Number</label>
+                  <label htmlFor="otp-phone">Phone Number *</label>
                   <input
                     id="otp-phone"
                     name="phone"
@@ -897,7 +1012,7 @@ export default function Auth() {
                   )}
                 </div>
                 <div className="form-group">
-                  <label htmlFor="otp">OTP</label>
+                  <label htmlFor="otp">OTP Code *</label>
                   <input
                     id="otp"
                     className="otp-input"
