@@ -8,9 +8,39 @@ const BottomNavbar = () => {
   const location = useLocation();
   const { unreadCount } = useNotificationBadge();
 
-  // Hide navbar on auth-related routes
-  const hiddenRoutes = ["/login", "/signup", "/reset-password", "/auth"];
-  if (hiddenRoutes.some((route) => location.pathname.startsWith(route))) {
+  // Hide navbar on auth-related routes AND admin routes
+  const hiddenRoutes = [
+    "/login", 
+    "/signup", 
+    "/reset-password", 
+    "/auth",
+    "/admin", // Hide on all admin routes
+    "/admin-dashboard",
+    "/admin-overview",
+    "/admin/users",
+    "/admin/stores",
+    "/admin/products",
+    "/admin/categories",
+    "/admin/messages",
+    "/admin/finance",
+    "/admin/wallet",
+    "/admin/ratings",
+    "/admin/installments",
+    "/admin/reports",
+    "/admin/admins",
+    "/admin/settings",
+    "/admin/database",
+    "/admin/promotions",
+    "/admin/search",
+    "/admin/activities"
+  ];
+
+  // Check if current path starts with any hidden route
+  const shouldHide = hiddenRoutes.some(route => 
+    location.pathname.startsWith(route)
+  );
+
+  if (shouldHide) {
     return null;
   }
 

@@ -58,6 +58,19 @@ export default function Auth() {
   const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
   const [envError, setEnvError] = useState(null);
 
+  // 🧩 Hidden Developer Shortcut — ALT + A → Admin Login
+  useEffect(() => {
+    const handleKeyShortcut = (e) => {
+      if (e.altKey && e.key.toLowerCase() === "a") {
+        e.preventDefault();
+        toast.success("🔐 Admin Access Shortcut Activated");
+        navigate("/admin");
+      }
+    };
+    window.addEventListener("keydown", handleKeyShortcut);
+    return () => window.removeEventListener("keydown", handleKeyShortcut);
+  }, [navigate]);
+
   // Validate environment variables
   useEffect(() => {
     if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
@@ -762,7 +775,7 @@ export default function Auth() {
         transition={{ duration: 0.3 }}
         role="main"
       >
-        <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
+        <Toaster position="top-center" toastOptions={{ duration: 10 }} />
         <div className="auth-form-container glass-card">
           {envError && (
             <div className="env-error-message">

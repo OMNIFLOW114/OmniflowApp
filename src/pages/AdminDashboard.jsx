@@ -12,12 +12,10 @@ import {
   FiStar,
   FiShoppingCart,
   FiDollarSign,
-  FiHome,
   FiMenu,
   FiX,
   FiClipboard,
   FiUserPlus,
-  FiShield,
   FiActivity,
   FiTrendingUp,
   FiAlertTriangle,
@@ -36,17 +34,27 @@ import { FaCrown, FaShieldAlt } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "react-hot-toast";
 import { Line } from "react-chartjs-2";
-import { Chart as ChartJS, LineElement, CategoryScale, LinearScale, PointElement, Title, Tooltip, Legend } from "chart.js";
+import {
+  Chart as ChartJS,
+  LineElement,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  Title,
+  Tooltip,
+  Legend
+} from "chart.js";
 import "./AdminDashboard.css";
 
 // Register Chart.js components
 ChartJS.register(LineElement, CategoryScale, LinearScale, PointElement, Title, Tooltip, Legend);
 
 const AdminDashboard = () => {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const { darkMode } = useDarkMode();
   const navigate = useNavigate();
   const location = useLocation();
+  
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [adminStats, setAdminStats] = useState({
@@ -69,22 +77,25 @@ const AdminDashboard = () => {
     role: 'moderator',
     permissions: [],
   });
+
   const [chartData, setChartData] = useState({
     labels: [],
     datasets: [
       {
-        label: "Sales ($)",
+        label: "Revenue ($)",
         data: [],
-        backgroundColor: "rgba(75, 192, 192, 0.5)",
-        borderColor: "rgba(75, 192, 192, 1)",
-        borderWidth: 2,
+        backgroundColor: "rgba(99, 102, 241, 0.2)",
+        borderColor: "rgba(99, 102, 241, 1)",
+        borderWidth: 3,
         fill: true,
+        tension: 0.4,
       },
     ],
   });
 
   const SUPER_ADMIN_EMAIL = "omniflow718@gmail.com";
 
+  // Role-based permissions
   const availablePermissions = {
     super_admin: ['all'],
     admin: [
@@ -108,6 +119,7 @@ const AdminDashboard = () => {
       'view_dashboard',
       'manage_products',
       'manage_categories',
+      'manage_installments',
       'manage_ratings',
       'view_reports',
     ],
@@ -115,35 +127,90 @@ const AdminDashboard = () => {
       'view_dashboard',
       'manage_users',
       'manage_messages',
+      'manage_finance',
       'view_reports',
     ],
   };
 
+  // Chart options with dark mode support
   const chartOptions = {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
       legend: {
         position: "top",
-        labels: { color: darkMode ? "#e2e8f0" : "#333" },
+        labels: {
+          color: darkMode ? "#e2e8f0" : "#334155",
+          font: { size: 12 }
+        },
       },
       title: {
         display: true,
-        text: "Monthly Sales Trend",
-        color: darkMode ? "#e2e8f0" : "#333",
+        text: "Monthly Revenue Trend",
+        color: darkMode ? "#e2e8f0" : "#334155",
+        font: { size: 16, weight: 'bold' }
       },
     },
     scales: {
       x: {
-        title: { display: true, text: "Month", color: darkMode ? "#e2e8f0" : "#333" },
-        grid: { color: darkMode ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)" },
+        grid: {
+          color: darkMode ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)"
+        },
+        ticks: {
+          color: darkMode ? "#94a3b8" : "#64748b"
+        }
       },
       y: {
-        title: { display: true, text: "Sales ($)", color: darkMode ? "#e2e8f0" : "#333" },
-        grid: { color: darkMode ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)" },
+        grid: {
+          color: darkMode ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)"
+        },
+        ticks: {
+          color: darkMode ? "#94a3b8" : "#64748b",
+          callback: (value) => `$${value.toLocaleString()}`
+        }
       },
     },
   };
 
+  // Enhanced logout function
+  const handleAdminLogout = async () => {
+    try {
+      await logActivity('logged_out');
+      
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        throw error;
+      }
+      
+      setCurrentAdmin(null);
+      setAdminStats({
+        totalUsers: 0,
+        totalStores: 0,
+        totalProducts: 0,
+        pendingApprovals: 0,
+        todaysOrders: 0,
+        totalAdmins: 0,
+        revenue: 0,
+      });
+      
+      toast.success('Logged out successfully');
+      
+      setTimeout(() => {
+        navigate('/admin-auth', { replace: true });
+      }, 1000);
+      
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast.error('Error during logout. Please try again.');
+      
+      setTimeout(() => {
+        navigate('/admin-auth', { replace: true });
+      }, 1500);
+    }
+  };
+
+  // Admin creation function
   const createAdmin = async (userId, role) => {
     try {
       const permissions = availablePermissions[role] || [];
@@ -191,6 +258,7 @@ const AdminDashboard = () => {
     }
   };
 
+  // Check admin access
   const hasAdminAccess = async (userId, userEmail) => {
     try {
       const { data: adminData, error } = await supabase
@@ -214,7 +282,6 @@ const AdminDashboard = () => {
         return await createAdmin(userId, 'super_admin');
       }
 
-      // Check user metadata for admin role and auto-create if valid
       const { data: authUser, error: userError } = await supabase.auth.getUser();
       if (userError) {
         console.error('Error getting full user:', userError);
@@ -234,6 +301,7 @@ const AdminDashboard = () => {
     }
   };
 
+  // Fetch dashboard data
   const fetchAdminData = async () => {
     setLoading(true);
     try {
@@ -263,6 +331,7 @@ const AdminDashboard = () => {
         supabase.from('admin_notifications').select('id, title, message, created_at, is_read').eq('is_read', false).order('created_at', { ascending: false }).limit(10),
       ]);
 
+      // Sales data for chart
       const sixMonthsAgo = new Date();
       sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
       const { data: salesData } = await supabase
@@ -278,7 +347,7 @@ const AdminDashboard = () => {
         return date.toLocaleString('default', { month: 'short' });
       });
 
-      salesData.forEach(order => {
+      salesData?.forEach(order => {
         const monthIndex = new Date(order.created_at).getMonth() - sixMonthsAgo.getMonth();
         if (monthIndex >= 0 && monthIndex < 6) {
           monthlySales[monthIndex] += order.total_price || 0;
@@ -289,17 +358,18 @@ const AdminDashboard = () => {
         labels,
         datasets: [
           {
-            label: "Sales ($)",
+            label: "Revenue ($)",
             data: monthlySales,
-            backgroundColor: "rgba(75, 192, 192, 0.5)",
-            borderColor: "rgba(75, 192, 192, 1)",
-            borderWidth: 2,
+            backgroundColor: "rgba(99, 102, 241, 0.2)",
+            borderColor: "rgba(99, 102, 241, 1)",
+            borderWidth: 3,
             fill: true,
+            tension: 0.4,
           },
         ],
       });
 
-      const revenue = ordersData.reduce((sum, order) => sum + (order.total_price || 0), 0);
+      const revenue = ordersData?.reduce((sum, order) => sum + (order.total_price || 0), 0) || 0;
 
       setAdminStats({
         totalUsers: totalUsers || 0,
@@ -308,38 +378,30 @@ const AdminDashboard = () => {
         pendingApprovals: pendingApprovals || 0,
         todaysOrders: todaysOrders || 0,
         totalAdmins: totalAdmins || 0,
-        revenue: revenue || 0,
+        revenue: revenue,
       });
 
       setRecentActivities(activities || []);
       setAdminUsers(admins || []);
-      setNotifications(notificationsData.map(n => ({
+      setNotifications(notificationsData?.map(n => ({
         id: n.id,
         message: n.message,
         time: new Date(n.created_at).toLocaleTimeString(),
       })) || []);
     } catch (error) {
       console.error('Error fetching admin data:', error);
-      toast.error('Failed to load dashboard data. Using defaults.');
-      setAdminStats({
-        totalUsers: 0,
-        totalStores: 0,
-        totalProducts: 0,
-        pendingApprovals: 0,
-        todaysOrders: 0,
-        totalAdmins: 0,
-        revenue: 0,
-      });
+      toast.error('Failed to load dashboard data');
       setChartData({
         labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
         datasets: [
           {
-            label: "Sales ($)",
+            label: "Revenue ($)",
             data: [12000, 19000, 15000, 22000, 18000, 25000],
-            backgroundColor: "rgba(75, 192, 192, 0.5)",
-            borderColor: "rgba(75, 192, 192, 1)",
-            borderWidth: 2,
+            backgroundColor: "rgba(99, 102, 241, 0.2)",
+            borderColor: "rgba(99, 102, 241, 1)",
+            borderWidth: 3,
             fill: true,
+            tension: 0.4,
           },
         ],
       });
@@ -348,6 +410,7 @@ const AdminDashboard = () => {
     }
   };
 
+  // Activity logging
   const logActivity = async (action, target_type = null, target_id = null) => {
     try {
       await supabase
@@ -364,6 +427,7 @@ const AdminDashboard = () => {
     }
   };
 
+  // Add new admin user
   const addAdminUser = async (adminData) => {
     if (!currentAdmin || currentAdmin.role !== 'super_admin') {
       toast.error('Only Super Admin can add new admins');
@@ -420,6 +484,7 @@ const AdminDashboard = () => {
     }
   };
 
+  // Toggle admin status
   const toggleAdminStatus = async (adminId, currentStatus) => {
     if (!currentAdmin || currentAdmin.role !== 'super_admin') {
       toast.error('Only Super Admin can modify admin status');
@@ -455,6 +520,24 @@ const AdminDashboard = () => {
     }
   };
 
+  // Toggle sidebar
+  const toggleSidebar = () => {
+    if (window.innerWidth <= 768) {
+      setMobileSidebarOpen(!mobileSidebarOpen);
+    } else {
+      setSidebarOpen(!sidebarOpen);
+    }
+  };
+
+  // Navigation handler
+  const handleNavClick = (path) => {
+    navigate(path);
+    if (window.innerWidth <= 768) {
+      setMobileSidebarOpen(false);
+    }
+  };
+
+  // Initialize admin
   useEffect(() => {
     const initializeAdmin = async () => {
       if (!user) {
@@ -474,13 +557,16 @@ const AdminDashboard = () => {
 
       const subscription = supabase
         .channel('admin_notifications')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'admin_notifications' }, payload => {
-          setNotifications(prev => [{
-            id: payload.new.id,
-            message: payload.new.message,
-            time: new Date(payload.new.created_at).toLocaleTimeString(),
-          }, ...prev.slice(0, 9)]);
-        })
+        .on('postgres_changes', 
+          { event: 'INSERT', schema: 'public', table: 'admin_notifications' }, 
+          (payload) => {
+            setNotifications(prev => [{
+              id: payload.new.id,
+              message: payload.new.message,
+              time: new Date(payload.new.created_at).toLocaleTimeString(),
+            }, ...prev.slice(0, 9)]);
+          }
+        )
         .subscribe();
 
       return () => supabase.removeChannel(subscription);
@@ -489,10 +575,12 @@ const AdminDashboard = () => {
     initializeAdmin();
   }, [user, navigate]);
 
+  // Redirect if no user
   if (!user) {
-    return <Navigate to="/admin-dashboard" replace />;
+    return <Navigate to="/admin-auth" replace />;
   }
 
+  // Loading state
   if (loading) {
     return (
       <div className="admin-loading">
@@ -504,207 +592,44 @@ const AdminDashboard = () => {
 
   const isSuperAdmin = currentAdmin?.role === 'super_admin';
 
+  // Admin modules with role-based filtering
   const adminModules = [
-    {
-      icon: <FiBarChart2 />,
-      title: "Dashboard Overview",
-      desc: "Real-time analytics and system metrics",
-      path: "/admin-overview",
-      requiredPermission: "view_dashboard",
-      color: "var(--accent-primary)",
-    },
-    {
-      icon: <FiUsers />,
-      title: "User Management",
-      desc: "Manage users, permissions, and bans",
-      path: "/admin/users",
-      requiredPermission: "manage_users",
-      color: "var(--success-color)",
-    },
-    {
-      icon: <FiBriefcase />,
-      title: "Store Oversight",
-      desc: "Monitor and manage store accounts",
-      path: "/admin/stores",
-      requiredPermission: "manage_stores",
-      color: "var(--warning-color)",
-    },
-    {
-      icon: <FiShoppingCart />,
-      title: "Product Moderation",
-      desc: "Approve, reject, and manage products",
-      path: "/admin/products",
-      requiredPermission: "manage_products",
-      color: "var(--info-color)",
-    },
-    {
-      icon: <FiPackage />,
-      title: "Category Management",
-      desc: "Manage product categories and tags",
-      path: "/admin/categories",
-      requiredPermission: "manage_categories",
-      color: "var(--accent-secondary)",
-    },
-    {
-      icon: <FiMessageSquare />,
-      title: "Message Monitoring",
-      desc: "Monitor and moderate user conversations",
-      path: "/admin/messages",
-      requiredPermission: "manage_messages",
-      color: "var(--purple-color)",
-    },
-    {
-      icon: <FiDollarSign />,
-      title: "Financial Control",
-      desc: "Manage payments, commissions, and revenue",
-      path: "/admin/finance",
-      requiredPermission: "manage_finance",
-      color: "var(--gold-color)",
-    },
-    {
-      icon: <FiCreditCard />,
-      title: "Wallet Oversight",
-      desc: "Monitor and control user wallets",
-      path: "/admin/wallet",
-      requiredPermission: "manage_wallets",
-      color: "var(--teal-color)",
-    },
-    {
-      icon: <FiStar />,
-      title: "Ratings & Reviews",
-      desc: "Manage product ratings and user reviews",
-      path: "/admin/ratings",
-      requiredPermission: "manage_ratings",
-      color: "var(--orange-color)",
-    },
-    {
-      icon: <FiClipboard />,
-      title: "Installment Oversight",
-      desc: "Monitor and control installment plans",
-      path: "/admin/installments",
-      requiredPermission: "manage_installments",
-      color: "var(--indigo-color)",
-    },
-    {
-      icon: <FiFileText />,
-      title: "Reports & Analytics",
-      desc: "Generate reports and business insights",
-      path: "/admin/reports",
-      requiredPermission: "view_reports",
-      color: "var(--pink-color)",
-    },
-    {
-      icon: <FiUserPlus />,
-      title: "Admin Management",
-      desc: "Manage admin users and permissions",
-      path: "/admin/admins",
-      requiredPermission: "manage_admins",
-      color: "var(--danger-color)",
-    },
-    {
-      icon: <FiSettings />,
-      title: "System Settings",
-      desc: "Configure system-wide settings",
-      path: "/admin/settings",
-      requiredPermission: "manage_settings",
-      color: "var(--gray-color)",
-    },
-    {
-      icon: <FiDatabase />,
-      title: "Database Management",
-      desc: "Advanced database operations",
-      path: "/admin/database",
-      requiredPermission: "manage_database",
-      color: "var(--cyan-color)",
-    },
-    {
-      icon: <FiAward />,
-      title: "Promotions & Offers",
-      desc: "Manage promotions and special offers",
-      path: "/admin/promotions",
-      requiredPermission: "manage_promotions",
-      color: "var(--lime-color)",
-    },
+    { icon: <FiBarChart2 />, title: "Dashboard Overview", desc: "Real-time analytics and system metrics", path: "/admin-overview", requiredPermission: "view_dashboard" },
+    { icon: <FiUsers />, title: "User Management", desc: "Manage users, permissions, and bans", path: "/admin/users", requiredPermission: "manage_users" },
+    { icon: <FiBriefcase />, title: "Store Oversight", desc: "Monitor and manage store accounts", path: "/admin/stores", requiredPermission: "manage_stores" },
+    { icon: <FiShoppingCart />, title: "Product Moderation", desc: "Approve, reject, and manage products", path: "/admin/products", requiredPermission: "manage_products" },
+    { icon: <FiPackage />, title: "Category Management", desc: "Manage product categories and tags", path: "/admin/categories", requiredPermission: "manage_categories" },
+    { icon: <FiMessageSquare />, title: "Message Monitoring", desc: "Monitor and moderate user conversations", path: "/admin/messages", requiredPermission: "manage_messages" },
+    { icon: <FiDollarSign />, title: "Financial Control", desc: "Manage payments, commissions, and revenue", path: "/admin/finance", requiredPermission: "manage_finance" },
+    { icon: <FiCreditCard />, title: "Wallet Oversight", desc: "Monitor and control user wallets", path: "/admin/wallet", requiredPermission: "manage_wallets" },
+    { icon: <FiStar />, title: "Ratings & Reviews", desc: "Manage product ratings and user reviews", path: "/admin/ratings", requiredPermission: "manage_ratings" },
+    { icon: <FiClipboard />, title: "Installment Oversight", desc: "Monitor and control installment plans", path: "/admin/installments", requiredPermission: "manage_installments" },
+    { icon: <FiFileText />, title: "Reports & Analytics", desc: "Generate reports and business insights", path: "/admin/reports", requiredPermission: "view_reports" },
+    { icon: <FiUserPlus />, title: "Admin Management", desc: "Manage admin users and permissions", path: "/admin/admins", requiredPermission: "manage_admins" },
+    { icon: <FiSettings />, title: "System Settings", desc: "Configure system-wide settings", path: "/admin/settings", requiredPermission: "manage_settings" },
+    { icon: <FiDatabase />, title: "Database Management", desc: "Advanced database operations", path: "/admin/database", requiredPermission: "manage_database" },
+    { icon: <FiAward />, title: "Promotions & Offers", desc: "Manage promotions and special offers", path: "/admin/promotions", requiredPermission: "manage_promotions" },
   ].filter(module =>
     isSuperAdmin ||
     currentAdmin?.permissions?.includes(module.requiredPermission) ||
     currentAdmin?.permissions?.includes('all')
   );
 
+  // Stats cards data
   const statCards = [
-    {
-      icon: <FiUsers />,
-      title: "Total Users",
-      value: adminStats.totalUsers.toLocaleString(),
-      change: "+12%",
-      trend: "up",
-      color: "var(--success-color)",
-    },
-    {
-      icon: <FiBriefcase />,
-      title: "Total Stores",
-      value: adminStats.totalStores.toLocaleString(),
-      change: "+8%",
-      trend: "up",
-      color: "var(--warning-color)",
-    },
-    {
-      icon: <FiShoppingCart />,
-      title: "Total Products",
-      value: adminStats.totalProducts.toLocaleString(),
-      change: "+15%",
-      trend: "up",
-      color: "var(--info-color)",
-    },
-    {
-      icon: <FiAlertTriangle />,
-      title: "Pending Approvals",
-      value: adminStats.pendingApprovals.toLocaleString(),
-      change: "-5%",
-      trend: "down",
-      color: "var(--danger-color)",
-    },
-    {
-      icon: <FiClipboard />,
-      title: "Pending Installments",
-      value: adminStats.todaysOrders.toLocaleString(),
-      change: "+10%",
-      trend: "up",
-      color: "var(--indigo-color)",
-    },
-    {
-      icon: <FiDollarSign />,
-      title: "Today's Revenue",
-      value: `$${adminStats.revenue.toLocaleString()}`,
-      change: "+23%",
-      trend: "up",
-      color: "var(--gold-color)",
-    },
+    { icon: <FiUsers />, title: "Total Users", value: adminStats.totalUsers.toLocaleString(), change: "+12%", trend: "up" },
+    { icon: <FiBriefcase />, title: "Total Stores", value: adminStats.totalStores.toLocaleString(), change: "+8%", trend: "up" },
+    { icon: <FiShoppingCart />, title: "Total Products", value: adminStats.totalProducts.toLocaleString(), change: "+15%", trend: "up" },
+    { icon: <FiAlertTriangle />, title: "Pending Approvals", value: adminStats.pendingApprovals.toLocaleString(), change: "-5%", trend: "down" },
+    { icon: <FiClipboard />, title: "Today's Orders", value: adminStats.todaysOrders.toLocaleString(), change: "+10%", trend: "up" },
+    { icon: <FiDollarSign />, title: "Today's Revenue", value: `$${adminStats.revenue.toLocaleString()}`, change: "+23%", trend: "up" },
   ];
 
-  const handleSignOut = async () => {
-    await logActivity('logged_out');
-    await signOut();
-    navigate('/');
-  };
-
-  const toggleSidebar = () => {
-    if (window.innerWidth <= 768) {
-      setMobileSidebarOpen(!mobileSidebarOpen);
-    } else {
-      setSidebarOpen(!sidebarOpen);
-    }
-  };
-
-  const handleNavClick = (path) => {
-    navigate(path);
-    if (window.innerWidth <= 768) {
-      setMobileSidebarOpen(false);
-    }
-  };
-
   return (
-    <div className={`admin-layout ${darkMode ? "dark-mode" : ""}`}>
+    <div 
+      className={`admin-layout ${darkMode ? "dark-mode" : ""}`}
+      data-role={currentAdmin?.role || 'admin'}
+    >
       {/* Mobile Overlay */}
       <AnimatePresence>
         {mobileSidebarOpen && (
@@ -718,14 +643,15 @@ const AdminDashboard = () => {
         )}
       </AnimatePresence>
 
+      {/* Sidebar */}
       <motion.aside
         className={`admin-sidebar ${sidebarOpen ? 'expanded' : 'collapsed'} ${mobileSidebarOpen ? 'mobile-open' : ''}`}
         initial={false}
         animate={{
           width: sidebarOpen ? 280 : 80,
           x: mobileSidebarOpen ? 0 : (window.innerWidth <= 768 ? -280 : 0),
-          transition: { duration: 0.3, ease: "easeInOut" },
         }}
+        transition={{ duration: 0.3, ease: "easeInOut" }}
       >
         <div className="sidebar-header">
           <motion.div
@@ -761,7 +687,7 @@ const AdminDashboard = () => {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: index * 0.1 }}
             >
-              <div className="nav-icon" style={{ color: module.color }}>
+              <div className="nav-icon">
                 {module.icon}
               </div>
               <AnimatePresence>
@@ -806,7 +732,7 @@ const AdminDashboard = () => {
           </div>
           <motion.button
             className="logout-btn"
-            onClick={handleSignOut}
+            onClick={handleAdminLogout}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
@@ -816,14 +742,16 @@ const AdminDashboard = () => {
         </div>
       </motion.aside>
 
+      {/* Main Content */}
       <main className={`admin-main ${sidebarOpen ? 'expanded' : 'collapsed'}`}>
         <header className="admin-topbar">
           <div className="topbar-left">
             <button
               className="sidebar-toggle"
               onClick={toggleSidebar}
+              aria-label="Toggle sidebar"
             >
-              {sidebarOpen || mobileSidebarOpen ? <FiX size={20} /> : <FiMenu size={20} />}
+              {sidebarOpen || mobileSidebarOpen ? <FiX /> : <FiMenu />}
             </button>
             <div className="breadcrumb">
               <h1>
@@ -871,6 +799,7 @@ const AdminDashboard = () => {
         </header>
 
         <div className="admin-content">
+          {/* Super Admin Banner */}
           {isSuperAdmin && (
             <motion.section
               className="super-admin-banner"
@@ -895,6 +824,7 @@ const AdminDashboard = () => {
             </motion.section>
           )}
 
+          {/* Stats Grid */}
           <section className="stats-grid">
             {statCards.map((stat, index) => (
               <motion.div
@@ -903,9 +833,9 @@ const AdminDashboard = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
-                whileHover={{ y: -5, transition: { duration: 0.2 } }}
+                whileHover={{ y: -5 }}
               >
-                <div className="stat-icon" style={{ backgroundColor: `${stat.color}15`, color: stat.color }}>
+                <div className="stat-icon">
                   {stat.icon}
                 </div>
                 <div className="stat-content">
@@ -920,10 +850,12 @@ const AdminDashboard = () => {
             ))}
           </section>
 
+          {/* Chart */}
           <div className="chart-container">
             <Line data={chartData} options={chartOptions} />
           </div>
 
+          {/* Dashboard Grid */}
           <div className="dashboard-grid">
             <motion.section
               className="modules-section"
@@ -940,15 +872,11 @@ const AdminDashboard = () => {
                   <motion.div
                     key={index}
                     className="module-card"
-                    whileHover={{
-                      scale: 1.02,
-                      y: -4,
-                      transition: { duration: 0.2 },
-                    }}
+                    whileHover={{ scale: 1.02, y: -4 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => navigate(module.path)}
                   >
-                    <div className="module-icon" style={{ color: module.color }}>
+                    <div className="module-icon">
                       {module.icon}
                     </div>
                     <div className="module-content">
@@ -964,6 +892,7 @@ const AdminDashboard = () => {
             </motion.section>
 
             <div className="right-sidebar">
+              {/* Admin Users Section */}
               {isSuperAdmin && (
                 <motion.section
                   className="admin-users-section"
@@ -1013,6 +942,7 @@ const AdminDashboard = () => {
                 </motion.section>
               )}
 
+              {/* Activities Section */}
               <motion.section
                 className="activities-section"
                 initial={{ opacity: 0, x: 30 }}
@@ -1021,7 +951,10 @@ const AdminDashboard = () => {
               >
                 <div className="section-header">
                   <h2>Recent Activities</h2>
-                  <button className="view-all-btn" onClick={() => navigate('/admin/activities')}>
+                  <button 
+                    className="view-all-btn" 
+                    onClick={() => navigate('/admin/activities')}
+                  >
                     View All
                   </button>
                 </div>
@@ -1056,6 +989,7 @@ const AdminDashboard = () => {
         </div>
       </main>
 
+      {/* Add Admin Modal */}
       <AnimatePresence>
         {showAddAdmin && isSuperAdmin && (
           <motion.div

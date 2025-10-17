@@ -4,11 +4,11 @@
   --wallet-bg-dark: #0f172a;
   --wallet-card-bg-light: rgba(255, 255, 255, 0.95);
   --wallet-card-bg-dark: rgba(15, 23, 42, 0.95);
-  --wallet-text-primary-light: #1e293b;
+  --wallet-text-primary-light: #f3f706;
   --wallet-text-primary-dark: #f1f5f9;
   --wallet-text-secondary-light: #64748b;
   --wallet-text-secondary-dark: #94a3b8;
-  --wallet-accent-primary: #2563eb;
+  --wallet-accent-primary: #d7ee07;
   --wallet-accent-secondary: #f59e0b;
   --wallet-border-light: rgba(203, 213, 225, 0.5);
   --wallet-border-dark: rgba(51, 65, 85, 0.5);
@@ -21,7 +21,6 @@
   --wallet-glass-blur: blur(20px);
   --wallet-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   --wallet-font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  
   /* Default to light theme */
   --wallet-bg: var(--wallet-bg-light);
   --wallet-card-bg: var(--wallet-card-bg-light);
@@ -185,6 +184,7 @@ html {
 .wallet-balance-amount {
   font-size: 2.75rem;
   font-weight: 900;
+  background-color: #10b981;
   color: var(--wallet-accent-primary);
   letter-spacing: -0.05em;
   margin-bottom: 1.75rem;

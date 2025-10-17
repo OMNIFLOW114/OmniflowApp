@@ -1,9 +1,11 @@
-/* StoreOversight.css - Premium Admin Design */
+/* StoreOversight.css - Premium Admin Design with Bottom Nav Support */
 
+/* Store Oversight Container */
 .store-oversight-container {
   padding: 0;
   min-height: 100vh;
   background: var(--bg-primary);
+  padding-bottom: 64px; /* Account for bottom nav on mobile */
 }
 
 /* Header Section */
@@ -92,6 +94,7 @@
 /* Content Area */
 .store-oversight-content {
   padding: 0 var(--space-2xl) var(--space-2xl);
+  min-height: calc(100vh - 144px); /* Account for header (approx 64px) + bottom nav (80px desktop/64px mobile) */
 }
 
 /* Tabs Section */
@@ -204,6 +207,7 @@
   justify-content: center;
   padding: var(--space-3xl);
   color: var(--text-muted);
+  padding-bottom: 64px; /* Account for bottom nav */
 }
 
 .loading-spinner {
@@ -621,6 +625,7 @@
   justify-content: space-between;
   padding: var(--space-lg) 0;
   border-top: 1px solid var(--border-color);
+  margin-bottom: 64px; /* Ensure pagination clears bottom nav */
 }
 
 .pagination-btn {
@@ -670,7 +675,7 @@
   align-items: center;
   justify-content: center;
   z-index: 2000;
-  padding: var(--space-2xl);
+  padding: var(--space-2xl) var(--space-2xl) calc(var(--space-2xl) + 64px); /* Account for bottom nav */
 }
 
 .store-modal {
@@ -683,6 +688,7 @@
   overflow-y: auto;
   box-shadow: var(--shadow-2xl);
   border: 1px solid var(--border-color);
+  margin-bottom: 64px; /* Prevent modal from being cut off by bottom nav */
 }
 
 .modal-header {
@@ -767,6 +773,52 @@
   padding: var(--space-lg);
 }
 
+/* Bottom Navigation Bar */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  z-index: 900;
+  padding: 0 var(--space-md);
+}
+
+.bottom-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-xs);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  padding: var(--space-sm);
+  flex: 1;
+  text-align: center;
+}
+
+.bottom-nav-item:hover,
+.bottom-nav-item.active {
+  color: var(--accent-primary);
+}
+
+.bottom-nav-item i,
+.bottom-nav-item svg {
+  font-size: var(--font-size-lg);
+}
+
+.bottom-nav-item span {
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+}
+
 /* Responsive Design */
 @media (max-width: 1200px) {
   .requests-grid,
@@ -790,7 +842,8 @@
   }
   
   .store-oversight-content {
-    padding: 0 var(--space-lg) var(--space-lg);
+    padding: 0 var(--space-lg) 64px;
+    min-height: calc(100vh - 128px); /* Adjust for header (approx 64px) + bottom nav (64px) */
   }
   
   .tab-buttons {
@@ -815,11 +868,17 @@
     flex-direction: column;
     gap: var(--space-md);
     text-align: center;
+    margin-bottom: 64px;
   }
   
   .store-modal {
     margin: var(--space-lg);
     padding: var(--space-xl);
+    margin-bottom: 64px;
+  }
+  
+  .bottom-nav {
+    display: flex; /* Ensure bottom nav is visible on mobile */
   }
 }
 
@@ -849,6 +908,64 @@
   
   .detail-item span {
     text-align: left;
+  }
+  
+  .store-oversight-container,
+  .store-oversight-content {
+    padding-bottom: 56px; /* Match smaller nav height */
+  }
+  
+  .store-oversight-content {
+    min-height: calc(100vh - 120px); /* Adjust for header + smaller bottom nav (56px) */
+  }
+  
+  .store-oversight-loading {
+    padding-bottom: 56px;
+  }
+  
+  .store-modal-overlay {
+    padding-bottom: calc(var(--space-2xl) + 56px);
+  }
+  
+  .store-modal {
+    margin-bottom: 56px;
+  }
+  
+  .bottom-nav {
+    height: 56px;
+  }
+  
+  .bottom-nav-item {
+    padding: var(--space-xs);
+  }
+  
+  .bottom-nav-item span {
+    font-size: 0.65rem;
+  }
+  
+  .pagination {
+    margin-bottom: 56px;
+  }
+}
+
+/* Hide bottom nav on larger screens */
+@media (min-width: 769px) {
+  .bottom-nav {
+    display: none;
+  }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  .tab-btn,
+  .request-card,
+  .store-card,
+  .pagination-btn,
+  .approve-btn,
+  .reject-btn,
+  .store-actions button,
+  .bottom-nav-item {
+    transition: none;
   }
 }
 

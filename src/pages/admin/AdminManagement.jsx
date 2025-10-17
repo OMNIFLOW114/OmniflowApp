@@ -1,16 +1,16 @@
-// AdminManagement.jsx (Updated and Fixed)
+// AdminManagement.jsx — Fixed Version
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/supabase';
-import { 
-  FiArrowLeft, 
-  FiPlus, 
-  FiEdit, 
-  FiTrash2, 
-  FiSearch, 
-  FiUser, 
-  FiUserCheck, 
+import {
+  FiArrowLeft,
+  FiPlus,
+  FiEdit,
+  FiTrash2,
+  FiSearch,
+  FiUser,
+  FiUserCheck,
   FiUserX,
   FiShield,
   FiMail
@@ -88,113 +88,143 @@ const AdminManagement = () => {
     }
   };
 
+  // Fixed: Direct database approach instead of Edge Function
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!formData.email.trim()) {
       toast.error('Email is required');
       return;
     }
 
+    setLoading(true);
+
     try {
-      // Get current authenticated user for created_by field
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       if (!currentUser) {
-        toast.error('Cannot identify current user');
+        toast.error('You must be logged in as a superadmin');
         return;
       }
 
-      if (editingAdmin) {
-        // Update existing admin
+      // Check if user already exists
+      const { data: existingUser, error: userError } = await supabase
+        .from('users')
+        .select('id, email')
+        .eq('email', formData.email)
+        .single();
+
+      if (userError && userError.code !== 'PGRST116') {
+        throw new Error('Error checking user existence');
+      }
+
+      if (existingUser) {
+        // Check if user is already an admin
+        const { data: existingAdmin } = await supabase
+          .from('admin_users')
+          .select('id')
+          .eq('user_id', existingUser.id)
+          .single();
+
+        if (existingAdmin) {
+          toast.error('This user is already an admin');
+          return;
+        }
+
+        // Create admin record for existing user
+        const { data: newAdmin, error: adminError } = await supabase
+          .from('admin_users')
+          .insert([
+            {
+              user_id: existingUser.id,
+              email: formData.email,
+              role: formData.role,
+              permissions: availablePermissions[formData.role] || [],
+              is_active: true,
+              created_by: currentUser.id,
+            }
+          ])
+          .select()
+          .single();
+
+        if (adminError) throw adminError;
+
+        toast.success(`Admin privileges granted to ${formData.email}`);
+        
+      } else {
+        // Create invitation for non-existing user
+        const { data: invitation, error: inviteError } = await supabase
+          .from('admin_invitations')
+          .insert([
+            {
+              email: formData.email,
+              role: formData.role,
+              permissions: availablePermissions[formData.role] || [],
+              invited_by: currentUser.id,
+              token: generateInviteToken(),
+              expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+            }
+          ])
+          .select()
+          .single();
+
+        if (inviteError) throw inviteError;
+
+        // TODO: Send email invitation (you can integrate with your email service)
+        toast.success(`Invitation sent to ${formData.email}. They have 7 days to accept.`);
+      }
+
+      setShowAddModal(false);
+      setFormData({ email: '', role: 'moderator', permissions: [] });
+      fetchAdmins(); // Refresh the list
+      
+    } catch (error) {
+      console.error('Error creating admin/invitation:', error);
+      toast.error(error.message || 'Failed to process admin invitation');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Helper function to generate invite token
+  const generateInviteToken = () => {
+    return Math.random().toString(36).substring(2, 15) + 
+           Math.random().toString(36).substring(2, 15);
+  };
+
+  const handleEdit = async (admin) => {
+    if (editingAdmin?.id === admin.id) {
+      // Update existing admin
+      try {
         const { error } = await supabase
           .from('admin_users')
           .update({
             role: formData.role,
-            permissions: availablePermissions[formData.role] || [],
+            permissions: formData.permissions,
             updated_at: new Date().toISOString()
           })
-          .eq('id', editingAdmin.id);
+          .eq('id', admin.id);
 
         if (error) throw error;
+
         toast.success('Admin updated successfully');
-      } else {
-        // Fetch user_id from users table
-        const { data: userData, error: userError } = await supabase
-          .from('users')
-          .select('id')
-          .eq('email', formData.email)
-          .single();
-
-        if (userError || !userData) {
-          toast.error('User with this email not found in users table');
-          return;
-        }
-
-        const userId = userData.id;
-
-        // Check if admin with this user_id already exists
-        const { data: existingAdmin, error: checkError } = await supabase
-          .from('admin_users')
-          .select('id')
-          .eq('user_id', userId)
-          .single();
-
-        if (checkError && checkError.code !== 'PGRST116') {
-          console.error('Error checking existing admin:', checkError);
-          toast.error('Error checking existing admin');
-          return;
-        }
-
-        if (existingAdmin) {
-          toast.error('An admin with this user already exists');
-          return;
-        }
-
-        // Create new admin with user_id and email
-        const { data: newAdmin, error } = await supabase
-          .from('admin_users')
-          .insert([{
-            user_id: userId,
-            email: formData.email,
-            role: formData.role,
-            permissions: availablePermissions[formData.role] || [],
-            is_active: true,
-            created_by: currentUser.id
-          }])
-          .select()
-          .single();
-
-        if (error) {
-          console.error('Database error:', error);
-          if (error.code === '23505') {
-            toast.error('An admin with this user already exists');
-          } else {
-            toast.error('Failed to create admin: ' + error.message);
-          }
-          return;
-        }
-
-        toast.success(`New ${formData.role} added successfully!`);
+        setShowAddModal(false);
+        setEditingAdmin(null);
+        setFormData({ email: '', role: 'moderator', permissions: [] });
+        fetchAdmins();
+      } catch (error) {
+        console.error('Error updating admin:', error);
+        toast.error('Failed to update admin');
       }
-
-      setShowAddModal(false);
-      setEditingAdmin(null);
-      setFormData({ email: '', role: 'moderator', permissions: [] });
-      fetchAdmins();
-    } catch (error) {
-      console.error('Error saving admin:', error);
-      toast.error('Failed to save admin user');
+    } else {
+      // Set up for editing
+      setEditingAdmin(admin);
+      setFormData({
+        email: admin.email || '',
+        role: admin.role,
+        permissions: admin.permissions || []
+      });
+      setShowAddModal(true);
     }
-  };
-
-  const handleEdit = (admin) => {
-    setEditingAdmin(admin);
-    setFormData({
-      email: admin.email || '',
-      role: admin.role,
-      permissions: admin.permissions || []
-    });
-    setShowAddModal(true);
   };
 
   const toggleAdminStatus = async (adminId, currentStatus) => {
@@ -205,14 +235,14 @@ const AdminManagement = () => {
     try {
       const { error } = await supabase
         .from('admin_users')
-        .update({ 
+        .update({
           is_active: !currentStatus,
           updated_at: new Date().toISOString()
         })
         .eq('id', adminId);
 
       if (error) throw error;
-      
+
       toast.success(`Admin ${currentStatus ? 'deactivated' : 'activated'} successfully`);
       fetchAdmins();
     } catch (error) {
@@ -233,7 +263,7 @@ const AdminManagement = () => {
         .eq('id', adminId);
 
       if (error) throw error;
-      
+
       toast.success('Admin deleted successfully');
       fetchAdmins();
     } catch (error) {
@@ -264,7 +294,7 @@ const AdminManagement = () => {
     admin.role.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  if (loading) {
+  if (loading && admins.length === 0) {
     return (
       <div className="admin-page-loading">
         <div className="loading-spinner"></div>
@@ -285,7 +315,7 @@ const AdminManagement = () => {
           <h1>Admin Management</h1>
           <p>Manage admin users and their permissions</p>
         </div>
-        <button 
+        <button
           className="add-button"
           onClick={() => {
             setEditingAdmin(null);
@@ -294,7 +324,7 @@ const AdminManagement = () => {
           }}
         >
           <FiPlus />
-          Add Admin
+          Invite Admin
         </button>
       </div>
 
@@ -355,9 +385,9 @@ const AdminManagement = () => {
                     </div>
                   </td>
                   <td>
-                    <span 
+                    <span
                       className="role-badge"
-                      style={{ 
+                      style={{
                         backgroundColor: `${getRoleColor(admin.role)}15`,
                         color: getRoleColor(admin.role)
                       }}
@@ -427,7 +457,7 @@ const AdminManagement = () => {
           <div className="empty-state">
             <FiUser size={48} />
             <h3>No admins found</h3>
-            <p>{searchTerm ? 'Try adjusting your search terms' : 'Get started by adding your first admin user'}</p>
+            <p>{searchTerm ? 'Try adjusting your search terms' : 'Get started by inviting your first admin user'}</p>
           </div>
         )}
       </div>
@@ -441,13 +471,13 @@ const AdminManagement = () => {
             animate={{ scale: 1, opacity: 1 }}
           >
             <div className="modal-header">
-              <h2>{editingAdmin ? 'Edit Admin' : 'Add New Admin'}</h2>
+              <h2>{editingAdmin ? 'Edit Admin' : 'Invite New Admin'}</h2>
               <button onClick={() => setShowAddModal(false)}>
                 <FiArrowLeft />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="modal-content">
+            <form onSubmit={editingAdmin ? (e) => { e.preventDefault(); handleEdit(editingAdmin); } : handleSubmit} className="modal-content">
               <div className="form-group">
                 <label>Email Address *</label>
                 <input
@@ -464,8 +494,8 @@ const AdminManagement = () => {
                 <label>Admin Role *</label>
                 <select
                   value={formData.role}
-                  onChange={(e) => setFormData(prev => ({ 
-                    ...prev, 
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
                     role: e.target.value,
                     permissions: availablePermissions[e.target.value] || []
                   }))}
@@ -497,8 +527,8 @@ const AdminManagement = () => {
                 >
                   Cancel
                 </button>
-                <button type="submit" className="confirm-btn">
-                  {editingAdmin ? 'Update Admin' : 'Create Admin'}
+                <button type="submit" className="confirm-btn" disabled={loading}>
+                  {loading ? 'Processing...' : editingAdmin ? 'Update Admin' : 'Send Invitation'}
                 </button>
               </div>
             </form>

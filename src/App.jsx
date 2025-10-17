@@ -72,6 +72,9 @@ import AdminManagement from '@/pages/admin/AdminManagement';
 import PromotionsOffers from '@/pages/admin/PromotionsOffers';
 import DatabaseManagement from '@/pages/admin/DatabaseManagement';
 import DashboardOverview from '@/pages/admin/DashboardOverview';
+import AdminAuth from "@/pages/admin/AdminAuth";
+import ProtectedAdminRoute from "@/pages/admin/ProtectedAdminRoute";
+
 function ScrollToTop() {
   const { pathname } = useLocation();
   React.useEffect(() => {
@@ -131,21 +134,156 @@ function AppRoutes() {
         <Route path="/orders" element={<BuyerOrders />} />
         <Route path="/admin/ratings" element={<Ratings />} />
         <Route path="/checkout/:id" element={<Checkout />} />
-        <Route path="/admin/wallet" element={<AdminRoute><AdminWallet /></AdminRoute>} />
-        <Route path="/admin-dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-        <Route path="/admin/users" element={<AdminRoute><UserManagement /></AdminRoute>} />
-        <Route path="/admin/stores" element={<AdminRoute><StoreOversight /></AdminRoute>} />
-        <Route path="/admin/products" element={<AdminRoute><ProductModeration /></AdminRoute>} />
-        <Route path="/admin/messages" element={<AdminRoute><MessageMonitoring /></AdminRoute>} />
-        <Route path="/admin/settings" element={<AdminRoute><SystemSettings /></AdminRoute>} />
-        <Route path="/admin/installments" element={<AdminInstallmentsPage />} />
-        <Route path="/admin/categories" element={<CategoryManagement />} />
-        <Route path="/admin/finance" element={<FinancialControl />} />
-        <Route path="/admin/reports" element={<ReportsAnalytics />} />
-        <Route path="/admin/admins" element={<AdminManagement />} />
-        <Route path="/admin/promotions" element={<PromotionsOffers />} />
-        <Route path="admin-overview" element={<DashboardOverview />} />
-        <Route path="/admin/database" element={<DatabaseManagement />} />
+{/* ===================== ADMIN ROUTES ===================== */}
+<Route path="/admin" element={<AdminAuth />} />
+
+<Route
+  path="/admin-dashboard"
+  element={
+    <ProtectedAdminRoute>
+      <AdminDashboard />
+    </ProtectedAdminRoute>
+  }
+/>
+
+<Route
+  path="/admin/users"
+  element={
+    <ProtectedAdminRoute>
+      <UserManagement />
+    </ProtectedAdminRoute>
+  }
+/>
+
+<Route
+  path="/admin/stores"
+  element={
+    <ProtectedAdminRoute>
+      <StoreOversight />
+    </ProtectedAdminRoute>
+  }
+/>
+
+<Route
+  path="/admin/products"
+  element={
+    <ProtectedAdminRoute>
+      <ProductModeration />
+    </ProtectedAdminRoute>
+  }
+/>
+
+<Route
+  path="/admin/messages"
+  element={
+    <ProtectedAdminRoute>
+      <MessageMonitoring />
+    </ProtectedAdminRoute>
+  }
+/>
+
+<Route
+  path="/admin/ratings"
+  element={
+    <ProtectedAdminRoute>
+      <Ratings />
+    </ProtectedAdminRoute>
+  }
+/>
+
+<Route
+  path="/admin/installments"
+  element={
+    <ProtectedAdminRoute>
+      <AdminInstallmentsPage />
+    </ProtectedAdminRoute>
+  }
+/>
+
+<Route
+  path="/admin/categories"
+  element={
+    <ProtectedAdminRoute>
+      <CategoryManagement />
+    </ProtectedAdminRoute>
+  }
+/>
+
+<Route
+  path="/admin/finance"
+  element={
+    <ProtectedAdminRoute>
+      <FinancialControl />
+    </ProtectedAdminRoute>
+  }
+/>
+
+<Route
+  path="/admin/reports"
+  element={
+    <ProtectedAdminRoute>
+      <ReportsAnalytics />
+    </ProtectedAdminRoute>
+  }
+/>
+
+<Route
+  path="/admin/admins"
+  element={
+    <ProtectedAdminRoute>
+      <AdminManagement />
+    </ProtectedAdminRoute>
+  }
+/>
+
+<Route
+  path="/admin/promotions"
+  element={
+    <ProtectedAdminRoute>
+      <PromotionsOffers />
+    </ProtectedAdminRoute>
+  }
+/>
+
+<Route
+  path="/admin/overview"
+  element={
+    <ProtectedAdminRoute>
+      <DashboardOverview />
+    </ProtectedAdminRoute>
+  }
+/>
+
+<Route
+  path="/admin/database"
+  element={
+    <ProtectedAdminRoute>
+      <DatabaseManagement />
+    </ProtectedAdminRoute>
+  }
+/>
+
+<Route
+  path="/admin/settings"
+  element={
+    <ProtectedAdminRoute>
+      <SystemSettings />
+    </ProtectedAdminRoute>
+  }
+/>
+
+<Route
+  path="/admin/wallet"
+  element={
+    <ProtectedAdminRoute>
+      <AdminWallet />
+    </ProtectedAdminRoute>
+  }
+/>
+
+{/* Admin Invitation Link (for Phase 3) */}
+<Route path="/admin/invite/:token" element={<AdminAuth mode="invite" />} />
+
         <Route path="/my-installments" element={<MyInstallments user={User} />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/verify-otp" element={<VerifyOtp />} />   
