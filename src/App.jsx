@@ -23,15 +23,23 @@ import Notifications from "./components/Notifications";
 import HelpCenter from "./components/HelpCenter";
 import Settings from "./components/Settings";
 import BottomNav from "@/components/BottomNav";
-import Vault from "./pages/Vault";
 import ProductDetail from "@/pages/ProductDetail";
 import ResetPassword from "@/components/ResetPassword";
 import VerifyOtp from "@/components/VerifyOtp";
 import Wishlist from "./pages/Wishlist";
 import Cart from "./pages/Cart";
 import BuyerOrders from "@/pages/BuyerOrders";
+import SellProductPage from './pages/SellProductPage';
+import StartRestaurantPage from './pages/StartRestaurantPage';
+import ServiceDetailPage from './pages/ServiceDetailPage';
+import RestaurantDetailPage from './pages/RestaurantDetailPage';
+import ProductDetailPage from './pages/ProductDetailPage';
+import BecomeDeliveryAgentPage from './pages/BecomeDeliveryAgentPage';
+import StudentChatPage from './pages/StudentChatPage';
+import OrderTrackingPage from './pages/OrderTrackingPage';
+import StudentEarningsPage from './pages/StudentEarningsPage';
+
 // Main Features
-import OmniVerse from "./pages/OmniVerse";
 import OmniCashWallet from "./pages/OmniCashWallet";
 import CurrencyConverter from "@/pages/CurrencyConverter";
 
@@ -48,12 +56,7 @@ import BusinessHub from "./pages/business/BusinessHub";
 
 // Student
 import StudentDashboard from "./pages/StudentDashboard";
-import ExamGenerator from "./pages/AIExamGenerator";
-import FlashcardsHome from "./pages/student/FlashcardsHome";
-import StudyFlashcards from "./pages/student/StudyFlashcards";
-import StudyBuddyAI from "./pages/student/StudyBuddyAI";
-import CareerAdvisor from "./pages/student/CareerAdvisor";
-import AIBuddy from "./pages/student/AIBuddy";
+
 
 // Admin
 import AdminWallet from "./pages/AdminWallet";
@@ -113,10 +116,8 @@ function AppRoutes() {
         <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         <Route path="/help" element={<ProtectedRoute><HelpCenter /></ProtectedRoute>} />
-        <Route path="/omniverse" element={<ProtectedRoute><OmniVerse /></ProtectedRoute>} />
         <Route path="/wallet" element={<ProtectedRoute><OmniCashWallet /></ProtectedRoute>} />
         <Route path="/convert-currency" element={<ProtectedRoute><CurrencyConverter /></ProtectedRoute>} />
-        <Route path="/vault" element={<Vault />} />
         <Route path="/trade" element={<ProtectedRoute><TradeStore /></ProtectedRoute>} />
         <Route path="/store/create" element={<ProtectedRoute><CreateStore /></ProtectedRoute>} />
         <Route path="/dashboard/store/:storeId" element={<ProtectedRoute><StoreDashboard /></ProtectedRoute>} />
@@ -125,15 +126,18 @@ function AppRoutes() {
         <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
         <Route path="/business-hub" element={<ProtectedRoute><BusinessHub /></ProtectedRoute>} />
         <Route path="/student" element={<ProtectedRoute><StudentDashboard /></ProtectedRoute>} />
-        <Route path="/student/exam-generator" element={<ProtectedRoute><ExamGenerator /></ProtectedRoute>} />
-        <Route path="/student/flashcards" element={<ProtectedRoute><FlashcardsHome /></ProtectedRoute>} />
-        <Route path="/student/flashcards/study" element={<ProtectedRoute><StudyFlashcards /></ProtectedRoute>} />
-        <Route path="/student/studybuddy" element={<ProtectedRoute><StudyBuddyAI /></ProtectedRoute>} />
-        <Route path="/student/studybuddy/career" element={<ProtectedRoute><CareerAdvisor /></ProtectedRoute>} />
-        <Route path="/student/studybuddy/buddy" element={<ProtectedRoute><AIBuddy /></ProtectedRoute>} />
         <Route path="/orders" element={<BuyerOrders />} />
         <Route path="/admin/ratings" element={<Ratings />} />
         <Route path="/checkout/:id" element={<Checkout />} />
+        <Route path="/student/sell-product" element={<SellProductPage />} />
+          <Route path="/student/start-restaurant" element={<StartRestaurantPage />} />
+          <Route path="/student/service/:id" element={<ServiceDetailPage />} />
+          <Route path="/student/restaurant/:id" element={<RestaurantDetailPage />} />
+          <Route path="/student/product/:id" element={<ProductDetailPage />} />
+          <Route path="/student/become-delivery-agent" element={<BecomeDeliveryAgentPage />} />
+          <Route path="/student/chat/:chatId" element={<StudentChatPage />} />
+          <Route path="/student/orders" element={<OrderTrackingPage />} />
+          <Route path="/student/earnings" element={<StudentEarningsPage />} />
 {/* ===================== ADMIN ROUTES ===================== */}
 <Route path="/admin" element={<AdminAuth />} />
 

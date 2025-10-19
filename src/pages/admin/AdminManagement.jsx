@@ -48,7 +48,6 @@ const AdminManagement = () => {
       'manage_installments',
       'view_reports',
       'manage_promotions',
-      'manage_admins',
       'manage_settings',
       'manage_database',
     ],
