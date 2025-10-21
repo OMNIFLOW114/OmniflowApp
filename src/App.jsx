@@ -38,7 +38,7 @@ import BecomeDeliveryAgentPage from './pages/BecomeDeliveryAgentPage';
 import StudentChatPage from './pages/StudentChatPage';
 import OrderTrackingPage from './pages/OrderTrackingPage';
 import StudentEarningsPage from './pages/StudentEarningsPage';
-
+import TermsPage from "@/components/TermsPage";
 // Main Features
 import OmniCashWallet from "./pages/OmniCashWallet";
 import CurrencyConverter from "@/pages/CurrencyConverter";
@@ -138,6 +138,7 @@ function AppRoutes() {
           <Route path="/student/chat/:chatId" element={<StudentChatPage />} />
           <Route path="/student/orders" element={<OrderTrackingPage />} />
           <Route path="/student/earnings" element={<StudentEarningsPage />} />
+          <Route path="/terms" element={<TermsPage />} />
 {/* ===================== ADMIN ROUTES ===================== */}
 <Route path="/admin" element={<AdminAuth />} />
 
