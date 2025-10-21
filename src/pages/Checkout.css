@@ -1,3 +1,4 @@
+/* src/pages/Checkout.css */
 /* General Reset and Base Styles */
 * {
   margin: 0;
@@ -304,6 +305,139 @@ html.dark .delivery-settings input {
   color: #ffffff;
 }
 
+/* MAPBOX ADDRESS AUTOCOMPLETE STYLES */
+.address-autocomplete-container {
+  position: relative;
+  width: 100%;
+}
+
+.address-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  background: #ffffff;
+  color: #1a1a1a;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+}
+
+html.dark .address-input {
+  border: 1px solid #4b5563;
+  background: #242424;
+  color: #ffffff;
+}
+
+.address-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+html.dark .address-input:focus {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
+}
+
+.search-loading {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-top: none;
+  border-radius: 0 0 0.5rem 0.5rem;
+  padding: 0.75rem;
+  font-size: 0.85rem;
+  color: #64748b;
+  z-index: 1000;
+}
+
+html.dark .search-loading {
+  background: #374151;
+  border-color: #4b5563;
+  color: #d1d5db;
+}
+
+.address-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-top: none;
+  border-radius: 0 0 0.5rem 0.5rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 1000;
+}
+
+html.dark .address-suggestions {
+  background: #374151;
+  border-color: #4b5563;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+}
+
+.suggestion-item {
+  padding: 0.75rem;
+  border-bottom: 1px solid #f1f5f9;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+html.dark .suggestion-item {
+  border-bottom: 1px solid #4b5563;
+}
+
+.suggestion-item:hover {
+  background: #f8fafc;
+}
+
+html.dark .suggestion-item:hover {
+  background: #4b5563;
+}
+
+.suggestion-item:last-child {
+  border-bottom: none;
+}
+
+.suggestion-text {
+  font-size: 0.9rem;
+  color: #1e293b;
+  font-weight: 500;
+}
+
+html.dark .suggestion-text {
+  color: #f3f4f6;
+}
+
+.suggestion-type {
+  font-size: 0.75rem;
+  color: #64748b;
+  text-transform: capitalize;
+}
+
+html.dark .suggestion-type {
+  color: #9ca3af;
+}
+
+.address-help-text {
+  color: #6b7280;
+  font-size: 0.8rem;
+  margin-top: 0.25rem;
+  display: block;
+}
+
+html.dark .address-help-text {
+  color: #9ca3af;
+}
+
 /* Payment Methods */
 .payment-methods {
   display: flex;
@@ -444,9 +578,9 @@ html.dark .order-summary h4 {
 
 .order-summary img {
   width: 100%;
-  max-height: 200px; /* Increased to allow full image visibility */
-  object-fit: contain; /* Show full image without cropping */
-  aspect-ratio: auto; /* Preserve natural aspect ratio */
+  max-height: 200px;
+  object-fit: contain;
+  aspect-ratio: auto;
   border-radius: 0.5rem;
 }
 
@@ -499,7 +633,11 @@ html.dark .loading {
   }
 
   .order-summary img {
-    max-height: 150px; /* Slightly smaller for mobile */
+    max-height: 150px;
+  }
+
+  .address-suggestions {
+    max-height: 150px;
   }
 }
 
@@ -509,6 +647,6 @@ html.dark .loading {
   }
 
   .order-summary img {
-    max-height: 120px; /* Adjusted for smaller screens */
+    max-height: 120px;
   }
 }

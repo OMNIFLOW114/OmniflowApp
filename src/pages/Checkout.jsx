@@ -1,5 +1,5 @@
 // src/pages/Checkout.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { supabase } from "@/supabase";
 import { useAuth } from "@/context/AuthContext";
@@ -26,48 +26,126 @@ export default function Checkout() {
 
   // checkout fields
   const [deliveryMethod, setDeliveryMethod] = useState("");
-  const [deliveryLocation, setDeliveryLocation] = useState("");
   const [deliverySpeed, setDeliverySpeed] = useState("standard");
   const [fragile, setFragile] = useState(false);
   const [contactPhone, setContactPhone] = useState(user?.phone || "");
-  const [variantsList, setVariantsList] = useState([]); // normalized array
+  const [variantsList, setVariantsList] = useState([]);
   const [selectedVariantIndex, setSelectedVariantIndex] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [buying, setBuying] = useState(false);
-  const [detailedAddress, setDetailedAddress] = useState("");
 
+  // Mapbox address state
+  const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [addressSuggestions, setAddressSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const addressInputRef = useRef(null);
 
   // installments UI
   const depositPercent = 0.25;
   const [showInstallmentInfo, setShowInstallmentInfo] = useState(false);
   const [processingInstallment, setProcessingInstallment] = useState(false);
 
-  // parse variants helper (robust)
+  // OPTIMIZED Mapbox search for deep Kenyan addresses
+  const searchAddresses = async (query) => {
+    if (!query || query.length < 2) {
+      setAddressSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const response = await fetch(
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?` +
+        `access_token=pk.eyJ1Ijoib21uaWZsb3ciLCJhIjoiY21oMDl0NW41MGRzZmxncXVrdnQxeXVqdyJ9.kq5_wsP11uOBxwV0Wacoeg` +
+        `&country=ke` + // Kenya only
+        `&types=address,place,neighborhood,locality,poi` + // Specific location types
+        `&bbox=33.83,-4.73,41.91,5.06` + // Kenya bounding box (excludes neighboring countries)
+        `&limit=8` + // More results
+        `&language=en` + // English results
+        `&autocomplete=true` + // Better autocomplete
+        `&proximity=36.8219,-1.2921` // Center on Nairobi
+      );
+
+      const data = await response.json();
+      
+      if (data.features && data.features.length > 0) {
+        // Filter to ensure Kenya-only results
+        const kenyanResults = data.features.filter(feature => {
+          const context = feature.context || [];
+          const hasKenya = context.some(ctx => 
+            ctx.id?.includes('country') && ctx.text === 'Kenya'
+          );
+          return hasKenya || feature.place_name.includes('Kenya');
+        });
+        
+        setAddressSuggestions(kenyanResults.slice(0, 6));
+        setShowSuggestions(true);
+      } else {
+        setAddressSuggestions([]);
+        setShowSuggestions(false);
+      }
+    } catch (error) {
+      console.error('Address search error:', error);
+      setAddressSuggestions([]);
+      setShowSuggestions(false);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleAddressSelect = (suggestion) => {
+    setDeliveryAddress(suggestion.place_name);
+    setShowSuggestions(false);
+    setAddressSuggestions([]);
+  };
+
+  const handleAddressChange = (e) => {
+    const value = e.target.value;
+    setDeliveryAddress(value);
+    
+    // Debounce the search
+    clearTimeout(window.searchTimeout);
+    window.searchTimeout = setTimeout(() => {
+      searchAddresses(value);
+    }, 300);
+  };
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (addressInputRef.current && !addressInputRef.current.contains(event.target)) {
+        setShowSuggestions(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      clearTimeout(window.searchTimeout);
+    };
+  }, []);
+
+  // parse variants helper
   function parseVariants(raw) {
     if (!raw) return [];
-    // If already array
     if (Array.isArray(raw)) return raw;
 
-    // Try JSON.parse if it's JSON
     if (typeof raw === "string") {
       const trimmed = raw.trim();
-      // quick test: if string starts with [ or {, attempt JSON.parse
       if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
         try {
           const parsed = JSON.parse(trimmed);
           if (Array.isArray(parsed)) return parsed;
-          // if object, maybe keyed variants -> convert to array
           if (parsed && typeof parsed === "object") {
-            // If it's object with keys -> return values
             return Object.values(parsed);
           }
         } catch (e) {
-          // JSON parse failed - fallthrough to other strategies
           console.warn("Variants parsing failed (JSON):", e);
         }
       }
 
-      // If string is comma/newline separated — split
       if (trimmed.includes(",") || trimmed.includes("\n")) {
         const parts = trimmed
           .split(/[\n,;]+/)
@@ -75,12 +153,8 @@ export default function Checkout() {
           .filter(Boolean);
         if (parts.length) return parts;
       }
-
-      // Otherwise treat whole string as a single variant (e.g., "All quantities")
       return [trimmed];
     }
-
-    // fallback
     return [];
   }
 
@@ -88,13 +162,11 @@ export default function Checkout() {
     async function load() {
       setLoading(true);
       try {
-        // product from location.state? if so, use it (fast path)
         let p = location.state?.product || null;
 
         if (!p) {
           const { data, error } = await supabase
             .from("products")
-            // request both 'variants' (text) and variant_options (jsonb) and delivery_methods, installment_plan etc.
             .select(
               "*, delivery_methods, image_gallery, discount, installment_plan, variants, variant_options, price, description, store_id"
             )
@@ -107,7 +179,6 @@ export default function Checkout() {
 
         setProduct(p);
 
-        // seller/store info
         const { data: s } = await supabase
           .from("stores")
           .select("id,name,contact_phone,location")
@@ -115,37 +186,15 @@ export default function Checkout() {
           .maybeSingle();
         setSeller(s || null);
 
-        // delivery method default
         const dm = p.delivery_methods || {};
-        const offersPickup =
-          dm &&
-          (dm.pickup === "Yes" ||
-            dm.pickup === true ||
-            (typeof dm.pickup === "string" && dm.pickup.trim() !== "") ||
-            typeof dm.pickup === "object");
-        const offersDoor =
-          dm &&
-          (dm.door === "Yes" ||
-            dm.door === true ||
-            (typeof dm.door === "string" && dm.door.trim() !== "") ||
-            typeof dm.door === "object");
+        const offersPickup = dm && (dm.pickup === "Yes" || dm.pickup === true || (typeof dm.pickup === "string" && dm.pickup.trim() !== "") || typeof dm.pickup === "object");
+        const offersDoor = dm && (dm.door === "Yes" || dm.door === true || (typeof dm.door === "string" && dm.door.trim() !== "") || typeof dm.door === "object");
         setDeliveryMethod(offersDoor ? "door" : offersPickup ? "pickup" : "");
 
-        // delivery location default
-        if (dm && Array.isArray(dm.locations) && dm.locations.length > 0) {
-          setDeliveryLocation(dm.locations[0]);
-        } else if (s?.location) {
-          setDeliveryLocation(s.location);
-        } else {
-          setDeliveryLocation("Nairobi");
-        }
-
-        // normalize variants: prefer `variants` (text/array), fallback to variant_options (jsonb)
         let normalized = [];
         if ("variants" in p && p.variants != null) {
           normalized = parseVariants(p.variants);
         } else if ("variant_options" in p && p.variant_options != null) {
-          // variant_options may be array of objects
           if (Array.isArray(p.variant_options)) normalized = p.variant_options;
           else normalized = parseVariants(p.variant_options);
         }
@@ -153,7 +202,6 @@ export default function Checkout() {
         setVariantsList(normalized || []);
         setSelectedVariantIndex(normalized && normalized.length ? 0 : null);
 
-        // clamp quantity to available stock if provided
         if (p.stock_quantity && p.stock_quantity > 0) {
           setQuantity((q) => Math.min(q, p.stock_quantity));
         }
@@ -167,28 +215,25 @@ export default function Checkout() {
     load();
   }, [productId, location.state, user]);
 
-  // utility: safe delivery fee calculation
+  // delivery fee calculation
   function computeDeliveryFee() {
     try {
       if (!product) return 0;
       const dm = product.delivery_methods || {};
       if (!deliveryMethod) return 0;
 
-      // if dm[deliveryMethod] is object with rates
       if (dm[deliveryMethod] && typeof dm[deliveryMethod] === "object") {
         const rates = dm[deliveryMethod].rates || dm[deliveryMethod].rate || {};
-        if (rates && deliveryLocation && rates[deliveryLocation] != null) {
-          return Number(rates[deliveryLocation]);
+        if (rates && rates.Nairobi != null) {
+          return Number(rates.Nairobi);
         }
         if (dm[deliveryMethod].fee != null) return Number(dm[deliveryMethod].fee);
       }
 
-      // top-level rates structure
-      if (dm.rates && dm.rates[deliveryMethod] && dm.rates[deliveryMethod][deliveryLocation]) {
-        return Number(dm.rates[deliveryMethod][deliveryLocation]);
+      if (dm.rates && dm.rates[deliveryMethod] && dm.rates[deliveryMethod].Nairobi) {
+        return Number(dm.rates[deliveryMethod].Nairobi);
       }
 
-      // fallback heuristics
       let base = deliveryMethod === "door" ? 200 : 0;
       if (deliverySpeed === "express") base *= 1.5;
       if (fragile) base += 100;
@@ -202,7 +247,6 @@ export default function Checkout() {
   const deliveryFee = useMemo(() => computeDeliveryFee(), [
     product,
     deliveryMethod,
-    deliveryLocation,
     deliverySpeed,
     fragile,
   ]);
@@ -219,242 +263,172 @@ export default function Checkout() {
   const balanceDue = useMemo(() => +(productPrice - depositProduct).toFixed(2), [productPrice, depositProduct]);
   const totalOrder = useMemo(() => +(productPrice + deliveryFee).toFixed(2), [productPrice, deliveryFee]);
 
-  // Payment: wallet RPC (create_order_with_deposit) — we send variant as JSON string
-  // ------------------------------
-// BUYER PAYMENT HANDLERS
-// ------------------------------
+  // Payment handlers
+  async function handlePayWithWallet() {
+    if (!user?.id) return toast.error("Login required");
+    if (!deliveryMethod) return toast.error("Choose a delivery option");
+    if (!contactPhone) return toast.error("Enter contact phone");
+    if (!deliveryAddress) return toast.error("Please enter a delivery address");
+    if (variantsList.length && selectedVariantIndex == null) return toast.error("Select a variant");
 
-async function handlePayWithWallet() {
-  if (!user?.id) return toast.error("Login required");
-  if (!deliveryMethod) return toast.error("Choose a delivery option");
-  if (!contactPhone) return toast.error("Enter contact phone");
-  if (variantsList.length && selectedVariantIndex == null) return toast.error("Select a variant");
+    setBuying(true);
+    toast.loading("Processing deposit...");
 
-  setBuying(true);
-  toast.loading("Processing deposit...");
+    try {
+      const rpcArgs = {
+        p_buyer: user.id,
+        p_product: product.id,
+        p_variant: selectedVariantIndex != null
+          ? JSON.stringify(variantsList[selectedVariantIndex])
+          : null,
+        p_quantity: quantity,
+        p_delivery_method: deliveryMethod,
+        p_location: deliveryAddress,
+        p_contact_phone: contactPhone,
+        p_payment_method: "wallet",
+        p_deposit_percent: depositPercent,
+      };
 
-  try {
-    const rpcArgs = {
-      p_buyer: user.id,
-      p_product: product.id,
-      p_variant: selectedVariantIndex != null
-        ? JSON.stringify(variantsList[selectedVariantIndex])
-        : null,
-      p_quantity: quantity,
-      p_delivery_method: deliveryMethod,
-      p_location: `${deliveryLocation}, ${detailedAddress}`,
-      p_contact_phone: contactPhone,
-      p_payment_method: "wallet",
-      p_deposit_percent: depositPercent,
-    };
+      const { data, error } = await supabase.rpc("create_order_with_deposit", rpcArgs);
 
-    const { data, error } = await supabase.rpc("create_order_with_deposit", rpcArgs);
+      if (error) {
+        console.error("Wallet RPC error:", error);
+        toast.dismiss();
+        toast.error("Deposit failed: " + (error.message || error.details || ""));
+        return;
+      }
 
-    if (error) {
-      console.error("Wallet RPC error:", error);
       toast.dismiss();
-      toast.error("Deposit failed: " + (error.message || error.details || ""));
-      return;
+      toast.success("Deposit collected — order created");
+      navigate("/orders");
+    } catch (err) {
+      console.error("Wallet payment error:", err);
+      toast.dismiss();
+      toast.error("Payment error");
+    } finally {
+      setBuying(false);
+    }
+  }
+
+  async function handlePayExternal(method) {
+    if (!user?.id) return toast.error("Login required");
+    if (!deliveryMethod) return toast.error("Choose a delivery option");
+    if (!contactPhone) return toast.error("Enter contact phone");
+    if (!deliveryAddress) return toast.error("Please enter a delivery address");
+    if (variantsList.length && selectedVariantIndex == null) return toast.error("Select a variant");
+
+    setBuying(true);
+    toast.loading("Creating pending order...");
+
+    try {
+      const payload = {
+        product_id: product.id,
+        buyer_id: user.id,
+        seller_id: product.owner_id,
+        variant: selectedVariantIndex != null ? JSON.stringify(variantsList[selectedVariantIndex]) : null,
+        quantity,
+        price_paid: 0,
+        total_price: totalOrder,
+        store_id: product.store_id || null,
+        delivery_method: deliveryMethod,
+        delivery_fee: deliveryFee,
+        deposit_amount: depositProduct,
+        deposit_paid: false,
+        balance_due: balanceDue,
+        payment_method: method,
+        buyer_phone: contactPhone,
+        buyer_location: deliveryAddress,
+        delivery_location: deliveryAddress,
+        metadata: { delivery_speed: deliverySpeed, fragile },
+      };
+
+      const { data, error } = await supabase.from("orders").insert([payload]).select().single();
+      if (error) throw error;
+
+      toast.dismiss();
+      toast.success("Pending order created — complete payment externally");
+      navigate("/orders");
+    } catch (err) {
+      console.error("External order creation error:", err);
+      toast.dismiss();
+      toast.error("Failed to create order: " + (err.message || ""));
+    } finally {
+      setBuying(false);
+    }
+  }
+
+  async function handleStartInstallment() {
+    if (!user?.id) return toast.error("Login required");
+    if (!deliveryMethod) return toast.error("Choose a delivery option");
+    if (!contactPhone) return toast.error("Enter contact phone");
+    if (!deliveryAddress) return toast.error("Please enter a delivery address");
+    if (!product?.installment_plan) return toast.error("Installments not available for this product");
+    if (quantity < 1) return toast.error("Quantity must be at least 1");
+    if (product?.stock_quantity != null && quantity > product.stock_quantity) {
+      return toast.error("Quantity exceeds available stock");
     }
 
-    toast.dismiss();
-    toast.success("Deposit collected — order created");
-    navigate("/orders");
-  } catch (err) {
-    console.error("Wallet payment error:", err);
-    toast.dismiss();
-    toast.error("Payment error");
-  } finally {
-    setBuying(false);
-  }
-}
+    setProcessingInstallment(true);
+    const dismiss = toast.loading("Starting installment plan…");
 
-// ------------------------------
-// EXTERNAL PAYMENT (pending order)
-// ------------------------------
+    try {
+      const variantPayload =
+        selectedVariantIndex != null ? JSON.stringify(variantsList[selectedVariantIndex]) : null;
 
-async function handlePayExternal(method) {
-  if (!user?.id) return toast.error("Login required");
-  if (!deliveryMethod) return toast.error("Choose a delivery option");
-  if (!contactPhone) return toast.error("Enter contact phone");
-  if (variantsList.length && selectedVariantIndex == null) return toast.error("Select a variant");
+      const { data, error } = await supabase.rpc("start_installment_order", {
+        p_buyer: user.id,
+        p_product: product.id,
+        p_variant: variantPayload,
+        p_quantity: quantity,
+        p_delivery_method: deliveryMethod,
+        p_delivery_location: deliveryAddress,
+        p_contact_phone: contactPhone,
+      });
 
-  setBuying(true);
-  toast.loading("Creating pending order...");
+      if (error) throw error;
 
-  try {
-    const payload = {
-      product_id: product.id,
-      buyer_id: user.id,
-      seller_id: product.owner_id,
-      variant: selectedVariantIndex != null ? JSON.stringify(variantsList[selectedVariantIndex]) : null,
-      quantity,
-      price_paid: 0,
-      total_price: totalOrder,
-      store_id: product.store_id || null,
-      delivery_method: deliveryMethod,
-      delivery_fee: deliveryFee,
-      deposit_amount: depositProduct,
-      deposit_paid: false,
-      balance_due: balanceDue,
-      payment_method: method,
-      buyer_phone: contactPhone,
-      buyer_location: `${deliveryLocation}, ${detailedAddress}`,
-      delivery_location: `${deliveryLocation}, ${detailedAddress}`,
-      metadata: { delivery_speed: deliverySpeed, fragile },
-    };
+      const instOrderId = typeof data === "string" ? data : data?.id;
 
-    const { data, error } = await supabase.from("orders").insert([payload]).select().single();
-    if (error) throw error;
-
-    toast.dismiss();
-    toast.success("Pending order created — complete payment externally");
-    navigate("/orders");
-  } catch (err) {
-    console.error("External order creation error:", err);
-    toast.dismiss();
-    toast.error("Failed to create order: " + (err.message || ""));
-  } finally {
-    setBuying(false);
-  }
-}
-
-// ------------------------------
-// INSTALLMENT PAYMENT FLOW (Kenya Lipa Mdogo Mdogo style)
-// ------------------------------
-
-/**
- * Start a new installment order
- */
-async function handleStartInstallment() {
-  if (!user?.id) return toast.error("Login required");
-  if (!deliveryMethod) return toast.error("Choose a delivery option");
-  if (!contactPhone) return toast.error("Enter contact phone");
-  if (!product?.installment_plan) return toast.error("Installments not available for this product");
-  if (quantity < 1) return toast.error("Quantity must be at least 1");
-  if (product?.stock_quantity != null && quantity > product.stock_quantity) {
-    return toast.error("Quantity exceeds available stock");
+      toast.dismiss(dismiss);
+      toast.success("Installment plan started ✅ Initial payment secured in escrow");
+      navigate("/orders", { state: { highlight: instOrderId } });
+    } catch (err) {
+      console.error("Installment flow error:", err);
+      toast.dismiss(dismiss);
+      toast.error(err?.message || "Failed to start installment plan");
+    } finally {
+      setProcessingInstallment(false);
+    }
   }
 
-  setProcessingInstallment(true);
-  const dismiss = toast.loading("Starting installment plan…");
-
-  try {
-    const variantPayload =
-      selectedVariantIndex != null ? JSON.stringify(variantsList[selectedVariantIndex]) : null;
-
-    // 🔹 Call RPC to create installment order + debit initial payment into escrow
-    const { data, error } = await supabase.rpc("start_installment_order", {
-      p_buyer: user.id,
-      p_product: product.id,
-      p_variant: variantPayload,
-      p_quantity: quantity,
-      p_delivery_method: deliveryMethod,
-      p_delivery_location: `${deliveryLocation}${detailedAddress ? `, ${detailedAddress}` : ""}`,
-      p_contact_phone: contactPhone,
-    });
-
-    if (error) throw error;
-
-    const instOrderId = typeof data === "string" ? data : data?.id;
-
-    toast.dismiss(dismiss);
-    toast.success("Installment plan started ✅ Initial payment secured in escrow");
-
-    // Navigate user to order details
-    navigate("/orders", { state: { highlight: instOrderId } });
-  } catch (err) {
-    console.error("Installment flow error:", err);
-    toast.dismiss(dismiss);
-    toast.error(err?.message || "Failed to start installment plan");
-  } finally {
-    setProcessingInstallment(false);
-  }
-}
-
-/**
- * Confirm delivery → release partial escrow to seller (minus commission)
- */
-async function handleConfirmDelivery(orderId) {
-  if (!orderId) return toast.error("Order ID missing");
-
-  const dismiss = toast.loading("Confirming delivery…");
-  try {
-    const { error } = await supabase.rpc("release_on_delivery", { p_order: orderId });
-    if (error) throw error;
-
-    toast.dismiss(dismiss);
-    toast.success("Delivery confirmed ✅ Partial payout released to seller");
-  } catch (err) {
-    console.error("Delivery release error:", err);
-    toast.dismiss(dismiss);
-    toast.error(err?.message || "Failed to confirm delivery");
-  }
-}
-
-/**
- * Pay one installment → release installment payout to seller + admin
- */
-async function handlePayInstallment(orderId, paymentId) {
-  if (!orderId || !paymentId) return toast.error("Order ID and Payment ID required");
-
-  const dismiss = toast.loading("Processing installment payment…");
-  try {
-    const { error } = await supabase.rpc("release_on_installment", {
-      p_order: orderId,
-      p_payment: paymentId,
-    });
-    if (error) throw error;
-
-    toast.dismiss(dismiss);
-    toast.success("Installment paid ✅ Payout released to seller & admin");
-  } catch (err) {
-    console.error("Installment release error:", err);
-    toast.dismiss(dismiss);
-    toast.error(err?.message || "Failed to process installment");
-  }
-}
-
-/**
- * Finalize order → clear escrow & mark order complete
- */
-async function handleFinalizeOrder(orderId) {
-  if (!orderId) return toast.error("Order ID missing");
-
-  const dismiss = toast.loading("Finalizing order…");
-  try {
-    const { error } = await supabase.rpc("finalize_installment_order", { p_order: orderId });
-    if (error) throw error;
-
-    toast.dismiss(dismiss);
-    toast.success("Order finalized ✅ Escrow cleared and seller fully paid");
-  } catch (err) {
-    console.error("Finalize order error:", err);
-    toast.dismiss(dismiss);
-    toast.error(err?.message || "Failed to finalize order");
-  }
-}
-
-
-  // UI helpers: variant label
+  // UI helpers
   function variantLabel(v) {
     if (v == null) return "";
     if (typeof v === "string") return v;
     if (typeof v === "object") {
-      // common keys
       return v.name || v.label || v.color || JSON.stringify(v);
     }
     return String(v);
   }
 
-  // quantity controls
   function increaseQty() {
     const max = product?.stock_quantity || 999999;
     setQuantity((q) => Math.min(max, q + 1));
   }
+  
   function decreaseQty() {
     setQuantity((q) => Math.max(1, q - 1));
   }
+
+  // Helper function for address type display
+  const getAddressType = (suggestion) => {
+    const types = suggestion.place_type || [];
+    if (types.includes('address')) return 'Exact Address';
+    if (types.includes('poi')) return 'Place';
+    if (types.includes('neighborhood')) return 'Area';
+    if (types.includes('locality')) return 'Town/City';
+    return 'Location';
+  };
 
   if (loading) return <div className="loading">Loading…</div>;
   if (!product) return <div className="loading">Product not found</div>;
@@ -470,7 +444,6 @@ async function handleFinalizeOrder(orderId) {
           <h2>{product.name}</h2>
           <p>{product.description}</p>
 
-          {/* Catchy Installment header at top (if available) */}
           {product.installment_plan && (
             <div className="installment-section" style={{ marginBottom: 16 }}>
               <h4 onClick={() => setShowInstallmentInfo((s) => !s)}>
@@ -488,7 +461,6 @@ async function handleFinalizeOrder(orderId) {
             </div>
           )}
 
-          {/* Variants */}
           {variantsList && variantsList.length > 0 && (
             <div className="variant-section">
               <h4>Choose Variant</h4>
@@ -507,7 +479,6 @@ async function handleFinalizeOrder(orderId) {
             </div>
           )}
 
-          {/* Quantity */}
           <div className="quantity-selector" style={{ marginBottom: 12 }}>
             <h4>Quantity</h4>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -530,7 +501,7 @@ async function handleFinalizeOrder(orderId) {
             </div>
           </div>
 
-          {/* Delivery */}
+          {/* DELIVERY SECTION WITH OPTIMIZED MAPBOX AUTOCOMPLETE */}
           <div className="delivery-settings">
             <h4>Delivery & Options</h4>
             <div className="delivery-methods" style={{ marginBottom: 12 }}>
@@ -560,44 +531,41 @@ async function handleFinalizeOrder(orderId) {
               )}
             </div>
 
-          {/* Delivery location (Kenyan counties) */}
-<label>
-  County:
-  <select
-    value={deliveryLocation}
-    onChange={(e) => setDeliveryLocation(e.target.value)}
-  >
-    {[
-      "Nairobi", "Mombasa", "Kisumu", "Nakuru", "Eldoret",
-      "Kiambu", "Machakos", "Kajiado", "Nyeri", "Meru",
-      "Uasin Gishu", "Kericho", "Kakamega", "Bungoma", "Siaya",
-      "Homa Bay", "Migori", "Kisii", "Narok", "Laikipia",
-      "Kilifi", "Taita Taveta", "Kitui", "Embu", "Garissa",
-      "Mandera", "Wajir", "Turkana", "Marsabit", "Isiolo",
-      "Samburu", "Baringo", "West Pokot", "Trans Nzoia", "Busia",
-      "Vihiga", "Nandi", "Bomet", "Kericho", "Nyamira",
-      "Tharaka Nithi", "Murang’a", "Kirinyaga", "Tana River",
-      "Lamu", "Kwale", "Other"
-    ].map((county, i) => (
-      <option key={i} value={county}>
-        {county}
-      </option>
-    ))}
-  </select>
-</label>
-
-{/* Detailed address input */}
-<label>
-  Detailed Address (Estate, Street, Building, House No.):
-  <input
-    type="text"
-    placeholder="e.g. Kilimani, Ngong Rd, Apartment 12"
-    value={detailedAddress}
-    onChange={(e) => setDetailedAddress(e.target.value)}
-    required
-  />
-</label>
-
+            {/* OPTIMIZED MAPBOX ADDRESS AUTOCOMPLETE */}
+            <label>
+              Delivery Address:
+              <div ref={addressInputRef} className="address-autocomplete-container">
+                <input
+                  type="text"
+                  placeholder="Start typing your address (e.g. Kilimani, Nairobi)"
+                  value={deliveryAddress}
+                  onChange={handleAddressChange}
+                  className="address-input"
+                />
+                
+                {isSearching && (
+                  <div className="search-loading">Searching Kenyan addresses...</div>
+                )}
+                
+                {showSuggestions && addressSuggestions.length > 0 && (
+                  <div className="address-suggestions">
+                    {addressSuggestions.map((suggestion, index) => (
+                      <div
+                        key={index}
+                        className="suggestion-item"
+                        onClick={() => handleAddressSelect(suggestion)}
+                      >
+                        <div className="suggestion-text">{suggestion.place_name}</div>
+                        <div className="suggestion-type">{getAddressType(suggestion)}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <small className="address-help-text">
+                Start typing to see precise Kenyan address suggestions
+              </small>
+            </label>
 
             <label>
               Delivery speed:
@@ -629,7 +597,6 @@ async function handleFinalizeOrder(orderId) {
             </label>
           </div>
 
-          {/* Installment CTA (detailed) */}
           {product.installment_plan && (
             <div className="installment-section" style={{ marginTop: 12 }}>
               <h4>Buy in Installments</h4>
@@ -649,7 +616,7 @@ async function handleFinalizeOrder(orderId) {
                 <div style={{ marginTop: 8 }}>
                   <button
                     onClick={handleStartInstallment}
-                    disabled={processingInstallment}
+                    disabled={processingInstallment || !deliveryAddress}
                     className="wallet"
                     style={{ marginRight: 8 }}
                   >
@@ -660,7 +627,6 @@ async function handleFinalizeOrder(orderId) {
             </div>
           )}
 
-          {/* Payment */}
           <div className="payment-methods" style={{ marginTop: 16 }}>
             <h4>Payment</h4>
             <div className="price-breakdown">
@@ -696,15 +662,15 @@ async function handleFinalizeOrder(orderId) {
             </div>
 
             <div className="methods">
-              <button className="wallet" onClick={handlePayWithWallet} disabled={buying}>
+              <button className="wallet" onClick={handlePayWithWallet} disabled={buying || !deliveryAddress}>
                 <FaWallet /> Pay deposit with Wallet
               </button>
 
-              <button className="mpesa" onClick={() => handlePayExternal("mpesa")} disabled={buying}>
+              <button className="mpesa" onClick={() => handlePayExternal("mpesa")} disabled={buying || !deliveryAddress}>
                 <FaMobileAlt /> Pay deposit via M-Pesa
               </button>
 
-              <button className="paypal" onClick={() => handlePayExternal("paypal")} disabled={buying}>
+              <button className="paypal" onClick={() => handlePayExternal("paypal")} disabled={buying || !deliveryAddress}>
                 <FaPaypal /> Pay via PayPal
               </button>
             </div>
@@ -724,7 +690,7 @@ async function handleFinalizeOrder(orderId) {
               <div>Unit: KSH {unitPrice.toLocaleString()}</div>
               <div>Qty: {quantity}</div>
               <div>Delivery: {deliveryMethod || "—"}</div>
-              <div>Location: {deliveryLocation}</div>
+              <div>Address: {deliveryAddress ? "✓ Selected" : "—"}</div>
               {selectedVariantIndex != null && (
                 <div>Variant: {variantLabel(variantsList[selectedVariantIndex])}</div>
               )}
