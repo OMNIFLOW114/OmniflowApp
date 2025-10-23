@@ -67,7 +67,6 @@ export default function Auth() {
   const [attemptCount, setAttemptCount] = useState(0);
   const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
   const [envError, setEnvError] = useState(null);
-  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   // 🧩 Hidden Developer Shortcut — ALT + A → Admin Login
   useEffect(() => {
@@ -322,7 +321,6 @@ export default function Auth() {
             full_name: user.user_metadata?.full_name || formData.name || user.email?.split("@")[0] || "User",
             phone: formData.phone || user.user_metadata?.phone,
             updated_at: new Date().toISOString(),
-            accepted_terms: acceptedTerms || true, // Store terms acceptance
           },
           { 
             onConflict: 'id',
@@ -368,12 +366,6 @@ export default function Auth() {
       return;
     }
 
-    // Check if terms are accepted
-    if (!acceptedTerms) {
-      toast.error("Please accept the Terms & Conditions to continue.");
-      return;
-    }
-
     setLoading(true);
     try {
       const emailExists = await checkEmailExists(formData.email);
@@ -392,8 +384,7 @@ export default function Auth() {
         options: {
           data: { 
             full_name: formData.name, 
-            phone: formData.phone,
-            accepted_terms: acceptedTerms,
+            phone: formData.phone 
           },
           emailRedirectTo: `${APP_URL}/auth/callback`,
         },
@@ -408,7 +399,6 @@ export default function Auth() {
         setFormData({ name: "", phone: "", email: "", password: "" });
         setErrors({});
         setAttemptCount(0);
-        setAcceptedTerms(false); // Reset for next signup
       }
     } catch (err) {
       const errorInfo = getErrorMessage(err);
@@ -757,32 +747,10 @@ export default function Auth() {
                 Password must contain uppercase, lowercase, number, and be at least 8 characters
               </div>
             </div>
-            
-            {/* Terms and Conditions Acceptance - UPDATED */}
-            <div className="terms-acceptance">
-              <label className="terms-checkbox">
-                <input
-                  type="checkbox"
-                  checked={acceptedTerms}
-                  onChange={(e) => setAcceptedTerms(e.target.checked)}
-                  className="checkbox-input"
-                />
-                <span className="checkmark"></span>
-                I agree to the{" "}
-                <button
-                  type="button"
-                  className="terms-link"
-                  onClick={() => navigate('/terms')}
-                >
-                  Terms & Conditions
-                </button>
-              </label>
-            </div>
-
             <Button
               type="submit"
               className="auth-button"
-              disabled={loading || Object.values(errors).some((e) => e) || envError || !acceptedTerms}
+              disabled={loading || Object.values(errors).some((e) => e) || envError}
             >
               {loading ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
               {loading ? "Creating Account..." : "Create Account"}
@@ -994,7 +962,6 @@ export default function Auth() {
             </>
           )}
         </div>
-
         <AnimatePresence>
           {isOtpModalOpen && (
             <motion.div
