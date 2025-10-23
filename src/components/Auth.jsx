@@ -8,7 +8,6 @@ import { Loader2, Eye, EyeOff } from "lucide-react";
 import "./Auth.css";
 
 const APP_URL = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
-const APP_DOMAIN = "omniflowapp.co.ke";
 
 // Error Boundary Component
 class AuthErrorBoundary extends Component {
@@ -93,21 +92,20 @@ export default function Auth() {
     }
   }, []);
 
-  // Handle OAuth callback and password reset - UPDATED
+  // Handle OAuth callback and password reset
   useEffect(() => {
     const handleAuthCallback = async () => {
       if (envError) return;
 
       const hash = window.location.hash;
       const urlParams = new URLSearchParams(hash.substring(1));
-      const accessToken = urlParams.get('access_token');
       const type = urlParams.get('type');
       const tokenHash = urlParams.get('token_hash');
 
-      const searchParams = new URLSearchParams(window.location.search);
-      const code = searchParams.get("code");
-      const errorParam = searchParams.get("error");
-      const errorDescription = searchParams.get("error_description");
+      const searchParamsObj = new URLSearchParams(window.location.search);
+      const code = searchParamsObj.get("code");
+      const errorParam = searchParamsObj.get("error");
+      const errorDescription = searchParamsObj.get("error_description");
 
       // Handle OAuth error response from Google
       if (errorParam) {
@@ -151,12 +149,30 @@ export default function Auth() {
         return;
       }
 
-      // Handle password recovery from email link - UPDATED
-      if (type === "recovery" && (accessToken || tokenHash)) {
-        console.log("Password recovery detected, redirecting to reset page...");
-        // Redirect to reset password page - the token will be in the URL
-        navigate("/reset-password", { replace: true });
-        return;
+      // Handle password recovery or email confirmation from email link
+      if (tokenHash && type) {
+        if (type === "recovery") {
+          console.log("Password recovery detected, redirecting to reset page...");
+          navigate("/reset-password", { replace: true });
+          return;
+        }
+        if (type === "signup") {
+          try {
+            const { data, error } = await supabase.auth.verifyOtp({
+              type: 'signup',
+              token_hash: tokenHash,
+            });
+            if (error) throw error;
+            if (data.session) {
+              await syncUserData(data.session.user);
+              setSuccessMessage("Email confirmed successfully!");
+              navigate("/home");
+            }
+          } catch (err) {
+            toast.error("Error confirming email: " + err.message);
+          }
+          return;
+        }
       }
     };
 
@@ -304,7 +320,7 @@ export default function Auth() {
     }
   };
 
-  // Sync user data after sign-in/sign-up - FIXED VERSION
+  // Sync user data after sign-in/sign-up using upsert
   const syncUserData = async (user) => {
     try {
       if (!user?.id) return;
@@ -317,43 +333,16 @@ export default function Auth() {
         updated_at: new Date().toISOString(),
       };
 
-      // Only include accepted_terms if we're in signup mode and user accepted terms
       if (mode === "signup" && acceptedTerms) {
-        // Check if accepted_terms column exists first
-        try {
-          const { error: testError } = await supabase
-            .from('users')
-            .select('accepted_terms')
-            .limit(1);
-          
-          if (!testError) {
-            userData.accepted_terms = acceptedTerms;
-          }
-        } catch (columnError) {
-          console.log('accepted_terms column not found, skipping...');
-        }
+        userData.accepted_terms = acceptedTerms;
       }
 
-      // Use simple INSERT instead of UPSERT to avoid RLS issues
-      const { error: insertError } = await supabase
+      const { error } = await supabase
         .from("users")
-        .insert(userData);
+        .upsert(userData, { onConflict: 'id' });
 
-      // If insert fails due to duplicate (user already exists), that's fine
-      if (insertError && insertError.code !== '23505') {
-        console.error("Error inserting user data:", insertError);
-        
-        // If not a duplicate error, try update as fallback
-        if (insertError.code !== '23505') {
-          const { error: updateError } = await supabase
-            .from("users")
-            .update(userData)
-            .eq('id', user.id);
-          
-          if (updateError) {
-            console.error("Error updating user data:", updateError);
-          }
-        }
+      if (error) {
+        console.error("Error upserting user data:", error);
       }
     } catch (err) {
       console.error("Unexpected error syncing user data:", err);
@@ -416,7 +405,7 @@ export default function Auth() {
             phone: formData.phone,
             accepted_terms: acceptedTerms,
           },
-          emailRedirectTo: `${APP_URL}/auth/callback`,
+          emailRedirectTo: `${APP_URL}/auth`,
         },
       });
       
@@ -433,14 +422,13 @@ export default function Auth() {
       }
 
       if (data.user) {
-        // No need to sync here if using trigger
-        // await syncUserData(data.user); // Comment out or remove if trigger is set up
+        // Rely on trigger for insert, no sync here
         setSuccessMessage("Account created successfully! Please check your email to confirm your account.");
         setMode("login");
         setFormData({ name: "", phone: "", email: "", password: "" });
         setErrors({});
         setAttemptCount(0);
-        setAcceptedTerms(false); // Reset for next signup
+        setAcceptedTerms(false);
       }
     } catch (err) {
       const errorInfo = getErrorMessage(err);
@@ -515,7 +503,6 @@ export default function Auth() {
     }
   };
 
-  // UPDATED: handleForgotPassword function
   const handleForgotPassword = async (e) => {
     e.preventDefault();
     if (envError) {
@@ -534,7 +521,7 @@ export default function Auth() {
     setLoading(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(formData.email, {
-        redirectTo: `${APP_URL}/auth/confirm`,
+        redirectTo: `${APP_URL}/auth`,
       });
       
       if (error) {
@@ -570,7 +557,7 @@ export default function Auth() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${APP_URL}/auth/callback`,
+          redirectTo: `${APP_URL}/auth`,
           queryParams: {
             access_type: "offline",
             prompt: "select_account",
@@ -579,7 +566,6 @@ export default function Auth() {
       });
       
       if (error) throw error;
-      // User will be redirected, no need to setLoading(false) here
     } catch (err) {
       console.error("Google OAuth error:", err);
       toast.error(
@@ -681,7 +667,6 @@ export default function Auth() {
               </div>
             </div>
             
-            {/* Terms and Conditions Acceptance - UPDATED */}
             <div className="terms-acceptance">
               <label className="terms-checkbox">
                 <input
