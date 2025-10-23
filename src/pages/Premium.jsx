@@ -193,7 +193,7 @@ const Premium = () => {
         )}
         {totalStores < 1000 ? (
           <p className="cs-offer-text">
-            Limited Offer: Free store creation for the first 1000 stores! ({6 - totalStores} slots left)
+            Limited Offer: Free store creation for the first 1000 stores! ({1000 - totalStores} slots left)
           </p>
         ) : (
           <p className="cs-offer-text">

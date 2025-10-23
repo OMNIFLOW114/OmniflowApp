@@ -1,170 +1,240 @@
-/* ========================
-   Base Light Mode Styles
-   ======================== */
+/* FeaturedHighlights.css */
+
+/* Base Styles */
 .featured-highlights-container {
   padding: 2rem 1rem;
   background: #fafafa;
 }
 
 .section-title {
-  font-size: 1.5rem;
-  font-weight: bold;
-  margin-bottom: 1.5rem;
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin-bottom: 2rem;
   text-align: center;
-  color: #333;
+  color: #1a1a1a;
+  position: relative;
+}
+
+.section-title::after {
+  content: '';
+  display: block;
+  width: 60px;
+  height: 3px;
+  background: #007bff;
+  margin: 0.5rem auto 0;
+  border-radius: 2px;
 }
 
 .featured-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   gap: 1.5rem;
 }
 
 .featured-card {
-  background: #fff;
-  border-radius: 12px;
+  background: #ffffff;
+  border-radius: 16px;
   overflow: hidden;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
   cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.featured-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(90deg, #007bff, #00c6ff);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.featured-card:hover::before {
+  opacity: 1;
 }
 
 .featured-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+  transform: translateY(-8px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+}
+
+.image-container {
+  position: relative;
+  height: 220px;
+  overflow: hidden;
+  background: #f0f0f0;
 }
 
 .featured-image {
   width: 100%;
-  height: 180px;
+  height: 100%;
   object-fit: cover;
-  display: block;
+  transition: transform 0.4s ease;
+}
+
+.featured-card:hover .featured-image {
+  transform: scale(1.08);
+}
+
+.discount-badge {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: #e63946;
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.4rem 0.8rem;
+  border-radius: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  z-index: 1;
 }
 
 .featured-info {
-  padding: 1rem;
+  padding: 1.25rem;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
-.featured-info h3 {
-  font-size: 1rem;
+.product-name {
+  font-size: 1.1rem;
   font-weight: 600;
-  margin-bottom: 0.5rem;
-  color: #222;
+  margin-bottom: 0.75rem;
+  color: #212529;
+  line-height: 1.3;
 }
 
-.stars {
-  color: #ffb400;
-  margin-bottom: 0.5rem;
+.rating {
+  display: flex;
+  margin-bottom: 0.75rem;
 }
 
 .star-filled {
-  margin-right: 2px;
+  color: #ff9f43;
 }
 
-.category {
-  font-size: 0.85rem;
-  color: #777;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-bottom: 0.5rem;
+.star-empty {
+  color: #dee2e6;
 }
 
 .price-section {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
 }
 
 .price {
-  font-size: 1.1rem;
-  font-weight: bold;
-  color: #27ae60;
-}
-
-.discount {
-  font-size: 0.85rem;
-  background: #ff4d4f;
-  color: #fff;
-  padding: 2px 6px;
-  border-radius: 4px;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #28a745;
 }
 
 .meta {
   font-size: 0.8rem;
-  color: #555;
+  color: #6c757d;
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
 }
 
-/* ========================
-   Dark Mode Styles
-   ======================== */
+.icon {
+  font-size: 1rem;
+  color: #495057;
+}
+
+/* Dark Mode */
 @media (prefers-color-scheme: dark) {
   .featured-highlights-container {
     background: #121212;
   }
 
   .section-title {
-    color: #f1f1f1;
+    color: #f8f9fa;
+  }
+
+  .section-title::after {
+    background: #4dabf7;
   }
 
   .featured-card {
     background: #1e1e1e;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   }
 
   .featured-card:hover {
-    box-shadow: 0 6px 12px rgba(0,0,0,0.4);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
   }
 
-  .featured-info h3 {
-    color: #f9f9f9;
+  .featured-card::before {
+    background: linear-gradient(90deg, #4dabf7, #22d3ee);
   }
 
-  .category {
-    color: #bbb;
+  .image-container {
+    background: #2c2c2c;
+  }
+
+  .product-name {
+    color: #f8f9fa;
   }
 
   .price {
-    color: #4caf7d;
+    color: #38c172;
   }
 
   .meta {
-    color: #aaa;
+    color: #adb5bd;
+  }
+
+  .star-empty {
+    color: #495057;
+  }
+
+  .discount-badge {
+    background: #e63946;
+  }
+
+  .icon {
+    color: #ced4da;
   }
 }
 
-/* ========================
-   Responsiveness
-   ======================== */
+/* Responsiveness */
 
-/* Force 2 per row on mobile only */
+/* Mobile */
 @media screen and (max-width: 768px) {
   .featured-grid {
-    grid-template-columns: repeat(2, 1fr) !important;
+    grid-template-columns: repeat(2, 1fr);
     gap: 1rem;
   }
 
-  .featured-image {
-    height: 140px;
+  .image-container {
+    height: 180px;
   }
 
-  .featured-info h3 {
-    font-size: 0.9rem;
+  .product-name {
+    font-size: 1rem;
+  }
+
+  .price {
+    font-size: 1.1rem;
   }
 }
 
-/* Tablet Adjustments */
+/* Tablet */
 @media screen and (min-width: 769px) and (max-width: 1024px) {
   .featured-grid {
     grid-template-columns: repeat(3, 1fr);
   }
 
-  .featured-image {
-    height: 160px;
+  .image-container {
+    height: 200px;
   }
 }
 
@@ -172,5 +242,9 @@
 @media screen and (min-width: 1025px) {
   .featured-grid {
     grid-template-columns: repeat(4, 1fr);
+  }
+
+  .image-container {
+    height: 220px;
   }
 }
