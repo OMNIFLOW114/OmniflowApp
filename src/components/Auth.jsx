@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback, Component } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { supabase } from "@/supabase";
 import { Button } from "@/components/ui/button";
 import toast, { Toaster } from "react-hot-toast";
-import { Loader2, Eye, EyeOff, X } from "lucide-react";
+import { Loader2, Eye, EyeOff } from "lucide-react";
 import "./Auth.css";
 
 const APP_URL = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
@@ -53,27 +53,24 @@ export default function Auth() {
   const navigate = useNavigate();
   const [mode, setMode] = useState("login");
   const [loading, setLoading] = useState(false);
-  const [otpLoading, setOtpLoading] = useState(false);
   const [formData, setFormData] = useState({ 
     name: "", 
     phone: "", 
     email: "", 
     password: "" 
   });
-  const [otp, setOtp] = useState("");
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
-  const [otpResendCooldown, setOtpResendCooldown] = useState(0);
   const [attemptCount, setAttemptCount] = useState(0);
-  const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
   const [envError, setEnvError] = useState(null);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
 
   // 🧩 Hidden Developer Shortcut — ALT + A → Admin Login
   useEffect(() => {
     const handleKeyShortcut = (e) => {
       if (e.altKey && e.key.toLowerCase() === "a") {
         e.preventDefault();
-        toast.success("🔐 Admin Access Shortcut Activated");
         navigate("/admin");
       }
     };
@@ -137,7 +134,7 @@ export default function Auth() {
 
           if (data?.session?.user) {
             await syncUserData(data.session.user);
-            toast.success("Successfully signed in with Google");
+            setSuccessMessage("Successfully signed in with Google");
             window.history.replaceState({}, document.title, window.location.pathname);
             navigate("/home");
           } else {
@@ -307,30 +304,56 @@ export default function Auth() {
     }
   };
 
-  // Sync user data after sign-in/sign-up
+  // Sync user data after sign-in/sign-up - FIXED VERSION
   const syncUserData = async (user) => {
     try {
       if (!user?.id) return;
 
-      const { error } = await supabase
-        .from("users")
-        .upsert(
-          {
-            id: user.id,
-            email: user.email,
-            full_name: user.user_metadata?.full_name || formData.name || user.email?.split("@")[0] || "User",
-            phone: formData.phone || user.user_metadata?.phone,
-            updated_at: new Date().toISOString(),
-          },
-          { 
-            onConflict: 'id',
-            ignoreDuplicates: false
+      const userData = {
+        id: user.id,
+        email: user.email,
+        full_name: user.user_metadata?.full_name || formData.name || user.email?.split("@")[0] || "User",
+        phone: formData.phone || user.user_metadata?.phone,
+        updated_at: new Date().toISOString(),
+      };
+
+      // Only include accepted_terms if we're in signup mode and user accepted terms
+      if (mode === "signup" && acceptedTerms) {
+        // Check if accepted_terms column exists first
+        try {
+          const { error: testError } = await supabase
+            .from('users')
+            .select('accepted_terms')
+            .limit(1);
+          
+          if (!testError) {
+            userData.accepted_terms = acceptedTerms;
           }
-        );
-      
-      if (error) {
-        console.error("Error syncing user data:", error);
-        // Don't throw error here as it shouldn't block auth flow
+        } catch (columnError) {
+          console.log('accepted_terms column not found, skipping...');
+        }
+      }
+
+      // Use simple INSERT instead of UPSERT to avoid RLS issues
+      const { error: insertError } = await supabase
+        .from("users")
+        .insert(userData);
+
+      // If insert fails due to duplicate (user already exists), that's fine
+      if (insertError && insertError.code !== '23505') {
+        console.error("Error inserting user data:", insertError);
+        
+        // If not a duplicate error, try update as fallback
+        if (insertError.code !== '23505') {
+          const { error: updateError } = await supabase
+            .from("users")
+            .update(userData)
+            .eq('id', user.id);
+          
+          if (updateError) {
+            console.error("Error updating user data:", updateError);
+          }
+        }
       }
     } catch (err) {
       console.error("Unexpected error syncing user data:", err);
@@ -366,6 +389,12 @@ export default function Auth() {
       return;
     }
 
+    // Check if terms are accepted
+    if (!acceptedTerms) {
+      toast.error("Please accept the Terms & Conditions to continue.");
+      return;
+    }
+
     setLoading(true);
     try {
       const emailExists = await checkEmailExists(formData.email);
@@ -384,7 +413,8 @@ export default function Auth() {
         options: {
           data: { 
             full_name: formData.name, 
-            phone: formData.phone 
+            phone: formData.phone,
+            accepted_terms: acceptedTerms,
           },
           emailRedirectTo: `${APP_URL}/auth/callback`,
         },
@@ -392,17 +422,35 @@ export default function Auth() {
       
       if (error) throw error;
 
+      // Check for fake user (existing email)
+      if (!data.user?.identities || data.user.identities.length === 0) {
+        toast.error("This account already exists. Proceed to login page.");
+        setTimeout(() => {
+          setMode("login");
+          setFormData((prev) => ({ ...prev, password: "" }));
+        }, 2000);
+        return;
+      }
+
       if (data.user) {
-        await syncUserData(data.user);
-        toast.success("Account created successfully! Please check your email to confirm your account.");
+        // No need to sync here if using trigger
+        // await syncUserData(data.user); // Comment out or remove if trigger is set up
+        setSuccessMessage("Account created successfully! Please check your email to confirm your account.");
         setMode("login");
         setFormData({ name: "", phone: "", email: "", password: "" });
         setErrors({});
         setAttemptCount(0);
+        setAcceptedTerms(false); // Reset for next signup
       }
     } catch (err) {
       const errorInfo = getErrorMessage(err);
       toast.error(errorInfo.message);
+      if (errorInfo.type === "user_exists") {
+        setTimeout(() => {
+          setMode("login");
+          setFormData((prev) => ({ ...prev, password: "" }));
+        }, 2000);
+      }
       setAttemptCount((prev) => prev + 1);
     } finally {
       setLoading(false);
@@ -452,7 +500,7 @@ export default function Auth() {
 
       if (data?.user) {
         await syncUserData(data.user);
-        toast.success("Welcome back! 👋");
+        setSuccessMessage("Welcome back! 👋");
         navigate("/home");
         setFormData({ name: "", phone: "", email: "", password: "" });
         setErrors({});
@@ -498,7 +546,7 @@ export default function Auth() {
         throw error;
       }
       
-      toast.success("Password reset link sent! Check your email for instructions.");
+      setSuccessMessage("Password reset link sent! Check your email for instructions.");
       setMode("login");
       setFormData((prev) => ({ ...prev, password: "" }));
       setErrors({});
@@ -509,121 +557,6 @@ export default function Auth() {
       setAttemptCount((prev) => prev + 1);
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Check if phone exists in users table
-  const checkPhoneExists = async (phone) => {
-    try {
-      const { data, error } = await supabase
-        .from("users")
-        .select("phone")
-        .eq("phone", phone)
-        .maybeSingle();
-      if (error) throw error;
-      return !!data;
-    } catch (err) {
-      console.error("Error checking phone:", err);
-      return false;
-    }
-  };
-
-  const handleSendOtp = async () => {
-    if (envError) {
-      toast.error("Cannot send OTP due to missing Supabase configuration.");
-      return;
-    }
-    if (attemptCount >= 5) {
-      toast.error("Too many attempts. Please wait a minute and try again.");
-      return;
-    }
-    if (!formData.phone || !validatePhone(formData.phone)) {
-      toast.error("Please enter a valid phone number in +254XXXXXXXXX format.");
-      return;
-    }
-
-    setOtpLoading(true);
-    try {
-      const phoneExists = await checkPhoneExists(formData.phone);
-      if (!phoneExists) {
-        toast.error("No account found with this phone number. Please sign up first.");
-        setIsOtpModalOpen(false);
-        setTimeout(() => setMode("signup"), 2000);
-        return;
-      }
-
-      const { error } = await supabase.auth.signInWithOtp({
-        phone: formData.phone,
-        options: {
-          shouldCreateUser: false,
-        },
-      });
-      
-      if (error) throw error;
-      
-      toast.success("OTP sent to your phone via SMS.");
-      setOtpResendCooldown(60);
-      setAttemptCount(0);
-    } catch (err) {
-      const errorInfo = getErrorMessage(err);
-      toast.error(errorInfo.message);
-      setAttemptCount((prev) => prev + 1);
-    } finally {
-      setOtpLoading(false);
-    }
-  };
-
-  const handleVerifyOtp = async () => {
-    if (envError) {
-      toast.error("Cannot verify OTP due to missing Supabase configuration.");
-      return;
-    }
-    if (attemptCount >= 5) {
-      toast.error("Too many attempts. Please wait a minute and try again.");
-      return;
-    }
-    if (!formData.phone || !validatePhone(formData.phone)) {
-      toast.error("Please enter a valid phone number.");
-      return;
-    }
-    if (otp.length !== 6) {
-      toast.error("Please enter the 6-digit OTP sent to your phone.");
-      return;
-    }
-
-    setOtpLoading(true);
-    try {
-      const { data, error } = await supabase.auth.verifyOtp({
-        phone: formData.phone,
-        token: otp,
-        type: "sms",
-      });
-      
-      if (error) {
-        const errorInfo = getErrorMessage(error);
-        if (errorInfo.type === "user_not_found") {
-          toast.error("No account found with this phone number.");
-          return;
-        }
-        throw error;
-      }
-
-      if (data?.user) {
-        await syncUserData(data.user);
-        toast.success("Logged in successfully with OTP! 🎉");
-        setIsOtpModalOpen(false);
-        navigate("/home");
-        setFormData({ name: "", phone: "", email: "", password: "" });
-        setOtp("");
-        setErrors({});
-        setAttemptCount(0);
-      }
-    } catch (err) {
-      const errorInfo = getErrorMessage(err);
-      toast.error(errorInfo.message);
-      setAttemptCount((prev) => prev + 1);
-    } finally {
-      setOtpLoading(false);
     }
   };
 
@@ -656,14 +589,6 @@ export default function Auth() {
     }
   };
 
-  // OTP resend cooldown
-  useEffect(() => {
-    if (otpResendCooldown > 0) {
-      const timer = setTimeout(() => setOtpResendCooldown(otpResendCooldown - 1), 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [otpResendCooldown]);
-
   // Reset attempt count after 1 minute
   useEffect(() => {
     if (attemptCount >= 5) {
@@ -671,6 +596,14 @@ export default function Auth() {
       return () => clearTimeout(resetTimer);
     }
   }, [attemptCount]);
+
+  // Clear success message after 5 seconds
+  useEffect(() => {
+    if (successMessage) {
+      const timer = setTimeout(() => setSuccessMessage(""), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage]);
 
   const renderForm = () => {
     switch (mode) {
@@ -747,10 +680,32 @@ export default function Auth() {
                 Password must contain uppercase, lowercase, number, and be at least 8 characters
               </div>
             </div>
+            
+            {/* Terms and Conditions Acceptance - UPDATED */}
+            <div className="terms-acceptance">
+              <label className="terms-checkbox">
+                <input
+                  type="checkbox"
+                  checked={acceptedTerms}
+                  onChange={(e) => setAcceptedTerms(e.target.checked)}
+                  className="checkbox-input"
+                />
+                <span className="checkmark"></span>
+                I agree to the{" "}
+                <button
+                  type="button"
+                  className="terms-link"
+                  onClick={() => navigate('/terms')}
+                >
+                  Terms & Conditions
+                </button>
+              </label>
+            </div>
+
             <Button
               type="submit"
               className="auth-button"
-              disabled={loading || Object.values(errors).some((e) => e) || envError}
+              disabled={loading || Object.values(errors).some((e) => e) || envError || !acceptedTerms}
             >
               {loading ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
               {loading ? "Creating Account..." : "Create Account"}
@@ -808,14 +763,6 @@ export default function Auth() {
                 aria-label="Forgot password"
               >
                 Forgot password?
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsOtpModalOpen(true)}
-                className="link-btn"
-                aria-label="Login with OTP"
-              >
-                Login with OTP
               </button>
             </div>
             <Button
@@ -886,9 +833,6 @@ export default function Auth() {
               background: '#363636',
               color: '#fff',
             },
-            success: {
-              duration: 3000,
-            },
           }} 
         />
         <div className="auth-form-container glass-card">
@@ -896,6 +840,11 @@ export default function Auth() {
             <div className="env-error-message">
               <p>{envError}</p>
               <p>Please update your .env file and reload the page.</p>
+            </div>
+          )}
+          {successMessage && (
+            <div className="success-message">
+              {successMessage}
             </div>
           )}
           <h2
@@ -962,93 +911,6 @@ export default function Auth() {
             </>
           )}
         </div>
-        <AnimatePresence>
-          {isOtpModalOpen && (
-            <motion.div
-              className="otp-modal-overlay"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              onClick={() => setIsOtpModalOpen(false)}
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="otp-modal-title"
-            >
-              <motion.div
-                className="otp-modal"
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.8, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <button
-                  className="modal-close-btn"
-                  onClick={() => setIsOtpModalOpen(false)}
-                  aria-label="Close OTP modal"
-                >
-                  <X size={20} />
-                </button>
-                <h3 id="otp-modal-title" className="otp-modal-title">
-                  Login with OTP
-                </h3>
-                <div className="form-group">
-                  <label htmlFor="otp-phone">Phone Number *</label>
-                  <input
-                    id="otp-phone"
-                    name="phone"
-                    placeholder="+2547..."
-                    onChange={handleChange}
-                    value={formData.phone}
-                    required
-                    aria-invalid={!!errors.phone}
-                    aria-describedby={errors.phone ? "otp-phone-error" : undefined}
-                  />
-                  {errors.phone && (
-                    <span id="otp-phone-error" className="error-text">
-                      {errors.phone}
-                    </span>
-                  )}
-                </div>
-                <div className="form-group">
-                  <label htmlFor="otp">OTP Code *</label>
-                  <input
-                    id="otp"
-                    className="otp-input"
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-                    maxLength={6}
-                    placeholder="123456"
-                    required
-                    aria-describedby="otp-hint"
-                  />
-                  <span id="otp-hint" className="hint-text">
-                    Enter the 6-digit code sent to your phone.
-                  </span>
-                </div>
-                <div className="otp-modal-buttons">
-                  <Button
-                    onClick={handleSendOtp}
-                    className="auth-button"
-                    disabled={otpLoading || loading || otpResendCooldown > 0 || !!errors.phone || envError}
-                  >
-                    {otpLoading ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
-                    {otpResendCooldown > 0 ? `Resend OTP in ${otpResendCooldown}s` : otpLoading ? "Sending OTP..." : "Send OTP"}
-                  </Button>
-                  <Button
-                    onClick={handleVerifyOtp}
-                    className="auth-button"
-                    disabled={otpLoading || loading || otp.length !== 6 || !!errors.phone || envError}
-                  >
-                    {otpLoading ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
-                    {otpLoading ? "Verifying..." : "Verify OTP"}
-                  </Button>
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </motion.div>
     </AuthErrorBoundary>
   );
