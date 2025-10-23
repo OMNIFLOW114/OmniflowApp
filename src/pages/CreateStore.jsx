@@ -151,12 +151,19 @@ const CreateStore = () => {
     if (!file || !user?.id) return null;
     const safeName = file.name.replace(/\s+/g, "_");
     const filePath = `${pathPrefix}/${user.id}_${Date.now()}_${safeName}`;
-    const { error } = await supabase.storage.from("store-documents").upload(filePath, file, {
-      cacheControl: "3600",
-      upsert: false,
-    });
-    if (error) throw error;
-    return filePath;
+    try {
+      const { data, error } = await supabase.storage.from("store-documents").upload(filePath, file, {
+        cacheControl: "3600",
+        upsert: false,
+      });
+      if (error) {
+        console.error("Upload error:", error);
+        throw new Error(`Upload failed: ${error.message}`);
+      }
+      return data.path;
+    } catch (err) {
+      throw err;
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -207,13 +214,16 @@ const CreateStore = () => {
 
       const { error } = await supabase.from("store_requests").insert(payload);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Insert error:", error);
+        throw new Error(`Insert failed: ${error.message}`);
+      }
 
       setRequestStatus("pending");
       toast.success("Store request submitted. We'll notify you when it's reviewed.");
     } catch (err) {
       console.error("submit error:", err);
-      toast.error("Failed to submit request. Try again later.");
+      toast.error(`Failed to submit request: ${err.message}. Please check your Supabase storage policies and try again.`);
     } finally {
       setSubmitting(false);
     }

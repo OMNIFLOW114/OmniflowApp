@@ -17,7 +17,8 @@ import {
   FiFileText,
   FiDownload,
   FiChevronLeft,
-  FiChevronRight
+  FiChevronRight,
+  FiRefreshCw
 } from 'react-icons/fi';
 import { FaStore, FaCheck, FaTimes, FaCrown, FaBan } from 'react-icons/fa';
 import { toast } from 'react-hot-toast';
@@ -42,9 +43,9 @@ const StoreOversight = () => {
   const [actionLoading, setActionLoading] = useState(null);
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+  const [documentLoading, setDocumentLoading] = useState(null);
 
   const STORES_PER_PAGE = 9;
-
   const adminUserUUID = '755ed9e9-69f6-459c-ad44-d1b93b80a4c6';
 
   const fetchData = async () => {
@@ -55,14 +56,18 @@ const StoreOversight = () => {
         supabase.from('store_requests').select('*')
       ]);
 
+      if (storesResponse.error) throw storesResponse.error;
+      if (requestsResponse.error) throw requestsResponse.error;
+
       setStores(storesResponse.data || []);
       setRequests(requestsResponse.data || []);
       setTotalCount(storesResponse.count || 0);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Failed to load store data');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -100,17 +105,20 @@ const StoreOversight = () => {
 
   const updateStoreStatus = async (id, updates, actionName) => {
     setActionLoading(`${id}-${actionName}`);
-    const { error } = await supabase.from('stores').update(updates).eq('id', id);
-    
-    if (error) {
-      console.error('Update error:', error);
-      toast.error(`Failed to ${actionName}`);
-    } else {
+    try {
+      const { error } = await supabase.from('stores').update(updates).eq('id', id);
+      
+      if (error) throw error;
+
       const updated = stores.map(s => s.id === id ? { ...s, ...updates } : s);
       setStores(updated);
       toast.success(`Store ${actionName} successfully`);
+    } catch (error) {
+      console.error('Update error:', error);
+      toast.error(`Failed to ${actionName}`);
+    } finally {
+      setActionLoading(null);
     }
-    setActionLoading(null);
   };
 
   const toggleStoreStatus = async (store) => {
@@ -135,31 +143,39 @@ const StoreOversight = () => {
   const approveStoreRequest = async (request) => {
     setActionLoading(`approve-${request.id}`);
     
-    const payload = {
-      owner_id: request.user_id,
-      name: request.name,
-      description: request.description || '',
-      contact_email: request.contact_email || '',
-      contact_phone: request.contact_phone || '',
-      location: request.location || '',
-      business_document: request.business_document || '',
-      owner_id_card: request.owner_id_card || '',
-      is_active: true,
-      is_verified: true,
-      verified_by: adminUserUUID,
-      verified_at: new Date().toISOString()
-    };
-
     try {
-      const { error: insertError } = await supabase.from('stores').insert(payload);
-      const { error: deleteError } = await supabase.from('store_requests').delete().eq('id', request.id);
+      const payload = {
+        owner_id: request.user_id,
+        name: request.name,
+        description: request.description || '',
+        contact_email: request.contact_email || '',
+        contact_phone: request.contact_phone || '',
+        location: request.location || '',
+        business_document: request.business_document || '',
+        owner_id_card: request.owner_id_card || '',
+        is_active: true,
+        is_verified: true,
+        verified_by: adminUserUUID,
+        verified_at: new Date().toISOString()
+      };
 
-      if (insertError || deleteError) {
-        throw new Error(insertError?.message || deleteError?.message);
-      }
+      const { data: newStore, error: insertError } = await supabase
+        .from('stores')
+        .insert(payload)
+        .select()
+        .single();
 
-      setStores((prev) => [...prev, { ...payload, id: request.id }]);
-      setRequests((prev) => prev.filter((r) => r.id !== request.id));
+      if (insertError) throw insertError;
+
+      const { error: deleteError } = await supabase
+        .from('store_requests')
+        .delete()
+        .eq('id', request.id);
+
+      if (deleteError) throw deleteError;
+
+      setStores(prev => [...prev, newStore]);
+      setRequests(prev => prev.filter(r => r.id !== request.id));
 
       await supabase.from('notifications').insert({
         user_id: request.user_id,
@@ -174,18 +190,23 @@ const StoreOversight = () => {
     } catch (error) {
       console.error('Store approval failed:', error);
       toast.error('Failed to approve store request');
+    } finally {
+      setActionLoading(null);
     }
-    setActionLoading(null);
   };
 
   const rejectStoreRequest = async (request) => {
     setActionLoading(`reject-${request.id}`);
     
     try {
-      const { error } = await supabase.from('store_requests').delete().eq('id', request.id);
+      const { error } = await supabase
+        .from('store_requests')
+        .delete()
+        .eq('id', request.id);
+
       if (error) throw error;
 
-      setRequests((prev) => prev.filter((r) => r.id !== request.id));
+      setRequests(prev => prev.filter(r => r.id !== request.id));
 
       await supabase.from('notifications').insert({
         user_id: request.user_id,
@@ -200,24 +221,30 @@ const StoreOversight = () => {
     } catch (error) {
       console.error('Rejection failed:', error);
       toast.error('Failed to reject store request');
+    } finally {
+      setActionLoading(null);
     }
-    setActionLoading(null);
   };
 
   const deleteStore = async (store) => {
     setActionLoading(`delete-${store.id}`);
     
     try {
-      const { error } = await supabase.from('stores').delete().eq('id', store.id);
+      const { error } = await supabase
+        .from('stores')
+        .delete()
+        .eq('id', store.id);
+
       if (error) throw error;
 
-      setStores((prev) => prev.filter((s) => s.id !== store.id));
+      setStores(prev => prev.filter(s => s.id !== store.id));
       toast.success('Store deleted successfully');
     } catch (error) {
       console.error('Deletion failed:', error);
       toast.error('Failed to delete store');
+    } finally {
+      setActionLoading(null);
     }
-    setActionLoading(null);
   };
 
   const getStoreStatus = (store) => {
@@ -231,12 +258,105 @@ const StoreOversight = () => {
   };
 
   const formatDate = (dateString) => {
+    if (!dateString) return 'Never';
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric'
     });
   };
+
+  // Enhanced document handling function
+  const handleDocumentView = async (documentData, documentType) => {
+    if (!documentData) {
+      toast.error('No document available');
+      return;
+    }
+
+    setDocumentLoading(documentType);
+    
+    try {
+      let filePath = documentData;
+      
+      // Handle different document data formats
+      if (typeof documentData === 'string') {
+        try {
+          const parsed = JSON.parse(documentData);
+          filePath = parsed.path || parsed.url || documentData;
+        } catch {
+          filePath = documentData;
+        }
+      } else if (typeof documentData === 'object') {
+        filePath = documentData.path || documentData.url || documentData;
+      }
+
+      console.log('Attempting to access document:', filePath);
+
+      // First try to get public URL
+      const { data: publicUrlData } = supabase.storage
+        .from('store-documents')
+        .getPublicUrl(filePath);
+
+      // Check if public URL works
+      const testPublicUrl = await testUrl(publicUrlData.publicUrl);
+      if (testPublicUrl) {
+        window.open(publicUrlData.publicUrl, '_blank');
+        return;
+      }
+
+      // If public URL doesn't work, try signed URL
+      const { data: signedData, error } = await supabase.storage
+        .from('store-documents')
+        .createSignedUrl(filePath, 3600);
+
+      if (error) {
+        console.error('Signed URL error:', error);
+        throw new Error('Document not accessible');
+      }
+
+      window.open(signedData.signedUrl, '_blank');
+      
+    } catch (error) {
+      console.error('Document access error:', error);
+      toast.error('Unable to load document. It may have been deleted or is inaccessible.');
+    } finally {
+      setDocumentLoading(null);
+    }
+  };
+
+  // Helper function to test if URL is accessible
+  const testUrl = async (url) => {
+    try {
+      const response = await fetch(url, { method: 'HEAD' });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  };
+
+  // Document button component for reusability
+  const DocumentButton = ({ documentData, label, type }) => (
+    <motion.button 
+      className="doc-link"
+      onClick={() => handleDocumentView(documentData, type)}
+      disabled={documentLoading === type}
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
+    >
+      <FiFileText />
+      {documentLoading === type ? (
+        <>
+          <FiRefreshCw className="loading-spinner-small" />
+          Loading...
+        </>
+      ) : (
+        <>
+          {label}
+          <FiDownload />
+        </>
+      )}
+    </motion.button>
+  );
 
   if (loading) {
     return (
@@ -325,6 +445,15 @@ const StoreOversight = () => {
               onChange={handleSearch}
             />
           </div>
+          <motion.button
+            className="refresh-btn"
+            onClick={fetchData}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <FiRefreshCw />
+            Refresh
+          </motion.button>
         </motion.section>
 
         {/* Content Section */}
@@ -383,28 +512,18 @@ const StoreOversight = () => {
                       {(request.business_document || request.owner_id_card) && (
                         <div className="document-links">
                           {request.business_document && (
-                            <a 
-                              href={`https://kkxgrrcbyluhdfsoywvd.supabase.co/storage/v1/object/public/store-documents/${request.business_document}`} 
-                              target="_blank" 
-                              rel="noreferrer"
-                              className="doc-link"
-                            >
-                              <FiFileText />
-                              Business Document
-                              <FiDownload />
-                            </a>
+                            <DocumentButton
+                              documentData={request.business_document}
+                              label="Business Document"
+                              type="business"
+                            />
                           )}
                           {request.owner_id_card && (
-                            <a 
-                              href={`https://kkxgrrcbyluhdfsoywvd.supabase.co/storage/v1/object/public/store-documents/${request.owner_id_card}`} 
-                              target="_blank" 
-                              rel="noreferrer"
-                              className="doc-link"
-                            >
-                              <FiFileText />
-                              ID Document
-                              <FiDownload />
-                            </a>
+                            <DocumentButton
+                              documentData={request.owner_id_card}
+                              label="ID Document"
+                              type="id"
+                            />
                           )}
                         </div>
                       )}
@@ -419,13 +538,11 @@ const StoreOversight = () => {
                         whileTap={{ scale: 0.95 }}
                       >
                         {actionLoading === `approve-${request.id}` ? (
-                          <div className="loading-dots"></div>
+                          <FiRefreshCw className="loading-spinner-small" />
                         ) : (
-                          <>
-                            <FiCheckCircle />
-                            Approve
-                          </>
+                          <FiCheckCircle />
                         )}
+                        {actionLoading === `approve-${request.id}` ? 'Approving...' : 'Approve'}
                       </motion.button>
                       <motion.button
                         className="reject-btn"
@@ -435,13 +552,11 @@ const StoreOversight = () => {
                         whileTap={{ scale: 0.95 }}
                       >
                         {actionLoading === `reject-${request.id}` ? (
-                          <div className="loading-dots"></div>
+                          <FiRefreshCw className="loading-spinner-small" />
                         ) : (
-                          <>
-                            <FiXCircle />
-                            Reject
-                          </>
+                          <FiXCircle />
                         )}
+                        {actionLoading === `reject-${request.id}` ? 'Rejecting...' : 'Reject'}
                       </motion.button>
                     </div>
                   </motion.div>
@@ -540,13 +655,14 @@ const StoreOversight = () => {
                             whileTap={{ scale: 0.95 }}
                           >
                             {actionLoading === `${store.id}-${store.is_active ? 'deactivated' : 'activated'}` ? (
-                              <div className="loading-dots"></div>
+                              <FiRefreshCw className="loading-spinner-small" />
                             ) : (
-                              <>
-                                {store.is_active ? <FiXCircle /> : <FiCheckCircle />}
-                                {store.is_active ? 'Deactivate' : 'Activate'}
-                              </>
+                              store.is_active ? <FiXCircle /> : <FiCheckCircle />
                             )}
+                            {actionLoading === `${store.id}-${store.is_active ? 'deactivated' : 'activated'}` 
+                              ? 'Updating...' 
+                              : (store.is_active ? 'Deactivate' : 'Activate')
+                            }
                           </motion.button>
                           <motion.button
                             className={`verify-btn ${store.is_verified ? 'unverify' : 'verify'}`}
@@ -556,13 +672,14 @@ const StoreOversight = () => {
                             whileTap={{ scale: 0.95 }}
                           >
                             {actionLoading === `${store.id}-${store.is_verified ? 'unverified' : 'verified'}` ? (
-                              <div className="loading-dots"></div>
+                              <FiRefreshCw className="loading-spinner-small" />
                             ) : (
-                              <>
-                                {store.is_verified ? <FiXCircle /> : <FiCheckCircle />}
-                                {store.is_verified ? 'Unverify' : 'Verify'}
-                              </>
+                              store.is_verified ? <FiXCircle /> : <FiCheckCircle />
                             )}
+                            {actionLoading === `${store.id}-${store.is_verified ? 'unverified' : 'verified'}` 
+                              ? 'Updating...' 
+                              : (store.is_verified ? 'Unverify' : 'Verify')
+                            }
                           </motion.button>
                           <motion.button
                             className="delete-btn"
@@ -572,13 +689,11 @@ const StoreOversight = () => {
                             whileTap={{ scale: 0.95 }}
                           >
                             {actionLoading === `delete-${store.id}` ? (
-                              <div className="loading-dots"></div>
+                              <FiRefreshCw className="loading-spinner-small" />
                             ) : (
-                              <>
-                                <FiTrash2 />
-                                Delete
-                              </>
+                              <FiTrash2 />
                             )}
+                            {actionLoading === `delete-${store.id}` ? 'Deleting...' : 'Delete'}
                           </motion.button>
                         </div>
                       </motion.div>
@@ -695,28 +810,18 @@ const StoreOversight = () => {
                   <h4>Documents</h4>
                   <div className="document-links">
                     {selectedStore.business_document && (
-                      <a 
-                        href={`https://kkxgrrcbyluhdfsoywvd.supabase.co/storage/v1/object/public/store-documents/${selectedStore.business_document}`} 
-                        target="_blank" 
-                        rel="noreferrer"
-                        className="doc-link"
-                      >
-                        <FiFileText />
-                        View Business Document
-                        <FiDownload />
-                      </a>
+                      <DocumentButton
+                        documentData={selectedStore.business_document}
+                        label="View Business Document"
+                        type="business-modal"
+                      />
                     )}
                     {selectedStore.owner_id_card && (
-                      <a 
-                        href={`https://kkxgrrcbyluhdfsoywvd.supabase.co/storage/v1/object/public/store-documents/${selectedStore.owner_id_card}`} 
-                        target="_blank" 
-                        rel="noreferrer"
-                        className="doc-link"
-                      >
-                        <FiFileText />
-                        View ID Card
-                        <FiDownload />
-                      </a>
+                      <DocumentButton
+                        documentData={selectedStore.owner_id_card}
+                        label="View ID Card"
+                        type="id-modal"
+                      />
                     )}
                     {!selectedStore.business_document && !selectedStore.owner_id_card && (
                       <p className="no-documents">No documents available</p>
