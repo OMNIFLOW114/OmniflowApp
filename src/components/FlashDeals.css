@@ -1,37 +1,6 @@
-/* FlashDeals.css */
+/* FlashDeals.css - Fixed Light/Dark Mode */
 
-/* Define CSS variables for light/dark mode */
-:root {
-  --bg-primary: #ffffff;
-  --bg-secondary: #f8f9fa;
-  --text-primary: #212529;
-  --text-secondary: #6c757d;
-  --accent-primary: #ff5722;
-  --accent-secondary: #ff9800;
-  --shadow-light: rgba(0, 0, 0, 0.1);
-  --shadow-dark: rgba(0, 0, 0, 0.2);
-  --border-color: #dee2e6;
-  --discount-bg: #e63946;
-  --timer-bg: linear-gradient(135deg, #ff5722, #ff9800);
-  --card-bg: #ffffff;
-  --card-hover-bg: #f8f9fa;
-}
-
-.dark {
-  --bg-primary: #121212;
-  --bg-secondary: #1e1e1e;
-  --text-primary: #e0e0e0;
-  --text-secondary: #a0a0a0;
-  --accent-primary: #ff5722;
-  --accent-secondary: #ff9800;
-  --shadow-light: rgba(255, 255, 255, 0.05);
-  --shadow-dark: rgba(255, 255, 255, 0.1);
-  --border-color: #333333;
-  --discount-bg: #e63946;
-  --timer-bg: linear-gradient(135deg, #ff5722, #ff9800);
-  --card-bg: #1e1e1e;
-  --card-hover-bg: #2a2a2a;
-}
+/* Remove duplicate :root definitions - Use global CSS variables */
 
 .flash-deals-section {
   padding: 2rem 1rem;
@@ -39,6 +8,7 @@
   color: var(--text-primary);
   max-width: 100%;
   overflow: hidden;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .flash-header {
@@ -47,6 +17,7 @@
   justify-content: flex-start;
   margin-bottom: 1.5rem;
   gap: 1rem;
+  transition: all 0.3s ease;
 }
 
 .flash-header h2 {
@@ -54,17 +25,20 @@
   font-weight: 700;
   margin: 0;
   color: var(--text-primary);
+  transition: color 0.3s ease;
 }
 
 .flash-header p {
   font-size: 1rem;
   color: var(--text-secondary);
   margin: 0;
+  transition: color 0.3s ease;
 }
 
 .flash-icon {
   color: var(--accent-primary);
   font-size: 2rem;
+  transition: color 0.3s ease;
 }
 
 .flash-carousel {
@@ -85,11 +59,13 @@
 .flash-carousel::-webkit-scrollbar-track {
   background: var(--bg-secondary);
   border-radius: 4px;
+  transition: background-color 0.3s ease;
 }
 
 .flash-carousel::-webkit-scrollbar-thumb {
   background: var(--accent-primary);
   border-radius: 4px;
+  transition: background-color 0.3s ease;
 }
 
 .flash-card {
@@ -98,23 +74,35 @@
   background-color: var(--card-bg);
   border-radius: 16px;
   overflow: hidden;
-  box-shadow: 0 4px 12px var(--shadow-light), 0 8px 24px var(--shadow-dark);
+  box-shadow: 
+    0 4px 12px var(--shadow-light),
+    0 8px 24px var(--shadow-dark);
   cursor: pointer;
-  transition: transform 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
+  transition: 
+    transform 0.3s ease,
+    box-shadow 0.3s ease,
+    background-color 0.3s ease,
+    border-color 0.3s ease;
   scroll-snap-align: start;
   position: relative;
+  border: 1px solid var(--border-color);
 }
 
 .flash-card:hover {
   transform: translateY(-8px);
-  box-shadow: 0 8px 16px var(--shadow-light), 0 16px 32px var(--shadow-dark);
+  box-shadow: 
+    0 8px 16px var(--shadow-light),
+    0 16px 32px var(--shadow-dark);
   background-color: var(--card-hover-bg);
+  border-color: var(--accent-primary);
 }
 
 .flash-img-wrapper {
   position: relative;
   height: 180px;
   overflow: hidden;
+  background: var(--bg-secondary);
+  transition: background-color 0.3s ease;
 }
 
 .flash-img {
@@ -132,13 +120,15 @@
   position: absolute;
   top: 12px;
   right: 12px;
-  background-color: var(--discount-bg);
+  background-color: var(--discount-color, #e63946);
   color: #ffffff;
   font-size: 0.9rem;
   font-weight: 600;
   padding: 0.4rem 0.8rem;
   border-radius: 20px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  z-index: 2;
+  transition: background-color 0.3s ease;
 }
 
 .flash-content {
@@ -156,16 +146,19 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  transition: color 0.3s ease;
 }
 
 .flash-rating {
   display: flex;
   gap: 0.2rem;
+  align-items: center;
 }
 
 .star-filled {
-  color: var(--accent-secondary);
+  color: var(--star-filled, #ff9f43);
   font-size: 1rem;
+  transition: color 0.3s ease;
 }
 
 .flash-category {
@@ -175,6 +168,7 @@
   align-items: center;
   gap: 0.3rem;
   margin: 0;
+  transition: color 0.3s ease;
 }
 
 .flash-pricing {
@@ -186,7 +180,8 @@
 .flash-price {
   font-size: 1.2rem;
   font-weight: 700;
-  color: var(--accent-primary);
+  color: var(--price-color, #28a745);
+  transition: color 0.3s ease;
 }
 
 .flash-meta {
@@ -194,13 +189,220 @@
   justify-content: space-between;
   font-size: 0.85rem;
   color: var(--text-secondary);
+  transition: color 0.3s ease;
 }
 
 .flash-timer {
-  background: var(--timer-bg);
+  background: var(--timer-bg, linear-gradient(135deg, #ff5722, #ff9800));
   color: #ffffff;
   padding: 0.3rem 0.6rem;
   border-radius: 20px;
   font-weight: 600;
   white-space: nowrap;
+  transition: background 0.3s ease;
+}
+
+/* Light Mode Specific Overrides */
+[data-theme="light"] .flash-deals-section,
+.light .flash-deals-section {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8f9fa;
+  --text-primary: #212529;
+  --text-secondary: #6c757d;
+  --accent-primary: #ff5722;
+  --accent-secondary: #ff9800;
+  --shadow-light: rgba(0, 0, 0, 0.1);
+  --shadow-dark: rgba(0, 0, 0, 0.2);
+  --border-color: #dee2e6;
+  --discount-color: #e63946;
+  --timer-bg: linear-gradient(135deg, #ff5722, #ff9800);
+  --card-bg: #ffffff;
+  --card-hover-bg: #f8f9fa;
+  --price-color: #28a745;
+  --star-filled: #ff9f43;
+}
+
+/* Dark Mode Specific Overrides */
+[data-theme="dark"] .flash-deals-section,
+.dark .flash-deals-section {
+  --bg-primary: #121212;
+  --bg-secondary: #1e1e1e;
+  --text-primary: #e0e0e0;
+  --text-secondary: #a0a0a0;
+  --accent-primary: #ff5722;
+  --accent-secondary: #ff9800;
+  --shadow-light: rgba(255, 255, 255, 0.05);
+  --shadow-dark: rgba(255, 255, 255, 0.1);
+  --border-color: #333333;
+  --discount-color: #e63946;
+  --timer-bg: linear-gradient(135deg, #ff5722, #ff9800);
+  --card-bg: #1e1e1e;
+  --card-hover-bg: #2a2a2a;
+  --price-color: #38c172;
+  --star-filled: #ff9f43;
+}
+
+/* System Preference Detection */
+@media (prefers-color-scheme: light) {
+  .flash-deals-section:not([data-theme]):not(.light):not(.dark) {
+    --bg-primary: #ffffff;
+    --bg-secondary: #f8f9fa;
+    --text-primary: #212529;
+    --text-secondary: #6c757d;
+    --accent-primary: #ff5722;
+    --accent-secondary: #ff9800;
+    --shadow-light: rgba(0, 0, 0, 0.1);
+    --shadow-dark: rgba(0, 0, 0, 0.2);
+    --border-color: #dee2e6;
+    --discount-color: #e63946;
+    --timer-bg: linear-gradient(135deg, #ff5722, #ff9800);
+    --card-bg: #ffffff;
+    --card-hover-bg: #f8f9fa;
+    --price-color: #28a745;
+    --star-filled: #ff9f43;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .flash-deals-section:not([data-theme]):not(.light):not(.dark) {
+    --bg-primary: #121212;
+    --bg-secondary: #1e1e1e;
+    --text-primary: #e0e0e0;
+    --text-secondary: #a0a0a0;
+    --accent-primary: #ff5722;
+    --accent-secondary: #ff9800;
+    --shadow-light: rgba(255, 255, 255, 0.05);
+    --shadow-dark: rgba(255, 255, 255, 0.1);
+    --border-color: #333333;
+    --discount-color: #e63946;
+    --timer-bg: linear-gradient(135deg, #ff5722, #ff9800);
+    --card-bg: #1e1e1e;
+    --card-hover-bg: #2a2a2a;
+    --price-color: #38c172;
+    --star-filled: #ff9f43;
+  }
+}
+
+/* Responsiveness */
+
+/* Mobile */
+@media screen and (max-width: 768px) {
+  .flash-deals-section {
+    padding: 1.5rem 0.5rem;
+  }
+
+  .flash-header h2 {
+    font-size: 1.5rem;
+  }
+
+  .flash-header p {
+    font-size: 0.9rem;
+  }
+
+  .flash-icon {
+    font-size: 1.8rem;
+  }
+
+  .flash-card {
+    min-width: 180px;
+    max-width: 180px;
+  }
+
+  .flash-img-wrapper {
+    height: 150px;
+  }
+
+  .flash-name {
+    font-size: 1rem;
+  }
+
+  .flash-price {
+    font-size: 1.1rem;
+  }
+
+  .flash-meta {
+    font-size: 0.75rem;
+  }
+
+  .discount-badge {
+    font-size: 0.8rem;
+    padding: 0.3rem 0.6rem;
+    top: 8px;
+    right: 8px;
+  }
+
+  .flash-timer {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+  }
+}
+
+/* Tablet */
+@media screen and (min-width: 769px) and (max-width: 1024px) {
+  .flash-deals-section {
+    padding: 2rem 1rem;
+  }
+
+  .flash-header h2 {
+    font-size: 1.7rem;
+  }
+
+  .flash-card {
+    min-width: 240px;
+    max-width: 240px;
+  }
+
+  .flash-img-wrapper {
+    height: 200px;
+  }
+}
+
+/* Desktop */
+@media screen and (min-width: 1025px) {
+  .flash-deals-section {
+    padding: 2.5rem 2rem;
+  }
+
+  .flash-header h2 {
+    font-size: 2rem;
+  }
+
+  .flash-card {
+    min-width: 260px;
+    max-width: 260px;
+  }
+
+  .flash-img-wrapper {
+    height: 220px;
+  }
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+  .flash-card {
+    border-width: 2px;
+  }
+  
+  .discount-badge,
+  .flash-timer {
+    border: 1px solid currentColor;
+  }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  .flash-card,
+  .flash-img,
+  .discount-badge,
+  .flash-timer {
+    transition: none;
+  }
+  
+  .flash-card:hover {
+    transform: none;
+  }
+  
+  .flash-card:hover .flash-img {
+    transform: none;
+  }
 }

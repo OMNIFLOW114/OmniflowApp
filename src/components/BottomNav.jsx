@@ -1,12 +1,14 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { FaHome, FaCompass, FaPlusCircle, FaBell } from "react-icons/fa";
+import { FaHome, FaShoppingCart, FaHeart, FaBell } from "react-icons/fa";
 import { useNotificationBadge } from "@/context/NotificationBadgeContext";
+import { useAuth } from "@/context/AuthContext";
 import "./BottomNavbar.css";
 
 const BottomNavbar = () => {
   const location = useLocation();
   const { unreadCount } = useNotificationBadge();
+  const { user } = useAuth();
 
   // Hide navbar on auth-related routes AND admin routes
   const hiddenRoutes = [
@@ -44,37 +46,84 @@ const BottomNavbar = () => {
     return null;
   }
 
+  // Cart and Wishlist count states (you can fetch these from your context or API)
+  const cartItemsCount = 0; // Replace with actual cart count from context
+  const wishlistItemsCount = 0; // Replace with actual wishlist count from context
+
   const navItems = [
-    { to: "/", label: "Home", icon: <FaHome size={22} /> },
-    { to: "/discover", label: "Discover", icon: <FaCompass size={22} /> },
-    { to: "/create", label: "Create", icon: <FaPlusCircle size={22} /> },
+    { 
+      to: "/", 
+      label: "Home", 
+      icon: <FaHome size={22} />,
+      requiresAuth: false
+    },
+    { 
+      to: "/cart", 
+      label: "Cart", 
+      icon: (
+        <div className="nav-icon-with-badge">
+          <FaShoppingCart size={22} />
+          {user && cartItemsCount > 0 && (
+            <span className="nav-badge">
+              {cartItemsCount > 9 ? "9+" : cartItemsCount}
+            </span>
+          )}
+        </div>
+      ),
+      requiresAuth: true
+    },
+    { 
+      to: "/wishlist", 
+      label: "Wishlist", 
+      icon: (
+        <div className="nav-icon-with-badge">
+          <FaHeart size={22} />
+          {user && wishlistItemsCount > 0 && (
+            <span className="nav-badge">
+              {wishlistItemsCount > 9 ? "9+" : wishlistItemsCount}
+            </span>
+          )}
+        </div>
+      ),
+      requiresAuth: true
+    },
     {
       to: "/notifications",
       label: "Alerts",
       icon: (
-        <div className="notif-icon">
+        <div className="nav-icon-with-badge">
           <FaBell size={22} />
           {unreadCount > 0 && (
-            <span className="notif-badge">
+            <span className="nav-badge">
               {unreadCount > 9 ? "9+" : unreadCount}
             </span>
           )}
         </div>
       ),
+      requiresAuth: false
     },
   ];
 
+  const handleNavClick = (item, e) => {
+    if (item.requiresAuth && !user) {
+      e.preventDefault();
+      // Redirect to auth page - you can use navigate if needed
+      window.location.href = "/auth";
+    }
+  };
+
   return (
     <nav className="bottom-navbar">
-      {navItems.map(({ to, label, icon }) => (
+      {navItems.map((item) => (
         <Link
-          key={to}
-          to={to}
-          className={`bottom-nav-link ${location.pathname === to ? "active" : ""}`}
+          key={item.to}
+          to={item.to}
+          className={`bottom-nav-link ${location.pathname === item.to ? "active" : ""}`}
+          onClick={(e) => handleNavClick(item, e)}
         >
-          {icon}
-          <span className="nav-label">{label}</span>
-          {location.pathname === to && <span className="active-indicator"></span>}
+          {item.icon}
+          <span className="nav-label">{item.label}</span>
+          {location.pathname === item.to && <span className="active-indicator"></span>}
         </Link>
       ))}
     </nav>

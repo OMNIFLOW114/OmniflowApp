@@ -1,113 +1,204 @@
-/* Bottom Navbar */
 .bottom-navbar {
-  background: linear-gradient(135deg, #ffffffee, #f9fafbee);
-  backdrop-filter: blur(12px);
-  border-top: 1px solid rgba(0, 0, 0, 0.1);
-  padding: 0.6rem 0.8rem;
-  display: flex;
-  justify-content: space-around;
-  align-items: center;
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  z-index: 50;
-  height: 64px;
-  animation: fadeUp 0.3s ease;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  padding: 0.5rem 0;
+  z-index: 1000;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
 }
 
-/* Nav Links */
+html.dark .bottom-navbar {
+  background: rgba(26, 26, 26, 0.95);
+  border-top-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.3);
+}
+
 .bottom-nav-link {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  flex: 1;
-  color: #444;
+  padding: 0.5rem;
   text-decoration: none;
-  font-size: 12px;
+  color: #6b7280;
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
   position: relative;
-  transition: transform 0.2s ease, color 0.3s ease;
+  flex: 1;
+  min-height: 56px;
+}
+
+html.dark .bottom-nav-link {
+  color: #9ca3af;
 }
 
 .bottom-nav-link:hover {
-  color: #2563eb;
+  color: #ff6200;
   transform: translateY(-2px);
 }
 
+html.dark .bottom-nav-link:hover {
+  color: #ff8c00;
+}
+
 .bottom-nav-link.active {
-  color: #2563eb;
+  color: #ff6200;
 }
 
-/* Label */
+html.dark .bottom-nav-link.active {
+  color: #ff8c00;
+}
+
 .nav-label {
-  font-size: 0.75rem;
   margin-top: 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 500;
 }
 
-/* Active Dot */
-.active-indicator {
-  width: 6px;
-  height: 6px;
-  background-color: #2563eb;
-  border-radius: 50%;
+/* Badge styles for cart, wishlist, and notifications */
+.nav-icon-with-badge {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-badge {
   position: absolute;
-  bottom: 4px;
-  animation: pop 0.3s ease-out;
+  top: -6px;
+  right: -6px;
+  background: #ef4444;
+  color: white;
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 0.1rem 0.3rem;
+  border-radius: 1rem;
+  min-width: 1rem;
+  height: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-/* Notification Badge */
+html.dark .nav-badge {
+  border-color: #1a1a1a;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Active indicator */
+.active-indicator {
+  position: absolute;
+  top: 0;
+  width: 4px;
+  height: 3px;
+  background: #ff6200;
+  border-radius: 2px;
+  animation: pulse 2s infinite;
+}
+
+html.dark .active-indicator {
+  background: #ff8c00;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Notification icon specific styles */
 .notif-icon {
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .notif-badge {
   position: absolute;
   top: -6px;
   right: -6px;
-  background: linear-gradient(135deg, #ef4444, #dc2626);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 600;
-  border-radius: 50%;
-  padding: 3px 6px;
-  min-width: 18px;
-  text-align: center;
-  animation: bounceBadge 1s infinite;
-  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.5);
+  background: #ef4444;
+  color: white;
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 0.1rem 0.3rem;
+  border-radius: 1rem;
+  min-width: 1rem;
+  height: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-/* Animations */
-@keyframes bounceBadge {
-  0%, 100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.15);
-  }
+html.dark .notif-badge {
+  border-color: #1a1a1a;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
-@keyframes pop {
-  0% { transform: scale(0); opacity: 0; }
-  100% { transform: scale(1); opacity: 1; }
-}
-
-@keyframes fadeUp {
-  from { transform: translateY(20px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
-}
-
-/* Responsive */
+/* Responsive design */
 @media (max-width: 480px) {
   .bottom-navbar {
-    height: 56px;
+    padding: 0.4rem 0;
   }
+  
+  .bottom-nav-link {
+    padding: 0.4rem;
+    min-height: 52px;
+  }
+  
   .nav-label {
     font-size: 0.65rem;
   }
+  
+  .nav-badge,
+  .notif-badge {
+    font-size: 0.55rem;
+    padding: 0.1rem 0.25rem;
+    min-width: 0.9rem;
+    height: 0.9rem;
+  }
 }
+
 @media (max-width: 360px) {
   .nav-label {
-    display: none;
+    font-size: 0.6rem;
   }
+  
+  .bottom-nav-link {
+    padding: 0.3rem;
+  }
+}
+
+/* Smooth transitions for all interactive elements */
+.bottom-nav-link,
+.nav-badge,
+.notif-badge {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Enhanced hover effects */
+.bottom-nav-link:hover .nav-badge,
+.bottom-nav-link:hover .notif-badge {
+  transform: scale(1.1);
+}
+
+.bottom-nav-link.active .nav-badge,
+.bottom-nav-link.active .notif-badge {
+  transform: scale(1.05);
 }

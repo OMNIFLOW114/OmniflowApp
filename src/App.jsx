@@ -1,4 +1,4 @@
-// App.jsx - Clean White/Dark Mode Compatible Layout with Toast Fixes
+// App.jsx - UPDATED: Clean White/Dark Mode Compatible Layout with Toast Fixes
 import React from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
@@ -11,12 +11,9 @@ import "./App.css";
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
 
-
 // Pages / Components
 import Home from "./components/Home";
 import Auth from "./components/Auth";
-import Discover from "./components/Discover";
-import Create from "./components/Create";
 import Profile from "./components/Profile";
 import Messages from "./components/Messages";
 import Notifications from "./components/Notifications";
@@ -51,12 +48,8 @@ import MyInstallments from "./pages/MyInstallments"; // ✅ make sure the path m
 import Checkout from "@/pages/Checkout";
 import Premium from './pages/Premium';
 
-// Business
-import BusinessHub from "./pages/business/BusinessHub";
-
 // Student
 import StudentDashboard from "./pages/StudentDashboard";
-
 
 // Admin
 import AdminWallet from "./pages/AdminWallet";
@@ -101,16 +94,19 @@ function AdminRoute({ children }) {
 }
 
 function AppRoutes() {
-  const { user:User } = useAuth(); // or whatever your auth context/hook is
+  const { user:User } = useAuth();
 
   return (
     <>
       <ScrollToTop />
       <Routes>
-        <Route path="/" element={<Home />} />
+        {/* NEW: TradeStore is now the PUBLIC landing page */}
+        <Route path="/" element={<TradeStore />} />
+        
         <Route path="/auth" element={<Auth />} />
-        <Route path="/discover" element={<Discover />} />
-        <Route path="/create" element={<Create />} />
+        
+        {/* REMOVED: Discover and Create routes */}
+        
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
         <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
@@ -118,176 +114,182 @@ function AppRoutes() {
         <Route path="/help" element={<ProtectedRoute><HelpCenter /></ProtectedRoute>} />
         <Route path="/wallet" element={<ProtectedRoute><OmniCashWallet /></ProtectedRoute>} />
         <Route path="/convert-currency" element={<ProtectedRoute><CurrencyConverter /></ProtectedRoute>} />
-        <Route path="/trade" element={<ProtectedRoute><TradeStore /></ProtectedRoute>} />
+        
+        {/* REMOVED: ProtectedRoute from /trade since it's now the root */}
+        <Route path="/trade" element={<TradeStore />} />
+        
         <Route path="/store/create" element={<ProtectedRoute><CreateStore /></ProtectedRoute>} />
         <Route path="/dashboard/store/:storeId" element={<ProtectedRoute><StoreDashboard /></ProtectedRoute>} />
         <Route path="/product/:id" element={<ProductDetail />} />
         <Route path="/wishlist" element={<ProtectedRoute><Wishlist /></ProtectedRoute>} />
         <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
-        <Route path="/business-hub" element={<ProtectedRoute><BusinessHub /></ProtectedRoute>} />
+        
+        {/* REMOVED: BusinessHub route */}
+        
         <Route path="/student" element={<ProtectedRoute><StudentDashboard /></ProtectedRoute>} />
         <Route path="/orders" element={<BuyerOrders />} />
         <Route path="/admin/ratings" element={<Ratings />} />
         <Route path="/checkout/:id" element={<Checkout />} />
         <Route path="/student/sell-product" element={<SellProductPage />} />
-          <Route path="/student/start-restaurant" element={<StartRestaurantPage />} />
-          <Route path="/student/service/:id" element={<ServiceDetailPage />} />
-          <Route path="/student/restaurant/:id" element={<RestaurantDetailPage />} />
-          <Route path="/student/product/:id" element={<ProductDetailPage />} />
-          <Route path="/student/become-delivery-agent" element={<BecomeDeliveryAgentPage />} />
-          <Route path="/student/chat/:chatId" element={<StudentChatPage />} />
-          <Route path="/student/orders" element={<OrderTrackingPage />} />
-          <Route path="/student/earnings" element={<StudentEarningsPage />} />
-          <Route path="/terms" element={<TermsPage />} />
-{/* ===================== ADMIN ROUTES ===================== */}
-<Route path="/admin" element={<AdminAuth />} />
+        <Route path="/student/start-restaurant" element={<StartRestaurantPage />} />
+        <Route path="/student/service/:id" element={<ServiceDetailPage />} />
+        <Route path="/student/restaurant/:id" element={<RestaurantDetailPage />} />
+        <Route path="/student/product/:id" element={<ProductDetailPage />} />
+        <Route path="/student/become-delivery-agent" element={<BecomeDeliveryAgentPage />} />
+        <Route path="/student/chat/:chatId" element={<StudentChatPage />} />
+        <Route path="/student/orders" element={<OrderTrackingPage />} />
+        <Route path="/student/earnings" element={<StudentEarningsPage />} />
+        <Route path="/terms" element={<TermsPage />} />
 
-<Route
-  path="/admin-dashboard"
-  element={
-    <ProtectedAdminRoute>
-      <AdminDashboard />
-    </ProtectedAdminRoute>
-  }
-/>
+        {/* ===================== ADMIN ROUTES ===================== */}
+        <Route path="/admin" element={<AdminAuth />} />
 
-<Route
-  path="/admin/users"
-  element={
-    <ProtectedAdminRoute>
-      <UserManagement />
-    </ProtectedAdminRoute>
-  }
-/>
+        <Route
+          path="/admin-dashboard"
+          element={
+            <ProtectedAdminRoute>
+              <AdminDashboard />
+            </ProtectedAdminRoute>
+          }
+        />
 
-<Route
-  path="/admin/stores"
-  element={
-    <ProtectedAdminRoute>
-      <StoreOversight />
-    </ProtectedAdminRoute>
-  }
-/>
+        <Route
+          path="/admin/users"
+          element={
+            <ProtectedAdminRoute>
+              <UserManagement />
+            </ProtectedAdminRoute>
+          }
+        />
 
-<Route
-  path="/admin/products"
-  element={
-    <ProtectedAdminRoute>
-      <ProductModeration />
-    </ProtectedAdminRoute>
-  }
-/>
+        <Route
+          path="/admin/stores"
+          element={
+            <ProtectedAdminRoute>
+              <StoreOversight />
+            </ProtectedAdminRoute>
+          }
+        />
 
-<Route
-  path="/admin/messages"
-  element={
-    <ProtectedAdminRoute>
-      <MessageMonitoring />
-    </ProtectedAdminRoute>
-  }
-/>
+        <Route
+          path="/admin/products"
+          element={
+            <ProtectedAdminRoute>
+              <ProductModeration />
+            </ProtectedAdminRoute>
+          }
+        />
 
-<Route
-  path="/admin/ratings"
-  element={
-    <ProtectedAdminRoute>
-      <Ratings />
-    </ProtectedAdminRoute>
-  }
-/>
+        <Route
+          path="/admin/messages"
+          element={
+            <ProtectedAdminRoute>
+              <MessageMonitoring />
+            </ProtectedAdminRoute>
+          }
+        />
 
-<Route
-  path="/admin/installments"
-  element={
-    <ProtectedAdminRoute>
-      <AdminInstallmentsPage />
-    </ProtectedAdminRoute>
-  }
-/>
+        <Route
+          path="/admin/ratings"
+          element={
+            <ProtectedAdminRoute>
+              <Ratings />
+            </ProtectedAdminRoute>
+          }
+        />
 
-<Route
-  path="/admin/categories"
-  element={
-    <ProtectedAdminRoute>
-      <CategoryManagement />
-    </ProtectedAdminRoute>
-  }
-/>
+        <Route
+          path="/admin/installments"
+          element={
+            <ProtectedAdminRoute>
+              <AdminInstallmentsPage />
+            </ProtectedAdminRoute>
+          }
+        />
 
-<Route
-  path="/admin/finance"
-  element={
-    <ProtectedAdminRoute>
-      <FinancialControl />
-    </ProtectedAdminRoute>
-  }
-/>
+        <Route
+          path="/admin/categories"
+          element={
+            <ProtectedAdminRoute>
+              <CategoryManagement />
+            </ProtectedAdminRoute>
+          }
+        />
 
-<Route
-  path="/admin/reports"
-  element={
-    <ProtectedAdminRoute>
-      <ReportsAnalytics />
-    </ProtectedAdminRoute>
-  }
-/>
+        <Route
+          path="/admin/finance"
+          element={
+            <ProtectedAdminRoute>
+              <FinancialControl />
+            </ProtectedAdminRoute>
+          }
+        />
 
-<Route
-  path="/admin/admins"
-  element={
-    <ProtectedAdminRoute>
-      <AdminManagement />
-    </ProtectedAdminRoute>
-  }
-/>
+        <Route
+          path="/admin/reports"
+          element={
+            <ProtectedAdminRoute>
+              <ReportsAnalytics />
+            </ProtectedAdminRoute>
+          }
+        />
 
-<Route
-  path="/admin/promotions"
-  element={
-    <ProtectedAdminRoute>
-      <PromotionsOffers />
-    </ProtectedAdminRoute>
-  }
-/>
+        <Route
+          path="/admin/admins"
+          element={
+            <ProtectedAdminRoute>
+              <AdminManagement />
+            </ProtectedAdminRoute>
+          }
+        />
 
-<Route
-  path="/admin/overview"
-  element={
-    <ProtectedAdminRoute>
-      <DashboardOverview />
-    </ProtectedAdminRoute>
-  }
-/>
+        <Route
+          path="/admin/promotions"
+          element={
+            <ProtectedAdminRoute>
+              <PromotionsOffers />
+            </ProtectedAdminRoute>
+          }
+        />
 
-<Route
-  path="/admin/database"
-  element={
-    <ProtectedAdminRoute>
-      <DatabaseManagement />
-    </ProtectedAdminRoute>
-  }
-/>
+        <Route
+          path="/admin/overview"
+          element={
+            <ProtectedAdminRoute>
+              <DashboardOverview />
+            </ProtectedAdminRoute>
+          }
+        />
 
-<Route
-  path="/admin/settings"
-  element={
-    <ProtectedAdminRoute>
-      <SystemSettings />
-    </ProtectedAdminRoute>
-  }
-/>
+        <Route
+          path="/admin/database"
+          element={
+            <ProtectedAdminRoute>
+              <DatabaseManagement />
+            </ProtectedAdminRoute>
+          }
+        />
 
-<Route
-  path="/admin/wallet"
-  element={
-    <ProtectedAdminRoute>
-      <AdminWallet />
-    </ProtectedAdminRoute>
-  }
-/>
+        <Route
+          path="/admin/settings"
+          element={
+            <ProtectedAdminRoute>
+              <SystemSettings />
+            </ProtectedAdminRoute>
+          }
+        />
 
-{/* Admin Invitation Link (for Phase 3) */}
-<Route path="/admin/invite/:token" element={<AdminAuth mode="invite" />} />
+        <Route
+          path="/admin/wallet"
+          element={
+            <ProtectedAdminRoute>
+              <AdminWallet />
+            </ProtectedAdminRoute>
+          }
+        />
+
+        {/* Admin Invitation Link (for Phase 3) */}
+        <Route path="/admin/invite/:token" element={<AdminAuth mode="invite" />} />
 
         <Route path="/my-installments" element={<MyInstallments user={User} />} />
         <Route path="/reset-password" element={<ResetPassword />} />

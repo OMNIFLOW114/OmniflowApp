@@ -1,11 +1,14 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/supabase";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "react-hot-toast";
 import {
   FaStore, FaSearch, FaUser, FaTags, FaStar, FaBolt,
-  FaFire, FaBars, FaExclamationTriangle, FaSlidersH
+  FaFire, FaExclamationTriangle, FaSlidersH,
+  FaUserCircle, FaEnvelope, FaShoppingCart, FaHeart,
+  FaCrown, FaGem
 } from "react-icons/fa";
 import InfiniteScroll from "react-infinite-scroll-component";
 import ReactModal from "react-modal";
@@ -15,12 +18,81 @@ import FeaturedHighlights from "@/components/FeaturedHighlights";
 import PromotedCarousel from "@/components/PromotedCarousel";
 import HomeTabSections from "@/components/HomeTabSections";
 import AdvancedFilterOverlay from "@/components/AdvancedFilterOverlay";
+import SidebarMenu from "@/components/SidebarMenu";
 
 import "./TradeStore.css";
 
 const tabs = ["All", "Flash Sale", "Electronics", "Fashion", "Home", "Trending", "Discounted", "Featured"];
 
-const ProductCard = ({ product, onClick }) => {
+// ========== SKELETON COMPONENTS ==========
+const ProductCardSkeleton = () => (
+  <div className="product-card skeleton">
+    <div className="product-img-wrapper skeleton">
+      <div className="skeleton-image"></div>
+    </div>
+    <div className="product-card-content">
+      <div className="skeleton-line skeleton-title"></div>
+      <div className="skeleton-stars">
+        {[...Array(5)].map((_, i) => (
+          <div key={i} className="skeleton-star"></div>
+        ))}
+      </div>
+      <div className="skeleton-line skeleton-price"></div>
+      <div className="product-info">
+        <div className="skeleton-line skeleton-category"></div>
+        <div className="skeleton-line skeleton-stock"></div>
+      </div>
+      <div className="skeleton-line skeleton-seller"></div>
+    </div>
+  </div>
+);
+
+const NavigationSkeleton = () => (
+  <nav className="premium-navbar skeleton">
+    <div className="skeleton-nav-icon"></div>
+    <div className="nav-center">
+      <div className="skeleton-nav-title"></div>
+    </div>
+    <div className="nav-right">
+      <div className="skeleton-nav-icon"></div>
+      <div className="skeleton-nav-icon"></div>
+      <div className="skeleton-nav-icon"></div>
+    </div>
+  </nav>
+);
+
+const HeroSkeleton = () => (
+  <div className="marketplace-hero skeleton">
+    <div className="hero-content">
+      <div className="skeleton-hero-title"></div>
+      <div className="skeleton-hero-tagline"></div>
+      <div className="hero-controls">
+        <div className="skeleton-button"></div>
+        <div className="skeleton-button"></div>
+      </div>
+    </div>
+  </div>
+);
+
+const SearchSkeleton = () => (
+  <div className="search-bar skeleton">
+    <div className="skeleton-search-icon"></div>
+    <div className="skeleton-search-input"></div>
+  </div>
+);
+
+const TabsSkeleton = () => (
+  <div className="tab-bar-scrollable skeleton">
+    {tabs.map((_, index) => (
+      <div key={index} className="skeleton-tab"></div>
+    ))}
+  </div>
+);
+
+// ========== MAIN COMPONENTS ==========
+const ProductCard = ({ product, onClick, onAuthRequired }) => {
+  const { user } = useAuth();
+  
   const getBadge = () => {
     if (product.is_flash_sale) return <span className="badge flash"><FaBolt /> Flash</span>;
     if (product.is_trending) return <span className="badge trending"><FaFire /> Trending</span>;
@@ -36,8 +108,31 @@ const ProductCard = ({ product, onClick }) => {
   const averageRating = product.average_rating || 0;
   const ratingCount = product.rating_count || 0;
 
+  const handleWishlistClick = (e) => {
+    e.stopPropagation();
+    if (!user) {
+      onAuthRequired();
+      return;
+    }
+    toast.success("Added to wishlist!");
+  };
+
+  const handleCartClick = (e) => {
+    e.stopPropagation();
+    if (!user) {
+      onAuthRequired();
+      return;
+    }
+    toast.success("Added to cart!");
+  };
+
   return (
-    <div className="product-card" onClick={onClick}>
+    <motion.div 
+      className="product-card" 
+      onClick={onClick}
+      whileHover={{ y: -4, scale: 1.02 }}
+      transition={{ type: "spring", stiffness: 300 }}
+    >
       <div className="product-img-wrapper">
         <img
           src={product.imageUrl}
@@ -45,6 +140,25 @@ const ProductCard = ({ product, onClick }) => {
           onError={(e) => { e.target.src = "/placeholder.jpg"; }}
         />
         {getBadge()}
+        
+        <div className="product-quick-actions">
+          <motion.button 
+            className="quick-action-btn wishlist-btn"
+            onClick={handleWishlistClick}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+          >
+            <FaHeart />
+          </motion.button>
+          <motion.button 
+            className="quick-action-btn cart-btn"
+            onClick={handleCartClick}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+          >
+            <FaShoppingCart />
+          </motion.button>
+        </div>
       </div>
       
       <div className="product-card-content">
@@ -54,7 +168,7 @@ const ProductCard = ({ product, onClick }) => {
           {[...Array(5)].map((_, i) => (
             <FaStar key={i} className={i < Math.round(averageRating) ? "star-filled" : "star-empty"} />
           ))}
-          <span className="rating-text">({averageRating.toFixed(1)} - {ratingCount} reviews)</span>
+          <span className="rating-text">({averageRating.toFixed(1)})</span>
         </div>
 
         <div className="price-container">
@@ -83,72 +197,83 @@ const ProductCard = ({ product, onClick }) => {
         </div>
 
         <div className="seller-row">
-          <FaUser /> Seller Hidden
+          <FaUser /> Campus Seller
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 
-const CreateStoreButton = () => {
+const PremiumStoreButton = ({ storeInfo, hasActiveSubscription, onStoreClick, onAuthRequired }) => {
   const { user } = useAuth();
-  const navigate = useNavigate();
-  const [storeInfo, setStoreInfo] = useState(null);
-  const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
-  const [showBlockedModal, setShowBlockedModal] = useState(false);
-
-  useEffect(() => {
-    if (!user?.id) return;
-
-    // Check for active subscription
-    supabase
-      .from("subscriptions")
-      .select("id, status")
-      .eq("user_id", user.id)
-      .eq("status", "active")
-      .maybeSingle()
-      .then(({ data, error }) => {
-        if (error && error.code !== "PGRST116") {
-          console.error("Subscription fetch error:", error);
-          return;
-        }
-        setHasActiveSubscription(!!data);
-      });
-
-    // Check for store
-    supabase
-      .from("stores")
-      .select("id, contact_email, contact_phone, location, is_active")
-      .eq("owner_id", user.id)
-      .single()
-      .then(({ data, error }) => {
-        if (error && error.code !== "PGRST116") {
-          console.error("Store fetch error:", error);
-          return;
-        }
-        setStoreInfo(data);
-      });
-  }, [user]);
+  
+  const isStoreOwner = storeInfo && storeInfo.is_active;
+  const hasPremiumStore = storeInfo && hasActiveSubscription;
 
   const handleClick = () => {
     if (!user) {
+      onAuthRequired();
+      return;
+    }
+    onStoreClick();
+  };
+
+  return (
+    <motion.button 
+      className={`nav-icon store-button ${isStoreOwner ? 'premium-store' : ''} ${hasPremiumStore ? 'vip-store' : ''}`}
+      onClick={handleClick}
+      whileHover={{ scale: 1.1 }}
+      whileTap={{ scale: 0.9 }}
+      title={isStoreOwner ? "Manage Your Store" : "Become a Seller"}
+    >
+      {hasPremiumStore ? (
+        <FaCrown size={20} className="premium-icon" />
+      ) : isStoreOwner ? (
+        <FaGem size={20} className="premium-icon" />
+      ) : (
+        <FaStore size={20} />
+      )}
+      
+      {isStoreOwner && (
+        <span className="premium-badge">
+          {hasPremiumStore ? 'VIP' : 'PRO'}
+        </span>
+      )}
+    </motion.button>
+  );
+};
+
+const CreateStoreModal = ({ isOpen, onClose, storeInfo, hasActiveSubscription, onNavigate }) => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  const handleAction = () => {
+    if (!user) {
       toast.error("Please log in to start selling.");
+      navigate("/auth");
+      onClose();
       return;
     }
 
     if (storeInfo) {
       const { id, contact_email, contact_phone, location, is_active } = storeInfo;
       const incomplete = !contact_email || !contact_phone || !location;
+      
       if (!is_active) {
-        setShowBlockedModal(true);
+        toast.error("Your store has been deactivated. Contact support.");
+        onClose();
         return;
       }
+      
       if (incomplete) {
         toast("Please complete your store setup.");
         navigate("/store/create");
+        onClose();
         return;
       }
+      
       navigate(`/dashboard/store/${id}`);
+      onClose();
       return;
     }
 
@@ -157,44 +282,86 @@ const CreateStoreButton = () => {
     } else {
       navigate("/store/premium");
     }
+    onClose();
   };
 
   return (
-    <>
-      <button className="glass-button" onClick={handleClick}>
-        <FaStore style={{ marginRight: 6 }} />
-        {storeInfo ? "Manage Your Store" : "Become a Seller"}
-      </button>
+    <ReactModal
+      isOpen={isOpen}
+      onRequestClose={onClose}
+      className="premium-modal"
+      overlayClassName="modal-overlay"
+    >
+      <div className="modal-header premium">
+        {storeInfo ? (
+          <>
+            <FaGem className="modal-icon premium" />
+            <h2>Manage Your Store</h2>
+          </>
+        ) : (
+          <>
+            <FaStore className="modal-icon" />
+            <h2>Start Selling Today</h2>
+          </>
+        )}
+      </div>
+      
+      <div className="modal-content">
+        {storeInfo ? (
+          <>
+            <p className="premium-text">You're already a seller! Manage your store and grow your business.</p>
+            <div className="store-stats">
+              <div className="stat-item">
+                <span className="stat-number">0</span>
+                <span className="stat-label">Products</span>
+              </div>
+              <div className="stat-item">
+                <span className="stat-number">0</span>
+                <span className="stat-label">Orders</span>
+              </div>
+              <div className="stat-item">
+                <span className="stat-number">KSH 0</span>
+                <span className="stat-label">Earnings</span>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="premium-text">Join thousands of sellers earning on OmniMarket. Start your store in minutes!</p>
+            <ul className="benefits-list">
+              <li>🎯 Reach thousands of campus students</li>
+              <li>💸 Earn money from your dorm room</li>
+              <li>🚀 Fast and easy setup</li>
+              <li>🛡️ Secure payments with OmniCash</li>
+            </ul>
+          </>
+        )}
+      </div>
 
-      <ReactModal
-        isOpen={showBlockedModal}
-        onRequestClose={() => setShowBlockedModal(false)}
-        className="modal"
-        overlayClassName="modal-overlay"
-      >
-        <div className="modal-header">
-          <FaExclamationTriangle className="modal-icon" />
-          <h2>Store Access Blocked</h2>
-        </div>
-        <p>Your store has been <strong>deactivated</strong> due to policy violations.</p>
-        <p>If you believe this is an error, please contact our support team.</p>
-        <div className="modal-actions">
-          <button className="glass-button" onClick={() => setShowBlockedModal(false)}>Close</button>
-          <a
-            href="mailto:support@omniflow.ai"
-            className="glass-button contact-support"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Contact Support
-          </a>
-        </div>
-      </ReactModal>
-    </>
+      <div className="modal-actions premium">
+        <button className="glass-button secondary" onClick={onClose}>
+          Maybe Later
+        </button>
+        <button 
+          className={`premium-action-button ${storeInfo ? 'manage' : 'create'}`}
+          onClick={handleAction}
+        >
+          {storeInfo ? (
+            <>
+              <FaGem /> Manage Store
+            </>
+          ) : (
+            <>
+              <FaStore /> Start Selling
+            </>
+          )}
+        </button>
+      </div>
+    </ReactModal>
   );
 };
 
-const OmniMarket = () => {
+const TradeStore = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [products, setProducts] = useState([]);
@@ -215,7 +382,76 @@ const OmniMarket = () => {
     quickFilter: ""
   });
   const [showFilterOverlay, setShowFilterOverlay] = useState(false);
+  
+  // UPDATED: Store and modal states
+  const [showMenu, setShowMenu] = useState(false);
+  const [newAdminNotification, setNewAdminNotification] = useState(false);
+  const [newMessages, setNewMessages] = useState(false);
+  const [storeInfo, setStoreInfo] = useState(null);
+  const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
+  const [showStoreModal, setShowStoreModal] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
+  
   const pageSize = 20;
+
+  const toggleMenu = useCallback(() => setShowMenu((prev) => !prev), []);
+  const closeMenu = useCallback(() => setShowMenu(false), []);
+
+  const handleAuthRequired = () => {
+    toast.error("Please log in to continue");
+    navigate("/auth");
+  };
+
+  // FIXED: Fetch store information with correct column name
+  useEffect(() => {
+    if (!user?.id) {
+      setLoading(false);
+      setInitialLoad(false);
+      return;
+    }
+
+    const fetchUserData = async () => {
+      try {
+        setLoading(true);
+        
+        // Check for active subscription
+        const { data: subscriptionData, error: subscriptionError } = await supabase
+          .from("subscriptions")
+          .select("id, status")
+          .eq("user_id", user.id)
+          .eq("status", "active")
+          .maybeSingle();
+
+        if (subscriptionError && subscriptionError.code !== "PGRST116") {
+          console.error("Subscription fetch error:", subscriptionError);
+        } else {
+          setHasActiveSubscription(!!subscriptionData);
+        }
+
+        // FIXED: Use 'name' instead of 'store_name'
+        const { data: storeData, error: storeError } = await supabase
+          .from("stores")
+          .select("id, contact_email, contact_phone, location, is_active, name") // FIXED: 'name' not 'store_name'
+          .eq("owner_id", user.id)
+          .maybeSingle(); // Use maybeSingle to handle no rows
+
+        if (storeError && storeError.code !== "PGRST116") {
+          console.error("Store fetch error:", storeError);
+        } else {
+          setStoreInfo(storeData || null);
+        }
+
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+      } finally {
+        setLoading(false);
+        setInitialLoad(false);
+      }
+    };
+
+    fetchUserData();
+  }, [user]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -236,6 +472,37 @@ const OmniMarket = () => {
       .eq("status", "active")
       .then(({ data }) => data?.length > 0 && setHasInstallmentPlan(true));
   }, [user]);
+
+  // Messages notification check
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        if (!currentUser) {
+          setNewMessages(false);
+          return;
+        }
+
+        const { data: messagesData, error: messagesError } = await supabase
+          .from("messages")
+          .select("*")
+          .eq("is_read", false)
+          .eq("receiver_id", currentUser.id)
+          .limit(1);
+
+        if (!messagesError) {
+          setNewMessages(messagesData?.length > 0);
+        }
+      } catch (error) {
+        console.error("Error fetching notifications:", error);
+        setNewMessages(false);
+      }
+    };
+
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 15000);
+    return () => clearInterval(interval);
+  }, []);
 
   const getImageUrl = (path) => {
     if (!path) return "/placeholder.jpg";
@@ -292,7 +559,9 @@ const OmniMarket = () => {
     setPage((prev) => prev + 1);
   };
 
-  useEffect(() => { fetchProducts(); }, []);
+  useEffect(() => { 
+    fetchProducts(); 
+  }, []);
 
   useEffect(() => {
     let result = [...products];
@@ -382,52 +651,188 @@ const OmniMarket = () => {
     setFiltered(result);
   }, [products, search, filters, activeTab]);
 
+  // Show skeleton during initial load
+  if (initialLoad) {
+    return (
+      <div className={`marketplace-wrapper ${isDarkMode ? "dark" : "light"}`}>
+        <NavigationSkeleton />
+        <HeroSkeleton />
+        <SearchSkeleton />
+        <TabsSkeleton />
+        <div className="product-grid">
+          {[...Array(10)].map((_, index) => (
+            <ProductCardSkeleton key={index} />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`marketplace-wrapper ${isDarkMode ? "dark" : "light"}`}>
-      <header className="marketplace-header">
-        <h1>Welcome to <span className="highlight">OmniMarket</span></h1>
-        <p className="tagline">Powering the future of trade — faster, smarter, Kenyan!</p>
-        <div className="header-controls">
-          <CreateStoreButton />
-          {hasInstallmentPlan && (
-            <button className="glass-button" onClick={() => navigate("/my-installments")}>
-              My Installments
-            </button>
-          )}
-          <PromotedCarousel />
-          <button 
-            className="glass-button" 
-            onClick={() => setShowFilterOverlay(true)}
+      <nav className="premium-navbar">
+        <motion.button
+          onClick={toggleMenu}
+          className="nav-icon profile-icon-wrapper"
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+        >
+          <FaUserCircle size={26} />
+          {newAdminNotification && <span className="dot top-left-dot" />}
+        </motion.button>
+
+        <div className="nav-center">
+          <motion.h1 
+            className="nav-title"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
           >
-            <FaSlidersH style={{ marginRight: 6 }} /> Filters
-          </button>
+            Omni<span className="highlight">Market</span>
+          </motion.h1>
         </div>
-      </header>
+
+        <div className="nav-right">
+          <PremiumStoreButton 
+            storeInfo={storeInfo}
+            hasActiveSubscription={hasActiveSubscription}
+            onStoreClick={() => setShowStoreModal(true)}
+            onAuthRequired={handleAuthRequired}
+          />
+
+          <motion.button
+            onClick={() => {
+              if (!user) {
+                handleAuthRequired();
+                return;
+              }
+              navigate("/messages");
+            }}
+            className="nav-icon messages-wrapper"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <FaEnvelope size={20} />
+            {newMessages && <span className="dot top-right-dot" />}
+          </motion.button>
+
+          <motion.button
+            onClick={() => {
+              if (!user) {
+                handleAuthRequired();
+                return;
+              }
+              navigate("/cart");
+            }}
+            className="nav-icon"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <FaShoppingCart size={20} />
+          </motion.button>
+        </div>
+      </nav>
+
+      <AnimatePresence>
+        {showMenu && (
+          <motion.div
+            initial={{ x: "-100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "-100%" }}
+            transition={{ duration: 0.3 }}
+            className="sidebar-wrapper"
+          >
+            <SidebarMenu
+              onClose={closeMenu}
+              onLogout={() => {
+                supabase.auth.signOut();
+                navigate("/auth");
+              }}
+              darkMode={isDarkMode}
+              toggleDarkMode={() => setIsDarkMode(!isDarkMode)}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <CreateStoreModal
+        isOpen={showStoreModal}
+        onClose={() => setShowStoreModal(false)}
+        storeInfo={storeInfo}
+        hasActiveSubscription={hasActiveSubscription}
+        onNavigate={navigate}
+      />
+
+      <motion.header 
+        className="marketplace-hero"
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+      >
+        <div className="hero-content">
+          <h1>Welcome to <span className="hero-highlight">OmniMarket</span></h1>
+          <p className="hero-tagline">Kenya's #1 Campus Marketplace — Shop Smarter, Live Better!</p>
+          
+          <div className="hero-controls">
+            {hasInstallmentPlan && (
+              <motion.button 
+                className="glass-button" 
+                onClick={() => navigate("/my-installments")}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                My Installments
+              </motion.button>
+            )}
+            <motion.button 
+              className="glass-button" 
+              onClick={() => setShowFilterOverlay(true)}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <FaSlidersH style={{ marginRight: 6 }} /> Filters
+            </motion.button>
+          </div>
+        </div>
+        
+        <PromotedCarousel />
+      </motion.header>
 
       <FlashDeals />
       <FeaturedHighlights />
 
-      <div className="search-bar">
+      <motion.div 
+        className="search-bar"
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.4 }}
+      >
         <FaSearch />
         <input
           type="text"
-          placeholder="Search products..."
+          placeholder="Search thousands of products..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-      </div>
+      </motion.div>
 
-      <div className="tab-bar-scrollable">
+      <motion.div 
+        className="tab-bar-scrollable"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5 }}
+      >
         {tabs.map((tab) => (
-          <button
+          <motion.button
             key={tab}
             className={`tab-button ${activeTab === tab ? "active" : ""}`}
             onClick={() => setActiveTab(tab)}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
           >
             {tab}
-          </button>
+          </motion.button>
         ))}
-      </div>
+      </motion.div>
 
       {activeTab === "Home" && (
         <div className="home-sections-wrapper">
@@ -439,14 +844,35 @@ const OmniMarket = () => {
         dataLength={filtered.length}
         next={fetchProducts}
         hasMore={hasMore}
-        loader={<h4 style={{ textAlign: "center" }}>Loading more products...</h4>}
-        endMessage={<p style={{ textAlign: "center" }}>You've reached the end.</p>}
+        loader={
+          <div className="loading-section">
+            <motion.div 
+              className="loading-spinner"
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+            />
+            <h4>Loading more amazing products...</h4>
+          </div>
+        }
+        endMessage={
+          <div className="end-message">
+            <p>🎉 You've discovered all our products!</p>
+          </div>
+        }
       >
-        <div className="product-grid">
+        <motion.div 
+          className="product-grid"
+          layout
+        >
           {filtered.map((p) => (
-            <ProductCard key={p.id} product={p} onClick={() => navigate(`/product/${p.id}`)} />
+            <ProductCard 
+              key={p.id} 
+              product={p} 
+              onClick={() => navigate(`/product/${p.id}`)}
+              onAuthRequired={handleAuthRequired}
+            />
           ))}
-        </div>
+        </motion.div>
       </InfiniteScroll>
 
       {showFilterOverlay && (
@@ -461,4 +887,4 @@ const OmniMarket = () => {
   );
 };
 
-export default OmniMarket;
+export default TradeStore;

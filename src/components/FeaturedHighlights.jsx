@@ -7,6 +7,45 @@ import "./FeaturedHighlights.css";
 const FeaturedHighlights = () => {
   const navigate = useNavigate();
   const [products, setProducts] = useState([]);
+  const [theme, setTheme] = useState("light"); // Add theme state
+
+  // Detect system theme and watch for changes
+  useEffect(() => {
+    const detectSystemTheme = () => {
+      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        return 'dark';
+      }
+      return 'light';
+    };
+
+    // Set initial theme
+    setTheme(detectSystemTheme());
+
+    // Watch for system theme changes
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleThemeChange = (e) => {
+      setTheme(e.matches ? 'dark' : 'light');
+    };
+
+    mediaQuery.addEventListener('change', handleThemeChange);
+
+    // Check if theme is set in localStorage or on document
+    const savedTheme = localStorage.getItem('theme');
+    const htmlTheme = document.documentElement.getAttribute('data-theme');
+    const htmlClass = document.documentElement.className;
+    
+    if (savedTheme) {
+      setTheme(savedTheme);
+    } else if (htmlTheme) {
+      setTheme(htmlTheme);
+    } else if (htmlClass.includes('dark')) {
+      setTheme('dark');
+    } else if (htmlClass.includes('light')) {
+      setTheme('light');
+    }
+
+    return () => mediaQuery.removeEventListener('change', handleThemeChange);
+  }, []);
 
   const getImageUrl = (path) => {
     if (!path) return "/placeholder.jpg";
@@ -71,11 +110,18 @@ const FeaturedHighlights = () => {
   if (products.length === 0) return null;
 
   return (
-    <section className="featured-highlights-container">
+    <section 
+      className={`featured-highlights-container ${theme}`}
+      data-theme={theme}
+    >
       <h2 className="section-title">🌟 Featured Highlights</h2>
       <div className="featured-carousel">
         {products.map((p) => (
-          <div className="featured-card" key={p.id} onClick={() => handleClick(p.id)}>
+          <div 
+            className="featured-card" 
+            key={p.id} 
+            onClick={() => handleClick(p.id)}
+          >
             <div className="image-container">
               <img
                 src={p.imageUrl}
