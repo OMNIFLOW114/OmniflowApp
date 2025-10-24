@@ -71,27 +71,30 @@ const FlashDeals = () => {
   if (flashDeals.length === 0) return null;
 
   return (
-    <div className="flash-deals-section">
-      <div className="flash-header">
+    <section className="flash-deals-section">
+      <header className="flash-header">
         <FaBolt className="flash-icon" />
         <h2>Flash Deals</h2>
         <p>Hurry up! Limited-time offers.</p>
-      </div>
-      <div className="flash-grid">
+      </header>
+      <div className="flash-carousel">
         {flashDeals.map((p) => {
           const timeLeft = getTimeLeft(p.flash_sale_ends_at);
           if (!timeLeft) return null;
           return (
             <div key={p.id} className="flash-card" onClick={() => handleClick(p.id)}>
-              <img
-                src={p.imageUrl}
-                alt={p.name}
-                className="flash-img"
-                onError={(e) => (e.target.src = "/placeholder.jpg")}
-              />
+              <div className="flash-img-wrapper">
+                <img
+                  src={p.imageUrl}
+                  alt={p.name}
+                  className="flash-img"
+                  onError={(e) => (e.target.src = "/placeholder.jpg")}
+                />
+                {p.discount > 0 && <span className="discount-badge">-{p.discount}%</span>}
+              </div>
               <div className="flash-content">
-                <h3>{p.name}</h3>
-                <div className="stars">
+                <h3 className="flash-name">{p.name}</h3>
+                <div className="flash-rating">
                   {[...Array(Math.round(p.rating || 0))].map((_, i) => (
                     <FaStar key={i} className="star-filled" />
                   ))}
@@ -100,11 +103,10 @@ const FlashDeals = () => {
                   <FaTags /> {p.category}
                 </p>
                 <div className="flash-pricing">
-                  <span>KSH {Number(p.price).toLocaleString()}</span>
-                  {p.discount > 0 && <span className="discount">-{p.discount}%</span>}
+                  <span className="flash-price">KSH {Number(p.price).toLocaleString()}</span>
                 </div>
                 <div className="flash-meta">
-                  <span>Stock: {p.stock_quantity}</span>
+                  <span className="flash-stock">Stock: {p.stock_quantity}</span>
                   <span className="flash-timer">⏱ {timeLeft}</span>
                 </div>
               </div>
@@ -112,7 +114,7 @@ const FlashDeals = () => {
           );
         })}
       </div>
-    </div>
+    </section>
   );
 };
 

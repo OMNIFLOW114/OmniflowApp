@@ -1,4 +1,3 @@
-// components/FeaturedHighlights.jsx
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/supabase";
@@ -72,9 +71,9 @@ const FeaturedHighlights = () => {
   if (products.length === 0) return null;
 
   return (
-    <div className="featured-highlights-container">
+    <section className="featured-highlights-container">
       <h2 className="section-title">🌟 Featured Highlights</h2>
-      <div className="featured-grid">
+      <div className="featured-carousel">
         {products.map((p) => (
           <div className="featured-card" key={p.id} onClick={() => handleClick(p.id)}>
             <div className="image-container">
@@ -110,7 +109,7 @@ const FeaturedHighlights = () => {
           </div>
         ))}
       </div>
-    </div>
+    </section>
   );
 };
 

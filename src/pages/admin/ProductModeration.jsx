@@ -24,7 +24,7 @@ import {
   FiClock,
   FiBarChart2
 } from "react-icons/fi";
-import { FaCrown, FaStore, FaBan, FaCheck, FaExclamationTriangle } from "react-icons/fa";
+import { FaCrown, FaStore, FaBan, FaCheck, FaExclamationTriangle, FaBolt } from "react-icons/fa";
 import { toast } from "react-hot-toast";
 import "./ProductModeration.css";
 
@@ -34,7 +34,8 @@ const TABS = [
   { key: "approved", label: "Approved", icon: <FiCheckCircle /> },
   { key: "rejected", label: "Rejected", icon: <FiXCircle /> },
   { key: "flagged", label: "Flagged", icon: <FiFlag /> },
-  { key: "promoted", label: "Promoted", icon: <FiAward /> }
+  { key: "promoted", label: "Promoted", icon: <FiAward /> },
+  { key: "flashsales", label: "Flash Sales", icon: <FaBolt /> }
 ];
 
 export default function ProductModeration() {
@@ -42,6 +43,7 @@ export default function ProductModeration() {
   const [promotionsMap, setPromotionsMap] = useState({});
   const [promotionsList, setPromotionsList] = useState([]);
   const [promotedIds, setPromotedIds] = useState([]);
+  const [flashSales, setFlashSales] = useState([]);
   const [activeTab, setActiveTab] = useState("all");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
@@ -72,13 +74,27 @@ export default function ProductModeration() {
     internal_notes: "",
   });
 
+  const [showFlashSaleModal, setShowFlashSaleModal] = useState(false);
+  const [editingFlashSale, setEditingFlashSale] = useState(null);
+  const [flashSaleData, setFlashSaleData] = useState({
+    product_id: null,
+    flash_price: 0,
+    discount_percentage: 0,
+    stock_quantity: 0,
+    max_quantity_per_user: 1,
+    starts_at: "",
+    ends_at: "",
+    is_featured: false
+  });
+
   // Fetch data on mount
   useEffect(() => {
     (async () => {
       try {
         setLoading(true);
         await expireOldPromotions();
-        await Promise.all([fetchProducts(), fetchPromotions()]);
+        await expireOldFlashSales();
+        await Promise.all([fetchProducts(), fetchPromotions(), fetchFlashSales()]);
       } catch (err) {
         console.error(err);
         toast.error("Failed to initialize moderation panel");
@@ -102,6 +118,26 @@ export default function ProductModeration() {
       }
     } catch (err) {
       console.warn("expireOldPromotions failed", err);
+    }
+  };
+
+  const expireOldFlashSales = async () => {
+    try {
+      const now = new Date().toISOString();
+      const { error } = await supabase
+        .from("products")
+        .update({ 
+          is_flash_sale: false,
+          discount: 0
+        })
+        .lt("flash_sale_ends_at", now)
+        .eq("is_flash_sale", true);
+
+      if (error) {
+        console.warn("Could not auto-expire flash sales:", error.message);
+      }
+    } catch (err) {
+      console.warn("expireOldFlashSales failed", err);
     }
   };
 
@@ -158,6 +194,36 @@ export default function ProductModeration() {
     } catch (err) {
       console.error("fetchPromotions error", err);
       toast.error("Failed to load promotions");
+    }
+  };
+
+  const fetchFlashSales = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("products")
+        .select(`
+          *,
+          stores!inner (is_active)
+        `)
+        .eq("is_flash_sale", true)
+        .eq("stores.is_active", true)
+        .order("flash_sale_ends_at", { ascending: true });
+
+      if (error) throw error;
+      
+      const salesWithImages = await Promise.all(
+        (data || []).map(async (product) => ({
+          ...product,
+          imageUrl: await getImageUrl(product.image_gallery?.[0] || product.image_url),
+          flash_price: product.price * (1 - (product.discount || 0) / 100),
+          discount_percentage: product.discount || 0
+        }))
+      );
+      
+      setFlashSales(salesWithImages);
+    } catch (err) {
+      console.error("fetchFlashSales error", err);
+      toast.error("Failed to load flash sales");
     }
   };
 
@@ -245,6 +311,35 @@ export default function ProductModeration() {
     setShowModal(true);
   };
 
+  const openFlashSaleModal = (product = null, existingFlashSale = null) => {
+    if (existingFlashSale) {
+      setEditingFlashSale(existingFlashSale);
+      setFlashSaleData({
+        product_id: existingFlashSale.id,
+        flash_price: existingFlashSale.price * (1 - (existingFlashSale.discount || 0) / 100),
+        discount_percentage: existingFlashSale.discount || 0,
+        stock_quantity: existingFlashSale.stock_quantity || 0,
+        max_quantity_per_user: 1,
+        starts_at: existingFlashSale.flash_sale_starts_at ? toLocalInput(existingFlashSale.flash_sale_starts_at) : "",
+        ends_at: existingFlashSale.flash_sale_ends_at ? toLocalInput(existingFlashSale.flash_sale_ends_at) : "",
+        is_featured: !!existingFlashSale.is_featured
+      });
+    } else {
+      setEditingFlashSale(null);
+      setFlashSaleData({
+        product_id: product?.id || null,
+        flash_price: product?.price || 0,
+        discount_percentage: 0,
+        stock_quantity: product?.stock_quantity || 0,
+        max_quantity_per_user: 1,
+        starts_at: "",
+        ends_at: "",
+        is_featured: false
+      });
+    }
+    setShowFlashSaleModal(true);
+  };
+
   const toLocalInput = (ts) => {
     if (!ts) return "";
     const d = new Date(ts);
@@ -328,6 +423,58 @@ export default function ProductModeration() {
     setActionLoading(null);
   };
 
+  const handleFlashSaleSubmit = async () => {
+    const {
+      product_id,
+      flash_price,
+      discount_percentage,
+      stock_quantity,
+      max_quantity_per_user,
+      starts_at,
+      ends_at,
+      is_featured
+    } = flashSaleData;
+
+    if (!product_id || !flash_price || !stock_quantity || !starts_at || !ends_at) {
+      return toast.error("Please fill all required fields");
+    }
+
+    if (new Date(starts_at) >= new Date(ends_at)) {
+      return toast.error("End date must be after start date");
+    }
+
+    const original_price = flash_price / (1 - discount_percentage / 100);
+
+    setActionLoading('flashsale-submit');
+    try {
+      const updateData = {
+        is_flash_sale: true,
+        price: original_price,
+        discount: discount_percentage,
+        flash_sale_ends_at: fromLocalToISO(ends_at),
+        stock_quantity: Number(stock_quantity),
+        is_featured: !!is_featured,
+      };
+
+      const { error } = await supabase
+        .from("products")
+        .update(updateData)
+        .eq("id", product_id);
+
+      if (error) throw error;
+      
+      toast.success(editingFlashSale ? "Flash sale updated" : "Flash sale created");
+      await fetchFlashSales();
+      await fetchProducts();
+      setShowFlashSaleModal(false);
+      setEditingFlashSale(null);
+    } catch (err) {
+      console.error("handleFlashSaleSubmit", err);
+      toast.error("Failed to save flash sale");
+    }
+    setActionLoading(null);
+  };
+
   const unpromote = async (productOrPromo) => {
     if (!productOrPromo) return;
     if (!window.confirm("Are you sure you want to remove this promotion?")) return;
@@ -348,6 +495,52 @@ export default function ProductModeration() {
       toast.error("Failed to remove promotion");
     }
     setActionLoading(null);
+  };
+
+  const endFlashSale = async (product) => {
+    if (!window.confirm("Are you sure you want to end this flash sale?")) return;
+
+    setActionLoading(`end-flashsale-${product.id}`);
+    try {
+      const { error } = await supabase
+        .from("products")
+        .update({ 
+          is_flash_sale: false,
+          discount: 0
+        })
+        .eq("id", product.id);
+
+      if (error) throw error;
+      toast.success("Flash sale ended");
+      await fetchFlashSales();
+      await fetchProducts();
+    } catch (err) {
+      console.error("endFlashSale error", err);
+      toast.error("Failed to end flash sale");
+    }
+    setActionLoading(null);
+  };
+
+  const getTimeRemaining = (endsAt) => {
+    const now = new Date();
+    const end = new Date(endsAt);
+    const diff = end - now;
+    
+    if (diff <= 0) return { expired: true };
+    
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+    
+    return { days, hours, minutes, seconds, expired: false };
+  };
+
+  const getSalesProgress = (product) => {
+    const initialStock = product.initial_stock || product.stock_quantity;
+    const sold = initialStock - product.stock_quantity;
+    const progress = initialStock > 0 ? (sold / initialStock) * 100 : 0;
+    return { sold, progress };
   };
 
   const filteredProducts = products
@@ -372,6 +565,8 @@ export default function ProductModeration() {
           return !!p.is_flagged;
         case "promoted":
           return promotedIds.includes(p.id);
+        case "flashsales":
+          return p.is_flash_sale && new Date(p.flash_sale_ends_at) > new Date();
         case "all":
         default:
           return true;
@@ -423,7 +618,7 @@ export default function ProductModeration() {
             <FiShoppingBag className="header-icon" />
             <div>
               <h1>Product Moderation</h1>
-              <p>Approve, reject, and manage product promotions</p>
+              <p>Approve, reject, and manage product promotions & flash sales</p>
             </div>
           </div>
           <div className="header-stats">
@@ -442,10 +637,10 @@ export default function ProductModeration() {
               </div>
             </div>
             <div className="stat-card">
-              <FiFlag className="stat-icon" />
+              <FaBolt className="stat-icon" />
               <div>
-                <span className="stat-number">{products.filter(p => p.is_flagged).length}</span>
-                <span className="stat-label">Flagged</span>
+                <span className="stat-number">{flashSales.length}</span>
+                <span className="stat-label">Flash Sales</span>
               </div>
             </div>
           </div>
@@ -623,6 +818,158 @@ export default function ProductModeration() {
               </div>
             )}
           </motion.section>
+        ) : activeTab === "flashsales" ? (
+          <motion.section
+            className="flashsales-section"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+          >
+            <div className="section-header">
+              <h2>Flash Sales Management</h2>
+              <div className="section-actions">
+                <motion.button
+                  className="create-flashsale-btn"
+                  onClick={() => openFlashSaleModal(null, null)}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <FaBolt />
+                  Create Flash Sale
+                </motion.button>
+                <motion.button
+                  className="refresh-btn"
+                  onClick={() => Promise.all([fetchFlashSales(), fetchProducts()])}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <FiBarChart2 />
+                  Refresh
+                </motion.button>
+              </div>
+            </div>
+
+            {flashSales.length === 0 ? (
+              <div className="empty-state">
+                <FaBolt className="empty-icon" />
+                <h3>No active flash sales</h3>
+                <p>Create flash sales to boost urgent purchases</p>
+              </div>
+            ) : (
+              <div className="flashsales-grid">
+                {flashSales.map((sale, index) => {
+                  const timeRemaining = getTimeRemaining(sale.flash_sale_ends_at);
+                  const progress = getSalesProgress(sale);
+                  const flashPrice = sale.price * (1 - (sale.discount || 0) / 100);
+                  
+                  return (
+                    <motion.div
+                      key={sale.id}
+                      className={`flashsale-card ${timeRemaining.expired ? 'expired' : ''}`}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3, delay: index * 0.1 }}
+                      whileHover={{ y: -2, transition: { duration: 0.2 } }}
+                    >
+                      <div className="flashsale-media">
+                        <img src={sale.imageUrl || "/placeholder.jpg"} alt={sale.name} />
+                        <div className="flashsale-badges">
+                          <span className="badge discount">-{sale.discount}% OFF</span>
+                          {sale.is_featured && <span className="badge featured">Featured</span>}
+                          {timeRemaining.expired && <span className="badge expired">Expired</span>}
+                        </div>
+                        
+                        {/* Progress bar */}
+                        <div className="stock-progress">
+                          <div className="progress-bar">
+                            <div 
+                              className="progress-fill" 
+                              style={{ width: `${progress.progress}%` }}
+                            ></div>
+                          </div>
+                          <div className="stock-info">
+                            <span>Sold: {progress.sold}</span>
+                            <span>Left: {sale.stock_quantity}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flashsale-content">
+                        <h3>{sale.name}</h3>
+                        <p className="flashsale-category">{sale.category}</p>
+                        
+                        <div className="price-section">
+                          <span className="flash-price">{formatPrice(flashPrice)}</span>
+                          <span className="original-price">{formatPrice(sale.price)}</span>
+                        </div>
+
+                        <div className="flashsale-details">
+                          <div className="detail-item">
+                            <FiClock className="detail-icon" />
+                            <span>Ends: {formatDate(sale.flash_sale_ends_at)}</span>
+                          </div>
+                          
+                          {!timeRemaining.expired && (
+                            <div className="detail-item time-remaining">
+                              <FaBolt className="detail-icon" />
+                              <span>
+                                {timeRemaining.days > 0 && `${timeRemaining.days}d `}
+                                {timeRemaining.hours}h {timeRemaining.minutes}m left
+                              </span>
+                            </div>
+                          )}
+                          
+                          <div className="detail-item">
+                            <FiStar className="detail-icon" />
+                            <span>Rating: {sale.rating || 'No ratings'}</span>
+                          </div>
+                        </div>
+
+                        <div className="flashsale-actions">
+                          <motion.button
+                            className="edit-btn"
+                            onClick={() => openFlashSaleModal(null, sale)}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                          >
+                            <FiEdit />
+                            Edit
+                          </motion.button>
+                          
+                          <motion.button
+                            className="view-btn"
+                            onClick={() => window.open(`/product/${sale.id}`, '_blank')}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                          >
+                            <FiEye />
+                            View
+                          </motion.button>
+                          
+                          <motion.button
+                            className="delete-btn"
+                            onClick={() => endFlashSale(sale)}
+                            disabled={actionLoading === `end-flashsale-${sale.id}`}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                          >
+                            {actionLoading === `end-flashsale-${sale.id}` ? (
+                              <div className="loading-dots"></div>
+                            ) : (
+                              <>
+                                <FiXCircle />
+                                End Sale
+                              </>
+                            )}
+                          </motion.button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
+          </motion.section>
         ) : (
           <motion.section
             className="products-section"
@@ -674,6 +1021,12 @@ export default function ProductModeration() {
                               <span className="promoted-badge">
                                 <FiAward />
                                 Promoted
+                              </span>
+                            )}
+                            {product.is_flash_sale && (
+                              <span className="flashsale-badge">
+                                <FaBolt />
+                                Flash Sale
                               </span>
                             )}
                             {product.discount > 0 && (
@@ -788,6 +1141,35 @@ export default function ProductModeration() {
                                   Promote
                                 </motion.button>
                               )}
+                              
+                              {product.is_flash_sale ? (
+                                <motion.button
+                                  className="action-btn end-flashsale"
+                                  onClick={() => endFlashSale(product)}
+                                  disabled={actionLoading === `end-flashsale-${product.id}`}
+                                  whileHover={{ scale: 1.05 }}
+                                  whileTap={{ scale: 0.95 }}
+                                >
+                                  {actionLoading === `end-flashsale-${product.id}` ? (
+                                    <div className="loading-dots"></div>
+                                  ) : (
+                                    <>
+                                      <FaBolt />
+                                      End Flash
+                                    </>
+                                  )}
+                                </motion.button>
+                              ) : (
+                                <motion.button
+                                  className="action-btn create-flashsale"
+                                  onClick={() => openFlashSaleModal(product, null)}
+                                  whileHover={{ scale: 1.05 }}
+                                  whileTap={{ scale: 0.95 }}
+                                >
+                                  <FaBolt />
+                                  Flash Sale
+                                </motion.button>
+                              )}
                             </div>
                           </div>
 
@@ -798,6 +1180,18 @@ export default function ProductModeration() {
                               {promo.ends_at && (
                                 <span className="promo-end">
                                   • Ends {formatDate(promo.ends_at)}
+                                </span>
+                              )}
+                            </div>
+                          )}
+
+                          {product.is_flash_sale && (
+                            <div className="flashsale-info">
+                              <FaBolt className="flashsale-icon" />
+                              <span>Flash Sale Active</span>
+                              {product.flash_sale_ends_at && (
+                                <span className="flashsale-end">
+                                  • Ends {formatDate(product.flash_sale_ends_at)}
                                 </span>
                               )}
                             </div>
@@ -1035,6 +1429,204 @@ export default function ProductModeration() {
                     <div className="loading-dots"></div>
                   ) : (
                     editingPromo ? "Save Changes" : "Create Promotion"
+                  )}
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Flash Sale Modal */}
+      <AnimatePresence>
+        {showFlashSaleModal && (
+          <motion.div
+            className="modal-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => { setShowFlashSaleModal(false); setEditingFlashSale(null); }}
+          >
+            <motion.div
+              className="flashsale-modal"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="modal-header">
+                <h3>{editingFlashSale ? "Edit Flash Sale" : "Create Flash Sale"}</h3>
+                <button 
+                  className="close-btn"
+                  onClick={() => { setShowFlashSaleModal(false); setEditingFlashSale(null); }}
+                >
+                  <FiXCircle />
+                </button>
+              </div>
+
+              <div className="modal-content">
+                <div className="form-grid">
+                  <div className="form-group full-width">
+                    <label>Select Product *</label>
+                    <select 
+                      value={flashSaleData.product_id || ""}
+                      onChange={(e) => {
+                        const productId = e.target.value;
+                        const product = products.find(p => p.id === productId);
+                        if (product) {
+                          setFlashSaleData({ 
+                            ...flashSaleData, 
+                            product_id: productId,
+                            flash_price: product.price * (1 - (product.discount || 0) / 100),
+                            discount_percentage: product.discount || 0,
+                            stock_quantity: product.stock_quantity || 0
+                          });
+                        }
+                      }}
+                      disabled={!!editingFlashSale}
+                    >
+                      <option value="">Select a product</option>
+                      {products
+                        .filter(p => p.status === 'active' && p.visibility === 'public')
+                        .map(product => (
+                          <option key={product.id} value={product.id}>
+                            {product.name} - {formatPrice(product.price)} (Stock: {product.stock_quantity})
+                          </option>
+                        ))
+                      }
+                    </select>
+                    {editingFlashSale && (
+                      <small className="form-hint">Product cannot be changed when editing</small>
+                    )}
+                  </div>
+
+                  {flashSaleData.product_id && (
+                    <>
+                      <div className="form-group">
+                        <label>Current Price</label>
+                        <input 
+                          type="text" 
+                          value={formatPrice(products.find(p => p.id === flashSaleData.product_id)?.price || 0)}
+                          readOnly
+                          className="readonly"
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label>Flash Sale Price *</label>
+                        <input 
+                          type="number" 
+                          step="0.01"
+                          value={flashSaleData.flash_price} 
+                          onChange={(e) => {
+                            const flashPrice = Number(e.target.value);
+                            const originalPrice = products.find(p => p.id === flashSaleData.product_id)?.price || 0;
+                            const discount = originalPrice > 0 ? ((originalPrice - flashPrice) / originalPrice) * 100 : 0;
+                            
+                            setFlashSaleData({ 
+                              ...flashSaleData, 
+                              flash_price: flashPrice,
+                              discount_percentage: Math.round(discount)
+                            });
+                          }}
+                          placeholder="0.00"
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label>Discount Percentage</label>
+                        <input 
+                          type="number" 
+                          value={flashSaleData.discount_percentage} 
+                          readOnly
+                          className="readonly"
+                          placeholder="0"
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label>Sale Stock Quantity *</label>
+                        <input 
+                          type="number" 
+                          value={flashSaleData.stock_quantity} 
+                          onChange={(e) => setFlashSaleData({ ...flashSaleData, stock_quantity: e.target.value })}
+                          placeholder="100"
+                          max={products.find(p => p.id === flashSaleData.product_id)?.stock_quantity || 0}
+                        />
+                        <small className="form-hint">
+                          Available: {products.find(p => p.id === flashSaleData.product_id)?.stock_quantity || 0}
+                        </small>
+                      </div>
+
+                      <div className="form-group">
+                        <label>Start Date/Time *</label>
+                        <input 
+                          type="datetime-local" 
+                          value={flashSaleData.starts_at} 
+                          onChange={(e) => setFlashSaleData({ ...flashSaleData, starts_at: e.target.value })}
+                          min={new Date().toISOString().slice(0, 16)}
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label>End Date/Time *</label>
+                        <input 
+                          type="datetime-local" 
+                          value={flashSaleData.ends_at} 
+                          onChange={(e) => setFlashSaleData({ ...flashSaleData, ends_at: e.target.value })}
+                          min={flashSaleData.starts_at || new Date().toISOString().slice(0, 16)}
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label>Featured Flash Sale</label>
+                        <select 
+                          value={flashSaleData.is_featured ? "1" : "0"} 
+                          onChange={(e) => setFlashSaleData({ ...flashSaleData, is_featured: e.target.value === "1" })}
+                        >
+                          <option value="0">No</option>
+                          <option value="1">Yes</option>
+                        </select>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {flashSaleData.product_id && flashSaleData.flash_price > 0 && (
+                  <div className="price-preview">
+                    <h4>Price Preview:</h4>
+                    <div className="preview-prices">
+                      <span className="original">Original: {formatPrice(products.find(p => p.id === flashSaleData.product_id)?.price || 0)}</span>
+                      <span className="flash">Flash: {formatPrice(flashSaleData.flash_price)}</span>
+                      <span className="savings">
+                        Savings: {formatPrice((products.find(p => p.id === flashSaleData.product_id)?.price || 0) - flashSaleData.flash_price)} 
+                        ({flashSaleData.discount_percentage}%)
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="modal-actions">
+                <motion.button
+                  className="cancel-btn"
+                  onClick={() => { setShowFlashSaleModal(false); setEditingFlashSale(null); }}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  Cancel
+                </motion.button>
+                <motion.button
+                  className="submit-btn"
+                  onClick={handleFlashSaleSubmit}
+                  disabled={!flashSaleData.product_id || actionLoading === 'flashsale-submit'}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  {actionLoading === 'flashsale-submit' ? (
+                    <div className="loading-dots"></div>
+                  ) : (
+                    editingFlashSale ? "Update Flash Sale" : "Create Flash Sale"
                   )}
                 </motion.button>
               </div>
