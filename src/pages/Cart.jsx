@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "@/supabase";
 import { useAuth } from "@/context/AuthContext";
-import { FaTrash, FaShoppingCart, FaPlus, FaMinus, FaCrown, FaShield, FaRocket, FaGift } from "react-icons/fa";
+import { FaTrash, FaShoppingCart, FaPlus, FaMinus, FaCrown, FaShieldAlt, FaRocket, FaGift } from "react-icons/fa";
 import { toast } from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 import "./Cart.css";
@@ -294,11 +294,11 @@ const Cart = () => {
                 )}
 
                 <button className="checkout-btn" onClick={handleCheckout}>
-                  <FaShield /> Secure Checkout
+                  <FaShieldAlt /> Secure Checkout
                 </button>
                 
                 <div className="security-badge">
-                  <FaShield /> Your payment is secure and encrypted
+                  <FaShieldAlt /> Your payment is secure and encrypted
                 </div>
               </div>
             </div>
