@@ -8,7 +8,7 @@ import {
   FaStore, FaSearch, FaUser, FaTags, FaStar, FaBolt,
   FaFire, FaExclamationTriangle, FaSlidersH,
   FaUserCircle, FaEnvelope, FaShoppingCart, FaHeart,
-  FaCrown, FaGem
+  FaCrown, FaGem, FaRocket
 } from "react-icons/fa";
 import InfiniteScroll from "react-infinite-scroll-component";
 import ReactModal from "react-modal";
@@ -197,7 +197,7 @@ const ProductCard = ({ product, onClick, onAuthRequired }) => {
         </div>
 
         <div className="seller-row">
-          <FaUser /> Campus Seller
+          <FaUser /> Verified Seller
         </div>
       </div>
     </motion.div>
@@ -215,6 +215,14 @@ const PremiumStoreButton = ({ storeInfo, hasActiveSubscription, onStoreClick, on
       onAuthRequired();
       return;
     }
+    
+    if (!isStoreOwner) {
+      // Redirect to premium page if user doesn't have a store
+      window.location.href = "/premium";
+      return;
+    }
+    
+    // If user has a store, navigate to their store
     onStoreClick();
   };
 
@@ -280,7 +288,7 @@ const CreateStoreModal = ({ isOpen, onClose, storeInfo, hasActiveSubscription, o
     if (hasActiveSubscription) {
       navigate("/store/create");
     } else {
-      navigate("/store/premium");
+      navigate("/premium");
     }
     onClose();
   };
@@ -329,8 +337,8 @@ const CreateStoreModal = ({ isOpen, onClose, storeInfo, hasActiveSubscription, o
           <>
             <p className="premium-text">Join thousands of sellers earning on OmniMarket. Start your store in minutes!</p>
             <ul className="benefits-list">
-              <li>🎯 Reach thousands of campus students</li>
-              <li>💸 Earn money from your dorm room</li>
+              <li>🎯 Reach thousands of buyers</li>
+              <li>💸 Earn money from anywhere</li>
               <li>🚀 Fast and easy setup</li>
               <li>🛡️ Secure payments with OmniCash</li>
             </ul>
@@ -390,7 +398,6 @@ const TradeStore = () => {
   const [storeInfo, setStoreInfo] = useState(null);
   const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
   const [showStoreModal, setShowStoreModal] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [initialLoad, setInitialLoad] = useState(true);
   
   const pageSize = 20;
@@ -406,15 +413,12 @@ const TradeStore = () => {
   // FIXED: Fetch store information with correct column name
   useEffect(() => {
     if (!user?.id) {
-      setLoading(false);
       setInitialLoad(false);
       return;
     }
 
     const fetchUserData = async () => {
       try {
-        setLoading(true);
-        
         // Check for active subscription
         const { data: subscriptionData, error: subscriptionError } = await supabase
           .from("subscriptions")
@@ -432,9 +436,9 @@ const TradeStore = () => {
         // FIXED: Use 'name' instead of 'store_name'
         const { data: storeData, error: storeError } = await supabase
           .from("stores")
-          .select("id, contact_email, contact_phone, location, is_active, name") // FIXED: 'name' not 'store_name'
+          .select("id, contact_email, contact_phone, location, is_active, name")
           .eq("owner_id", user.id)
-          .maybeSingle(); // Use maybeSingle to handle no rows
+          .maybeSingle();
 
         if (storeError && storeError.code !== "PGRST116") {
           console.error("Store fetch error:", storeError);
@@ -445,7 +449,6 @@ const TradeStore = () => {
       } catch (error) {
         console.error("Error fetching user data:", error);
       } finally {
-        setLoading(false);
         setInitialLoad(false);
       }
     };
@@ -695,7 +698,13 @@ const TradeStore = () => {
           <PremiumStoreButton 
             storeInfo={storeInfo}
             hasActiveSubscription={hasActiveSubscription}
-            onStoreClick={() => setShowStoreModal(true)}
+            onStoreClick={() => {
+              if (storeInfo && storeInfo.is_active) {
+                navigate(`/dashboard/store/${storeInfo.id}`);
+              } else {
+                setShowStoreModal(true);
+              }
+            }}
             onAuthRequired={handleAuthRequired}
           />
 
@@ -770,7 +779,7 @@ const TradeStore = () => {
       >
         <div className="hero-content">
           <h1>Welcome to <span className="hero-highlight">OmniMarket</span></h1>
-          <p className="hero-tagline">Kenya's #1 Campus Marketplace — Shop Smarter, Live Better!</p>
+          <p className="hero-tagline">Kenya's #1 Marketplace — Shop Smarter, Live Better!</p>
           
           <div className="hero-controls">
             {hasInstallmentPlan && (
@@ -794,7 +803,10 @@ const TradeStore = () => {
           </div>
         </div>
         
-        <PromotedCarousel />
+        {/* Enhanced 3D Promoted Carousel */}
+        <div className="promoted-section-3d">
+          <PromotedCarousel />
+        </div>
       </motion.header>
 
       <FlashDeals />
@@ -846,12 +858,11 @@ const TradeStore = () => {
         hasMore={hasMore}
         loader={
           <div className="loading-section">
-            <motion.div 
-              className="loading-spinner"
-              animate={{ rotate: 360 }}
-              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-            />
-            <h4>Loading more amazing products...</h4>
+            <div className="skeleton-loader">
+              {[...Array(6)].map((_, index) => (
+                <ProductCardSkeleton key={index} />
+              ))}
+            </div>
           </div>
         }
         endMessage={

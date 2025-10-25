@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/supabase";
 import { useAuth } from "@/context/AuthContext";
 import { FaHeart, FaTrash, FaShoppingCart, FaCrown, FaEye, FaBell, FaRocket } from "react-icons/fa";
@@ -13,56 +14,76 @@ const Wishlist = () => {
   const [loading, setLoading] = useState(true);
   const [isPremiumUser, setIsPremiumUser] = useState(false);
   const [priceAlerts, setPriceAlerts] = useState({});
+  const [removingItems, setRemovingItems] = useState(new Set());
 
   useEffect(() => {
     const fetchWishlist = async () => {
-      if (!user?.id) return;
-
-      // Fetch user premium status
-      const { data: userData } = await supabase
-        .from("profiles")
-        .select("is_premium")
-        .eq("id", user.id)
-        .single();
-
-      setIsPremiumUser(userData?.is_premium || false);
-
-      const { data, error } = await supabase
-        .from("wishlist_items")
-        .select("id, product_id, created_at, products (*)")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-
-      if (error) {
-        toast.error("Failed to load wishlist.");
+      if (!user?.id) {
+        setLoading(false);
         return;
       }
 
-      setWishlistItems(data || []);
-      
-      // Load price alerts from localStorage
-      const savedAlerts = localStorage.getItem(`priceAlerts_${user.id}`);
-      if (savedAlerts) {
-        setPriceAlerts(JSON.parse(savedAlerts));
+      try {
+        // Fetch user premium status
+        const { data: userData } = await supabase
+          .from("profiles")
+          .select("is_premium")
+          .eq("id", user.id)
+          .single();
+
+        setIsPremiumUser(userData?.is_premium || false);
+
+        const { data, error } = await supabase
+          .from("wishlist_items")
+          .select("id, product_id, created_at, products (*)")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false });
+
+        if (error) {
+          toast.error("Failed to load wishlist.");
+          return;
+        }
+
+        setWishlistItems(data || []);
+        
+        // Load price alerts from localStorage
+        const savedAlerts = localStorage.getItem(`priceAlerts_${user.id}`);
+        if (savedAlerts) {
+          setPriceAlerts(JSON.parse(savedAlerts));
+        }
+      } catch (error) {
+        console.error("Wishlist error:", error);
+        toast.error("Failed to load wishlist.");
+      } finally {
+        setLoading(false);
       }
-      
-      setLoading(false);
     };
 
     fetchWishlist();
   }, [user]);
 
-  const handleRemoveFromWishlist = async (wishlistId) => {
-    const { error } = await supabase
-      .from("wishlist_items")
-      .delete()
-      .eq("id", wishlistId);
+  const handleRemoveFromWishlist = async (wishlistId, productName) => {
+    setRemovingItems(prev => new Set(prev).add(wishlistId));
+    
+    try {
+      const { error } = await supabase
+        .from("wishlist_items")
+        .delete()
+        .eq("id", wishlistId);
 
-    if (error) {
-      toast.error("Failed to remove item.");
-    } else {
+      if (error) throw error;
+
       setWishlistItems((prev) => prev.filter((item) => item.id !== wishlistId));
-      toast.success("Removed from wishlist.");
+      toast.success(`${productName || 'Item'} removed from wishlist.`);
+    } catch (error) {
+      console.error("Remove error:", error);
+      toast.error("Failed to remove item.");
+    } finally {
+      setRemovingItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(wishlistId);
+        return newSet;
+      });
     }
   };
 
@@ -80,11 +101,11 @@ const Wishlist = () => {
       return;
     }
 
-    await handleRemoveFromWishlist(item.id);
+    await handleRemoveFromWishlist(item.id, item.products?.name);
     toast.success("Moved to cart!");
   };
 
-  const handlePriceAlert = (productId, targetPrice) => {
+  const handlePriceAlert = (productId, targetPrice, productName) => {
     if (!isPremiumUser) {
       toast.error("Price alerts are a premium feature!");
       navigate("/premium");
@@ -98,15 +119,15 @@ const Wishlist = () => {
     
     setPriceAlerts(newAlerts);
     localStorage.setItem(`priceAlerts_${user.id}`, JSON.stringify(newAlerts));
-    toast.success("Price alert set! We'll notify you when the price drops.");
+    toast.success(`Price alert set for ${productName}! We'll notify you when the price drops.`);
   };
 
-  const removePriceAlert = (productId) => {
+  const removePriceAlert = (productId, productName) => {
     const newAlerts = { ...priceAlerts };
     delete newAlerts[productId];
     setPriceAlerts(newAlerts);
     localStorage.setItem(`priceAlerts_${user.id}`, JSON.stringify(newAlerts));
-    toast.success("Price alert removed.");
+    toast.success(`Price alert removed for ${productName}.`);
   };
 
   const getPriceDrop = (product) => {
@@ -116,210 +137,321 @@ const Wishlist = () => {
     return dropPercentage > 0 ? Math.round(dropPercentage) : 0;
   };
 
-  if (loading) return <div className="wishlist-container">Loading...</div>;
+  // Skeleton loading component
+  const WishlistSkeleton = () => (
+    <div className="wishlist-container">
+      <div className="wishlist-header skeleton">
+        <div className="skeleton-title"></div>
+      </div>
+      <div className="wishlist-grid">
+        {[...Array(6)].map((_, index) => (
+          <div key={index} className="wishlist-card skeleton">
+            <div className="skeleton-image"></div>
+            <div className="skeleton-content">
+              <div className="skeleton-line skeleton-title"></div>
+              <div className="skeleton-line skeleton-price"></div>
+              <div className="skeleton-line skeleton-actions"></div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  if (loading) return <WishlistSkeleton />;
 
   return (
     <div className="wishlist-container">
-      <div className="wishlist-header">
-        <h2><FaHeart /> My Wishlist</h2>
+      <motion.div 
+        className="wishlist-header"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <h1>
+          <FaHeart className="heart-icon" />
+          My Wishlist
+        </h1>
         {isPremiumUser && (
           <div className="premium-badge">
             <FaCrown /> Premium Member
           </div>
         )}
-      </div>
+      </motion.div>
 
       {wishlistItems.length === 0 ? (
-        <div className="empty-wishlist">
+        <motion.div 
+          className="empty-wishlist"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5 }}
+        >
           <div className="empty-heart">
             <FaHeart />
           </div>
-          <p className="empty">Your wishlist is empty</p>
+          <h2>Your wishlist is empty</h2>
           <p className="empty-subtitle">Start adding items you love!</p>
-          <button 
+          <motion.button 
             className="browse-products-btn"
             onClick={() => navigate("/products")}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
           >
             Browse Products
-          </button>
-        </div>
+          </motion.button>
+        </motion.div>
       ) : (
         <>
           <div className="wishlist-stats">
-            <div className="stat-card">
+            <motion.div 
+              className="stat-card"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.1 }}
+            >
               <span className="stat-number">{wishlistItems.length}</span>
               <span className="stat-label">Items Saved</span>
-            </div>
-            <div className="stat-card">
+            </motion.div>
+            <motion.div 
+              className="stat-card"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.2 }}
+            >
               <span className="stat-number">
                 {wishlistItems.filter(item => getPriceDrop(item.products) > 0).length}
               </span>
               <span className="stat-label">Price Drops</span>
-            </div>
+            </motion.div>
             {isPremiumUser && (
-              <div className="stat-card premium">
+              <motion.div 
+                className="stat-card premium"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.3 }}
+              >
                 <span className="stat-number">
                   {Object.keys(priceAlerts).length}
                 </span>
                 <span className="stat-label">Active Alerts</span>
-              </div>
+              </motion.div>
             )}
           </div>
 
           {!isPremiumUser && (
-            <div className="premium-upsell-banner">
+            <motion.div 
+              className="premium-upsell-banner"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5 }}
+            >
               <div className="upsell-content">
                 <FaCrown className="crown-icon" />
                 <div className="upsell-text">
                   <h4>Unlock Premium Wishlist Features</h4>
                   <p>Get price drop alerts, early access to sales, and exclusive deals</p>
                 </div>
-                <button 
+                <motion.button 
                   className="upgrade-btn"
                   onClick={() => navigate("/premium")}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                 >
                   Upgrade Now
-                </button>
+                </motion.button>
               </div>
-            </div>
+            </motion.div>
           )}
 
           <div className="wishlist-grid">
-            {wishlistItems.map((item) => {
-              const product = item.products;
-              if (!product) return null;
+            <AnimatePresence>
+              {wishlistItems.map((item, index) => {
+                const product = item.products;
+                if (!product) return null;
 
-              const priceDrop = getPriceDrop(product);
-              const hasPriceAlert = priceAlerts[product.id];
-              const isOnSale = product.discount > 0;
+                const priceDrop = getPriceDrop(product);
+                const hasPriceAlert = priceAlerts[product.id];
+                const isOnSale = product.discount > 0;
+                const isRemoving = removingItems.has(item.id);
 
-              return (
-                <div className="wishlist-card" key={item.id}>
-                  <div className="card-badges">
-                    {isOnSale && (
-                      <span className="sale-badge">
-                        -{product.discount}% OFF
-                      </span>
-                    )}
-                    {priceDrop > 0 && (
-                      <span className="price-drop-badge">
-                        ⬇ {priceDrop}% Drop
-                      </span>
-                    )}
-                    {product.is_featured && isPremiumUser && (
-                      <span className="featured-badge">
-                        <FaRocket /> Featured
-                      </span>
-                    )}
-                  </div>
-
-                  <img
-                    src={product.image_gallery?.[0] || product.image_url}
-                    alt={product.name}
-                    onClick={() => navigate(`/product/${product.id}`)}
-                  />
-                  
-                  <div className="wishlist-info">
-                    <h4 onClick={() => navigate(`/product/${product.id}`)}>
-                      {product.name}
-                    </h4>
-                    
-                    <div className="price-section">
+                return (
+                  <motion.div
+                    key={item.id}
+                    className="wishlist-card"
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9, x: 100 }}
+                    transition={{ duration: 0.3, delay: index * 0.1 }}
+                    layout
+                  >
+                    <div className="card-badges">
                       {isOnSale && (
-                        <p className="original-price">
-                          KSH {Number(product.original_price || product.price * 1.2).toLocaleString()}
-                        </p>
+                        <span className="sale-badge">
+                          -{product.discount}% OFF
+                        </span>
                       )}
-                      <p className="current-price">
-                        KSH {Number(product.price).toLocaleString()}
-                      </p>
                       {priceDrop > 0 && (
-                        <p className="price-drop">
-                          Price dropped {priceDrop}%!
-                        </p>
+                        <span className="price-drop-badge">
+                          ⬇ {priceDrop}% Drop
+                        </span>
+                      )}
+                      {product.is_featured && isPremiumUser && (
+                        <span className="featured-badge">
+                          <FaRocket /> Featured
+                        </span>
                       )}
                     </div>
 
-                    <div className="wishlist-buttons">
-                      <button 
-                        className="move-to-cart"
-                        onClick={() => handleMoveToCart(item)}
-                      >
-                        <FaShoppingCart /> Add to Cart
-                      </button>
-                      
-                      <button
-                        className="view-details"
+                    <motion.div 
+                      className="wishlist-image"
+                      whileHover={{ scale: 1.05 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <img
+                        src={product.image_gallery?.[0] || product.image_url || "/placeholder.jpg"}
+                        alt={product.name}
                         onClick={() => navigate(`/product/${product.id}`)}
-                      >
-                        <FaEye /> Details
-                      </button>
-
-                      {isPremiumUser ? (
-                        hasPriceAlert ? (
-                          <button
-                            className="remove-alert"
-                            onClick={() => removePriceAlert(product.id)}
-                          >
-                            <FaBell /> Alert Set
-                          </button>
-                        ) : (
-                          <button
-                            className="set-alert"
-                            onClick={() => handlePriceAlert(product.id, Number(product.price) * 0.8)}
-                          >
-                            <FaBell /> Price Alert
-                          </button>
-                        )
-                      ) : (
-                        <button
-                          className="premium-feature"
-                          onClick={() => navigate("/premium")}
-                        >
-                          <FaCrown /> Set Alert
-                        </button>
-                      )}
-
-                      <button
-                        className="remove"
-                        onClick={() => handleRemoveFromWishlist(item.id)}
-                      >
-                        <FaTrash />
-                      </button>
-                    </div>
-
-                    {hasPriceAlert && (
-                      <div className="price-alert-info">
-                        <FaBell /> Alert set at KSH {priceAlerts[product.id].toLocaleString()}
+                      />
+                    </motion.div>
+                    
+                    <div className="wishlist-info">
+                      <h4 onClick={() => navigate(`/product/${product.id}`)}>
+                        {product.name}
+                      </h4>
+                      
+                      <div className="price-section">
+                        {isOnSale && (
+                          <p className="original-price">
+                            KSH {Number(product.original_price || product.price * 1.2).toLocaleString()}
+                          </p>
+                        )}
+                        <p className="current-price">
+                          KSH {Number(product.price).toLocaleString()}
+                        </p>
+                        {priceDrop > 0 && (
+                          <p className="price-drop">
+                            Price dropped {priceDrop}%!
+                          </p>
+                        )}
                       </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+
+                      <div className="wishlist-buttons">
+                        <motion.button 
+                          className="move-to-cart"
+                          onClick={() => handleMoveToCart(item)}
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          disabled={isRemoving}
+                        >
+                          <FaShoppingCart /> Add to Cart
+                        </motion.button>
+                        
+                        <motion.button
+                          className="view-details"
+                          onClick={() => navigate(`/product/${product.id}`)}
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          disabled={isRemoving}
+                        >
+                          <FaEye /> Details
+                        </motion.button>
+
+                        {isPremiumUser ? (
+                          hasPriceAlert ? (
+                            <motion.button
+                              className="remove-alert"
+                              onClick={() => removePriceAlert(product.id, product.name)}
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              disabled={isRemoving}
+                            >
+                              <FaBell /> Alert Set
+                            </motion.button>
+                          ) : (
+                            <motion.button
+                              className="set-alert"
+                              onClick={() => handlePriceAlert(product.id, Number(product.price) * 0.8, product.name)}
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              disabled={isRemoving}
+                            >
+                              <FaBell /> Price Alert
+                            </motion.button>
+                          )
+                        ) : (
+                          <motion.button
+                            className="premium-feature"
+                            onClick={() => navigate("/premium")}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            disabled={isRemoving}
+                          >
+                            <FaCrown /> Set Alert
+                          </motion.button>
+                        )}
+
+                        <motion.button
+                          className="remove"
+                          onClick={() => handleRemoveFromWishlist(item.id, product.name)}
+                          disabled={isRemoving}
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                        >
+                          <FaTrash />
+                          {isRemoving ? "..." : ""}
+                        </motion.button>
+                      </div>
+
+                      {hasPriceAlert && (
+                        <div className="price-alert-info">
+                          <FaBell /> Alert set at KSH {priceAlerts[product.id].toLocaleString()}
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
           </div>
 
           {isPremiumUser && wishlistItems.length > 0 && (
-            <div className="premium-features">
+            <motion.div 
+              className="premium-features"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.4 }}
+            >
               <h3>💎 Premium Benefits Activated</h3>
               <div className="features-grid">
-                <div className="feature-item">
+                <motion.div 
+                  className="feature-item"
+                  whileHover={{ scale: 1.05 }}
+                  transition={{ duration: 0.3 }}
+                >
                   <FaBell />
                   <h4>Price Alerts</h4>
                   <p>Get notified when prices drop on your wishlisted items</p>
-                </div>
-                <div className="feature-item">
+                </motion.div>
+                <motion.div 
+                  className="feature-item"
+                  whileHover={{ scale: 1.05 }}
+                  transition={{ duration: 0.3 }}
+                >
                   <FaRocket />
                   <h4>Early Access</h4>
                   <p>Be the first to know about sales and new arrivals</p>
-                </div>
-                <div className="feature-item">
+                </motion.div>
+                <motion.div 
+                  className="feature-item"
+                  whileHover={{ scale: 1.05 }}
+                  transition={{ duration: 0.3 }}
+                >
                   <FaCrown />
                   <h4>Exclusive Deals</h4>
                   <p>Special discounts only for premium members</p>
-                </div>
+                </motion.div>
               </div>
-            </div>
+            </motion.div>
           )}
         </>
       )}
