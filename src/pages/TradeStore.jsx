@@ -685,13 +685,20 @@ const TradeStore = () => {
         </motion.button>
 
         <div className="nav-center">
-          <motion.h1 
-            className="nav-title"
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
+          <motion.div 
+            className="search-bar"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.4 }}
           >
-            Omni<span className="highlight">Market</span>
-          </motion.h1>
+            <FaSearch />
+            <input
+              type="text"
+              placeholder="Search thousands of products..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </motion.div>
         </div>
 
         <div className="nav-right">
@@ -811,21 +818,6 @@ const TradeStore = () => {
 
       <FlashDeals />
       <FeaturedHighlights />
-
-      <motion.div 
-        className="search-bar"
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 0.4 }}
-      >
-        <FaSearch />
-        <input
-          type="text"
-          placeholder="Search thousands of products..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </motion.div>
 
       <motion.div 
         className="tab-bar-scrollable"
