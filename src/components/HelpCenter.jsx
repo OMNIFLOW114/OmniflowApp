@@ -27,16 +27,16 @@ const HelpCenter = () => {
         icon: '🚀',
         questions: [
           {
-            q: 'How do I create a CampusMart account?',
-            a: 'Download the CampusMart app from your app store, tap "Sign Up", and use your campus email or phone number. You\'ll need to verify your student status to access all marketplace features.'
+            q: 'How do I create an OmniFlow account?',
+            a: 'Download the OmniFlow app from your app store, tap "Sign Up", and use your email or phone number. Complete your profile to access all marketplace features.'
           },
           {
-            q: 'How do I verify my student status?',
-            a: 'Go to Profile → Verify Student → Upload your student ID card or use your official campus email address. Verification is usually completed within 24-48 hours.'
+            q: 'How do I verify my account?',
+            a: 'Go to Profile → Verify Account → Upload your ID document or use official verification methods. Verification is usually completed within 24-48 hours.'
           },
           {
-            q: 'Is CampusMart completely free to use?',
-            a: 'Yes! CampusMart is free for all students. We only charge small commissions (5-10%) on successful sales to maintain and improve the platform.'
+            q: 'Is OmniFlow completely free to use?',
+            a: 'Yes! OmniFlow is free for all users. We only charge small commissions (5-10%) on successful sales to maintain and improve the platform.'
           }
         ]
       },
@@ -46,20 +46,20 @@ const HelpCenter = () => {
         icon: '🛒',
         questions: [
           {
-            q: 'How do I purchase items on CampusMart?',
-            a: 'Browse products, tap on one you like, select options (size, color, etc.), and tap "Buy Now". Choose your payment method (M-Pesa, card, or wallet) and delivery preference.'
+            q: 'How do I purchase items on OmniFlow?',
+            a: 'Browse products, tap on one you like, select options (size, color, etc.), and tap "Buy Now". Choose your payment method (M-Pesa, card, wallet, or installments) and delivery preference.'
           },
           {
             q: 'What payment methods are accepted?',
-            a: 'We accept M-Pesa, credit/debit cards, CampusMart Wallet balance, and cash on delivery for eligible items within campus areas.'
+            a: 'We accept M-Pesa, credit/debit cards, OmniFlow Wallet balance, cash on delivery, and installment plans for eligible items.'
           },
           {
-            q: 'How does the "Lipa Polepole" installment plan work?',
-            a: 'Look for products with the "Lipa Polepole" badge. Pay a small deposit (usually 20-30%) and spread the remaining amount over 1-6 months. Perfect for textbooks and electronics!'
+            q: 'How does the installment plan work?',
+            a: 'Look for products with the "Installment Available" badge. Pay a small deposit (usually 20-30%) and spread the remaining amount over 1-6 months. Perfect for electronics and high-value items!'
           },
           {
             q: 'What if I receive a damaged or wrong item?',
-            a: 'Contact the seller within 24 hours of delivery. If unresolved, report to CampusMart support with photos/videos. We offer buyer protection on all transactions.'
+            a: 'Contact the seller within 24 hours of delivery. If unresolved, report to OmniFlow support with photos/videos. We offer buyer protection on all transactions.'
           }
         ]
       },
@@ -70,42 +70,42 @@ const HelpCenter = () => {
         questions: [
           {
             q: 'How do I create my own store?',
-            a: 'Go to Profile → My Store → Create Store. Provide basic info about your store. For larger stores, identity verification may be required.'
+            a: 'Go to Profile → My Store → Create Store. Provide basic info about your store. For larger stores, business verification may be required.'
           },
           {
-            q: 'What items can I sell on CampusMart?',
-            a: 'Textbooks, electronics, furniture, clothing, accessories, services (tutoring, design), and campus-appropriate items. Prohibited items include alcohol, weapons, illegal substances, and explicit content.'
+            q: 'What items can I sell on OmniFlow?',
+            a: 'Electronics, furniture, clothing, accessories, services, and general merchandise. Prohibited items include alcohol, weapons, illegal substances, and explicit content.'
           },
           {
-            q: 'How much commission does CampusMart charge?',
+            q: 'How much commission does OmniFlow charge?',
             a: 'We charge 5-10% commission on successful sales, depending on the product category. There are no listing fees or monthly charges.'
           },
           {
             q: 'When and how do I get paid for my sales?',
-            a: 'Earnings go directly to your CampusMart Wallet after the buyer confirms receipt. You can withdraw to M-Pesa or bank account once you reach the minimum withdrawal amount of KSh 100.'
+            a: 'Earnings go directly to your OmniFlow Wallet after the buyer confirms receipt. You can withdraw to M-Pesa or bank account once you reach the minimum withdrawal amount of KSh 100.'
           }
         ]
       },
       {
         id: 'delivery',
-        title: '🚚 Delivery & Pickup',
+        title: '🚚 Delivery & Shipping',
         icon: '🚚',
         questions: [
           {
-            q: 'How does campus delivery work?',
-            a: 'We have verified campus delivery agents who can pick up and deliver items between students on the same campus. Delivery fees start from KSh 50.'
+            q: 'How does delivery work?',
+            a: 'We partner with reliable delivery services across Kenya. Delivery fees vary based on location and item size. Same-day delivery available in major cities.'
           },
           {
-            q: 'What are safe meeting points?',
-            a: 'Designated safe spots on campus include library entrances, student centers, main gates, and campus cafeterias. Always meet during daylight hours.'
+            q: 'What are the delivery options?',
+            a: 'Choose between home delivery, pickup points, or store pickup. Track your delivery in real-time through the app.'
           },
           {
-            q: 'Can I deliver items between different campuses?',
-            a: 'Yes! We offer inter-campus delivery services. Delivery times and costs vary based on distance between campuses.'
+            q: 'Can I deliver items nationwide?',
+            a: 'Yes! We offer nationwide delivery services. Delivery times and costs vary based on location and item size.'
           },
           {
             q: 'How do I track my delivery?',
-            a: 'Go to Orders → Track Delivery to see real-time updates and your delivery agent\'s location and contact information.'
+            a: 'Go to Orders → Track Delivery to see real-time updates and your delivery status with contact information.'
           }
         ]
       },
@@ -115,11 +115,11 @@ const HelpCenter = () => {
         icon: '💰',
         questions: [
           {
-            q: 'How do I add money to my CampusMart Wallet?',
+            q: 'How do I add money to my OmniFlow Wallet?',
             a: 'Go to Wallet → Deposit → Choose M-Pesa or card. Follow the prompts to complete the transaction. Deposits are instant and secure.'
           },
           {
-            q: 'Is my money safe in the CampusMart Wallet?',
+            q: 'Is my money safe in the OmniFlow Wallet?',
             a: 'Absolutely! We use bank-level security encryption and escrow services. Your funds are protected until you confirm receipt of your orders.'
           },
           {
@@ -138,20 +138,39 @@ const HelpCenter = () => {
         icon: '🛡️',
         questions: [
           {
-            q: 'How does CampusMart ensure transaction safety?',
-            a: 'We use escrow payments, verified student profiles, rating systems, and 24/7 moderation to ensure safe transactions for everyone.'
+            q: 'How does OmniFlow ensure transaction safety?',
+            a: 'We use escrow payments, verified profiles, rating systems, and 24/7 moderation to ensure safe transactions for everyone.'
           },
           {
             q: 'What should I do if I encounter a scam?',
             a: 'Immediately report the user through their profile, contact support, and provide evidence. We investigate all reports promptly.'
           },
           {
-            q: 'Are meetups safe on campus?',
-            a: 'Always use designated safe meeting points, meet during daylight hours, and bring a friend if possible. Trust your instincts.'
+            q: 'Are meetups safe for transactions?',
+            a: 'Always use public meeting points, meet during daylight hours, and bring a friend if possible. Trust your instincts.'
           },
           {
-            q: 'How are users verified on CampusMart?',
-            a: 'We verify student status through campus emails, student ID uploads, and in some cases, campus administration verification.'
+            q: 'How are users verified on OmniFlow?',
+            a: 'We verify users through phone numbers, email verification, and for businesses, additional documentation may be required.'
+          }
+        ]
+      },
+      {
+        id: 'student-marketplace',
+        title: '🎓 Student Marketplace',
+        icon: '🎓',
+        questions: [
+          {
+            q: 'What is the Student Marketplace section?',
+            a: 'A dedicated space for students to buy and sell items like textbooks, electronics, and dorm essentials with special student-friendly features.'
+          },
+          {
+            q: 'How do I access student-only features?',
+            a: 'Verify your student status in your profile to unlock student pricing, special installment plans, and campus delivery options.'
+          },
+          {
+            q: 'Are there special benefits for students?',
+            a: 'Yes! Students enjoy lower commission rates, flexible installment plans, and access to campus pickup points for convenient transactions.'
           }
         ]
       }
@@ -256,7 +275,7 @@ const HelpCenter = () => {
           className="hero-content"
         >
           <h1>How can we help you today?</h1>
-          <p>Get answers, contact support, or share feedback about CampusMart</p>
+          <p>Get answers, contact support, or share feedback about OmniFlow App</p>
           
           {/* Search Bar */}
           <div className="search-container">
@@ -425,8 +444,8 @@ const HelpCenter = () => {
               <div className="contact-icon">📧</div>
               <h3>Email Support</h3>
               <p>Detailed help via email</p>
-              <a href="mailto:support@campusmart.com" className="contact-btn">
-                support@campusmart.com
+              <a href="mailto:support@omniflowapp.co.ke" className="contact-btn">
+                support@omniflowapp.co.ke
               </a>
               <small>Response within 24 hours</small>
             </div>
@@ -442,13 +461,13 @@ const HelpCenter = () => {
             </div>
 
             <div className="contact-card">
-              <div className="contact-icon">🏫</div>
-              <h3>Campus Help Desk</h3>
-              <p>Visit your campus help desk</p>
+              <div className="contact-icon">🏢</div>
+              <h3>Business Support</h3>
+              <p>Dedicated support for businesses</p>
               <button className="contact-btn">
-                Find Locations
+                Business Help Desk
               </button>
-              <small>All major campuses</small>
+              <small>All Business Sizes Welcome</small>
             </div>
           </div>
 
@@ -488,6 +507,8 @@ const HelpCenter = () => {
                     <option value="billing">Billing & Payments</option>
                     <option value="safety">Safety Concern</option>
                     <option value="feature">Feature Request</option>
+                    <option value="business">Business Account</option>
+                    <option value="student">Student Marketplace</option>
                   </select>
                 </div>
                 <div className="form-group">
@@ -529,7 +550,7 @@ const HelpCenter = () => {
         >
           <div className="section-header">
             <h2>Share Your Feedback</h2>
-            <p>Help us improve CampusMart for everyone</p>
+            <p>Help us improve OmniFlow for everyone</p>
           </div>
 
           <div className="feedback-content">
@@ -559,7 +580,7 @@ const HelpCenter = () => {
                 <textarea
                   value={feedback}
                   onChange={(e) => setFeedback(e.target.value)}
-                  placeholder="What do you love about CampusMart? What can we improve? Any features you'd like to see?"
+                  placeholder="What do you love about OmniFlow? What can we improve? Any features you'd like to see?"
                   rows="6"
                   required
                 ></textarea>
@@ -572,7 +593,7 @@ const HelpCenter = () => {
 
             <div className="feature-requests">
               <h3>💡 Have a feature idea?</h3>
-              <p>We're always looking for ways to make CampusMart better for students</p>
+              <p>We're always looking for ways to make OmniFlow better for all users</p>
               <button 
                 className="feature-btn"
                 onClick={() => toast.success("Feature request submitted! We'll review it.")}
@@ -600,7 +621,7 @@ const HelpCenter = () => {
             <div className="guide-card">
               <div className="guide-icon">🛒</div>
               <h3>Buying Guide</h3>
-              <p>Learn how to safely purchase items on CampusMart</p>
+              <p>Learn how to safely purchase items on OmniFlow</p>
               <button className="guide-btn">Read Guide</button>
             </div>
 
@@ -621,7 +642,21 @@ const HelpCenter = () => {
             <div className="guide-card">
               <div className="guide-icon">🛡️</div>
               <h3>Safety Guide</h3>
-              <p>Stay safe while buying and selling on campus</p>
+              <p>Stay safe while buying and selling</p>
+              <button className="guide-btn">Read Guide</button>
+            </div>
+
+            <div className="guide-card">
+              <div className="guide-icon">📊</div>
+              <h3>Business Guide</h3>
+              <p>Grow your business on OmniFlow</p>
+              <button className="guide-btn">Read Guide</button>
+            </div>
+
+            <div className="guide-card">
+              <div className="guide-icon">🎓</div>
+              <h3>Student Guide</h3>
+              <p>Make the most of student features</p>
               <button className="guide-btn">Read Guide</button>
             </div>
           </div>
@@ -633,7 +668,7 @@ const HelpCenter = () => {
                 <div className="video-thumbnail">
                   <div className="play-icon">▶</div>
                 </div>
-                <h4>Getting Started with CampusMart</h4>
+                <h4>Getting Started with OmniFlow</h4>
                 <span>5:24</span>
               </div>
               <div className="video-card">
@@ -642,6 +677,13 @@ const HelpCenter = () => {
                 </div>
                 <h4>How to Create Your Store</h4>
                 <span>7:12</span>
+              </div>
+              <div className="video-card">
+                <div className="video-thumbnail">
+                  <div className="play-icon">▶</div>
+                </div>
+                <h4>Understanding Installments</h4>
+                <span>4:35</span>
               </div>
             </div>
           </div>
@@ -654,7 +696,7 @@ const HelpCenter = () => {
           <div className="footer-section">
             <h4>📞 Emergency Support</h4>
             <p>For urgent safety or transaction issues</p>
-            <a href="tel:+254711000000" className="emergency-link">+254 711 000 000</a>
+            <a href="tel:+254759003410" className="emergency-link">+254 759 003 410</a>
           </div>
           
           <div className="footer-section">
@@ -676,8 +718,8 @@ const HelpCenter = () => {
         </div>
         
         <div className="footer-bottom">
-          <p>© 2024 CampusMart - Making Campus Life Better Together</p>
-          <p>Version 2.1.0 • Built for Students</p>
+          <p>© 2024 OmniFlow - Making Kenyan E-commerce Better Together</p>
+          <p>Version 2.1.0 • Built for Kenya</p>
         </div>
       </footer>
       <div className="bottom-nav-spacer"></div>

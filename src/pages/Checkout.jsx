@@ -1,16 +1,17 @@
-// src/pages/Checkout.jsx
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { supabase } from "@/supabase";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "react-hot-toast";
 import {
-  FaArrowLeft,
   FaWallet,
   FaMobileAlt,
   FaPaypal,
   FaChevronDown,
   FaChevronUp,
+  FaStore,
+  FaBox,
+  FaArrowLeft
 } from "react-icons/fa";
 import "./Checkout.css";
 
@@ -20,7 +21,7 @@ export default function Checkout() {
   const { user } = useAuth();
   const location = useLocation();
 
-  const [product, setProduct] = useState(null);
+  const [products, setProducts] = useState([]);
   const [seller, setSeller] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -29,8 +30,6 @@ export default function Checkout() {
   const [deliverySpeed, setDeliverySpeed] = useState("standard");
   const [fragile, setFragile] = useState(false);
   const [contactPhone, setContactPhone] = useState(user?.phone || "");
-  const [variantsList, setVariantsList] = useState([]);
-  const [selectedVariantIndex, setSelectedVariantIndex] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [buying, setBuying] = useState(false);
 
@@ -46,6 +45,10 @@ export default function Checkout() {
   const [showInstallmentInfo, setShowInstallmentInfo] = useState(false);
   const [processingInstallment, setProcessingInstallment] = useState(false);
 
+  // Check if coming from cart
+  const fromCart = location.state?.fromCart;
+  const storeId = location.state?.storeId;
+
   // OPTIMIZED Mapbox search for deep Kenyan addresses
   const searchAddresses = async (query) => {
     if (!query || query.length < 2) {
@@ -59,19 +62,18 @@ export default function Checkout() {
       const response = await fetch(
         `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?` +
         `access_token=pk.eyJ1Ijoib21uaWZsb3ciLCJhIjoiY21oMDl0NW41MGRzZmxncXVrdnQxeXVqdyJ9.kq5_wsP11uOBxwV0Wacoeg` +
-        `&country=ke` + // Kenya only
-        `&types=address,place,neighborhood,locality,poi` + // Specific location types
-        `&bbox=33.83,-4.73,41.91,5.06` + // Kenya bounding box (excludes neighboring countries)
-        `&limit=8` + // More results
-        `&language=en` + // English results
-        `&autocomplete=true` + // Better autocomplete
-        `&proximity=36.8219,-1.2921` // Center on Nairobi
+        `&country=ke` +
+        `&types=address,place,neighborhood,locality,poi` +
+        `&bbox=33.83,-4.73,41.91,5.06` +
+        `&limit=8` +
+        `&language=en` +
+        `&autocomplete=true` +
+        `&proximity=36.8219,-1.2921`
       );
 
       const data = await response.json();
       
       if (data.features && data.features.length > 0) {
-        // Filter to ensure Kenya-only results
         const kenyanResults = data.features.filter(feature => {
           const context = feature.context || [];
           const hasKenya = context.some(ctx => 
@@ -105,7 +107,6 @@ export default function Checkout() {
     const value = e.target.value;
     setDeliveryAddress(value);
     
-    // Debounce the search
     clearTimeout(window.searchTimeout);
     window.searchTimeout = setTimeout(() => {
       searchAddresses(value);
@@ -127,98 +128,94 @@ export default function Checkout() {
     };
   }, []);
 
-  // parse variants helper
-  function parseVariants(raw) {
-    if (!raw) return [];
-    if (Array.isArray(raw)) return raw;
-
-    if (typeof raw === "string") {
-      const trimmed = raw.trim();
-      if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
-        try {
-          const parsed = JSON.parse(trimmed);
-          if (Array.isArray(parsed)) return parsed;
-          if (parsed && typeof parsed === "object") {
-            return Object.values(parsed);
-          }
-        } catch (e) {
-          console.warn("Variants parsing failed (JSON):", e);
-        }
-      }
-
-      if (trimmed.includes(",") || trimmed.includes("\n")) {
-        const parts = trimmed
-          .split(/[\n,;]+/)
-          .map((s) => s.trim())
-          .filter(Boolean);
-        if (parts.length) return parts;
-      }
-      return [trimmed];
-    }
-    return [];
-  }
-
   useEffect(() => {
     async function load() {
       setLoading(true);
       try {
-        let p = location.state?.product || null;
+        console.log("🔄 Checkout loading...", { productId, fromCart, locationState: location.state });
 
-        if (!p) {
-          const { data, error } = await supabase
-            .from("products")
-            .select(
-              "*, delivery_methods, image_gallery, discount, installment_plan, variants, variant_options, price, description, store_id"
-            )
-            .eq("id", productId)
-            .single();
-
-          if (error) throw error;
-          p = data;
+        // Check if user is logged in FIRST
+        if (!user?.id) {
+          toast.error("Please login to proceed to checkout");
+          navigate("/login");
+          return;
         }
 
-        setProduct(p);
+        if (fromCart && location.state?.cartItems) {
+          // Cart checkout flow
+          const cartItems = location.state.cartItems;
+          console.log("🛒 Cart checkout items:", cartItems);
+          
+          setProducts(cartItems.map(item => ({
+            ...item.products,
+            cartItemId: item.id,
+            quantity: item.quantity,
+            variant: item.variant
+          })));
 
-        const { data: s } = await supabase
-          .from("stores")
-          .select("id,name,contact_phone,location")
-          .eq("owner_id", p.owner_id)
-          .maybeSingle();
-        setSeller(s || null);
+          // Get store info from state (already passed from cart)
+          if (location.state.seller) {
+            setSeller(location.state.seller);
+          }
 
-        const dm = p.delivery_methods || {};
-        const offersPickup = dm && (dm.pickup === "Yes" || dm.pickup === true || (typeof dm.pickup === "string" && dm.pickup.trim() !== "") || typeof dm.pickup === "object");
-        const offersDoor = dm && (dm.door === "Yes" || dm.door === true || (typeof dm.door === "string" && dm.door.trim() !== "") || typeof dm.door === "object");
-        setDeliveryMethod(offersDoor ? "door" : offersPickup ? "pickup" : "");
+          // Set delivery method based on store preferences from first item
+          const firstItem = cartItems[0];
+          if (firstItem) {
+            const dm = firstItem.products.delivery_methods || {};
+            const offersPickup = dm && (dm.pickup === "Yes" || dm.pickup === true || (typeof dm.pickup === "string" && dm.pickup.trim() !== "") || typeof dm.pickup === "object");
+            const offersDoor = dm && (dm.door === "Yes" || dm.door === true || (typeof dm.door === "string" && dm.door.trim() !== "") || typeof dm.door === "object");
+            setDeliveryMethod(offersDoor ? "door" : offersPickup ? "pickup" : "");
+          }
+        } else {
+          // Single product checkout flow (original logic)
+          let p = location.state?.product || null;
 
-        let normalized = [];
-        if ("variants" in p && p.variants != null) {
-          normalized = parseVariants(p.variants);
-        } else if ("variant_options" in p && p.variant_options != null) {
-          if (Array.isArray(p.variant_options)) normalized = p.variant_options;
-          else normalized = parseVariants(p.variant_options);
+          if (!p) {
+            const { data, error } = await supabase
+              .from("products")
+              .select(
+                "*, delivery_methods, image_gallery, discount, installment_plan, variants, variant_options, price, description, store_id"
+              )
+              .eq("id", productId)
+              .single();
+
+            if (error) throw error;
+            p = data;
+          }
+
+          setProducts([{ ...p, quantity: 1 }]);
+
+          const { data: s } = await supabase
+            .from("stores")
+            .select("id,name,contact_phone,location,owner_id")
+            .eq("owner_id", p.owner_id)
+            .maybeSingle();
+          setSeller(s || null);
+
+          const dm = p.delivery_methods || {};
+          const offersPickup = dm && (dm.pickup === "Yes" || dm.pickup === true || (typeof dm.pickup === "string" && dm.pickup.trim() !== "") || typeof dm.pickup === "object");
+          const offersDoor = dm && (dm.door === "Yes" || dm.door === true || (typeof dm.door === "string" && dm.door.trim() !== "") || typeof dm.door === "object");
+          setDeliveryMethod(offersDoor ? "door" : offersPickup ? "pickup" : "");
         }
 
-        setVariantsList(normalized || []);
-        setSelectedVariantIndex(normalized && normalized.length ? 0 : null);
-
-        if (p.stock_quantity && p.stock_quantity > 0) {
-          setQuantity((q) => Math.min(q, p.stock_quantity));
-        }
+        console.log("✅ Checkout loaded successfully");
       } catch (err) {
-        console.error("Checkout load error:", err);
-        toast.error("Failed to load product for checkout");
+        console.error("❌ Checkout load error:", err);
+        toast.error("Failed to load checkout");
+        navigate("/cart");
       } finally {
         setLoading(false);
       }
     }
     load();
-  }, [productId, location.state, user]);
+  }, [productId, location.state, user, fromCart, navigate]);
 
   // delivery fee calculation
   function computeDeliveryFee() {
     try {
-      if (!product) return 0;
+      if (!products.length) return 0;
+      
+      const product = products[0];
       const dm = product.delivery_methods || {};
       if (!deliveryMethod) return 0;
 
@@ -245,23 +242,49 @@ export default function Checkout() {
   }
 
   const deliveryFee = useMemo(() => computeDeliveryFee(), [
-    product,
+    products,
     deliveryMethod,
     deliverySpeed,
-    fragile,
+    fragile
   ]);
 
-  const unitPrice = useMemo(() => {
-    const rawPrice = Number(product?.price || 0);
-    const discount = Number(product?.discount || 0);
-    return rawPrice * (1 - discount / 100);
-  }, [product]);
+  // Calculate totals
+  const productTotals = useMemo(() => {
+    return products.map(product => {
+      const rawPrice = Number(product.price || 0);
+      const discount = Number(product.discount || 0);
+      const unitPrice = rawPrice * (1 - discount / 100);
+      const productPrice = +(unitPrice * product.quantity).toFixed(2);
+      const depositProduct = +(productPrice * depositPercent).toFixed(2);
+      
+      return {
+        ...product,
+        unitPrice,
+        productPrice,
+        depositProduct
+      };
+    });
+  }, [products]);
 
-  const productPrice = useMemo(() => +(unitPrice * quantity).toFixed(2), [unitPrice, quantity]);
-  const depositProduct = useMemo(() => +(productPrice * depositPercent).toFixed(2), [productPrice]);
-  const depositTotal = useMemo(() => +(depositProduct + deliveryFee).toFixed(2), [depositProduct, deliveryFee]);
-  const balanceDue = useMemo(() => +(productPrice - depositProduct).toFixed(2), [productPrice, depositProduct]);
-  const totalOrder = useMemo(() => +(productPrice + deliveryFee).toFixed(2), [productPrice, deliveryFee]);
+  const totalProductPrice = useMemo(() => 
+    productTotals.reduce((sum, item) => sum + item.productPrice, 0), 
+    [productTotals]
+  );
+
+  const totalDeposit = useMemo(() => 
+    productTotals.reduce((sum, item) => sum + item.depositProduct, 0), 
+    [productTotals]
+  );
+
+  const depositTotal = useMemo(() => +(totalDeposit + deliveryFee).toFixed(2), [totalDeposit, deliveryFee]);
+  const balanceDue = useMemo(() => +(totalProductPrice - totalDeposit).toFixed(2), [totalProductPrice, totalDeposit]);
+  const totalOrder = useMemo(() => +(totalProductPrice + deliveryFee).toFixed(2), [totalProductPrice, deliveryFee]);
+
+  // Check if any product has installment plan (disable for multi-product)
+  const hasInstallmentPlan = useMemo(() => {
+    if (fromCart && products.length > 1) return false;
+    return products[0]?.installment_plan;
+  }, [products, fromCart]);
 
   // Payment handlers
   async function handlePayWithWallet() {
@@ -269,33 +292,58 @@ export default function Checkout() {
     if (!deliveryMethod) return toast.error("Choose a delivery option");
     if (!contactPhone) return toast.error("Enter contact phone");
     if (!deliveryAddress) return toast.error("Please enter a delivery address");
-    if (variantsList.length && selectedVariantIndex == null) return toast.error("Select a variant");
+
+    // Check stock
+    const outOfStock = products.some(product => 
+      product.stock_quantity < product.quantity
+    );
+    if (outOfStock) return toast.error("Some items are out of stock");
 
     setBuying(true);
     toast.loading("Processing deposit...");
 
     try {
-      const rpcArgs = {
-        p_buyer: user.id,
-        p_product: product.id,
-        p_variant: selectedVariantIndex != null
-          ? JSON.stringify(variantsList[selectedVariantIndex])
-          : null,
-        p_quantity: quantity,
-        p_delivery_method: deliveryMethod,
-        p_location: deliveryAddress,
-        p_contact_phone: contactPhone,
-        p_payment_method: "wallet",
-        p_deposit_percent: depositPercent,
-      };
+      if (fromCart) {
+        // Multi-product checkout from cart
+        for (const product of productTotals) {
+          const rpcArgs = {
+            p_buyer: user.id,
+            p_product: product.id,
+            p_variant: product.variant || null,
+            p_quantity: product.quantity,
+            p_delivery_method: deliveryMethod,
+            p_location: deliveryAddress,
+            p_contact_phone: contactPhone,
+            p_payment_method: "wallet",
+            p_deposit_percent: depositPercent,
+          };
 
-      const { data, error } = await supabase.rpc("create_order_with_deposit", rpcArgs);
+          const { error } = await supabase.rpc("create_order_with_deposit", rpcArgs);
+          if (error) throw error;
 
-      if (error) {
-        console.error("Wallet RPC error:", error);
-        toast.dismiss();
-        toast.error("Deposit failed: " + (error.message || error.details || ""));
-        return;
+          // Remove from cart after successful order creation
+          await supabase
+            .from("cart_items")
+            .delete()
+            .eq("id", product.cartItemId);
+        }
+      } else {
+        // Single product checkout
+        const product = productTotals[0];
+        const rpcArgs = {
+          p_buyer: user.id,
+          p_product: product.id,
+          p_variant: product.variant || null,
+          p_quantity: product.quantity,
+          p_delivery_method: deliveryMethod,
+          p_location: deliveryAddress,
+          p_contact_phone: contactPhone,
+          p_payment_method: "wallet",
+          p_deposit_percent: depositPercent,
+        };
+
+        const { data, error } = await supabase.rpc("create_order_with_deposit", rpcArgs);
+        if (error) throw error;
       }
 
       toast.dismiss();
@@ -304,7 +352,7 @@ export default function Checkout() {
     } catch (err) {
       console.error("Wallet payment error:", err);
       toast.dismiss();
-      toast.error("Payment error");
+      toast.error("Payment error: " + (err.message || ""));
     } finally {
       setBuying(false);
     }
@@ -315,35 +363,71 @@ export default function Checkout() {
     if (!deliveryMethod) return toast.error("Choose a delivery option");
     if (!contactPhone) return toast.error("Enter contact phone");
     if (!deliveryAddress) return toast.error("Please enter a delivery address");
-    if (variantsList.length && selectedVariantIndex == null) return toast.error("Select a variant");
 
     setBuying(true);
     toast.loading("Creating pending order...");
 
     try {
-      const payload = {
-        product_id: product.id,
-        buyer_id: user.id,
-        seller_id: product.owner_id,
-        variant: selectedVariantIndex != null ? JSON.stringify(variantsList[selectedVariantIndex]) : null,
-        quantity,
-        price_paid: 0,
-        total_price: totalOrder,
-        store_id: product.store_id || null,
-        delivery_method: deliveryMethod,
-        delivery_fee: deliveryFee,
-        deposit_amount: depositProduct,
-        deposit_paid: false,
-        balance_due: balanceDue,
-        payment_method: method,
-        buyer_phone: contactPhone,
-        buyer_location: deliveryAddress,
-        delivery_location: deliveryAddress,
-        metadata: { delivery_speed: deliverySpeed, fragile },
-      };
+      if (fromCart) {
+        // Multi-product checkout
+        for (const product of productTotals) {
+          const payload = {
+            product_id: product.id,
+            buyer_id: user.id,
+            seller_id: product.owner_id,
+            variant: product.variant || null,
+            quantity: product.quantity,
+            price_paid: 0,
+            total_price: product.productPrice,
+            store_id: product.store_id || null,
+            delivery_method: deliveryMethod,
+            delivery_fee: deliveryFee / products.length, // Split delivery fee
+            deposit_amount: product.depositProduct,
+            deposit_paid: false,
+            balance_due: product.productPrice - product.depositProduct,
+            payment_method: method,
+            buyer_phone: contactPhone,
+            buyer_location: deliveryAddress,
+            delivery_location: deliveryAddress,
+            metadata: { delivery_speed: deliverySpeed, fragile, from_cart: true },
+          };
 
-      const { data, error } = await supabase.from("orders").insert([payload]).select().single();
-      if (error) throw error;
+          const { error } = await supabase.from("orders").insert([payload]);
+          if (error) throw error;
+
+          // Remove from cart
+          await supabase
+            .from("cart_items")
+            .delete()
+            .eq("id", product.cartItemId);
+        }
+      } else {
+        // Single product checkout
+        const product = productTotals[0];
+        const payload = {
+          product_id: product.id,
+          buyer_id: user.id,
+          seller_id: product.owner_id,
+          variant: product.variant || null,
+          quantity: product.quantity,
+          price_paid: 0,
+          total_price: totalOrder,
+          store_id: product.store_id || null,
+          delivery_method: deliveryMethod,
+          delivery_fee: deliveryFee,
+          deposit_amount: totalDeposit,
+          deposit_paid: false,
+          balance_due: balanceDue,
+          payment_method: method,
+          buyer_phone: contactPhone,
+          buyer_location: deliveryAddress,
+          delivery_location: deliveryAddress,
+          metadata: { delivery_speed: deliverySpeed, fragile },
+        };
+
+        const { data, error } = await supabase.from("orders").insert([payload]).select().single();
+        if (error) throw error;
+      }
 
       toast.dismiss();
       toast.success("Pending order created — complete payment externally");
@@ -362,9 +446,12 @@ export default function Checkout() {
     if (!deliveryMethod) return toast.error("Choose a delivery option");
     if (!contactPhone) return toast.error("Enter contact phone");
     if (!deliveryAddress) return toast.error("Please enter a delivery address");
-    if (!product?.installment_plan) return toast.error("Installments not available for this product");
-    if (quantity < 1) return toast.error("Quantity must be at least 1");
-    if (product?.stock_quantity != null && quantity > product.stock_quantity) {
+    if (!hasInstallmentPlan) return toast.error("Installments not available");
+    if (fromCart && products.length > 1) return toast.error("Installments only available for single products");
+
+    const product = productTotals[0];
+    if (product.quantity < 1) return toast.error("Quantity must be at least 1");
+    if (product.stock_quantity != null && product.quantity > product.stock_quantity) {
       return toast.error("Quantity exceeds available stock");
     }
 
@@ -372,14 +459,13 @@ export default function Checkout() {
     const dismiss = toast.loading("Starting installment plan…");
 
     try {
-      const variantPayload =
-        selectedVariantIndex != null ? JSON.stringify(variantsList[selectedVariantIndex]) : null;
+      const variantPayload = product.variant || null;
 
       const { data, error } = await supabase.rpc("start_installment_order", {
         p_buyer: user.id,
         p_product: product.id,
         p_variant: variantPayload,
-        p_quantity: quantity,
+        p_quantity: product.quantity,
         p_delivery_method: deliveryMethod,
         p_delivery_location: deliveryAddress,
         p_contact_phone: contactPhone,
@@ -401,25 +487,6 @@ export default function Checkout() {
     }
   }
 
-  // UI helpers
-  function variantLabel(v) {
-    if (v == null) return "";
-    if (typeof v === "string") return v;
-    if (typeof v === "object") {
-      return v.name || v.label || v.color || JSON.stringify(v);
-    }
-    return String(v);
-  }
-
-  function increaseQty() {
-    const max = product?.stock_quantity || 999999;
-    setQuantity((q) => Math.min(max, q + 1));
-  }
-  
-  function decreaseQty() {
-    setQuantity((q) => Math.max(1, q - 1));
-  }
-
   // Helper function for address type display
   const getAddressType = (suggestion) => {
     const types = suggestion.place_type || [];
@@ -431,20 +498,66 @@ export default function Checkout() {
   };
 
   if (loading) return <div className="loading">Loading…</div>;
-  if (!product) return <div className="loading">Product not found</div>;
+  if (!products.length) return <div className="loading">No products found</div>;
 
   return (
     <div className="checkout-page">
-      <button className="back" onClick={() => navigate(-1)}>
-        <FaArrowLeft /> Back
-      </button>
+      <div className="checkout-header">
+        <button className="back-button" onClick={() => navigate(-1)}>
+          <FaArrowLeft /> Back
+        </button>
+        <h1>
+          {fromCart ? (
+            <>
+              <FaStore /> Checkout - {seller?.name}
+            </>
+          ) : (
+            <>
+              <FaBox /> Checkout
+            </>
+          )}
+        </h1>
+      </div>
 
       <div className="checkout-grid">
         <div className="left">
-          <h2>{product.name}</h2>
-          <p>{product.description}</p>
+          {/* Products Display */}
+          <div className="products-section">
+            <h3>
+              {fromCart ? `Ordering from ${seller?.name}` : "Product Details"}
+            </h3>
+            
+            {productTotals.map((product, index) => (
+              <div key={product.id || index} className="checkout-product">
+                <img 
+                  src={product.image_gallery?.[0] || product.image_url || "/placeholder.jpg"} 
+                  alt={product.name}
+                />
+                <div className="product-info">
+                  <h4>{product.name}</h4>
+                  {product.variant && (
+                    <div className="variant-display">
+                      Variant: {typeof product.variant === 'string' ? product.variant : JSON.stringify(product.variant)}
+                    </div>
+                  )}
+                  <div className="product-pricing">
+                    <span>KSH {product.unitPrice.toLocaleString()} × {product.quantity}</span>
+                    <strong>KSH {product.productPrice.toLocaleString()}</strong>
+                  </div>
+                  <div className="stock-info">
+                    {product.stock_quantity > 0 ? (
+                      <span className="in-stock">{product.stock_quantity} in stock</span>
+                    ) : (
+                      <span className="out-of-stock">Out of stock</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
 
-          {product.installment_plan && (
+          {/* Installment Section - Only for single product without cart */}
+          {hasInstallmentPlan && !fromCart && (
             <div className="installment-section" style={{ marginBottom: 16 }}>
               <h4 onClick={() => setShowInstallmentInfo((s) => !s)}>
                 Special Offer: Buy in Installments{" "}
@@ -453,59 +566,19 @@ export default function Checkout() {
               {showInstallmentInfo && (
                 <div className="installment-details">
                   <p>
-                    Pay <strong>{(product.installment_plan.initial_percent || 0.3) * 100}%</strong> now and the remainder after delivery.
-                    Terms: {product.installment_plan?.terms || "See seller terms"}.
+                    Pay <strong>{(products[0].installment_plan.initial_percent || 0.3) * 100}%</strong> now and the remainder after delivery.
+                    Terms: {products[0].installment_plan?.terms || "See seller terms"}.
                   </p>
                 </div>
               )}
             </div>
           )}
 
-          {variantsList && variantsList.length > 0 && (
-            <div className="variant-section">
-              <h4>Choose Variant</h4>
-              <div className="variants">
-                {variantsList.map((v, i) => (
-                  <button
-                    key={i}
-                    className={i === selectedVariantIndex ? "active" : ""}
-                    onClick={() => setSelectedVariantIndex(i)}
-                    type="button"
-                  >
-                    {variantLabel(v)}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="quantity-selector" style={{ marginBottom: 12 }}>
-            <h4>Quantity</h4>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <button onClick={decreaseQty} type="button" className="qty-btn">-</button>
-              <input
-                type="number"
-                value={quantity}
-                min={1}
-                max={product?.stock_quantity || 999999}
-                onChange={(e) => {
-                  const val = Number(e.target.value) || 1;
-                  const max = product?.stock_quantity || 999999;
-                  setQuantity(Math.max(1, Math.min(max, val)));
-                }}
-              />
-              <button onClick={increaseQty} type="button" className="qty-btn">+</button>
-              <div style={{ marginLeft: 8, color: "#666", fontSize: 0.95 }}>
-                {product.stock_quantity != null ? `${product.stock_quantity} in stock` : null}
-              </div>
-            </div>
-          </div>
-
-          {/* DELIVERY SECTION WITH OPTIMIZED MAPBOX AUTOCOMPLETE */}
+          {/* DELIVERY SECTION */}
           <div className="delivery-settings">
             <h4>Delivery & Options</h4>
             <div className="delivery-methods" style={{ marginBottom: 12 }}>
-              {product.delivery_methods?.pickup && (
+              {products[0]?.delivery_methods?.pickup && (
                 <label>
                   <input
                     type="radio"
@@ -517,7 +590,7 @@ export default function Checkout() {
                   Pickup Station
                 </label>
               )}
-              {product.delivery_methods?.door && (
+              {products[0]?.delivery_methods?.door && (
                 <label>
                   <input
                     type="radio"
@@ -531,7 +604,7 @@ export default function Checkout() {
               )}
             </div>
 
-            {/* OPTIMIZED MAPBOX ADDRESS AUTOCOMPLETE */}
+            {/* MAPBOX ADDRESS AUTOCOMPLETE */}
             <label>
               Delivery Address:
               <div ref={addressInputRef} className="address-autocomplete-container">
@@ -597,17 +670,18 @@ export default function Checkout() {
             </label>
           </div>
 
-          {product.installment_plan && (
+          {/* Installment Payment - Only for single product */}
+          {hasInstallmentPlan && !fromCart && (
             <div className="installment-section" style={{ marginTop: 12 }}>
               <h4>Buy in Installments</h4>
               <div className="installment-details">
                 <p>
-                  Initial payment: <strong>{(product.installment_plan.initial_percent || 0.3) * 100}%</strong> (
-                  <strong>KSH {( (unitPrice * quantity) * (product.installment_plan.initial_percent || 0.3) ).toFixed(2)}</strong>)
+                  Initial payment: <strong>{(products[0].installment_plan.initial_percent || 0.3) * 100}%</strong> (
+                  <strong>KSH {( (productTotals[0].unitPrice * productTotals[0].quantity) * (products[0].installment_plan.initial_percent || 0.3) ).toFixed(2)}</strong>)
                 </p>
                 <p>Installment schedule:</p>
                 <ul>
-                  {(product.installment_plan.installments || []).map((it, idx) => (
+                  {(products[0].installment_plan.installments || []).map((it, idx) => (
                     <li key={idx}>
                       {it.percent}% after {it.due_in_days} days
                     </li>
@@ -627,16 +701,13 @@ export default function Checkout() {
             </div>
           )}
 
+          {/* PAYMENT SECTION */}
           <div className="payment-methods" style={{ marginTop: 16 }}>
             <h4>Payment</h4>
             <div className="price-breakdown">
               <div>
-                <span>Unit price:</span>
-                <strong>KSH {unitPrice.toLocaleString()}</strong>
-              </div>
-              <div>
-                <span>Product price ({quantity}):</span>
-                <strong>KSH {productPrice.toLocaleString()}</strong>
+                <span>Product{products.length > 1 ? 's' : ''} total:</span>
+                <strong>KSH {totalProductPrice.toLocaleString()}</strong>
               </div>
               <div>
                 <span>Delivery fee:</span>
@@ -649,7 +720,7 @@ export default function Checkout() {
               <div className="separator" />
               <div>
                 <span>Deposit ({depositPercent * 100}%):</span>
-                <strong>KSH {depositProduct.toFixed(2)}</strong>
+                <strong>KSH {totalDeposit.toFixed(2)}</strong>
               </div>
               <div>
                 <span>Deposit + Delivery:</span>
@@ -684,18 +755,37 @@ export default function Checkout() {
         <aside className="right">
           <div className="order-summary">
             <h4>Order Summary</h4>
-            <img src={product.image_gallery?.[0] || "/placeholder.jpg"} alt="thumb" />
-            <div>
-              <div style={{ fontWeight: 600 }}>{product.name}</div>
-              <div>Unit: KSH {unitPrice.toLocaleString()}</div>
-              <div>Qty: {quantity}</div>
+            
+            {fromCart && seller && (
+              <div className="store-info">
+                <FaStore />
+                <span>{seller.name}</span>
+              </div>
+            )}
+            
+            <div className="products-list">
+              {productTotals.map((product, index) => (
+                <div key={index} className="summary-product">
+                  <img src={product.image_gallery?.[0] || "/placeholder.jpg"} alt="thumb" />
+                  <div>
+                    <div style={{ fontWeight: 600 }}>{product.name}</div>
+                    <div>Qty: {product.quantity}</div>
+                    <div>KSH {product.productPrice.toLocaleString()}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <div className="summary-details">
               <div>Delivery: {deliveryMethod || "—"}</div>
               <div>Address: {deliveryAddress ? "✓ Selected" : "—"}</div>
-              {selectedVariantIndex != null && (
-                <div>Variant: {variantLabel(variantsList[selectedVariantIndex])}</div>
-              )}
-              <div style={{ marginTop: 8, fontWeight: 700 }}>
+              <div>Shipping: KSH {deliveryFee.toFixed(2)}</div>
+              
+              <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #eee', fontWeight: 700 }}>
                 Pay now: KSH {depositTotal.toFixed(2)}
+              </div>
+              <div style={{ fontSize: '0.9em', color: '#666' }}>
+                Balance due: KSH {balanceDue.toFixed(2)}
               </div>
             </div>
           </div>

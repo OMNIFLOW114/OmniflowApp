@@ -13,8 +13,7 @@ import {
   FaLock,
   FaShippingFast,
   FaShieldAlt,
-  FaStore,
-  FaCrown
+  FaStore
 } from "react-icons/fa";
 import "./Cart.css";
 
@@ -24,7 +23,6 @@ const Cart = () => {
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [updatingItems, setUpdatingItems] = useState(new Set());
-  const [isPremiumUser, setIsPremiumUser] = useState(false);
 
   useEffect(() => {
     const fetchCart = async () => {
@@ -34,21 +32,13 @@ const Cart = () => {
       }
 
       try {
-        // Fetch user premium status
-        const { data: userData } = await supabase
-          .from("profiles")
-          .select("is_premium")
-          .eq("id", user.id)
-          .single();
-
-        setIsPremiumUser(userData?.is_premium || false);
-
         const { data, error } = await supabase
           .from("cart_items")
           .select(`
             id, 
             product_id, 
-            quantity, 
+            quantity,
+            variant,
             products (
               id,
               name,
@@ -57,10 +47,12 @@ const Cart = () => {
               stock_quantity,
               image_gallery,
               image_url,
+              delivery_methods,
               stores!inner (
                 id,
                 name,
-                is_active
+                is_active,
+                owner_id
               )
             )
           `)
@@ -144,21 +136,71 @@ const Cart = () => {
     }
   };
 
-  const handleCheckout = () => {
-    if (cartItems.length === 0) {
-      toast.error("Your cart is empty");
+  const handleCheckout = async (storeId, storeName, storeItems) => {
+    console.log("🛒 Checkout clicked for store:", storeId, storeName);
+    
+    if (!user?.id) {
+      toast.error("Please login to proceed to checkout");
       return;
     }
-    
-    // Check if all items are from active stores
-    const inactiveStoreItems = cartItems.filter(item => !item.products.stores.is_active);
-    if (inactiveStoreItems.length > 0) {
-      toast.error("Some items are from inactive stores. Please remove them to continue.");
+
+    if (storeItems.length === 0) {
+      toast.error("No items found for this store");
       return;
     }
+
+    // Check stock availability for all items in this store
+    const outOfStockItems = storeItems.filter(item => 
+      item.products.stock_quantity < item.quantity
+    );
     
-    toast.success("Redirecting to secure checkout...");
-    navigate("/checkout", { state: { cartItems } });
+    if (outOfStockItems.length > 0) {
+      const itemNames = outOfStockItems.map(item => item.products.name).join(", ");
+      toast.error(`Some items are out of stock: ${itemNames}`);
+      return;
+    }
+
+    // Check if store is active
+    const store = storeItems[0].products.stores;
+    if (!store.is_active) {
+      toast.error("This store is currently inactive");
+      return;
+    }
+
+    // Get seller info for the store
+    try {
+      const { data: sellerData, error: sellerError } = await supabase
+        .from("stores")
+        .select("id, name, contact_phone, contact_email, location, owner_id")
+        .eq("id", storeId)
+        .single();
+
+      if (sellerError) {
+        console.error("Error fetching seller:", sellerError);
+        toast.error("Failed to load store information");
+        return;
+      }
+
+      console.log("✅ Proceeding to checkout with items:", storeItems);
+      toast.success(`Proceeding to checkout for ${storeName}`);
+      
+      // FIXED: Use the EXACT same pattern as Product Detail page
+      // Use the first product ID in the route to match your router setup
+      const firstProductId = storeItems[0].products.id;
+      
+      navigate(`/checkout/${firstProductId}`, { 
+        state: { 
+          cartItems: storeItems,
+          fromCart: true,
+          storeId: storeId,
+          seller: sellerData
+        } 
+      });
+
+    } catch (error) {
+      console.error("Checkout preparation error:", error);
+      toast.error("Failed to prepare checkout");
+    }
   };
 
   const calculateItemTotal = (item) => {
@@ -175,19 +217,30 @@ const Cart = () => {
 
   const totalAmount = cartItems.reduce((acc, item) => acc + calculateItemTotal(item), 0);
   const totalItems = cartItems.reduce((acc, item) => acc + (item.quantity || 1), 0);
-  const premiumDiscount = isPremiumUser ? totalAmount * 0.1 : 0;
-  const finalAmount = totalAmount - premiumDiscount;
-  const shippingCost = isPremiumUser ? 0 : Math.max(0, 200 - totalAmount * 0.05);
+  const shippingCost = Math.max(0, 200 - totalAmount * 0.05);
 
   // Group items by store
   const itemsByStore = cartItems.reduce((acc, item) => {
-    const storeName = item.products.stores?.name || "Unknown Store";
-    if (!acc[storeName]) {
-      acc[storeName] = [];
+    const store = item.products.stores;
+    const storeKey = `${store.id}-${store.name}`;
+    if (!acc[storeKey]) {
+      acc[storeKey] = {
+        store: store,
+        items: []
+      };
     }
-    acc[storeName].push(item);
+    acc[storeKey].items.push(item);
     return acc;
   }, {});
+
+  // Calculate store-wise totals
+  Object.keys(itemsByStore).forEach(storeKey => {
+    const storeData = itemsByStore[storeKey];
+    storeData.totalAmount = storeData.items.reduce((acc, item) => acc + calculateItemTotal(item), 0);
+    storeData.totalItems = storeData.items.reduce((acc, item) => acc + item.quantity, 0);
+    storeData.shippingCost = Math.max(0, 200 - storeData.totalAmount * 0.05);
+    storeData.finalAmount = storeData.totalAmount;
+  });
 
   // Skeleton loading component
   const CartSkeleton = () => (
@@ -235,11 +288,6 @@ const Cart = () => {
             My Shopping Cart
           </h1>
           <p className="cart-subtitle">{totalItems} item{totalItems !== 1 ? 's' : ''} in your cart</p>
-          {isPremiumUser && (
-            <div className="premium-badge">
-              <FaCrown /> Premium Member
-            </div>
-          )}
         </div>
       </motion.div>
 
@@ -268,35 +316,13 @@ const Cart = () => {
               </motion.button>
             </motion.div>
           ) : (
-            <>
-              {/* Premium Benefits Banner */}
-              <div className="premium-benefits-banner">
-                {!isPremiumUser ? (
-                  <div className="premium-upsell">
-                    <FaCrown className="crown-icon" />
-                    <div className="upsell-content">
-                      <h4>Go Premium for Better Benefits!</h4>
-                      <p>Get 10% additional discount, free shipping, and priority support</p>
-                      <button 
-                        className="upgrade-btn"
-                        onClick={() => navigate("/premium")}
-                      >
-                        Upgrade Now
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="premium-active">
-                    <FaCrown className="crown-icon" />
-                    <span>You're enjoying premium benefits: 10% extra discount & free shipping!</span>
-                  </div>
-                )}
-              </div>
-
-              <AnimatePresence>
-                {Object.entries(itemsByStore).map(([storeName, storeItems]) => (
+            <AnimatePresence>
+              {Object.entries(itemsByStore).map(([storeKey, storeData]) => {
+                const { store, items, totalAmount, totalItems, shippingCost, finalAmount } = storeData;
+                
+                return (
                   <motion.div 
-                    key={storeName}
+                    key={storeKey}
                     className="store-section"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -305,11 +331,12 @@ const Cart = () => {
                   >
                     <div className="store-header">
                       <FaStore className="store-icon" />
-                      <h3>{storeName}</h3>
+                      <h3>{store.name}</h3>
+                      <span className="store-item-count">{totalItems} item{totalItems !== 1 ? 's' : ''}</span>
                     </div>
                     
                     <div className="store-items">
-                      {storeItems.map((item) => {
+                      {items.map((item) => {
                         const product = item.products;
                         const isUpdating = updatingItems.has(item.id);
                         
@@ -342,6 +369,12 @@ const Cart = () => {
                               <h4 onClick={() => navigate(`/product/${product.id}`)}>
                                 {product.name}
                               </h4>
+                              
+                              {item.variant && (
+                                <div className="variant-info">
+                                  <span>Variant: {typeof item.variant === 'string' ? item.variant : JSON.stringify(item.variant)}</span>
+                                </div>
+                              )}
                               
                               <div className="price-info">
                                 <span className="current-price">
@@ -419,14 +452,39 @@ const Cart = () => {
                         );
                       })}
                     </div>
+
+                    {/* Store-wise Checkout Button */}
+                    <div className="store-checkout-section">
+                      <div className="store-summary">
+                        <div className="store-total">
+                          <span>Store Total: KSH {finalAmount.toLocaleString()}</span>
+                          <span className="shipping-info">
+                            Shipping: KSH {shippingCost.toLocaleString()}
+                          </span>
+                        </div>
+                        <motion.button
+                          className="store-checkout-btn"
+                          onClick={() => handleCheckout(store.id, store.name, items)}
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          disabled={items.some(item => item.products.stock_quantity < item.quantity)}
+                        >
+                          <FaLock className="lock-icon" />
+                          Checkout {store.name}
+                          <span className="checkout-store-total">
+                            KSH {((finalAmount * 1.16) + shippingCost).toLocaleString()}
+                          </span>
+                        </motion.button>
+                      </div>
+                    </div>
                   </motion.div>
-                ))}
-              </AnimatePresence>
-            </>
+                );
+              })}
+            </AnimatePresence>
           )}
         </div>
 
-        {/* Order Summary */}
+        {/* Global Order Summary */}
         {cartItems.length > 0 && (
           <motion.div 
             className="order-summary"
@@ -435,40 +493,34 @@ const Cart = () => {
             transition={{ duration: 0.5, delay: 0.2 }}
           >
             <div className="summary-card">
-              <h3>Order Summary</h3>
+              <h3>Cart Summary</h3>
               
               <div className="summary-details">
                 <div className="summary-row">
-                  <span>Items ({totalItems})</span>
+                  <span>Total Items</span>
+                  <span>{totalItems}</span>
+                </div>
+                
+                <div className="summary-row">
+                  <span>Stores</span>
+                  <span>{Object.keys(itemsByStore).length}</span>
+                </div>
+                
+                <div className="summary-row">
+                  <span>Subtotal</span>
                   <span>KSH {totalAmount.toLocaleString()}</span>
                 </div>
                 
-                {isPremiumUser && (
-                  <div className="summary-row premium-discount">
-                    <span>
-                      <FaCrown /> Premium Discount (10%):
-                    </span>
-                    <span>- KSH {premiumDiscount.toLocaleString()}</span>
-                  </div>
-                )}
-                
                 <div className="summary-row">
                   <span>Shipping</span>
-                  <span className={shippingCost === 0 ? "free-shipping" : ""}>
-                    {shippingCost === 0 ? "FREE" : `KSH ${shippingCost.toLocaleString()}`}
-                  </span>
-                </div>
-                
-                <div className="summary-row">
-                  <span>Estimated Tax</span>
-                  <span>KSH {(finalAmount * 0.16).toLocaleString()}</span>
+                  <span>KSH {shippingCost.toLocaleString()}</span>
                 </div>
                 
                 <div className="summary-divider"></div>
                 
                 <div className="summary-row total">
-                  <span>Total Amount</span>
-                  <span>KSH {((finalAmount * 1.16) + shippingCost).toLocaleString()}</span>
+                  <span>Estimated Total</span>
+                  <span>KSH {((totalAmount * 1.16) + shippingCost).toLocaleString()}</span>
                 </div>
               </div>
 
@@ -479,7 +531,7 @@ const Cart = () => {
                 </div>
                 <div className="security-item">
                   <FaShippingFast className="security-icon" />
-                  <span>Free campus delivery</span>
+                  <span>Store-wise delivery</span>
                 </div>
                 <div className="security-item">
                   <FaShieldAlt className="security-icon" />
@@ -487,20 +539,8 @@ const Cart = () => {
                 </div>
               </div>
 
-              <motion.button
-                className="checkout-btn"
-                onClick={handleCheckout}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                disabled={cartItems.length === 0}
-              >
-                <FaLock className="lock-icon" />
-                Proceed to Secure Checkout
-                <span className="checkout-total">KSH {((finalAmount * 1.16) + shippingCost).toLocaleString()}</span>
-              </motion.button>
-
               <p className="secure-notice">
-                🔒 Your payment information is encrypted and secure
+                🔒 Checkout per store for optimal delivery experience
               </p>
             </div>
           </motion.div>
