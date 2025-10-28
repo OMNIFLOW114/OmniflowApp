@@ -8,7 +8,7 @@ import {
   FaStore, FaSearch, FaUser, FaTags, FaStar, FaBolt,
   FaFire, FaExclamationTriangle, FaSlidersH,
   FaUserCircle, FaEnvelope, FaShoppingCart, FaHeart,
-  FaCrown, FaGem, FaRocket
+  FaCrown, FaGem, FaRocket, FaEye
 } from "react-icons/fa";
 import InfiniteScroll from "react-infinite-scroll-component";
 import ReactModal from "react-modal";
@@ -569,10 +569,6 @@ const TradeStore = () => {
   useEffect(() => {
     let result = [...products];
     
-    if (search) {
-      result = result.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
-    }
-    
     if (filters.category) {
       result = result.filter((p) => p.category?.toLowerCase().trim() === filters.category);
     }
@@ -652,7 +648,11 @@ const TradeStore = () => {
     }
 
     setFiltered(result);
-  }, [products, search, filters, activeTab]);
+  }, [products, filters, activeTab]);
+
+  const handleSearch = () => {
+    navigate("/search", { state: { query: search } });
+  };
 
   // Show skeleton during initial load
   if (initialLoad) {
@@ -691,12 +691,17 @@ const TradeStore = () => {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.4 }}
           >
-            <FaSearch />
+            <FaSearch style={{ cursor: "pointer" }} onClick={handleSearch} />
             <input
               type="text"
               placeholder="Search thousands of products..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  handleSearch();
+                }
+              }}
             />
           </motion.div>
         </div>
@@ -737,13 +742,14 @@ const TradeStore = () => {
                 handleAuthRequired();
                 return;
               }
-              navigate("/cart");
+              navigate("/orders");
             }}
             className="nav-icon"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
+            title="My Orders"
           >
-            <FaShoppingCart size={20} />
+            <FaEye size={20} />
           </motion.button>
         </div>
       </nav>

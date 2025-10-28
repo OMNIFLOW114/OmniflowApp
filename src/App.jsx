@@ -47,6 +47,7 @@ import StoreDashboard from "./pages/StoreDashboard";
 import MyInstallments from "./pages/MyInstallments"; // ✅ make sure the path matches
 import Checkout from "@/pages/Checkout";
 import Premium from './pages/Premium';
+import SearchPage from "./pages/SearchPage"; 
 
 // Student
 import StudentDashboard from "./pages/StudentDashboard";
@@ -140,6 +141,7 @@ function AppRoutes() {
         <Route path="/student/orders" element={<OrderTrackingPage />} />
         <Route path="/student/earnings" element={<StudentEarningsPage />} />
         <Route path="/terms" element={<TermsPage />} />
+        <Route path="/search" element={<SearchPage />} />
 
         {/* ===================== ADMIN ROUTES ===================== */}
         <Route path="/admin" element={<AdminAuth />} />

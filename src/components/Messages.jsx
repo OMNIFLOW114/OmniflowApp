@@ -5,7 +5,7 @@ import {
   FaPaperPlane, FaUserCircle, FaSmile, FaSearch,
   FaEllipsisV, FaPhone, FaVideo, FaInfoCircle,
   FaCheck, FaCheckDouble, FaClock, FaArrowLeft,
-  FaImage, FaStore
+  FaImage, FaStore, FaShoppingBag
 } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
 import EmojiPicker from "emoji-picker-react";
@@ -26,6 +26,9 @@ const Messages = () => {
   const [onlineUsers, setOnlineUsers] = useState(new Set());
   const [profilePictures, setProfilePictures] = useState({});
   const [storeContacts, setStoreContacts] = useState({});
+  const [userDetails, setUserDetails] = useState({});
+  const [storeDetails, setStoreDetails] = useState({});
+  const [productDetails, setProductDetails] = useState({});
   const [isMobileView, setIsMobileView] = useState(false);
   const [showChat, setShowChat] = useState(false);
   
@@ -52,9 +55,8 @@ const Messages = () => {
     scrollToBottom();
   }, [messages]);
 
-  // Fixed: Fetch profile pictures with validation
-  const fetchProfilePictures = useCallback(async (userIds) => {
-    // Filter out undefined, null, or invalid UUIDs
+  // Fetch user details (name, email)
+  const fetchUserDetails = useCallback(async (userIds) => {
     const validUserIds = userIds.filter(id => 
       id && typeof id === 'string' && id.length > 10 && id !== 'undefined'
     );
@@ -64,27 +66,30 @@ const Messages = () => {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, profile_picture')
+        .select('id, full_name, email, profile_picture')
         .in('id', validUserIds);
       
       if (error) throw error;
       
-      const pictures = {};
+      const details = {};
       data?.forEach(profile => {
-        if (profile.profile_picture) {
-          pictures[profile.id] = profile.profile_picture;
+        if (profile.id) {
+          details[profile.id] = {
+            full_name: profile.full_name || 'User',
+            email: profile.email || '',
+            profile_picture: profile.profile_picture
+          };
         }
       });
       
-      setProfilePictures(prev => ({ ...prev, ...pictures }));
+      setUserDetails(prev => ({ ...prev, ...details }));
     } catch (error) {
-      console.error('Error fetching profile pictures:', error);
+      console.error('Error fetching user details:', error);
     }
   }, []);
 
-  // Fixed: Fetch store contacts with validation
-  const fetchStoreContacts = useCallback(async (storeIds) => {
-    // Filter out undefined, null, or invalid UUIDs
+  // Fetch store details
+  const fetchStoreDetails = useCallback(async (storeIds) => {
     const validStoreIds = storeIds.filter(id => 
       id && typeof id === 'string' && id.length > 10 && id !== 'undefined'
     );
@@ -94,24 +99,57 @@ const Messages = () => {
     try {
       const { data, error } = await supabase
         .from('stores')
-        .select('id, contact_phone, owner_id')
+        .select('id, name, owner_id, contact_phone, contact_email')
         .in('id', validStoreIds);
       
       if (error) throw error;
       
-      const contacts = {};
+      const details = {};
       data?.forEach(store => {
         if (store.id) {
-          contacts[store.id] = {
-            contact_number: store.contact_number,
-            owner_id: store.owner_id
+          details[store.id] = {
+            name: store.name || `Store ${store.id.slice(-6)}`,
+            owner_id: store.owner_id,
+            contact_phone: store.contact_phone,
+            contact_email: store.contact_email
           };
         }
       });
       
-      setStoreContacts(prev => ({ ...prev, ...contacts }));
+      setStoreDetails(prev => ({ ...prev, ...details }));
     } catch (error) {
-      console.error('Error fetching store contacts:', error);
+      console.error('Error fetching store details:', error);
+    }
+  }, []);
+
+  // Fetch product details
+  const fetchProductDetails = useCallback(async (productIds) => {
+    const validProductIds = productIds.filter(id => 
+      id && typeof id === 'string' && id.length > 10 && id !== 'undefined'
+    );
+    
+    if (!validProductIds.length) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('id, name')
+        .in('id', validProductIds);
+      
+      if (error) throw error;
+      
+      const details = {};
+      data?.forEach(product => {
+        if (product.id) {
+          details[product.id] = {
+            name: product.name || 'Product'
+          };
+        }
+      });
+      
+      setProductDetails(prev => ({ ...prev, ...details }));
+    } catch (error) {
+      console.error('Error fetching product details:', error);
     }
   }, []);
 
@@ -122,7 +160,7 @@ const Messages = () => {
     try {
       const { data: userStores, error: storesError } = await supabase
         .from("stores")
-        .select("id, name, owner_id, contact_phone")
+        .select("id, name, owner_id, contact_phone, contact_email")
         .eq("owner_id", currentUser.id);
 
       if (storesError) throw storesError;
@@ -144,7 +182,8 @@ const Messages = () => {
             id, 
             name, 
             owner_id,
-            contact_phone
+            contact_phone,
+            contact_email
           )
         `)
         .order("created_at", { ascending: false });
@@ -186,7 +225,7 @@ const Messages = () => {
         const storeIds = [...new Set(fallbackData?.map(msg => msg.store_id) || [])];
         const { data: storesData } = await supabase
           .from("stores")
-          .select("id, name, owner_id, contact_phone")
+          .select("id, name, owner_id, contact_phone, contact_email")
           .in("id", storeIds);
 
         processConversations(fallbackData || [], storesData || []);
@@ -205,6 +244,7 @@ const Messages = () => {
     const storeMap = new Map(stores.map(store => [store.id, store]));
     const userIds = new Set();
     const storeIds = new Set();
+    const productIds = new Set();
 
     messages.forEach((msg) => {
       const store = storeMap.get(msg.store_id);
@@ -216,14 +256,15 @@ const Messages = () => {
       const otherId = isBuyer ? store?.owner_id : msg.user_id;
       const conversationKey = `${msg.store_id}-${msg.product_id || "no-product"}`;
 
-      // Collect user IDs for profile pictures (with validation)
+      // Collect IDs for fetching details
       if (otherId && otherId !== 'undefined') {
         userIds.add(otherId);
       }
-
-      // Collect store IDs for contacts
       if (msg.store_id && msg.store_id !== 'undefined') {
         storeIds.add(msg.store_id);
+      }
+      if (msg.product_id && msg.product_id !== 'undefined') {
+        productIds.add(msg.product_id);
       }
 
       if (!convMap.has(conversationKey)) {
@@ -233,12 +274,15 @@ const Messages = () => {
           user_id: otherId,
           store_owner_id: store?.owner_id,
           username: store?.name || `Store ${msg.store_id?.slice(-6)}`,
-          product_name: "General Inquiry",
+          product_name: msg.product_id ? "Product Inquiry" : "General Inquiry",
           last_message: msg.content,
           last_message_time: msg.created_at,
           unread_count: (isSeller && msg.sender_role === "buyer" && msg.status === "unread") || 
                         (isBuyer && msg.sender_role === "seller" && msg.status === "unread") ? 1 : 0,
-          contact_number: store?.contact_number
+          contact_number: store?.contact_phone,
+          contact_email: store?.contact_email,
+          is_buyer: isBuyer,
+          is_seller: isSeller
         });
       } else {
         const conv = convMap.get(conversationKey);
@@ -260,9 +304,10 @@ const Messages = () => {
     setConversations(convList);
     setFilteredConversations(convList);
 
-    // Fetch profile pictures and store contacts with validated IDs
-    fetchProfilePictures(Array.from(userIds));
-    fetchStoreContacts(Array.from(storeIds));
+    // Fetch all details
+    fetchUserDetails(Array.from(userIds));
+    fetchStoreDetails(Array.from(storeIds));
+    fetchProductDetails(Array.from(productIds));
 
     if (convList.length > 0 && !activeConversation && !isMobileView) {
       setActiveConversation(convList[0]);
@@ -288,7 +333,7 @@ const Messages = () => {
     const fetchSearchUsers = async () => {
       const { data, error } = await supabase
         .from("stores")
-        .select("id, name, owner_id, contact_phone")
+        .select("id, name, owner_id, contact_phone, contact_email")
         .ilike("name", `%${searchTerm}%`)
         .limit(10);
 
@@ -302,10 +347,9 @@ const Messages = () => {
 
       setSearchUsers(newStores);
       
-      // Only fetch contacts for stores with valid IDs
       const validStoreIds = newStores.map(s => s.id).filter(id => id && id !== 'undefined');
       if (validStoreIds.length > 0) {
-        fetchStoreContacts(validStoreIds);
+        fetchStoreDetails(validStoreIds);
       }
     };
 
@@ -507,7 +551,10 @@ const Messages = () => {
       username: store.name || `Store ${store.id?.slice(-6) || 'New'}`,
       product_name: "General Inquiry",
       isNew: true,
-      contact_number: store.contact_number
+      contact_number: store.contact_phone,
+      contact_email: store.contact_email,
+      is_buyer: true,
+      is_seller: false
     };
     
     setActiveConversation(newConversation);
@@ -532,7 +579,7 @@ const Messages = () => {
 
   const handleCall = (conversation) => {
     const contactNumber = conversation.contact_number || 
-                         storeContacts[conversation.store_id]?.contact_number;
+                         storeDetails[conversation.store_id]?.contact_phone;
     
     if (contactNumber) {
       window.open(`tel:${contactNumber}`, '_self');
@@ -542,11 +589,10 @@ const Messages = () => {
   };
 
   const getAvatar = (userId, storeId) => {
-    // Only try to use profile picture if userId is valid
-    if (userId && userId !== 'undefined' && profilePictures[userId]) {
+    if (userId && userId !== 'undefined' && userDetails[userId]?.profile_picture) {
       return (
         <img 
-          src={profilePictures[userId]} 
+          src={userDetails[userId].profile_picture} 
           alt="Profile" 
           className="avatar-img"
           onError={(e) => {
@@ -557,6 +603,35 @@ const Messages = () => {
       );
     }
     return <FaUserCircle className="avatar-icon" />;
+  };
+
+  // Get conversation display name and details
+  const getConversationDisplayInfo = (conversation) => {
+    if (conversation.is_seller) {
+      // Seller sees buyer's name and email
+      const userDetail = userDetails[conversation.user_id];
+      return {
+        name: userDetail?.full_name || 'Buyer',
+        email: userDetail?.email || '',
+        type: 'buyer'
+      };
+    } else {
+      // Buyer sees store name and email
+      const storeDetail = storeDetails[conversation.store_id];
+      return {
+        name: storeDetail?.name || conversation.username,
+        email: storeDetail?.contact_email || '',
+        type: 'store'
+      };
+    }
+  };
+
+  // Check if message is a product inquiry
+  const isProductInquiryMessage = (message, index) => {
+    return index === 0 && 
+           message.sender_role === 'buyer' && 
+           activeConversation?.product_id && 
+           productDetails[activeConversation.product_id];
   };
 
   if (isLoading) {
@@ -593,44 +668,60 @@ const Messages = () => {
         </div>
 
         <div className="conversations-list">
-          {filteredConversations.map((conversation) => (
-            <motion.div
-              key={`${conversation.store_id}-${conversation.product_id || "no-product"}`}
-              className={`conversation-item ${
-                activeConversation?.store_id === conversation.store_id &&
-                activeConversation?.product_id === conversation.product_id
-                  ? "active"
-                  : ""
-              }`}
-              onClick={() => handleConversationSelect(conversation)}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <div className="avatar-container">
-                {getAvatar(conversation.user_id, conversation.store_id)}
-                {conversation.user_id && conversation.user_id !== 'undefined' && onlineUsers.has(conversation.user_id) && (
-                  <div className="online-indicator"></div>
-                )}
-              </div>
-              
-              <div className="conversation-info">
-                <div className="conversation-header">
-                  <h4 className="username">
-                    <FaStore className="store-icon" />
-                    {conversation.username}
-                  </h4>
-                  <span className="time">{formatTime(conversation.last_message_time)}</span>
-                </div>
-                
-                <div className="conversation-preview">
-                  <p className="last-message">{conversation.last_message}</p>
-                  {conversation.unread_count > 0 && (
-                    <span className="unread-badge">{conversation.unread_count}</span>
+          {filteredConversations.map((conversation) => {
+            const displayInfo = getConversationDisplayInfo(conversation);
+            return (
+              <motion.div
+                key={`${conversation.store_id}-${conversation.product_id || "no-product"}`}
+                className={`conversation-item ${
+                  activeConversation?.store_id === conversation.store_id &&
+                  activeConversation?.product_id === conversation.product_id
+                    ? "active"
+                    : ""
+                }`}
+                onClick={() => handleConversationSelect(conversation)}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <div className="avatar-container">
+                  {getAvatar(conversation.user_id, conversation.store_id)}
+                  {conversation.user_id && conversation.user_id !== 'undefined' && onlineUsers.has(conversation.user_id) && (
+                    <div className="online-indicator"></div>
                   )}
                 </div>
-              </div>
-            </motion.div>
-          ))}
+                
+                <div className="conversation-info">
+                  <div className="conversation-header">
+                    <h4 className="username">
+                      {displayInfo.type === 'store' ? <FaStore className="store-icon" /> : <FaUserCircle className="user-icon" />}
+                      {displayInfo.name}
+                    </h4>
+                    <span className="time">{formatTime(conversation.last_message_time)}</span>
+                  </div>
+                  
+                  <div className="conversation-preview">
+                    <p className="last-message">{conversation.last_message}</p>
+                    {conversation.unread_count > 0 && (
+                      <span className="unread-badge">{conversation.unread_count}</span>
+                    )}
+                  </div>
+                  
+                  {displayInfo.email && (
+                    <div className="conversation-email">
+                      <span className="email-text">{displayInfo.email}</span>
+                    </div>
+                  )}
+                  
+                  {conversation.product_id && productDetails[conversation.product_id] && (
+                    <div className="product-badge">
+                      <FaShoppingBag className="product-icon" />
+                      <span>{productDetails[conversation.product_id].name}</span>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            );
+          })}
 
           {searchUsers.length > 0 && (
             <div className="new-chat-section">
@@ -659,6 +750,12 @@ const Messages = () => {
                     <div className="conversation-preview">
                       <p className="last-message">Begin conversation</p>
                     </div>
+                    
+                    {store.contact_email && (
+                      <div className="conversation-email">
+                        <span className="email-text">{store.contact_email}</span>
+                      </div>
+                    )}
                   </div>
                 </motion.div>
               ))}
@@ -687,14 +784,21 @@ const Messages = () => {
                 </div>
                 <div className="partner-details">
                   <h3>
-                    <FaStore className="store-icon" />
-                    {activeConversation.username}
+                    {activeConversation.is_seller ? <FaUserCircle className="user-icon" /> : <FaStore className="store-icon" />}
+                    {getConversationDisplayInfo(activeConversation).name}
                   </h3>
-                  <span className="status">
-                    Product: {activeConversation.product_name}
-                    {" | "}
-                    {activeConversation.user_id && activeConversation.user_id !== 'undefined' && onlineUsers.has(activeConversation.user_id) ? "Online" : "Offline"}
-                  </span>
+                  <div className="partner-contact-info">
+                    <span className="contact-email">{getConversationDisplayInfo(activeConversation).email}</span>
+                    {activeConversation.product_id && productDetails[activeConversation.product_id] && (
+                      <span className="product-info">
+                        <FaShoppingBag className="product-icon" />
+                        {productDetails[activeConversation.product_id].name}
+                      </span>
+                    )}
+                    <span className="status">
+                      {activeConversation.user_id && activeConversation.user_id !== 'undefined' && onlineUsers.has(activeConversation.user_id) ? "Online" : "Offline"}
+                    </span>
+                  </div>
                 </div>
               </div>
               
@@ -718,27 +822,38 @@ const Messages = () => {
             <div className="messages-list-container">
               <div className="messages-list">
                 <AnimatePresence>
-                  {messages.map((message) => (
-                    <motion.div
-                      key={message.id}
-                      className={`message ${
-                        message.sender_role === (currentUser.id === activeConversation.store_owner_id ? "seller" : "buyer")
-                          ? "sent"
-                          : "received"
-                      }`}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      <div className="message-bubble">
-                        <p>{message.content}</p>
-                        <div className="message-meta">
-                          <span className="time">{formatTime(message.created_at)}</span>
-                          {getMessageStatus(message)}
+                  {messages.map((message, index) => {
+                    const isProductInquiry = isProductInquiryMessage(message, index);
+                    return (
+                      <motion.div
+                        key={message.id}
+                        className={`message ${
+                          message.sender_role === (currentUser.id === activeConversation.store_owner_id ? "seller" : "buyer")
+                            ? "sent"
+                            : "received"
+                        }`}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <div className="message-bubble">
+                          {isProductInquiry && (
+                            <div className="product-inquiry-header">
+                              <FaShoppingBag className="product-icon" />
+                              <span className="product-name">
+                                About: {productDetails[activeConversation.product_id]?.name}
+                              </span>
+                            </div>
+                          )}
+                          <p>{message.content}</p>
+                          <div className="message-meta">
+                            <span className="time">{formatTime(message.created_at)}</span>
+                            {getMessageStatus(message)}
+                          </div>
                         </div>
-                      </div>
-                    </motion.div>
-                  ))}
+                      </motion.div>
+                    );
+                  })}
                 </AnimatePresence>
                 <div ref={messagesEndRef} />
               </div>

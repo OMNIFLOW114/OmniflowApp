@@ -11,11 +11,11 @@ body {
   scroll-behavior: smooth;
 }
 
-/* Orders Container */
+/* Orders Container - FIXED for bottom nav spacing */
 .orders-container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 1rem 1rem 5rem; /* Extra bottom padding for bottom nav */
+  padding: 1rem 1rem 80px; /* Fixed bottom padding for bottom nav */
   background: #f5f5f5;
   min-height: 100vh;
   transition: background 0.3s ease;
@@ -31,6 +31,8 @@ html.dark .orders-container {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
 }
 
 .orders-title {
@@ -52,6 +54,7 @@ html.dark .orders-title {
   border-radius: 0.5rem;
   font-size: 0.9rem;
   color: #1a1a1a;
+  white-space: nowrap;
 }
 
 html.dark .wallet-chip {
@@ -64,6 +67,7 @@ html.dark .wallet-chip {
   display: flex;
   gap: 0.5rem;
   margin-bottom: 1.5rem;
+  flex-wrap: wrap;
 }
 
 .tabs button {
@@ -76,6 +80,8 @@ html.dark .wallet-chip {
   color: #1a1a1a;
   cursor: pointer;
   transition: all 0.3s ease;
+  flex: 1;
+  min-width: fit-content;
 }
 
 html.dark .tabs button {
@@ -94,6 +100,7 @@ html.dark .tabs button {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  padding-bottom: 1rem;
 }
 
 .no-orders {
@@ -131,6 +138,7 @@ html.dark .order-card-glass {
   height: 100px;
   object-fit: cover;
   border-radius: 0.5rem;
+  flex-shrink: 0;
 }
 
 .order-info {
@@ -138,12 +146,14 @@ html.dark .order-card-glass {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  min-width: 0;
 }
 
 .product-title {
   font-size: 1.2rem;
   font-weight: 600;
   color: #1a1a1a;
+  word-wrap: break-word;
 }
 
 html.dark .product-title {
@@ -156,6 +166,7 @@ html.dark .product-title {
   display: flex;
   align-items: center;
   gap: 0.3rem;
+  flex-wrap: wrap;
 }
 
 html.dark .order-info p {
@@ -164,6 +175,7 @@ html.dark .order-info p {
 
 .order-info .icon {
   color: #ff6200;
+  flex-shrink: 0;
 }
 
 .store {
@@ -175,6 +187,8 @@ html.dark .order-info p {
   justify-content: space-between;
   font-size: 0.9rem;
   color: #4a4a4a;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 html.dark .money-row {
@@ -187,6 +201,8 @@ html.dark .money-row {
   justify-content: space-between;
   align-items: center;
   margin: 0.5rem 0;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .step {
@@ -197,6 +213,7 @@ html.dark .money-row {
   color: #6b7280;
   flex: 1;
   text-align: center;
+  min-width: 60px;
 }
 
 html.dark .step {
@@ -216,6 +233,7 @@ html.dark .step {
   background: #e5e7eb;
   border-radius: 50%;
   margin-bottom: 0.3rem;
+  flex-shrink: 0;
 }
 
 html.dark .step .dot {
@@ -246,7 +264,11 @@ html.dark .step .dot {
   transition: all 0.3s ease;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.3rem;
+  flex: 1;
+  min-width: fit-content;
+  text-align: center;
 }
 
 .otp-btn {
@@ -278,6 +300,8 @@ button:disabled {
   border-radius: 0.5rem;
   font-size: 0.85rem;
   color: #b45309;
+  text-align: center;
+  flex: 1;
 }
 
 html.dark .escrow-badge {
@@ -292,6 +316,7 @@ html.dark .escrow-badge {
   gap: 0.3rem;
   font-size: 0.85rem;
   color: #4a4a4a;
+  flex-wrap: wrap;
 }
 
 html.dark .rating-box {
@@ -301,6 +326,7 @@ html.dark .rating-box {
 .rating-box .star {
   color: #d1d5db;
   cursor: pointer;
+  flex-shrink: 0;
 }
 
 html.dark .rating-box .star {
@@ -335,6 +361,7 @@ html.dark .installment-card.glass {
   height: 100px;
   object-fit: cover;
   border-radius: 0.5rem;
+  flex-shrink: 0;
 }
 
 .installment-info {
@@ -342,12 +369,14 @@ html.dark .installment-card.glass {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  min-width: 0;
 }
 
 .installment-info h3 {
   font-size: 1.2rem;
   font-weight: 600;
   color: #1a1a1a;
+  word-wrap: break-word;
 }
 
 html.dark .installment-info h3 {
@@ -396,6 +425,7 @@ html.dark .progress-bar {
   text-decoration: none;
   transition: all 0.3s ease;
   align-self: flex-start;
+  text-align: center;
 }
 
 .installment-button:hover {
@@ -414,6 +444,7 @@ html.dark .progress-bar {
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  padding: 1rem;
 }
 
 .otp-modal-content.glass {
@@ -422,12 +453,13 @@ html.dark .progress-bar {
   border: 1px solid rgba(255, 255, 255, 0.25);
   border-radius: 0.75rem;
   padding: 1.5rem;
-  width: 90%;
+  width: 100%;
   max-width: 400px;
   display: flex;
   flex-direction: column;
   gap: 1rem;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  margin-bottom: 80px; /* Match bottom nav height */
 }
 
 html.dark .otp-modal-content.glass {
@@ -452,6 +484,7 @@ html.dark .otp-modal-content h3 {
   font-size: 1rem;
   background: #ffffff;
   color: #1a1a1a;
+  text-align: center;
 }
 
 html.dark .otp-modal-content input {
@@ -464,6 +497,7 @@ html.dark .otp-modal-content input {
   display: flex;
   gap: 0.5rem;
   justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
 .modal-buttons button {
@@ -473,6 +507,8 @@ html.dark .otp-modal-content input {
   font-size: 0.9rem;
   cursor: pointer;
   transition: all 0.3s ease;
+  flex: 1;
+  min-width: 100px;
 }
 
 .modal-buttons button:first-child {
@@ -508,16 +544,19 @@ html.dark .modal-buttons button:first-child:hover {
   padding: 2rem;
   font-size: 1rem;
   color: #4a4a4a;
+  padding-bottom: 80px; /* Match bottom nav height */
 }
 
 html.dark .loading {
   color: #b0b0b0;
 }
 
-/* Responsive Adjustments */
+/* ========== RESPONSIVE DESIGN ========== */
+
+/* Tablet */
 @media (max-width: 768px) {
   .orders-container {
-    padding: 0.5rem 0.5rem 4.5rem;
+    padding: 0.5rem 0.5rem 80px; /* Consistent bottom padding */
   }
 
   .orders-header {
@@ -535,39 +574,27 @@ html.dark .loading {
   .installment-image {
     width: 100%;
     height: 150px;
+    align-self: center;
   }
 
   .tabs {
     flex-wrap: wrap;
   }
-}
-
-@media (max-width: 480px) {
-  .orders-title {
-    font-size: 1.4rem;
-  }
-
-  .wallet-chip {
-    font-size: 0.85rem;
-  }
 
   .tabs button {
-    padding: 0.4rem 0.8rem;
-    font-size: 0.85rem;
+    flex: 1 1 calc(50% - 0.5rem);
+    min-width: 120px;
   }
 
   .order-progress-bar {
-    flex-direction: column;
-    gap: 0.5rem;
+    flex-direction: row;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
   }
 
   .step {
-    flex-direction: row;
-    gap: 0.5rem;
-  }
-
-  .step .dot {
-    margin-bottom: 0;
+    flex: 0 0 auto;
+    min-width: 70px;
   }
 
   .actions {
@@ -583,16 +610,121 @@ html.dark .loading {
   .installment-button {
     width: 100%;
     text-align: center;
+    align-self: stretch;
   }
 }
 
+/* Mobile */
+@media (max-width: 480px) {
+  .orders-container {
+    padding: 0.5rem 0.5rem 80px; /* Consistent bottom padding */
+  }
+
+  .orders-title {
+    font-size: 1.4rem;
+  }
+
+  .wallet-chip {
+    font-size: 0.85rem;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .tabs button {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+    flex: 1 1 100%;
+  }
+
+  .order-progress-bar {
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-start;
+  }
+
+  .step {
+    flex-direction: row;
+    gap: 0.5rem;
+    min-width: 100%;
+    text-align: left;
+  }
+
+  .step .dot {
+    margin-bottom: 0;
+  }
+
+  .money-row {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .rating-box {
+    justify-content: center;
+  }
+
+  .modal-buttons {
+    flex-direction: column;
+  }
+
+  .modal-buttons button {
+    width: 100%;
+  }
+}
+
+/* Small Mobile */
 @media (max-width: 360px) {
   .orders-container {
-    padding-bottom: 5rem;
+    padding: 0.5rem 0.5rem 80px; /* Consistent bottom padding */
   }
 
   .order-product-image,
   .installment-image {
     height: 120px;
+  }
+
+  .orders-title {
+    font-size: 1.2rem;
+  }
+
+  .product-title,
+  .installment-info h3 {
+    font-size: 1.1rem;
+  }
+
+  .order-info p,
+  .installment-info p {
+    font-size: 0.85rem;
+  }
+}
+
+/* Landscape Mode */
+@media (max-height: 500px) and (orientation: landscape) {
+  .orders-container {
+    padding-bottom: 70px; /* Slightly less in landscape */
+  }
+  
+  .otp-modal-content.glass {
+    margin-bottom: 70px;
+  }
+  
+  .loading {
+    padding-bottom: 70px;
+  }
+}
+
+/* Safe Area Support for Notch Devices */
+@supports (padding: max(0px)) {
+  .orders-container {
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+    padding-bottom: max(80px, env(safe-area-inset-bottom) + 80px);
+  }
+  
+  @media (max-width: 768px) {
+    .orders-container {
+      padding-left: max(0.5rem, env(safe-area-inset-left));
+      padding-right: max(0.5rem, env(safe-area-inset-right));
+      padding-bottom: max(80px, env(safe-area-inset-bottom) + 80px);
+    }
   }
 }

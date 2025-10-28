@@ -1,16 +1,21 @@
-import React from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { FaHome, FaShoppingCart, FaHeart, FaBell } from "react-icons/fa";
 import { useNotificationBadge } from "@/context/NotificationBadgeContext";
 import { useAuth } from "@/context/AuthContext";
+import { supabase } from "@/supabase";
+import { motion, AnimatePresence } from "framer-motion";
 import "./BottomNavbar.css";
 
 const BottomNavbar = () => {
   const location = useLocation();
   const { unreadCount } = useNotificationBadge();
   const { user } = useAuth();
+  const [cartItemsCount, setCartItemsCount] = useState(0);
+  const [wishlistItemsCount, setWishlistItemsCount] = useState(0);
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  // Hide navbar on auth-related routes AND admin routes
+  // Hide navbar on auth-related routes, admin routes, and search page
   const hiddenRoutes = [
     "/login", 
     "/signup", 
@@ -34,7 +39,9 @@ const BottomNavbar = () => {
     "/admin/database",
     "/admin/promotions",
     "/admin/search",
-    "/admin/activities"
+    "/admin/activities",
+    "/orders",
+    "/search"  // Add search page to hidden routes
   ];
 
   // Check if current path starts with any hidden route
@@ -42,91 +49,279 @@ const BottomNavbar = () => {
     location.pathname.startsWith(route)
   );
 
+  // Load counts from localStorage on initial load
+  useEffect(() => {
+    if (user?.id) {
+      const savedCartCount = localStorage.getItem(`cart_count_${user.id}`);
+      const savedWishlistCount = localStorage.getItem(`wishlist_count_${user.id}`);
+      
+      if (savedCartCount) setCartItemsCount(parseInt(savedCartCount));
+      if (savedWishlistCount) setWishlistItemsCount(parseInt(savedWishlistCount));
+    }
+    setIsInitialized(true);
+  }, [user]);
+
+  // Save counts to localStorage whenever they change
+  useEffect(() => {
+    if (user?.id && isInitialized) {
+      localStorage.setItem(`cart_count_${user.id}`, cartItemsCount.toString());
+    }
+  }, [cartItemsCount, user, isInitialized]);
+
+  useEffect(() => {
+    if (user?.id && isInitialized) {
+      localStorage.setItem(`wishlist_count_${user.id}`, wishlistItemsCount.toString());
+    }
+  }, [wishlistItemsCount, user, isInitialized]);
+
+  // Fetch initial cart and wishlist counts
+  const fetchCounts = useCallback(async () => {
+    if (!user?.id) {
+      setCartItemsCount(0);
+      setWishlistItemsCount(0);
+      return;
+    }
+
+    try {
+      // Fetch cart count
+      const { count: cartCount, error: cartError } = await supabase
+        .from("cart_items")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user.id);
+
+      if (!cartError) {
+        setCartItemsCount(cartCount || 0);
+      }
+
+      // Fetch wishlist count
+      const { count: wishlistCount, error: wishlistError } = await supabase
+        .from("wishlist_items")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user.id);
+
+      if (!wishlistError) {
+        setWishlistItemsCount(wishlistCount || 0);
+      }
+    } catch (error) {
+      console.error("Error fetching counts:", error);
+    }
+  }, [user]);
+
+  // Real-time subscriptions for cart items
+  useEffect(() => {
+    if (!user?.id) return;
+
+    let cartSubscription;
+    let wishlistSubscription;
+
+    const setupSubscriptions = async () => {
+      // Cart subscription
+      cartSubscription = supabase
+        .channel('cart_changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'cart_items',
+            filter: `user_id=eq.${user.id}`
+          },
+          async (payload) => {
+            // Debounce the count update
+            setTimeout(async () => {
+              const { count, error } = await supabase
+                .from("cart_items")
+                .select("*", { count: "exact", head: true })
+                .eq("user_id", user.id);
+
+              if (!error) {
+                setCartItemsCount(count || 0);
+              }
+            }, 100);
+          }
+        )
+        .subscribe();
+
+      // Wishlist subscription
+      wishlistSubscription = supabase
+        .channel('wishlist_changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'wishlist_items',
+            filter: `user_id=eq.${user.id}`
+          },
+          async (payload) => {
+            // Debounce the count update
+            setTimeout(async () => {
+              const { count, error } = await supabase
+                .from("wishlist_items")
+                .select("*", { count: "exact", head: true })
+                .eq("user_id", user.id);
+
+              if (!error) {
+                setWishlistItemsCount(count || 0);
+              }
+            }, 100);
+          }
+        )
+        .subscribe();
+    };
+
+    setupSubscriptions();
+
+    // Cleanup subscriptions
+    return () => {
+      if (cartSubscription) {
+        supabase.removeChannel(cartSubscription);
+      }
+      if (wishlistSubscription) {
+        supabase.removeChannel(wishlistSubscription);
+      }
+    };
+  }, [user]);
+
+  // Initial fetch and periodic refresh
+  useEffect(() => {
+    fetchCounts();
+    
+    // Refresh counts every 30 seconds to ensure sync
+    const interval = setInterval(fetchCounts, 30000);
+    
+    return () => clearInterval(interval);
+  }, [fetchCounts]);
+
   if (shouldHide) {
     return null;
   }
 
-  // Cart and Wishlist count states (you can fetch these from your context or API)
-  const cartItemsCount = 0; // Replace with actual cart count from context
-  const wishlistItemsCount = 0; // Replace with actual wishlist count from context
+  // Enhanced Badge Component with optimized animations
+  const AnimatedBadge = ({ count, type = "default" }) => {
+    if (!count || count <= 0) return null;
+
+    const badgeColors = {
+      cart: "#ef4444",
+      wishlist: "#ec4899",
+      notification: "#3b82f6",
+      default: "#ef4444"
+    };
+
+    const badgeColor = badgeColors[type] || badgeColors.default;
+
+    return (
+      <motion.span
+        className="nav-badge"
+        style={{ background: badgeColor }}
+        initial={{ scale: 0, opacity: 0 }}
+        animate={{ 
+          scale: 1, 
+          opacity: 1,
+          transition: {
+            type: "spring",
+            stiffness: 500,
+            damping: 15
+          }
+        }}
+        exit={{ scale: 0, opacity: 0 }}
+        whileHover={{ 
+          scale: 1.2,
+          transition: { type: "spring", stiffness: 400, damping: 10 }
+        }}
+        key={count} // Re-animate when count changes
+      >
+        {count > 9 ? "9+" : count}
+      </motion.span>
+    );
+  };
 
   const navItems = [
     { 
       to: "/", 
       label: "Home", 
       icon: <FaHome size={22} />,
-      requiresAuth: false
+      requiresAuth: false,
+      badgeCount: 0,
+      badgeType: "default"
     },
     { 
       to: "/cart", 
       label: "Cart", 
-      icon: (
-        <div className="nav-icon-with-badge">
-          <FaShoppingCart size={22} />
-          {user && cartItemsCount > 0 && (
-            <span className="nav-badge">
-              {cartItemsCount > 9 ? "9+" : cartItemsCount}
-            </span>
-          )}
-        </div>
-      ),
-      requiresAuth: true
+      icon: <FaShoppingCart size={22} />,
+      requiresAuth: true,
+      badgeCount: cartItemsCount,
+      badgeType: "cart"
     },
     { 
       to: "/wishlist", 
       label: "Wishlist", 
-      icon: (
-        <div className="nav-icon-with-badge">
-          <FaHeart size={22} />
-          {user && wishlistItemsCount > 0 && (
-            <span className="nav-badge">
-              {wishlistItemsCount > 9 ? "9+" : wishlistItemsCount}
-            </span>
-          )}
-        </div>
-      ),
-      requiresAuth: true
+      icon: <FaHeart size={22} />,
+      requiresAuth: true,
+      badgeCount: wishlistItemsCount,
+      badgeType: "wishlist"
     },
     {
       to: "/notifications",
       label: "Alerts",
-      icon: (
-        <div className="nav-icon-with-badge">
-          <FaBell size={22} />
-          {unreadCount > 0 && (
-            <span className="nav-badge">
-              {unreadCount > 9 ? "9+" : unreadCount}
-            </span>
-          )}
-        </div>
-      ),
-      requiresAuth: false
+      icon: <FaBell size={22} />,
+      requiresAuth: false,
+      badgeCount: unreadCount,
+      badgeType: "notification"
     },
   ];
 
   const handleNavClick = (item, e) => {
     if (item.requiresAuth && !user) {
       e.preventDefault();
-      // Redirect to auth page - you can use navigate if needed
       window.location.href = "/auth";
     }
   };
 
-  return (
-    <nav className="bottom-navbar">
-      {navItems.map((item) => (
-        <Link
-          key={item.to}
-          to={item.to}
-          className={`bottom-nav-link ${location.pathname === item.to ? "active" : ""}`}
-          onClick={(e) => handleNavClick(item, e)}
+  const NavItem = ({ item }) => (
+    <Link
+      to={item.to}
+      className={`bottom-nav-link ${location.pathname === item.to ? "active" : ""}`}
+      onClick={(e) => handleNavClick(item, e)}
+    >
+      <div className="nav-icon-with-badge">
+        <motion.div
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          transition={{ type: "spring", stiffness: 400, damping: 17 }}
         >
           {item.icon}
-          <span className="nav-label">{item.label}</span>
-          {location.pathname === item.to && <span className="active-indicator"></span>}
-        </Link>
+        </motion.div>
+        <AnimatePresence mode="wait">
+          <AnimatedBadge 
+            count={item.badgeCount} 
+            type={item.badgeType}
+          />
+        </AnimatePresence>
+      </div>
+      <span className="nav-label">{item.label}</span>
+      {location.pathname === item.to && (
+        <motion.span 
+          className="active-indicator"
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ type: "spring", stiffness: 500, damping: 15 }}
+        />
+      )}
+    </Link>
+  );
+
+  return (
+    <motion.nav 
+      className="bottom-navbar"
+      initial={{ y: 100, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+    >
+      {navItems.map((item) => (
+        <NavItem key={item.to} item={item} />
       ))}
-    </nav>
+    </motion.nav>
   );
 };
 
