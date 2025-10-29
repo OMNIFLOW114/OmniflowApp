@@ -338,15 +338,6 @@ html.dark .bottom-nav-link:focus-visible {
   color: #3b82f6;
 }
 
-/* Specific styling for profile icon */
-.bottom-nav-link[href*="profile"]:hover svg {
-  color: #8b5cf6;
-}
-
-.bottom-nav-link[href*="profile"].active svg {
-  color: #8b5cf6;
-}
-
 /* ========== SAFE AREA SUPPORT (Notch Devices) ========== */
 
 @supports (padding: max(0px)) {

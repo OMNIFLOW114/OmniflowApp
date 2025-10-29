@@ -366,6 +366,16 @@ const BuyerOrders = () => {
 
                     {renderProgressBar(order.status, buyerConfirmed, isCompleted)}
 
+                    {/* On Delivery Notice */}
+                    {order.status === "on_delivery" && (
+                      <div className="on-delivery-notice">
+                        <p>
+                          <strong>Product is on delivery!</strong><br />
+                          Available for pickup <strong>tomorrow</strong> at the store.
+                        </p>
+                      </div>
+                    )}
+
                     <p>
                       <FaClock className="icon" /> <strong>Ordered:</strong>{" "}
                       {new Date(order.created_at).toLocaleString()}
