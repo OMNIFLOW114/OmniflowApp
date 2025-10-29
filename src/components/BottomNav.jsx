@@ -21,7 +21,7 @@ const BottomNavbar = () => {
     "/signup", 
     "/reset-password", 
     "/auth",
-    "/admin", // Hide on all admin routes
+    "/admin",
     "/admin-dashboard",
     "/admin-overview",
     "/admin/users",
@@ -41,7 +41,7 @@ const BottomNavbar = () => {
     "/admin/search",
     "/admin/activities",
     "/orders",
-    "/search"  // Add search page to hidden routes
+    "/search"
   ];
 
   // Check if current path starts with any hidden route
@@ -127,7 +127,6 @@ const BottomNavbar = () => {
             filter: `user_id=eq.${user.id}`
           },
           async (payload) => {
-            // Debounce the count update
             setTimeout(async () => {
               const { count, error } = await supabase
                 .from("cart_items")
@@ -154,7 +153,6 @@ const BottomNavbar = () => {
             filter: `user_id=eq.${user.id}`
           },
           async (payload) => {
-            // Debounce the count update
             setTimeout(async () => {
               const { count, error } = await supabase
                 .from("wishlist_items")
@@ -172,7 +170,6 @@ const BottomNavbar = () => {
 
     setupSubscriptions();
 
-    // Cleanup subscriptions
     return () => {
       if (cartSubscription) {
         supabase.removeChannel(cartSubscription);
@@ -187,7 +184,6 @@ const BottomNavbar = () => {
   useEffect(() => {
     fetchCounts();
     
-    // Refresh counts every 30 seconds to ensure sync
     const interval = setInterval(fetchCounts, 30000);
     
     return () => clearInterval(interval);
@@ -197,7 +193,7 @@ const BottomNavbar = () => {
     return null;
   }
 
-  // Enhanced Badge Component with optimized animations
+  // Ultra-compact Badge Component
   const AnimatedBadge = ({ count, type = "default" }) => {
     if (!count || count <= 0) return null;
 
@@ -220,16 +216,12 @@ const BottomNavbar = () => {
           opacity: 1,
           transition: {
             type: "spring",
-            stiffness: 500,
+            stiffness: 600,
             damping: 15
           }
         }}
         exit={{ scale: 0, opacity: 0 }}
-        whileHover={{ 
-          scale: 1.2,
-          transition: { type: "spring", stiffness: 400, damping: 10 }
-        }}
-        key={count} // Re-animate when count changes
+        key={count}
       >
         {count > 9 ? "9+" : count}
       </motion.span>
@@ -240,7 +232,7 @@ const BottomNavbar = () => {
     { 
       to: "/", 
       label: "Home", 
-      icon: <FaHome size={22} />,
+      icon: <FaHome size={18} />,
       requiresAuth: false,
       badgeCount: 0,
       badgeType: "default"
@@ -248,7 +240,7 @@ const BottomNavbar = () => {
     { 
       to: "/cart", 
       label: "Cart", 
-      icon: <FaShoppingCart size={22} />,
+      icon: <FaShoppingCart size={18} />,
       requiresAuth: true,
       badgeCount: cartItemsCount,
       badgeType: "cart"
@@ -256,7 +248,7 @@ const BottomNavbar = () => {
     { 
       to: "/wishlist", 
       label: "Wishlist", 
-      icon: <FaHeart size={22} />,
+      icon: <FaHeart size={18} />,
       requiresAuth: true,
       badgeCount: wishlistItemsCount,
       badgeType: "wishlist"
@@ -264,7 +256,7 @@ const BottomNavbar = () => {
     {
       to: "/notifications",
       label: "Alerts",
-      icon: <FaBell size={22} />,
+      icon: <FaBell size={18} />,
       requiresAuth: false,
       badgeCount: unreadCount,
       badgeType: "notification"
@@ -286,9 +278,9 @@ const BottomNavbar = () => {
     >
       <div className="nav-icon-with-badge">
         <motion.div
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          transition={{ type: "spring", stiffness: 400, damping: 17 }}
+          whileHover={{ scale: 1.08 }}
+          whileTap={{ scale: 0.92 }}
+          transition={{ type: "spring", stiffness: 500, damping: 20 }}
         >
           {item.icon}
         </motion.div>
@@ -305,7 +297,7 @@ const BottomNavbar = () => {
           className="active-indicator"
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
-          transition={{ type: "spring", stiffness: 500, damping: 15 }}
+          transition={{ type: "spring", stiffness: 600, damping: 20 }}
         />
       )}
     </Link>
@@ -316,7 +308,7 @@ const BottomNavbar = () => {
       className="bottom-navbar"
       initial={{ y: 100, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      transition={{ type: "spring", stiffness: 400, damping: 35 }}
     >
       {navItems.map((item) => (
         <NavItem key={item.to} item={item} />

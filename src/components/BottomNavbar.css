@@ -1,3 +1,4 @@
+/* Ultra Compact Bottom Navigation */
 .bottom-navbar {
   position: fixed;
   bottom: 0;
@@ -6,34 +7,39 @@
   display: flex;
   justify-content: space-around;
   align-items: center;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  border-top: 1px solid rgba(0, 0, 0, 0.1);
-  padding: 0.5rem 0;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(30px) saturate(180%);
+  border-top: 0.5px solid rgba(0, 0, 0, 0.08);
+  padding: 0.3rem 0;
   z-index: 1000;
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 -1px 6px rgba(0, 0, 0, 0.06);
+  height: 50px;
+  min-height: 50px;
 }
 
 html.dark .bottom-navbar {
-  background: rgba(26, 26, 26, 0.95);
-  border-top-color: rgba(255, 255, 255, 0.1);
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.3);
+  background: rgba(18, 18, 18, 0.98);
+  border-top-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 -1px 6px rgba(0, 0, 0, 0.4);
 }
 
+/* Ultra Compact Navigation Links */
 .bottom-nav-link {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 0.5rem;
+  padding: 0.35rem 0.4rem;
   text-decoration: none;
   color: #6b7280;
-  font-size: 0.75rem;
+  font-size: 0.65rem;
   font-weight: 500;
-  transition: all 0.3s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   flex: 1;
-  min-height: 56px;
+  min-height: 44px;
+  border-radius: 8px;
+  margin: 0 0.1rem;
 }
 
 html.dark .bottom-nav-link {
@@ -42,28 +48,35 @@ html.dark .bottom-nav-link {
 
 .bottom-nav-link:hover {
   color: #ff6200;
-  transform: translateY(-2px);
+  background: rgba(255, 98, 0, 0.04);
+  transform: translateY(-1px);
 }
 
 html.dark .bottom-nav-link:hover {
   color: #ff8c00;
+  background: rgba(255, 140, 0, 0.08);
 }
 
 .bottom-nav-link.active {
   color: #ff6200;
+  background: rgba(255, 98, 0, 0.06);
 }
 
 html.dark .bottom-nav-link.active {
   color: #ff8c00;
+  background: rgba(255, 140, 0, 0.12);
 }
 
+/* Ultra Compact Labels */
 .nav-label {
-  margin-top: 0.25rem;
-  font-size: 0.7rem;
+  margin-top: 0.2rem;
+  font-size: 0.6rem;
   font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1;
 }
 
-/* Badge styles for cart, wishlist, and notifications */
+/* Ultra Compact Badge Container */
 .nav-icon-with-badge {
   position: relative;
   display: flex;
@@ -71,51 +84,53 @@ html.dark .bottom-nav-link.active {
   justify-content: center;
 }
 
+/* Ultra Compact Badges */
 .nav-badge {
   position: absolute;
-  top: -6px;
-  right: -6px;
+  top: -5px;
+  right: -5px;
   background: #ef4444;
   color: white;
-  font-size: 0.6rem;
-  font-weight: 700;
-  padding: 0.1rem 0.3rem;
-  border-radius: 1rem;
-  min-width: 1rem;
-  height: 1rem;
+  font-size: 0.5rem;
+  font-weight: 800;
+  padding: 0.08rem 0.2rem;
+  border-radius: 0.8rem;
+  min-width: 0.85rem;
+  height: 0.85rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid white;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border: 1.5px solid white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  line-height: 1;
 }
 
 html.dark .nav-badge {
-  border-color: #1a1a1a;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  border-color: #121212;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
-/* Active indicator */
+/* Ultra Compact Active Indicator */
 .active-indicator {
   position: absolute;
   top: 0;
-  width: 4px;
-  height: 3px;
+  width: 3px;
+  height: 2px;
   background: #ff6200;
-  border-radius: 2px;
-  animation: pulse 2s infinite;
+  border-radius: 1px;
+  animation: subtle-pulse 3s infinite;
 }
 
 html.dark .active-indicator {
   background: #ff8c00;
 }
 
-@keyframes pulse {
+@keyframes subtle-pulse {
   0%, 100% {
     opacity: 1;
   }
   50% {
-    opacity: 0.5;
+    opacity: 0.7;
   }
 }
 
@@ -129,76 +144,272 @@ html.dark .active-indicator {
 
 .notif-badge {
   position: absolute;
-  top: -6px;
-  right: -6px;
+  top: -5px;
+  right: -5px;
   background: #ef4444;
   color: white;
-  font-size: 0.6rem;
-  font-weight: 700;
-  padding: 0.1rem 0.3rem;
-  border-radius: 1rem;
-  min-width: 1rem;
-  height: 1rem;
+  font-size: 0.5rem;
+  font-weight: 800;
+  padding: 0.08rem 0.2rem;
+  border-radius: 0.8rem;
+  min-width: 0.85rem;
+  height: 0.85rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid white;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border: 1.5px solid white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
 html.dark .notif-badge {
-  border-color: #1a1a1a;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  border-color: #121212;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
-/* Responsive design */
-@media (max-width: 480px) {
+/* ========== RESPONSIVE DESIGN ========== */
+
+/* Small Phones (iPhone SE, etc.) */
+@media (max-width: 380px) {
   .bottom-navbar {
-    padding: 0.4rem 0;
+    height: 48px;
+    min-height: 48px;
+    padding: 0.25rem 0;
   }
   
   .bottom-nav-link {
-    padding: 0.4rem;
-    min-height: 52px;
+    padding: 0.3rem 0.35rem;
+    min-height: 42px;
   }
   
   .nav-label {
-    font-size: 0.65rem;
+    font-size: 0.58rem;
+    margin-top: 0.18rem;
   }
   
   .nav-badge,
   .notif-badge {
-    font-size: 0.55rem;
-    padding: 0.1rem 0.25rem;
-    min-width: 0.9rem;
-    height: 0.9rem;
+    font-size: 0.48rem;
+    padding: 0.06rem 0.18rem;
+    min-width: 0.8rem;
+    height: 0.8rem;
+    top: -4px;
+    right: -4px;
+  }
+  
+  .bottom-nav-link svg {
+    width: 16px;
+    height: 16px;
   }
 }
 
-@media (max-width: 360px) {
-  .nav-label {
-    font-size: 0.6rem;
+/* Extra Small Phones */
+@media (max-width: 340px) {
+  .bottom-navbar {
+    height: 46px;
+    min-height: 46px;
+    padding: 0.2rem 0;
   }
   
   .bottom-nav-link {
-    padding: 0.3rem;
+    padding: 0.25rem 0.3rem;
+    min-height: 40px;
+  }
+  
+  .nav-label {
+    font-size: 0.55rem;
+    margin-top: 0.15rem;
+  }
+  
+  .nav-badge,
+  .notif-badge {
+    font-size: 0.45rem;
+    padding: 0.05rem 0.15rem;
+    min-width: 0.75rem;
+    height: 0.75rem;
+    top: -3px;
+    right: -3px;
+  }
+  
+  .bottom-nav-link svg {
+    width: 15px;
+    height: 15px;
   }
 }
+
+/* Large Phones and Tablets */
+@media (min-width: 768px) {
+  .bottom-navbar {
+    display: none; /* Hide on tablets and larger screens */
+  }
+}
+
+/* ========== ENHANCED INTERACTIONS ========== */
 
 /* Smooth transitions for all interactive elements */
 .bottom-nav-link,
 .nav-badge,
 .notif-badge {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Enhanced hover effects */
 .bottom-nav-link:hover .nav-badge,
 .bottom-nav-link:hover .notif-badge {
-  transform: scale(1.1);
+  transform: scale(1.05);
 }
 
 .bottom-nav-link.active .nav-badge,
 .bottom-nav-link.active .notif-badge {
-  transform: scale(1.05);
+  transform: scale(1.02);
+}
+
+/* Focus states for accessibility */
+.bottom-nav-link:focus-visible {
+  outline: 2px solid #ff6200;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+html.dark .bottom-nav-link:focus-visible {
+  outline-color: #ff8c00;
+}
+
+/* ========== PERFORMANCE OPTIMIZATIONS ========== */
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  .bottom-navbar,
+  .bottom-nav-link,
+  .nav-badge,
+  .notif-badge,
+  .active-indicator {
+    transition: none;
+    animation: none;
+  }
+  
+  .bottom-nav-link:hover {
+    transform: none;
+  }
+}
+
+/* Hardware acceleration for smoother animations */
+.bottom-navbar {
+  transform: translateZ(0);
+}
+
+.nav-badge,
+.notif-badge {
+  transform: translateZ(0);
+}
+
+/* ========== SPECIFIC ICON OPTIMIZATIONS ========== */
+
+/* Ensure consistent icon sizing */
+.bottom-nav-link svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+/* Specific styling for cart icon */
+.bottom-nav-link[href*="cart"]:hover svg {
+  color: #ef4444;
+}
+
+.bottom-nav-link[href*="cart"].active svg {
+  color: #ef4444;
+}
+
+/* Specific styling for wishlist icon */
+.bottom-nav-link[href*="wishlist"]:hover svg {
+  color: #ec4899;
+}
+
+.bottom-nav-link[href*="wishlist"].active svg {
+  color: #ec4899;
+}
+
+/* Specific styling for notifications icon */
+.bottom-nav-link[href*="notifications"]:hover svg {
+  color: #3b82f6;
+}
+
+.bottom-nav-link[href*="notifications"].active svg {
+  color: #3b82f6;
+}
+
+/* Specific styling for profile icon */
+.bottom-nav-link[href*="profile"]:hover svg {
+  color: #8b5cf6;
+}
+
+.bottom-nav-link[href*="profile"].active svg {
+  color: #8b5cf6;
+}
+
+/* ========== SAFE AREA SUPPORT (Notch Devices) ========== */
+
+@supports (padding: max(0px)) {
+  .bottom-navbar {
+    padding-bottom: max(0.3rem, env(safe-area-inset-bottom));
+  }
+}
+
+/* ========== LOADING STATES ========== */
+
+/* Skeleton loading for badges */
+.nav-badge.loading {
+  background: #e5e7eb;
+  color: transparent;
+  min-width: 0.85rem;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+html.dark .nav-badge.loading {
+  background: #374151;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* ========== HIGH CONTRAST MODE SUPPORT ========== */
+
+@media (prefers-contrast: high) {
+  .bottom-navbar {
+    border-top-width: 1px;
+    border-top-color: #000;
+  }
+  
+  html.dark .bottom-navbar {
+    border-top-color: #fff;
+  }
+  
+  .nav-badge,
+  .notif-badge {
+    border-width: 2px;
+  }
+}
+
+/* ========== TOUCH DEVICE OPTIMIZATIONS ========== */
+
+@media (hover: none) and (pointer: coarse) {
+  .bottom-nav-link:hover {
+    transform: none;
+    background: transparent;
+  }
+  
+  .bottom-nav-link:active {
+    background: rgba(255, 98, 0, 0.1);
+    transform: scale(0.95);
+  }
+  
+  html.dark .bottom-nav-link:active {
+    background: rgba(255, 140, 0, 0.15);
+  }
 }
