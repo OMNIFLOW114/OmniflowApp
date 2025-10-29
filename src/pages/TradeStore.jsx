@@ -130,7 +130,7 @@ const ProductCard = ({ product, onClick, onAuthRequired }) => {
     <motion.div 
       className="product-card" 
       onClick={onClick}
-      whileHover={{ y: -4, scale: 1.02 }}
+      whileHover={{ y: -2, scale: 1.02 }}
       transition={{ type: "spring", stiffness: 300 }}
     >
       <div className="product-img-wrapper">
@@ -235,11 +235,11 @@ const PremiumStoreButton = ({ storeInfo, hasActiveSubscription, onStoreClick, on
       title={isStoreOwner ? "Manage Your Store" : "Become a Seller"}
     >
       {hasPremiumStore ? (
-        <FaCrown size={20} className="premium-icon" />
+        <FaCrown size={18} className="premium-icon" />
       ) : isStoreOwner ? (
-        <FaGem size={20} className="premium-icon" />
+        <FaGem size={18} className="premium-icon" />
       ) : (
-        <FaStore size={20} />
+        <FaStore size={18} />
       )}
       
       {isStoreOwner && (
@@ -394,7 +394,8 @@ const TradeStore = () => {
   // UPDATED: Store and modal states
   const [showMenu, setShowMenu] = useState(false);
   const [newAdminNotification, setNewAdminNotification] = useState(false);
-  const [newMessages, setNewMessages] = useState(false);
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+  const [newOrdersCount, setNewOrdersCount] = useState(0);
   const [storeInfo, setStoreInfo] = useState(null);
   const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
   const [showStoreModal, setShowStoreModal] = useState(false);
@@ -408,6 +409,11 @@ const TradeStore = () => {
   const handleAuthRequired = () => {
     toast.error("Please log in to continue");
     navigate("/auth");
+  };
+
+  // Function to redirect to search page
+  const handleSearchRedirect = () => {
+    navigate("/search");
   };
 
   // FIXED: Fetch store information with correct column name
@@ -476,35 +482,134 @@ const TradeStore = () => {
       .then(({ data }) => data?.length > 0 && setHasInstallmentPlan(true));
   }, [user]);
 
-  // Messages notification check
+  // Fixed: Fetch unread messages count with correct table structure
   useEffect(() => {
-    const fetchNotifications = async () => {
+    const fetchUnreadMessagesCount = async () => {
       try {
         const { data: { user: currentUser } } = await supabase.auth.getUser();
         if (!currentUser) {
-          setNewMessages(false);
+          setUnreadMessagesCount(0);
           return;
         }
 
-        const { data: messagesData, error: messagesError } = await supabase
-          .from("messages")
-          .select("*")
-          .eq("is_read", false)
-          .eq("receiver_id", currentUser.id)
-          .limit(1);
+        // Get user's stores to check if they're sellers
+        const { data: userStores } = await supabase
+          .from("stores")
+          .select("id")
+          .eq("owner_id", currentUser.id);
 
-        if (!messagesError) {
-          setNewMessages(messagesData?.length > 0);
+        const storeIds = userStores?.map(store => store.id) || [];
+        
+        let query = supabase
+          .from("store_messages")
+          .select("id, sender_role, user_id, store_id, status");
+
+        if (storeIds.length > 0) {
+          query = query.or(`user_id.eq.${currentUser.id},store_id.in.(${storeIds.join(',')})`);
+        } else {
+          query = query.eq("user_id", currentUser.id);
         }
+
+        const { data: allMessages, error } = await query;
+
+        if (error) {
+          console.error("Error fetching messages:", error);
+          setUnreadMessagesCount(0);
+          return;
+        }
+
+        // Count unread messages (status = 'sent') for current user as receiver
+        const unreadCount = allMessages.filter(message => {
+          const isUnread = message.status === 'sent';
+          const isStoreOwner = storeIds.includes(message.store_id);
+          
+          if (isStoreOwner) {
+            // User owns the store - unread if message is from buyer
+            return isUnread && message.sender_role === 'buyer';
+          } else {
+            // User is buyer - unread if message is from seller
+            return isUnread && message.sender_role === 'seller';
+          }
+        }).length;
+
+        setUnreadMessagesCount(unreadCount);
       } catch (error) {
-        console.error("Error fetching notifications:", error);
-        setNewMessages(false);
+        console.error("Error fetching unread messages count:", error);
+        setUnreadMessagesCount(0);
       }
     };
 
-    fetchNotifications();
-    const interval = setInterval(fetchNotifications, 15000);
-    return () => clearInterval(interval);
+    fetchUnreadMessagesCount();
+    
+    // Set up real-time subscription for messages
+    const messagesSubscription = supabase
+      .channel('messages-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'store_messages',
+        },
+        () => {
+          fetchUnreadMessagesCount();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      messagesSubscription.unsubscribe();
+    };
+  }, [user, storeInfo]);
+
+  // Fetch new orders count with live updates
+  useEffect(() => {
+    const fetchNewOrdersCount = async () => {
+      try {
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        if (!currentUser) {
+          setNewOrdersCount(0);
+          return;
+        }
+
+        // For buyers: count orders that are not completed
+        const { data: ordersData, error: ordersError } = await supabase
+          .from("orders")
+          .select("id", { count: 'exact' })
+          .eq("buyer_id", currentUser.id)
+          .neq("status", "completed")
+          .neq("escrow_released", true);
+
+        if (!ordersError && ordersData) {
+          setNewOrdersCount(ordersData.length);
+        }
+      } catch (error) {
+        console.error("Error fetching new orders count:", error);
+        setNewOrdersCount(0);
+      }
+    };
+
+    fetchNewOrdersCount();
+    
+    // Set up real-time subscription for orders
+    const ordersSubscription = supabase
+      .channel('orders-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'orders',
+        },
+        () => {
+          fetchNewOrdersCount();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      ordersSubscription.unsubscribe();
+    };
   }, []);
 
   const getImageUrl = (path) => {
@@ -673,28 +778,31 @@ const TradeStore = () => {
 
   return (
     <div className={`marketplace-wrapper ${isDarkMode ? "dark" : "light"}`}>
-      <nav className="premium-navbar">
+      {/* COMPACT NAVIGATION BAR */}
+      <nav className="premium-navbar compact">
         <motion.button
           onClick={toggleMenu}
           className="nav-icon profile-icon-wrapper"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
         >
-          <FaUserCircle size={26} />
+          <FaUserCircle size={22} />
           {newAdminNotification && <span className="dot top-left-dot" />}
         </motion.button>
 
         <div className="nav-center">
           <motion.div 
-            className="search-bar"
+            className="search-bar compact"
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.4 }}
+            onClick={handleSearchRedirect}
+            style={{ cursor: "pointer" }}
           >
-            <FaSearch style={{ cursor: "pointer" }} onClick={handleSearch} />
+            <FaSearch size={14} />
             <input
               type="text"
-              placeholder="Search thousands of products..."
+              placeholder="Search products..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => {
@@ -702,6 +810,11 @@ const TradeStore = () => {
                   handleSearch();
                 }
               }}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleSearchRedirect();
+              }}
+              readOnly
             />
           </motion.div>
         </div>
@@ -732,8 +845,12 @@ const TradeStore = () => {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
-            <FaEnvelope size={20} />
-            {newMessages && <span className="dot top-right-dot" />}
+            <FaEnvelope size={16} />
+            {unreadMessagesCount > 0 && (
+              <span className="notification-badge compact">
+                {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
+              </span>
+            )}
           </motion.button>
 
           <motion.button
@@ -744,12 +861,17 @@ const TradeStore = () => {
               }
               navigate("/orders");
             }}
-            className="nav-icon"
+            className="nav-icon orders-wrapper"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             title="My Orders"
           >
-            <FaEye size={20} />
+            <FaEye size={16} />
+            {newOrdersCount > 0 && (
+              <span className="notification-badge compact">
+                {newOrdersCount > 99 ? '99+' : newOrdersCount}
+              </span>
+            )}
           </motion.button>
         </div>
       </nav>
@@ -785,8 +907,8 @@ const TradeStore = () => {
       />
 
       <motion.header 
-        className="marketplace-hero"
-        initial={{ opacity: 0, y: 30 }}
+        className="marketplace-hero compact"
+        initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
       >
@@ -797,7 +919,7 @@ const TradeStore = () => {
           <div className="hero-controls">
             {hasInstallmentPlan && (
               <motion.button 
-                className="glass-button" 
+                className="glass-button compact" 
                 onClick={() => navigate("/my-installments")}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
@@ -806,12 +928,12 @@ const TradeStore = () => {
               </motion.button>
             )}
             <motion.button 
-              className="glass-button" 
+              className="glass-button compact" 
               onClick={() => setShowFilterOverlay(true)}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
-              <FaSlidersH style={{ marginRight: 6 }} /> Filters
+              <FaSlidersH style={{ marginRight: 4 }} /> Filters
             </motion.button>
           </div>
         </div>
@@ -826,15 +948,15 @@ const TradeStore = () => {
       <FeaturedHighlights />
 
       <motion.div 
-        className="tab-bar-scrollable"
-        initial={{ opacity: 0, y: 20 }}
+        className="tab-bar-scrollable compact"
+        initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
       >
         {tabs.map((tab) => (
           <motion.button
             key={tab}
-            className={`tab-button ${activeTab === tab ? "active" : ""}`}
+            className={`tab-button compact ${activeTab === tab ? "active" : ""}`}
             onClick={() => setActiveTab(tab)}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
@@ -870,7 +992,7 @@ const TradeStore = () => {
         }
       >
         <motion.div 
-          className="product-grid"
+          className="product-grid compact"
           layout
         >
           {filtered.map((p) => (

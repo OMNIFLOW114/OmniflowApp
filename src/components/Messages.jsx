@@ -277,8 +277,8 @@ const Messages = () => {
           product_name: msg.product_id ? "Product Inquiry" : "General Inquiry",
           last_message: msg.content,
           last_message_time: msg.created_at,
-          unread_count: (isSeller && msg.sender_role === "buyer" && msg.status === "unread") || 
-                        (isBuyer && msg.sender_role === "seller" && msg.status === "unread") ? 1 : 0,
+          unread_count: (isSeller && msg.sender_role === "buyer" && msg.status === "sent") || 
+                        (isBuyer && msg.sender_role === "seller" && msg.status === "sent") ? 1 : 0,
           contact_number: store?.contact_phone,
           contact_email: store?.contact_email,
           is_buyer: isBuyer,
@@ -290,8 +290,8 @@ const Messages = () => {
           conv.last_message = msg.content;
           conv.last_message_time = msg.created_at;
         }
-        if ((isSeller && msg.sender_role === "buyer" && msg.status === "unread") || 
-            (isBuyer && msg.sender_role === "seller" && msg.status === "unread")) {
+        if ((isSeller && msg.sender_role === "buyer" && msg.status === "sent") || 
+            (isBuyer && msg.sender_role === "seller" && msg.status === "sent")) {
           conv.unread_count += 1;
         }
       }
@@ -394,7 +394,7 @@ const Messages = () => {
           (msg) =>
             ((msg.sender_role === "buyer" && msg.user_id !== currentUser.id && currentUser.id === activeConversation.store_owner_id) ||
              (msg.sender_role === "seller" && msg.user_id === currentUser.id)) &&
-            msg.status === "unread"
+            msg.status === "sent"
         );
         
         if (unreadMessages?.length > 0) {
@@ -431,7 +431,7 @@ const Messages = () => {
           if (shouldAddMessage) {
             setMessages((prev) => [...prev, newMsg]);
             
-            if (newMsg.status === "unread" && 
+            if (newMsg.status === "sent" && 
                 ((newMsg.sender_role === "buyer" && currentUser.id === activeConversation.store_owner_id) ||
                  (newMsg.sender_role === "seller" && currentUser.id === activeConversation.user_id))) {
               supabase
