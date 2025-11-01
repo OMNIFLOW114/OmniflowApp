@@ -423,37 +423,40 @@ export default function ProductModeration() {
     setActionLoading(null);
   };
 
+  /* ---------- FLASH SALE SUBMIT (fixed) ---------- */
   const handleFlashSaleSubmit = async () => {
     const {
       product_id,
       flash_price,
       discount_percentage,
       stock_quantity,
-      max_quantity_per_user,
       starts_at,
       ends_at,
-      is_featured
+      is_featured,
     } = flashSaleData;
 
     if (!product_id || !flash_price || !stock_quantity || !starts_at || !ends_at) {
       return toast.error("Please fill all required fields");
     }
-
     if (new Date(starts_at) >= new Date(ends_at)) {
       return toast.error("End date must be after start date");
     }
 
-    const original_price = flash_price / (1 - discount_percentage / 100);
+    // ---- calculate discount % from entered flash price ----
+    const product = products.find((p) => p.id === product_id);
+    const originalPrice = product?.price ?? 0;
+    const calcDiscount =
+      originalPrice > 0 ? Math.round(((originalPrice - flash_price) / originalPrice) * 100) : 0;
 
-    setActionLoading('flashsale-submit');
+    setActionLoading("flashsale-submit");
     try {
       const updateData = {
         is_flash_sale: true,
-        price: original_price,
-        discount: discount_percentage,
+        discount: calcDiscount,               // only store discount %
         flash_sale_ends_at: fromLocalToISO(ends_at),
         stock_quantity: Number(stock_quantity),
         is_featured: !!is_featured,
+        // **price stays untouched**
       };
 
       const { error } = await supabase
@@ -462,17 +465,17 @@ export default function ProductModeration() {
         .eq("id", product_id);
 
       if (error) throw error;
-      
+
       toast.success(editingFlashSale ? "Flash sale updated" : "Flash sale created");
-      await fetchFlashSales();
-      await fetchProducts();
+      await Promise.all([fetchFlashSales(), fetchProducts()]);
       setShowFlashSaleModal(false);
       setEditingFlashSale(null);
     } catch (err) {
       console.error("handleFlashSaleSubmit", err);
       toast.error("Failed to save flash sale");
+    } finally {
+      setActionLoading(null);
     }
-    setActionLoading(null);
   };
 
   const unpromote = async (productOrPromo) => {
@@ -482,10 +485,16 @@ export default function ProductModeration() {
     setActionLoading(`unpromote-${productOrPromo.id || productOrPromo.product_id}`);
     try {
       if (productOrPromo.product_id) {
-        const { error } = await supabase.from("promoted_products").delete().eq("product_id", productOrPromo.product_id);
+        const { error } = await supabase
+          .from("promoted_products")
+          .delete()
+          .eq("product_id", productOrPromo.product_id);
         if (error) throw error;
       } else if (productOrPromo.id) {
-        const { error } = await supabase.from("promoted_products").delete().eq("id", productOrPromo.id);
+        const { error } = await supabase
+          .from("promoted_products")
+          .delete()
+          .eq("id", productOrPromo.id);
         if (error) throw error;
       }
       toast.success("Promotion removed");
@@ -504,21 +513,17 @@ export default function ProductModeration() {
     try {
       const { error } = await supabase
         .from("products")
-        .update({ 
-          is_flash_sale: false,
-          discount: 0
-        })
+        .update({ is_flash_sale: false, discount: 0 })
         .eq("id", product.id);
-
       if (error) throw error;
       toast.success("Flash sale ended");
-      await fetchFlashSales();
-      await fetchProducts();
+      await Promise.all([fetchFlashSales(), fetchProducts()]);
     } catch (err) {
       console.error("endFlashSale error", err);
       toast.error("Failed to end flash sale");
+    } finally {
+      setActionLoading(null);
     }
-    setActionLoading(null);
   };
 
   const getTimeRemaining = (endsAt) => {

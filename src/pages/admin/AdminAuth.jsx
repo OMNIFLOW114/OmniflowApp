@@ -20,12 +20,19 @@ export default function AdminAuth() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    
+    // Basic validation
+    if (!formData.email || !formData.password) {
+      toast.error("Please enter both email and password");
+      return;
+    }
+    
     setLoading(true);
     
     try {
       // Step 1: Sign in with Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email: formData.email,
+        email: formData.email.trim().toLowerCase(),
         password: formData.password,
       });
       
@@ -36,7 +43,7 @@ export default function AdminAuth() {
       // Step 2: Verify this user is in admin_users table
       const { data: adminData, error: adminError } = await supabase
         .from("admin_users")
-        .select("id, email, role, is_active, last_login")
+        .select("id, email, role, is_active, last_login, user_id")
         .eq("email", user.email)
         .eq("is_active", true)
         .maybeSingle();
@@ -53,7 +60,7 @@ export default function AdminAuth() {
         return;
       }
 
-      // Step 3: Update last login timestamp (with error handling)
+      // Step 3: Update last login timestamp
       try {
         const { error: updateError } = await supabase
           .from("admin_users")
@@ -64,11 +71,9 @@ export default function AdminAuth() {
 
         if (updateError) {
           console.warn("Failed to update last login timestamp:", updateError);
-          // Continue with login even if timestamp update fails
         }
       } catch (updateErr) {
         console.warn("Could not update last login:", updateErr);
-        // Continue with login anyway
       }
 
       // Step 4: Success - redirect to admin dashboard
@@ -83,18 +88,22 @@ export default function AdminAuth() {
       console.error("Admin login error:", err);
       
       // More specific error messages
-      if (err.message.includes("Invalid login credentials")) {
+      if (err.message?.includes("Invalid login credentials")) {
         toast.error("Invalid email or password. Please try again.");
-      } else if (err.message.includes("Email not confirmed")) {
+      } else if (err.message?.includes("Email not confirmed")) {
         toast.error("Please verify your email address before logging in.");
-      } else if (err.message.includes("admin privileges")) {
+      } else if (err.message?.includes("admin privileges")) {
         toast.error("Administrator verification failed. Please contact system admin.");
       } else {
         toast.error(err.message || "Login failed. Please try again.");
       }
       
       // Ensure we're signed out on error
-      await supabase.auth.signOut();
+      try {
+        await supabase.auth.signOut();
+      } catch (signOutError) {
+        console.error("Error during sign out:", signOutError);
+      }
     } finally {
       setLoading(false);
     }
@@ -102,7 +111,7 @@ export default function AdminAuth() {
 
   // Handle Enter key press for form submission
   const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !loading) {
+    if (e.key === 'Enter' && !loading && formData.email && formData.password) {
       handleLogin(e);
     }
   };
@@ -112,7 +121,7 @@ export default function AdminAuth() {
       <Toaster 
         position="top-center"
         toastOptions={{
-          duration: 10,
+          duration: 4000,
           style: {
             background: '#1e293b',
             color: '#f8fafc',
@@ -122,9 +131,13 @@ export default function AdminAuth() {
       />
       
       <div className="auth-form-container glass-card">
-        <h2 className="auth-title">Admin Portal</h2>
+        <div className="auth-header">
+          <Shield size={48} className="auth-icon" />
+          <h2 className="auth-title">Admin Portal</h2>
+          <p className="auth-subtitle">Secure access to administration panel</p>
+        </div>
         
-        <form onSubmit={handleLogin} className="auth-form" onKeyPress={handleKeyPress}>
+        <form onSubmit={handleLogin} className="auth-form" onKeyDown={handleKeyPress}>
           <div className="form-group">
             <label htmlFor="admin-email">Admin Email</label>
             <input
@@ -137,6 +150,7 @@ export default function AdminAuth() {
               required
               disabled={loading}
               autoComplete="email"
+              className="form-input"
             />
           </div>
           
@@ -153,6 +167,7 @@ export default function AdminAuth() {
                 required
                 disabled={loading}
                 autoComplete="current-password"
+                className="form-input"
               />
               <button
                 type="button"
@@ -193,7 +208,7 @@ export default function AdminAuth() {
         {process.env.NODE_ENV === 'development' && (
           <div className="debug-info">
             <p style={{ fontSize: '0.75rem', color: '#64748b', textAlign: 'center', marginTop: '1rem' }}>
-              Ensure admin_users table has 'last_login' column
+              
             </p>
           </div>
         )}

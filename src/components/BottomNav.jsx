@@ -41,6 +41,8 @@ const BottomNavbar = () => {
     "/admin/search",
     "/admin/activities",
     "/orders",
+    "/messages",
+    "/chat",
     "/search"
   ];
 

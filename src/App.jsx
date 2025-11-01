@@ -48,7 +48,7 @@ import MyInstallments from "./pages/MyInstallments"; // ✅ make sure the path m
 import Checkout from "@/pages/Checkout";
 import Premium from './pages/Premium';
 import SearchPage from "./pages/SearchPage"; 
-
+import ChatScreen from './pages/ChatScreen';
 // Student
 import StudentDashboard from "./pages/StudentDashboard";
 
@@ -115,7 +115,7 @@ function AppRoutes() {
         <Route path="/help" element={<ProtectedRoute><HelpCenter /></ProtectedRoute>} />
         <Route path="/wallet" element={<ProtectedRoute><OmniCashWallet /></ProtectedRoute>} />
         <Route path="/convert-currency" element={<ProtectedRoute><CurrencyConverter /></ProtectedRoute>} />
-        
+        <Route path="/chat" element={<ChatScreen />} />
         {/* REMOVED: ProtectedRoute from /trade since it's now the root */}
         <Route path="/trade" element={<TradeStore />} />
         
