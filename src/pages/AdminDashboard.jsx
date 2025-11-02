@@ -32,9 +32,7 @@ import {
   FiDatabase,
   FiHome,
   FiShield,
-  FiLayers,
-  FiChevronLeft,
-  FiChevronRight
+  FiChevronLeft
 } from "react-icons/fi";
 import { FaCrown, FaShieldAlt } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
@@ -62,7 +60,7 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
   
-  const [sidebarOpen, setSidebarOpen] = useState(false); // Start with sidebar closed
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [adminStats, setAdminStats] = useState({
     totalUsers: 0,
     totalStores: 0,
@@ -101,31 +99,31 @@ const AdminDashboard = () => {
 
   const SUPER_ADMIN_EMAIL = "omniflow718@gmail.com";
 
-  // Role-based colors (by superiority)
+  // Role-based colors
   const roleColors = {
     super_admin: {
-      primary: "#FFD700", // Gold
+      primary: "#FFD700",
       secondary: "rgba(255, 215, 0, 0.1)",
       text: "#B8860B",
       badge: "linear-gradient(135deg, #FFD700, #FFA500)",
       dark: "rgba(255, 215, 0, 0.15)"
     },
     admin: {
-      primary: "#DC2626", // Red
+      primary: "#DC2626",
       secondary: "rgba(220, 38, 38, 0.1)",
       text: "#B91C1C",
       badge: "linear-gradient(135deg, #DC2626, #EF4444)",
       dark: "rgba(220, 38, 38, 0.15)"
     },
     moderator: {
-      primary: "#2563EB", // Blue
+      primary: "#2563EB",
       secondary: "rgba(37, 99, 235, 0.1)",
       text: "#1D4ED8",
       badge: "linear-gradient(135deg, #2563EB, #3B82F6)",
       dark: "rgba(37, 99, 235, 0.15)"
     },
     support: {
-      primary: "#059669", // Green
+      primary: "#059669",
       secondary: "rgba(5, 150, 105, 0.1)",
       text: "#047857",
       badge: "linear-gradient(135deg, #059669, #10B981)",
@@ -170,7 +168,7 @@ const AdminDashboard = () => {
     ],
   };
 
-  // Chart options with dark mode support
+  // Chart options
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -210,10 +208,9 @@ const AdminDashboard = () => {
     },
   };
 
-  // Enhanced logout function - Always redirects to admin-auth
+  // Enhanced logout function
   const handleAdminLogout = async () => {
     try {
-      // Log activity before logout
       if (currentAdmin) {
         await logActivity('logged_out');
       }
@@ -224,7 +221,6 @@ const AdminDashboard = () => {
         console.error('Logout error:', error);
       }
       
-      // Clear all states
       setCurrentAdmin(null);
       setAdminStats({
         totalUsers: 0,
@@ -237,23 +233,18 @@ const AdminDashboard = () => {
       });
       
       toast.success('Logged out successfully');
-      
-      // Always redirect to admin login page immediately
       navigate('/admin-auth', { replace: true });
       
     } catch (error) {
       console.error('Logout error:', error);
       toast.error('Error during logout');
-      
-      // Still redirect to admin login even if there's an error
       navigate('/admin-auth', { replace: true });
     }
   };
 
-  // Check admin access with proper fallback to admin-auth
+  // Check admin access
   const hasAdminAccess = async () => {
     if (!user) {
-      console.log('No user found, redirecting to admin-auth');
       navigate('/admin-auth', { replace: true });
       return false;
     }
@@ -267,7 +258,6 @@ const AdminDashboard = () => {
         .single();
 
       if (error && error.code !== 'PGRST116') {
-        console.error('Error checking admin access:', error);
         navigate('/admin-auth', { replace: true });
         return false;
       }
@@ -279,7 +269,6 @@ const AdminDashboard = () => {
 
       // Check if user is super admin
       if (user.email === SUPER_ADMIN_EMAIL) {
-        // Create super admin record if it doesn't exist
         const { data: newAdmin, error: createError } = await supabase
           .from('admin_users')
           .insert([
@@ -301,25 +290,22 @@ const AdminDashboard = () => {
         }
       }
 
-      // If no admin access, redirect to admin login
-      console.log('No admin access found, redirecting to admin-auth');
       navigate('/admin-auth', { replace: true });
       return false;
     } catch (error) {
-      console.error('Error in hasAdminAccess:', error);
       navigate('/admin-auth', { replace: true });
       return false;
     }
   };
 
-  // Get today's date in proper format for Supabase
+  // Get today's date
   const getTodayDate = () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return today.toISOString();
   };
 
-  // Get start of month for chart data
+  // Get start of month
   const getStartOfMonth = (monthsAgo = 0) => {
     const date = new Date();
     date.setMonth(date.getMonth() - monthsAgo);
@@ -328,13 +314,12 @@ const AdminDashboard = () => {
     return date.toISOString();
   };
 
-  // Fetch dashboard data with real database queries
+  // Fetch dashboard data
   const fetchAdminData = async () => {
     setLoading(true);
     try {
       const today = getTodayDate();
       
-      // Fetch all data in parallel for better performance
       const [
         usersResponse,
         storesResponse,
@@ -364,11 +349,10 @@ const AdminDashboard = () => {
         revenue = todaysOrdersResponse.data.reduce((sum, order) => sum + (parseFloat(order.total_price) || 0), 0);
       }
 
-      // Fetch sales data for chart - last 6 months
+      // Fetch sales data for chart
       const monthlySales = Array(6).fill(0);
       const labels = [];
       
-      // Generate monthly data for last 6 months
       for (let i = 5; i >= 0; i--) {
         const startOfMonth = getStartOfMonth(i);
         const endOfMonth = new Date(getStartOfMonth(i - 1));
@@ -377,7 +361,6 @@ const AdminDashboard = () => {
         const monthDate = new Date(startOfMonth);
         labels.push(monthDate.toLocaleString('default', { month: 'short' }));
         
-        // Fetch orders for this month
         const { data: monthlyOrders } = await supabase
           .from('orders')
           .select('total_price')
@@ -404,7 +387,7 @@ const AdminDashboard = () => {
         ],
       });
 
-      // Update admin stats with real data
+      // Update admin stats
       setAdminStats({
         totalUsers: usersResponse.count || 0,
         totalStores: storesResponse.count || 0,
@@ -415,10 +398,8 @@ const AdminDashboard = () => {
         revenue: revenue,
       });
 
-      // Set recent activities
       setRecentActivities(activitiesResponse.data || []);
 
-      // Fetch admin users with user details
       const { data: allAdmins } = await supabase
         .from('admin_users')
         .select('*')
@@ -426,7 +407,6 @@ const AdminDashboard = () => {
 
       setAdminUsers(allAdmins || []);
 
-      // Set notifications
       setNotifications(notificationsResponse.data?.map(n => ({
         id: n.id,
         message: n.message,
@@ -437,7 +417,7 @@ const AdminDashboard = () => {
       console.error('Error fetching admin data:', error);
       toast.error('Failed to load dashboard data');
       
-      // Set fallback data
+      // Fallback data
       setChartData({
         labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
         datasets: [
@@ -485,7 +465,6 @@ const AdminDashboard = () => {
     }
 
     try {
-      // First, find user by email in users table
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('id, email')
@@ -497,7 +476,6 @@ const AdminDashboard = () => {
         return;
       }
 
-      // Check if user is already an admin
       const { data: existingAdmin } = await supabase
         .from('admin_users')
         .select('id')
@@ -509,7 +487,6 @@ const AdminDashboard = () => {
         return;
       }
 
-      // Create new admin
       const { data: newAdmin, error } = await supabase
         .from('admin_users')
         .insert([
@@ -527,12 +504,10 @@ const AdminDashboard = () => {
 
       if (error) throw error;
 
-      // Update local state
       setAdminUsers(prev => [newAdmin, ...prev]);
       setShowAddAdmin(false);
       setNewAdminData({ email: '', role: 'moderator', permissions: [] });
       
-      // Log activity
       await logActivity('admin_user_created', 'admin_user', newAdmin.id);
       toast.success(`New ${adminData.role} added successfully!`);
     } catch (error) {
@@ -556,7 +531,6 @@ const AdminDashboard = () => {
 
       if (error) throw error;
 
-      // Update local state
       setAdminUsers(prev =>
         prev.map(admin =>
           admin.id === adminId
@@ -565,7 +539,6 @@ const AdminDashboard = () => {
         )
       );
 
-      // Log activity
       await logActivity(
         currentStatus ? 'admin_deactivated' : 'admin_activated',
         'admin_user',
@@ -587,7 +560,6 @@ const AdminDashboard = () => {
   // Navigation handler
   const handleNavClick = (path) => {
     navigate(path);
-    // Auto-close sidebar on mobile after navigation
     if (window.innerWidth < 768) {
       setSidebarOpen(false);
     }
@@ -598,31 +570,26 @@ const AdminDashboard = () => {
     return roleColors[role] || roleColors.moderator;
   };
 
-  // Initialize admin - with proper authentication checks
+  // Initialize admin
   useEffect(() => {
     const initializeAdmin = async () => {
-      // If no user, redirect immediately to admin-auth
       if (!user) {
-        console.log('No user found, redirecting to admin-auth');
         navigate('/admin-auth', { replace: true });
         setLoading(false);
         return;
       }
 
-      // Check if user has admin access
       const isAdmin = await hasAdminAccess();
       if (!isAdmin) {
-        console.log('User does not have admin access, redirecting to admin-auth');
         toast.error('Access denied: Admin privileges required');
         navigate('/admin-auth', { replace: true });
         return;
       }
 
-      // If we have admin access, fetch data
       await fetchAdminData();
       await logActivity('logged_in');
 
-      // Set up real-time subscription for notifications
+      // Set up real-time subscription
       try {
         const subscription = supabase
           .channel('admin_notifications')
@@ -649,47 +616,32 @@ const AdminDashboard = () => {
     initializeAdmin();
   }, [user, navigate]);
 
-  // Redirect if no user or not admin - this runs on every render
+  // Redirect if no user or not admin
   useEffect(() => {
     if (!user) {
       navigate('/admin-auth', { replace: true });
       return;
     }
 
-    // Additional safety check - if we have a user but no currentAdmin after loading, redirect
     if (!loading && user && !currentAdmin) {
-      console.log('User found but no admin access, redirecting to admin-auth');
       navigate('/admin-auth', { replace: true });
     }
   }, [user, currentAdmin, loading, navigate]);
 
-  // Close sidebar when clicking on overlay (mobile)
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth >= 768 && !sidebarOpen) {
-        setSidebarOpen(true);
-      }
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [sidebarOpen]);
-
   // Loading state
   if (loading) {
     return (
-      <div className="admin-loading">
-        <div className="loading-spinner"></div>
+      <div className="admin-dashboard-loading">
+        <div className="admin-loading-spinner"></div>
         <p>Loading Admin Dashboard...</p>
       </div>
     );
   }
 
-  // If no current admin but we're not loading, show access denied
   if (!currentAdmin) {
     return (
-      <div className="admin-loading">
-        <div className="loading-spinner"></div>
+      <div className="admin-dashboard-loading">
+        <div className="admin-loading-spinner"></div>
         <p>Verifying admin access...</p>
       </div>
     );
@@ -721,7 +673,7 @@ const AdminDashboard = () => {
     currentAdmin?.permissions?.includes('all')
   );
 
-  // Stats cards data with real data
+  // Stats cards data
   const statCards = [
     { icon: <FiUsers />, title: "Total Users", value: adminStats.totalUsers.toLocaleString(), change: "+12%", trend: "up" },
     { icon: <FiBriefcase />, title: "Total Stores", value: adminStats.totalStores.toLocaleString(), change: "+8%", trend: "up" },
@@ -732,24 +684,12 @@ const AdminDashboard = () => {
   ];
 
   return (
-    <div 
-      className={`admin-layout ${darkMode ? "dark-mode" : ""}`}
-      data-role={currentAdmin?.role || 'admin'}
-      style={{
-        '--super-admin-color': roleColors.super_admin.primary,
-        '--admin-color': roleColors.admin.primary,
-        '--moderator-color': roleColors.moderator.primary,
-        '--support-color': roleColors.support.primary,
-        '--current-role-color': currentRoleColor.primary,
-        '--current-role-secondary': currentRoleColor.secondary,
-        '--current-role-dark': currentRoleColor.dark,
-      }}
-    >
+    <div className={`admin-dashboard-container ${darkMode ? "admin-dark-mode" : ""}`}>
       {/* Mobile Overlay */}
       <AnimatePresence>
         {sidebarOpen && (
           <motion.div
-            className="sidebar-overlay"
+            className="admin-sidebar-overlay"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -758,213 +698,62 @@ const AdminDashboard = () => {
         )}
       </AnimatePresence>
 
-      {/* Sidebar - Now toggleable */}
+      {/* Sidebar */}
       <motion.aside
-        className={`admin-sidebar ${sidebarOpen ? 'expanded' : 'collapsed'}`}
+        className={`admin-sidebar ${sidebarOpen ? 'admin-sidebar-expanded' : 'admin-sidebar-collapsed'}`}
         initial={false}
         animate={{
           x: sidebarOpen ? 0 : -280,
         }}
         transition={{ duration: 0.3, ease: "easeInOut" }}
       >
-        {/* Sidebar Header */}
-        <div className="sidebar-header">
-          <div className="sidebar-brand">
-            <motion.div
-              className="sidebar-logo"
-              whileHover={{ scale: 1.05 }}
-              transition={{ type: "spring", stiffness: 200 }}
+        <div className="admin-sidebar-header">
+          <div className="admin-sidebar-brand">
+            <div
+              className="admin-sidebar-logo"
               style={{ 
                 background: currentRoleColor.badge,
                 color: isSuperAdmin ? '#000' : '#fff'
               }}
             >
               {isSuperAdmin ? <FaCrown /> : <FiShield />}
-            </motion.div>
-            <AnimatePresence>
-              {sidebarOpen && (
-                <motion.div
-                  className="brand-text"
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -10 }}
-                >
-                  <div className="brand-name">OmniFlow</div>
-                  <div className="brand-role">{isSuperAdmin ? "Super Admin" : "Admin Panel"}</div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            </div>
+            {sidebarOpen && (
+              <div className="admin-brand-text">
+                <div className="admin-brand-name">OmniFlow</div>
+                <div className="admin-brand-role">{isSuperAdmin ? "Super Admin" : "Admin Panel"}</div>
+              </div>
+            )}
           </div>
-          <button className="sidebar-close" onClick={toggleSidebar}>
+          <button className="admin-sidebar-close" onClick={toggleSidebar}>
             <FiChevronLeft />
           </button>
         </div>
 
-        {/* Navigation Sections */}
-        <div className="sidebar-content">
-          {/* Main Navigation */}
-          <nav className="sidebar-nav">
-            <div className="nav-section">
-              <AnimatePresence>
+        <div className="admin-sidebar-content">
+          <nav className="admin-sidebar-nav">
+            {adminModules.map((module, index) => (
+              <button
+                key={module.path}
+                className={`admin-nav-item ${location.pathname === module.path ? 'admin-nav-active' : ''}`}
+                onClick={() => handleNavClick(module.path)}
+              >
+                <div className="admin-nav-icon">
+                  {module.icon}
+                </div>
                 {sidebarOpen && (
-                  <motion.div
-                    className="nav-section-label"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                  >
-                    Main
-                  </motion.div>
+                  <span className="admin-nav-text">
+                    {module.title}
+                  </span>
                 )}
-              </AnimatePresence>
-              <div className="nav-items">
-                {adminModules.slice(0, 1).map((module, index) => (
-                  <motion.button
-                    key={module.path}
-                    className={`nav-item ${location.pathname === module.path ? 'active' : ''}`}
-                    onClick={() => handleNavClick(module.path)}
-                    whileHover={{ x: 4 }}
-                    whileTap={{ scale: 0.98 }}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                  >
-                    <div className="nav-icon">
-                      {module.icon}
-                    </div>
-                    <AnimatePresence>
-                      {sidebarOpen && (
-                        <motion.span
-                          className="nav-text"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                        >
-                          {module.title}
-                        </motion.span>
-                      )}
-                    </AnimatePresence>
-                    {location.pathname === module.path && (
-                      <motion.div 
-                        className="nav-active-indicator"
-                        layoutId="activeIndicator"
-                      />
-                    )}
-                  </motion.button>
-                ))}
-              </div>
-            </div>
-
-            {/* Management Section */}
-            <div className="nav-section">
-              <AnimatePresence>
-                {sidebarOpen && (
-                  <motion.div
-                    className="nav-section-label"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                  >
-                    Management
-                  </motion.div>
-                )}
-              </AnimatePresence>
-              <div className="nav-items">
-                {adminModules.slice(1, 8).map((module, index) => (
-                  <motion.button
-                    key={module.path}
-                    className={`nav-item ${location.pathname === module.path ? 'active' : ''}`}
-                    onClick={() => handleNavClick(module.path)}
-                    whileHover={{ x: 4 }}
-                    whileTap={{ scale: 0.98 }}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: (index + 1) * 0.1 }}
-                  >
-                    <div className="nav-icon">
-                      {module.icon}
-                    </div>
-                    <AnimatePresence>
-                      {sidebarOpen && (
-                        <motion.span
-                          className="nav-text"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                        >
-                          {module.title}
-                        </motion.span>
-                      )}
-                    </AnimatePresence>
-                    {location.pathname === module.path && (
-                      <motion.div 
-                        className="nav-active-indicator"
-                        layoutId="activeIndicator"
-                      />
-                    )}
-                  </motion.button>
-                ))}
-              </div>
-            </div>
-
-            {/* System Section */}
-            <div className="nav-section">
-              <AnimatePresence>
-                {sidebarOpen && (
-                  <motion.div
-                    className="nav-section-label"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                  >
-                    System
-                  </motion.div>
-                )}
-              </AnimatePresence>
-              <div className="nav-items">
-                {adminModules.slice(8).map((module, index) => (
-                  <motion.button
-                    key={module.path}
-                    className={`nav-item ${location.pathname === module.path ? 'active' : ''}`}
-                    onClick={() => handleNavClick(module.path)}
-                    whileHover={{ x: 4 }}
-                    whileTap={{ scale: 0.98 }}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: (index + 8) * 0.1 }}
-                  >
-                    <div className="nav-icon">
-                      {module.icon}
-                    </div>
-                    <AnimatePresence>
-                      {sidebarOpen && (
-                        <motion.span
-                          className="nav-text"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                        >
-                          {module.title}
-                        </motion.span>
-                      )}
-                    </AnimatePresence>
-                    {location.pathname === module.path && (
-                      <motion.div 
-                        className="nav-active-indicator"
-                        layoutId="activeIndicator"
-                      />
-                    )}
-                  </motion.button>
-                ))}
-              </div>
-            </div>
+              </button>
+            ))}
           </nav>
 
-          {/* Sidebar Footer */}
-          <div className="sidebar-footer">
+          <div className="admin-sidebar-footer">
             <div className="admin-profile">
               <div 
-                className="profile-avatar"
+                className="admin-profile-avatar"
                 style={{ 
                   background: currentRoleColor.badge,
                   color: isSuperAdmin ? '#000' : '#fff'
@@ -972,67 +761,50 @@ const AdminDashboard = () => {
               >
                 {isSuperAdmin ? <FaCrown /> : <FiUser />}
               </div>
-              <AnimatePresence>
-                {sidebarOpen && (
-                  <motion.div
-                    className="profile-info"
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -10 }}
+              {sidebarOpen && (
+                <div className="admin-profile-info">
+                  <div className="admin-profile-name">
+                    {user.email === SUPER_ADMIN_EMAIL ? "Super Admin" : currentAdmin?.email?.split('@')[0] || "Admin"}
+                  </div>
+                  <div 
+                    className="admin-profile-role"
+                    style={{ color: currentRoleColor.primary }}
                   >
-                    <div className="profile-name">
-                      {user.email === SUPER_ADMIN_EMAIL ? "Super Admin" : currentAdmin?.email?.split('@')[0] || "Admin"}
-                    </div>
-                    <div 
-                      className="profile-role"
-                      style={{ color: currentRoleColor.primary }}
-                    >
-                      {currentAdmin?.role?.charAt(0).toUpperCase() + currentAdmin?.role?.slice(1)}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                    {currentAdmin?.role?.charAt(0).toUpperCase() + currentAdmin?.role?.slice(1)}
+                  </div>
+                </div>
+              )}
             </div>
             
-            <motion.button
-              className="logout-btn"
+            <button
+              className="admin-logout-btn"
               onClick={handleAdminLogout}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
             >
               <FiLogOut />
-              {sidebarOpen && (
-                <motion.span
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                >
-                  Logout
-                </motion.span>
-              )}
-            </motion.button>
+              {sidebarOpen && <span>Logout</span>}
+            </button>
           </div>
         </div>
       </motion.aside>
 
       {/* Main Content Area */}
-      <main className="admin-main">
+      <main className="admin-main-content">
         {/* Top Bar */}
-        <header className="admin-topbar">
-          <div className="topbar-left">
+        <header className="admin-top-bar">
+          <div className="admin-top-left">
             <button
-              className="sidebar-toggle"
+              className="admin-sidebar-toggle"
               onClick={toggleSidebar}
               aria-label="Toggle sidebar"
             >
-              {sidebarOpen ? <FiChevronLeft /> : <FiMenu />}
+              <FiMenu />
             </button>
-            <div className="breadcrumb">
+            <div className="admin-breadcrumb">
               <h1>
                 Dashboard Overview
                 {isSuperAdmin && (
                   <span 
-                    className="super-admin-badge"
+                    className="admin-super-badge"
                     style={{ background: roleColors.super_admin.badge }}
                   >
                     SUPER ADMIN
@@ -1041,14 +813,13 @@ const AdminDashboard = () => {
               </h1>
               <p>
                 Welcome back, {user.email === SUPER_ADMIN_EMAIL ? "Super Admin" : currentAdmin?.role?.charAt(0).toUpperCase() + currentAdmin?.role?.slice(1)}
-                {isSuperAdmin && " - Full system access granted"}
               </p>
             </div>
           </div>
 
-          <div className="topbar-right">
-            <div className="search-bar">
-              <FiSearch className="search-icon" />
+          <div className="admin-top-right">
+            <div className="admin-search-bar">
+              <FiSearch className="admin-search-icon" />
               <input
                 type="text"
                 placeholder="Search admin panel..."
@@ -1060,16 +831,16 @@ const AdminDashboard = () => {
               />
             </div>
             
-            <button className="notifications-btn">
+            <button className="admin-notifications-btn">
               <FiBell />
               {notifications.length > 0 && (
-                <span className="notification-badge">{notifications.length}</span>
+                <span className="admin-notification-badge">{notifications.length}</span>
               )}
             </button>
             
-            <div className="admin-badge">
+            <div className="admin-user-badge">
               <div 
-                className="badge-icon"
+                className="admin-badge-icon"
                 style={{ 
                   background: currentRoleColor.badge,
                   color: isSuperAdmin ? '#000' : '#fff'
@@ -1077,60 +848,54 @@ const AdminDashboard = () => {
               >
                 {isSuperAdmin ? <FaCrown /> : <FaShieldAlt />}
               </div>
-              <div className="badge-info">
+              <div className="admin-badge-info">
                 <span 
-                  className="badge-role"
+                  className="admin-badge-role"
                   style={{ color: currentRoleColor.primary }}
                 >
                   {currentAdmin?.role?.toUpperCase()}
                 </span>
-                <span className="badge-status">● Online</span>
+                <span className="admin-badge-status">● Online</span>
               </div>
             </div>
           </div>
         </header>
 
         {/* Main Content */}
-        <div className="admin-content">
+        <div className="admin-content-area">
           {/* Role-specific Banner */}
           {isSuperAdmin ? (
-            <motion.section
-              className="super-admin-banner"
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
+            <section
+              className="admin-super-banner"
               style={{ background: roleColors.super_admin.badge }}
             >
-              <div className="banner-content">
-                <FaCrown className="banner-icon" />
+              <div className="admin-banner-content">
+                <FaCrown className="admin-banner-icon" />
                 <div>
                   <h3>Super Admin Privileges Active</h3>
                   <p>You have full control over the entire system and can manage all admin users</p>
                 </div>
               </div>
               <button
-                className="add-admin-btn"
+                className="admin-add-admin-btn"
                 onClick={() => setShowAddAdmin(true)}
                 style={{ background: roleColors.super_admin.primary }}
               >
                 <FiUserPlus />
                 Add New Admin
               </button>
-            </motion.section>
+            </section>
           ) : (
-            <motion.section
-              className="role-welcome-banner"
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
+            <section
+              className="admin-role-banner"
               style={{ 
                 background: currentRoleColor.secondary,
                 borderLeft: `4px solid ${currentRoleColor.primary}`
               }}
             >
-              <div className="banner-content">
+              <div className="admin-banner-content">
                 <div 
-                  className="role-icon"
+                  className="admin-role-icon"
                   style={{ color: currentRoleColor.primary }}
                 >
                   {currentAdmin?.role === 'admin' && <FaShieldAlt />}
@@ -1144,22 +909,18 @@ const AdminDashboard = () => {
                   <p>You have access to {currentAdmin?.permissions?.length || 0} system permissions</p>
                 </div>
               </div>
-            </motion.section>
+            </section>
           )}
 
           {/* Stats Grid */}
-          <section className="stats-grid">
+          <section className="admin-stats-grid">
             {statCards.map((stat, index) => (
-              <motion.div
+              <div
                 key={index}
-                className="stat-card"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                whileHover={{ y: -5 }}
+                className="admin-stat-card"
               >
                 <div 
-                  className="stat-icon"
+                  className="admin-stat-icon"
                   style={{ 
                     background: currentRoleColor.secondary,
                     color: currentRoleColor.primary 
@@ -1167,53 +928,42 @@ const AdminDashboard = () => {
                 >
                   {stat.icon}
                 </div>
-                <div className="stat-content">
+                <div className="admin-stat-content">
                   <h3>{stat.value}</h3>
                   <span>{stat.title}</span>
-                  <div className={`stat-change ${stat.trend}`}>
+                  <div className={`admin-stat-change ${stat.trend}`}>
                     <FiTrendingUp />
                     <span>{stat.change}</span>
                   </div>
                 </div>
-              </motion.div>
+              </div>
             ))}
           </section>
 
           {/* Chart Section */}
-          <div className="chart-section">
-            <div className="chart-container">
+          <div className="admin-chart-section">
+            <div className="admin-chart-container">
               <Line data={chartData} options={chartOptions} />
             </div>
           </div>
 
           {/* Dashboard Grid */}
-          <div className="dashboard-grid">
+          <div className="admin-dashboard-grid">
             {/* Modules Section */}
-            <motion.section
-              className="modules-section"
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.3 }}
-            >
-              <div className="section-header">
+            <section className="admin-modules-section">
+              <div className="admin-section-header">
                 <h2>Quick Access</h2>
                 <p>Manage different aspects of the platform</p>
               </div>
-              <div className="modules-grid">
+              <div className="admin-modules-grid">
                 {adminModules.map((module, index) => (
-                  <motion.div
+                  <div
                     key={index}
-                    className="module-card"
-                    whileHover={{ scale: 1.02, y: -4 }}
-                    whileTap={{ scale: 0.98 }}
+                    className="admin-module-card"
                     onClick={() => navigate(module.path)}
-                    style={{
-                      '--role-color': currentRoleColor.primary,
-                      '--role-secondary': currentRoleColor.secondary,
-                    }}
                   >
                     <div 
-                      className="module-icon"
+                      className="admin-module-icon"
                       style={{ 
                         background: currentRoleColor.secondary,
                         color: currentRoleColor.primary 
@@ -1221,45 +971,37 @@ const AdminDashboard = () => {
                     >
                       {module.icon}
                     </div>
-                    <div className="module-content">
+                    <div className="admin-module-content">
                       <h3>{module.title}</h3>
                       <p>{module.desc}</p>
                     </div>
-                    <div className="module-arrow">
+                    <div className="admin-module-arrow">
                       <FiActivity />
                     </div>
-                  </motion.div>
+                  </div>
                 ))}
               </div>
-            </motion.section>
+            </section>
 
             {/* Right Sidebar */}
-            <div className="right-sidebar">
+            <div className="admin-right-sidebar">
               {/* Admin Users Section (Super Admin Only) */}
               {isSuperAdmin && (
-                <motion.section
-                  className="admin-users-section"
-                  initial={{ opacity: 0, x: 30 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.6, delay: 0.4 }}
-                >
-                  <div className="section-header">
+                <section className="admin-users-section">
+                  <div className="admin-section-header">
                     <h2>Admin Team</h2>
-                    <span className="admin-count">{adminUsers.filter(a => a.is_active).length} Active</span>
+                    <span className="admin-users-count">{adminUsers.filter(a => a.is_active).length} Active</span>
                   </div>
                   <div className="admin-users-list">
                     {adminUsers.slice(0, 5).map((admin, index) => {
                       const adminRoleColor = getRoleColor(admin.role);
                       return (
-                        <motion.div
+                        <div
                           key={admin.id}
                           className="admin-user-item"
-                          initial={{ opacity: 0, x: 20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: index * 0.1 }}
                         >
                           <div 
-                            className="admin-avatar"
+                            className="admin-user-avatar"
                             style={{ 
                               background: adminRoleColor.badge,
                               color: admin.role === 'super_admin' ? '#000' : '#fff'
@@ -1267,22 +1009,22 @@ const AdminDashboard = () => {
                           >
                             {admin.role === 'super_admin' ? <FaCrown /> : <FiUser />}
                           </div>
-                          <div className="admin-info">
+                          <div className="admin-user-info">
                             <strong>
                               {admin.email || `Admin ${index + 1}`}
                             </strong>
                             <span 
-                              className={`admin-role ${admin.role}`}
+                              className="admin-user-role"
                               style={{ color: adminRoleColor.primary }}
                             >
                               {admin.role.replace('_', ' ')}
                               {admin.role === 'super_admin' && ' 👑'}
                             </span>
                           </div>
-                          <div className="admin-actions">
+                          <div className="admin-user-actions">
                             {admin.role !== 'super_admin' && (
                               <button
-                                className={`status-btn ${admin.is_active ? 'active' : 'inactive'}`}
+                                className={`admin-status-btn ${admin.is_active ? 'admin-active' : 'admin-inactive'}`}
                                 onClick={() => toggleAdminStatus(admin.id, admin.is_active)}
                                 title={admin.is_active ? 'Deactivate' : 'Activate'}
                                 style={{
@@ -1293,62 +1035,48 @@ const AdminDashboard = () => {
                               </button>
                             )}
                           </div>
-                        </motion.div>
+                        </div>
                       );
                     })}
                   </div>
-                </motion.section>
+                </section>
               )}
 
               {/* Activities Section */}
-              <motion.section
-                className="activities-section"
-                initial={{ opacity: 0, x: 30 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.6, delay: 0.5 }}
-              >
-                <div className="section-header">
+              <section className="admin-activities-section">
+                <div className="admin-section-header">
                   <h2>Recent Activities</h2>
                   <button 
-                    className="view-all-btn" 
+                    className="admin-view-all-btn" 
                     onClick={() => navigate('/admin/activities')}
                     style={{ color: currentRoleColor.primary }}
                   >
                     View All
                   </button>
                 </div>
-                <div className="activities-list">
+                <div className="admin-activities-list">
                   {recentActivities.slice(0, 6).map((activity, index) => (
-                    <motion.div
+                    <div
                       key={activity.id}
-                      className="activity-item"
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.1 }}
+                      className="admin-activity-item"
                     >
                       <div 
-                        className="activity-avatar"
+                        className="admin-activity-avatar"
                         style={{ background: currentRoleColor.secondary }}
                       >
                         <FiUser style={{ color: currentRoleColor.primary }} />
                       </div>
-                      <div className="activity-content">
+                      <div className="admin-activity-content">
                         <p>
                           <strong>System</strong>
                           {" "}{activity.action.replace(/_/g, ' ')}
                         </p>
                         <span>{new Date(activity.created_at).toLocaleTimeString()}</span>
                       </div>
-                      <div 
-                        className="activity-badge"
-                        style={{ color: currentRoleColor.primary }}
-                      >
-                        <FiCheckCircle />
-                      </div>
-                    </motion.div>
+                    </div>
                   ))}
                 </div>
-              </motion.section>
+              </section>
             </div>
           </div>
         </div>
@@ -1358,27 +1086,27 @@ const AdminDashboard = () => {
       <AnimatePresence>
         {showAddAdmin && isSuperAdmin && (
           <motion.div
-            className="modal-overlay"
+            className="admin-modal-overlay"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setShowAddAdmin(false)}
           >
             <motion.div
-              className="add-admin-modal"
+              className="admin-add-modal"
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="modal-header">
+              <div className="admin-modal-header">
                 <h3>Add New Admin</h3>
                 <button onClick={() => setShowAddAdmin(false)}>
                   <FiX />
                 </button>
               </div>
-              <div className="modal-content">
-                <div className="form-group">
+              <div className="admin-modal-content">
+                <div className="admin-form-group">
                   <label>User Email</label>
                   <input
                     type="email"
@@ -1387,7 +1115,7 @@ const AdminDashboard = () => {
                     onChange={(e) => setNewAdminData(prev => ({ ...prev, email: e.target.value }))}
                   />
                 </div>
-                <div className="form-group">
+                <div className="admin-form-group">
                   <label>Admin Role</label>
                   <select
                     value={newAdminData.role}
@@ -1398,7 +1126,7 @@ const AdminDashboard = () => {
                     <option value="admin">Admin</option>
                   </select>
                 </div>
-                <div className="permissions-info">
+                <div className="admin-permissions-info">
                   <h4>Permissions for {newAdminData.role}:</h4>
                   <ul>
                     {availablePermissions[newAdminData.role]?.map(permission => (
@@ -1407,15 +1135,15 @@ const AdminDashboard = () => {
                   </ul>
                 </div>
               </div>
-              <div className="modal-actions">
+              <div className="admin-modal-actions">
                 <button
-                  className="cancel-btn"
+                  className="admin-cancel-btn"
                   onClick={() => setShowAddAdmin(false)}
                 >
                   Cancel
                 </button>
                 <button
-                  className="confirm-btn"
+                  className="admin-confirm-btn"
                   onClick={() => addAdminUser(newAdminData)}
                   disabled={!newAdminData.email}
                   style={{ background: roleColors.super_admin.primary }}

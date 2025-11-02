@@ -22,7 +22,7 @@ import SidebarMenu from "@/components/SidebarMenu";
 
 import "./TradeStore.css";
 
-const tabs = ["All", "Flash Sale", "Electronics", "Fashion", "Home", "Trending", "Discounted", "Featured"];
+const tabs = ["All", "Flash Sale", "Electronics", "Fashion", "Home", "Gaming", "Trending", "Discounted", "Featured"];
 
 // ========== SKELETON COMPONENTS ==========
 const ProductCardSkeleton = () => (
@@ -987,7 +987,7 @@ const TradeStore = () => {
         }
         endMessage={
           <div className="end-message">
-            <p>🎉 You've discovered all our products!</p>
+            <p> You've discovered all our products!</p>
           </div>
         }
       >
