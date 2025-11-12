@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "181868778855",
+    "project_id": "omniflow-push-notification",
+    "storage_bucket": "omniflow-push-notification.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:181868778855:android:c5eb8c1ee3cbe2a3698bc2",
+        "android_client_info": {
+          "package_name": "ke.co.omniflowapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCypZ-m-6SOOhhNs6Up0jZHIaznHXytD90"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

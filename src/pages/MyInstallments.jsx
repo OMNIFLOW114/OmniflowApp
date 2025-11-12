@@ -11,6 +11,7 @@ export default function MyInstallments({ user }) {
   const [orders, setOrders] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [walletBalance, setWalletBalance] = useState(null);
+  const [totalInvested, setTotalInvested] = useState(0);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -18,6 +19,7 @@ export default function MyInstallments({ user }) {
   const [nextPayment, setNextPayment] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState("wallet");
   const [loadingOrderId, setLoadingOrderId] = useState(null);
+  const [activeTab, setActiveTab] = useState("all");
 
   const { darkMode } = useDarkMode();
   const pollRef = useRef(null);
@@ -26,7 +28,6 @@ export default function MyInstallments({ user }) {
     if (!user?.id) return;
     startUp();
 
-    // polling (later we can move to supabase realtime)
     pollRef.current = setInterval(() => {
       fetchOrders();
       fetchWallet();
@@ -49,8 +50,8 @@ export default function MyInstallments({ user }) {
       .from("installment_orders")
       .select(`
         *,
-        products:product_id (id, name, image_gallery, description),
-        seller:seller_id (id, full_name, email)
+        products:product_id (id, name, image_gallery, description, category),
+        seller:seller_id (id, full_name, email, phone, avatar_url)
       `)
       .eq("buyer_id", user.id)
       .order("created_at", { ascending: false });
@@ -61,8 +62,16 @@ export default function MyInstallments({ user }) {
       setOrders([]);
     } else {
       setOrders(data || []);
+      calculateTotalInvested(data || []);
     }
     setIsLoading(false);
+  }
+
+  function calculateTotalInvested(orders) {
+    const invested = orders.reduce((total, order) => {
+      return total + Number(order.amount_paid || 0);
+    }, 0);
+    setTotalInvested(invested);
   }
 
   async function fetchWallet() {
@@ -92,9 +101,20 @@ export default function MyInstallments({ user }) {
     });
   }
 
-  function shortId(uuid) {
-    return uuid?.slice(0, 8);
-  }
+  // Filter orders based on active tab
+  const filteredOrders = orders.filter(order => {
+    switch (activeTab) {
+      case 'active':
+        return order.status === 'active';
+      case 'completed':
+        return order.status === 'completed';
+      case 'overdue':
+        const days = daysBetween(order.next_due_date);
+        return order.status !== 'completed' && days != null && days < 0;
+      default:
+        return true;
+    }
+  });
 
   // reminders
   async function checkRemindersAndNotify() {
@@ -105,11 +125,11 @@ export default function MyInstallments({ user }) {
 
       if (o.status !== "completed" && days != null && days < 0) {
         toast.warn(
-          `⚠️ Order ${shortId(o.id)} is overdue by ${Math.abs(days)} day(s).`
+          `Order ${o.id.slice(0, 8)} is overdue by ${Math.abs(days)} day(s).`
         );
       } else if (o.status !== "completed" && days != null && days <= 3) {
         toast.info(
-          `⏳ Order ${shortId(o.id)} due in ${days} day(s). Next ~ OMC ${formatCurrency(
+          `Order ${o.id.slice(0, 8)} due in ${days} day(s). Amount: OMC ${formatCurrency(
             o.installment_amount
           )}.`
         );
@@ -180,7 +200,7 @@ export default function MyInstallments({ user }) {
       if (rpcError) throw rpcError;
 
       toast.dismiss(toastId);
-      toast.success("Payment successful ✅");
+      toast.success("Payment successful");
 
       await Promise.all([fetchOrders(), fetchWallet()]);
       await openModal(selectedOrder);
@@ -200,37 +220,104 @@ export default function MyInstallments({ user }) {
   return (
     <div className={`installment-dashboard ${darkMode ? "dark-mode" : ""}`}>
       {/* Header */}
-      <header className="installment-header glass">
-        <div>
-          <h1 className="title">My Lipa Mdogo Mdogo Dashboard</h1>
-          <p className="subtitle">
-            Manage your installment plans. Every payment is secured in escrow until your product is fully paid.
-          </p>
+      <header className="installment-header">
+        <div className="header-content">
+          <div className="header-text">
+            <h1 className="title">Lipa Mdogo Mdogo</h1>
+            <p className="subtitle">
+              Manage your installment plans
+            </p>
+          </div>
+          <div className="header-stats">
+            <div className="stat-card">
+              <div className="stat-icon">💰</div>
+              <div className="stat-info">
+                <div className="stat-label">Wallet</div>
+                <div className="stat-value">OMC {walletBalance != null ? formatCurrency(walletBalance) : "..."}</div>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon">📈</div>
+              <div className="stat-info">
+                <div className="stat-label">Paid</div>
+                <div className="stat-value">OMC {formatCurrency(totalInvested)}</div>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon">📦</div>
+              <div className="stat-info">
+                <div className="stat-label">Active</div>
+                <div className="stat-value">{orders.filter(o => o.status === 'active').length}</div>
+              </div>
+            </div>
+          </div>
         </div>
-        <WalletPanel walletBalance={walletBalance} formatCurrency={formatCurrency} />
       </header>
 
-      <TrustPanel />
+      {/* Quick Stats */}
+      <QuickStats orders={orders} formatCurrency={formatCurrency} />
 
-      {/* Main */}
-      <main>
+      {/* Tab Navigation */}
+      <div className="tab-navigation">
+        <button 
+          className={`tab-button ${activeTab === 'all' ? 'active' : ''}`}
+          onClick={() => setActiveTab('all')}
+        >
+          All ({orders.length})
+        </button>
+        <button 
+          className={`tab-button ${activeTab === 'active' ? 'active' : ''}`}
+          onClick={() => setActiveTab('active')}
+        >
+          Active ({orders.filter(o => o.status === 'active').length})
+        </button>
+        <button 
+          className={`tab-button ${activeTab === 'completed' ? 'active' : ''}`}
+          onClick={() => setActiveTab('completed')}
+        >
+          Completed ({orders.filter(o => o.status === 'completed').length})
+        </button>
+        <button 
+          className={`tab-button ${activeTab === 'overdue' ? 'active' : ''}`}
+          onClick={() => setActiveTab('overdue')}
+        >
+          Overdue ({orders.filter(o => {
+            const days = daysBetween(o.next_due_date);
+            return o.status !== 'completed' && days != null && days < 0;
+          }).length})
+        </button>
+      </div>
+
+      {/* Main Content */}
+      <main className="main-content">
         {isLoading ? (
-          <div className="loading">Loading your plans…</div>
-        ) : orders.length === 0 ? (
-          <div className="empty-state glass">
-            <h3>No active plans</h3>
-            <p>Find a product and choose “Lipa Mdogo Mdogo” to start a plan.</p>
+          <div className="loading-state">
+            <div className="loading-spinner"></div>
+            <p>Loading your plans...</p>
+          </div>
+        ) : filteredOrders.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-icon">📦</div>
+            <h3>No {activeTab !== 'all' ? activeTab : ''} plans</h3>
+            <p>
+              {activeTab === 'all' 
+                ? "Start shopping with Lipa Mdogo Mdogo"
+                : `No ${activeTab} installment plans`
+              }
+            </p>
+            <button className="btn primary" onClick={() => window.location.href = '/products'}>
+              Browse Products
+            </button>
           </div>
         ) : (
           <section className="cards-grid">
-            {orders.map((order) => (
+            {filteredOrders.map((order) => (
               <InstallmentCard
                 key={order.id}
                 order={order}
                 walletBalance={walletBalance}
                 formatCurrency={formatCurrency}
                 daysBetween={daysBetween}
-                shortId={shortId}
                 loadingOrderId={loadingOrderId}
                 openModal={openModal}
                 fetchOrders={fetchOrders}
@@ -263,28 +350,30 @@ export default function MyInstallments({ user }) {
 /* --------------------------
    Sub Components
 ---------------------------*/
-function WalletPanel({ walletBalance, formatCurrency }) {
+
+function QuickStats({ orders, formatCurrency }) {
+  const totalActive = orders.filter(o => o.status === 'active').length;
+  const totalCompleted = orders.filter(o => o.status === 'completed').length;
+  const totalOverdue = orders.filter(o => {
+    const days = (new Date(o.next_due_date) - new Date()) / (1000 * 60 * 60 * 24);
+    return o.status !== 'completed' && days < 0;
+  }).length;
+
   return (
-    <div className="wallet-pill" aria-live="polite">
-      <div className="wallet-label">Wallet</div>
-      <div className="wallet-amount">
-        OMC {walletBalance != null ? formatCurrency(walletBalance) : "..."}
+    <div className="quick-stats">
+      <div className="stat-item">
+        <div className="stat-number">{totalActive}</div>
+        <div className="stat-label">Active Plans</div>
+      </div>
+      <div className="stat-item">
+        <div className="stat-number">{totalCompleted}</div>
+        <div className="stat-label">Completed</div>
+      </div>
+      <div className="stat-item">
+        <div className="stat-number">{totalOverdue}</div>
+        <div className="stat-label">Overdue</div>
       </div>
     </div>
-  );
-}
-
-function TrustPanel() {
-  return (
-    <section className="trust-panel glass">
-      <h3>🔒 Your Money is Safe</h3>
-      <ul>
-        <li>Funds stay in escrow until your plan completes.</li>
-        <li>Every payment generates a digital receipt.</li>
-        <li>Cancel anytime (refund policy applies).</li>
-        <li>Need help? <a href="/support">Contact Support</a>.</li>
-      </ul>
-    </section>
   );
 }
 
@@ -293,7 +382,6 @@ function InstallmentCard({
   walletBalance,
   formatCurrency,
   daysBetween,
-  shortId,
   loadingOrderId,
   openModal,
   fetchOrders,
@@ -308,102 +396,87 @@ function InstallmentCard({
   const overdue =
     order.status !== "completed" && days != null && days < 0;
 
+  const getStatusVariant = () => {
+    if (order.status === 'completed') return 'completed';
+    if (overdue) return 'overdue';
+    if (dueSoon) return 'due-soon';
+    return 'active';
+  };
+
   return (
     <article
-      className={`card glass elevation-3 ${
-        overdue ? "overdue" : dueSoon ? "due-soon" : ""
-      }`}
+      className={`installment-card card-${getStatusVariant()}`}
       aria-labelledby={`order-title-${order.id}`}
     >
-      <div className="card-media">
-        <img
-          src={order.products?.image_gallery?.[0] || "/placeholder.png"}
-          alt={order.products?.name || "Product"}
-        />
+      <div className="card-header">
+        <div className="product-image">
+          <img
+            src={order.products?.image_gallery?.[0] || "/placeholder.png"}
+            alt={order.products?.name || "Product"}
+          />
+        </div>
+        <div className="card-info">
+          <h3 id={`order-title-${order.id}`} className="product-title">
+            {order.products?.name || "Product"}
+          </h3>
+          <div className="product-meta">
+            <span className="category">{order.products?.category || "General"}</span>
+            <span className={`status status-${getStatusVariant()}`}>
+              {order.status === 'completed' ? 'Completed' : 
+               overdue ? `Overdue` :
+               dueSoon ? `Due soon` : 'Active'}
+            </span>
+          </div>
+        </div>
       </div>
 
       <div className="card-body">
-        <div className="card-top">
-          <h2 id={`order-title-${order.id}`}>
-            {order.products?.name || "Product"}
-          </h2>
-          <div className="tag-row">
-            {overdue && <span className="tag tag-danger">Overdue</span>}
-            {!overdue && dueSoon && (
-              <span className="tag tag-warning">Due in {days}d</span>
-            )}
-            {order.status === "completed" && (
-              <span className="tag tag-success">Completed</span>
-            )}
+        <div className="progress-section">
+          <div className="progress-header">
+            <span className="progress-text">{Math.min(paidPercent, 100)}% paid</span>
+            <span className="progress-amount">OMC {formatCurrency(paid)} / OMC {formatCurrency(total)}</span>
+          </div>
+          <div className="progress-bar">
+            <div 
+              className="progress-fill" 
+              style={{ width: `${Math.min(paidPercent, 100)}%` }}
+            ></div>
           </div>
         </div>
 
-        <p className="seller">
-          Seller: <strong>{order.seller?.full_name || "Unknown"}</strong>
-        </p>
-
-        <div className="progress-outer" aria-hidden>
-          <div
-            className="progress-inner"
-            style={{ width: `${Math.min(paidPercent, 100)}%` }}
-            title={`${paidPercent}% paid`}
-          />
-        </div>
-        <p className="progress-label">
-          {Math.min(paidPercent, 100)}% paid • OMC {formatCurrency(paid)} / OMC{" "}
-          {formatCurrency(total)}
-        </p>
-
-        <div className="financials">
-          <div>
-            Remaining: <strong>OMC {formatCurrency(remain)}</strong>
+        <div className="payment-details">
+          <div className="detail-item">
+            <span className="detail-label">Next Payment</span>
+            <span className="detail-value">OMC {formatCurrency(order.installment_amount)}</span>
           </div>
-          <div>
-            Next Due:{" "}
-            <strong>
-              {order.next_due_date ? order.next_due_date.slice(0, 10) : "—"}
-            </strong>
+          <div className="detail-item">
+            <span className="detail-label">Due Date</span>
+            <span className={`detail-value ${overdue ? 'overdue' : dueSoon ? 'due-soon' : ''}`}>
+              {order.next_due_date ? new Date(order.next_due_date).toLocaleDateString() : "—"}
+            </span>
           </div>
         </div>
+      </div>
 
-        <div className="card-actions">
-          <button
-            className="btn primary"
-            onClick={() => openModal(order)}
-            disabled={loadingOrderId === order.id || order.status === "completed"}
-          >
-            {loadingOrderId === order.id ? "Processing…" : "Pay Next"}
-          </button>
-
-          <button
-            className="btn ghost"
-            disabled={order.status === "completed"}
-            onClick={async () => {
-              if (!window.confirm("Cancel this plan?")) return;
-              const toastId = toast.loading("Cancelling…");
-              const { error } = await supabase
-                .from("installment_orders")
-                .update({ status: "cancelled" })
-                .eq("id", order.id);
-              toast.dismiss(toastId);
-              if (error) toast.error(error.message);
-              else {
-                toast.success("Plan cancelled");
-                fetchOrders();
-              }
-            }}
-          >
-            Cancel Plan
-          </button>
-        </div>
-
-        <details className="details">
-          <summary>View schedule & history</summary>
-          <div className="schedule">
-            <h4>Payment Timeline</h4>
-            <ScheduleTable orderId={order.id} userId={order.buyer_id} />
-          </div>
-        </details>
+      <div className="card-actions">
+        <button
+          className="btn btn-primary"
+          onClick={() => openModal(order)}
+          disabled={loadingOrderId === order.id || order.status === "completed"}
+        >
+          {loadingOrderId === order.id ? (
+            <>
+              <div className="btn-spinner"></div>
+              Processing...
+            </>
+          ) : (
+            "Pay Now"
+          )}
+        </button>
+        
+        <button className="btn btn-ghost" onClick={() => openModal(order)}>
+          Details
+        </button>
       </div>
     </article>
   );
@@ -422,205 +495,149 @@ function PaymentModal({
   paymentHistory,
   nextPayment,
 }) {
-  return (
-    <div
-      className="modal-backdrop"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="modal-title"
-    >
-      <div className="modal-box animate">
-        <h3 id="modal-title">
-          Pay Installment — {selectedOrder.products?.name}
-        </h3>
+  const paid = Number(selectedOrder.amount_paid || 0);
+  const total = Number(selectedOrder.total_price || 0);
+  const paidPercent = Math.floor((paid / Math.max(total, 1)) * 100);
 
-        <div className="modal-grid">
-          <div className="modal-left">
+  return (
+    <div className="modal-overlay" onClick={() => setModalOpen(false)}>
+      <div className="modal-container" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>Pay Installment</h2>
+          <button className="modal-close" onClick={() => setModalOpen(false)}>
+            ×
+          </button>
+        </div>
+
+        <div className="modal-content">
+          <div className="product-summary">
             <img
               src={selectedOrder.products?.image_gallery?.[0] || "/placeholder.png"}
-              alt=""
+              alt={selectedOrder.products?.name}
+              className="product-image"
             />
+            <div className="product-info">
+              <h3>{selectedOrder.products?.name}</h3>
+              <div className="progress-bar">
+                <div 
+                  className="progress-fill" 
+                  style={{ width: `${Math.min(paidPercent, 100)}%` }}
+                ></div>
+              </div>
+              <div className="progress-text">
+                {Math.min(paidPercent, 100)}% paid • OMC {formatCurrency(paid)} of OMC {formatCurrency(total)}
+              </div>
+            </div>
           </div>
 
-          <div className="modal-right">
-            <p>Next installment:</p>
-            <p className="big-amount">
-              OMC{" "}
-              {formatCurrency(
-                nextPayment ? nextPayment.amount : selectedOrder.installment_amount
-              )}
-            </p>
-            <p>
-              Wallet:{" "}
-              <strong>
-                OMC {walletBalance != null ? formatCurrency(walletBalance) : "..."}
-              </strong>
-            </p>
+          <div className="payment-section">
+            <div className="payment-amount-card">
+              <div className="amount-display">
+                <span className="amount-label">Amount Due</span>
+                <span className="amount-value">
+                  OMC {formatCurrency(nextPayment ? nextPayment.amount : selectedOrder.installment_amount)}
+                </span>
+              </div>
+              
+              <div className="wallet-info">
+                <span>Wallet: OMC {formatCurrency(walletBalance)}</span>
+                {paymentMethod === 'wallet' && walletBalance < (nextPayment?.amount || selectedOrder.installment_amount) && (
+                  <span className="insufficient">Insufficient</span>
+                )}
+              </div>
 
-            <div
-              className="payment-methods"
-              role="radiogroup"
-              aria-label="Payment Method"
-            >
-              <label>
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="wallet"
-                  checked={paymentMethod === "wallet"}
-                  onChange={() => setPaymentMethod("wallet")}
-                />
-                Wallet (Balance OMC {formatCurrency(walletBalance)})
-              </label>
-              <label>
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="mpesa"
-                  checked={paymentMethod === "mpesa"}
-                  onChange={() => setPaymentMethod("mpesa")}
-                />
-                M-Pesa
-              </label>
-              <label>
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="paypal"
-                  checked={paymentMethod === "paypal"}
-                  onChange={() => setPaymentMethod("paypal")}
-                />
-                PayPal
-              </label>
+              <div className="payment-methods">
+                <div className="method-options">
+                  <label className={`method-option ${paymentMethod === 'wallet' ? 'selected' : ''}`}>
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="wallet"
+                      checked={paymentMethod === 'wallet'}
+                      onChange={() => setPaymentMethod('wallet')}
+                    />
+                    <span className="method-icon">💳</span>
+                    <span className="method-name">Wallet</span>
+                  </label>
+
+                  <label className={`method-option ${paymentMethod === 'mpesa' ? 'selected' : ''}`}>
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="mpesa"
+                      checked={paymentMethod === 'mpesa'}
+                      onChange={() => setPaymentMethod('mpesa')}
+                    />
+                    <span className="method-icon">📱</span>
+                    <span className="method-name">M-Pesa</span>
+                  </label>
+
+                  <label className={`method-option ${paymentMethod === 'paypal' ? 'selected' : ''}`}>
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="paypal"
+                      checked={paymentMethod === 'paypal'}
+                      onChange={() => setPaymentMethod('paypal')}
+                    />
+                    <span className="method-icon">🌐</span>
+                    <span className="method-name">PayPal</span>
+                  </label>
+                </div>
+              </div>
             </div>
+          </div>
 
-            <div className="modal-actions">
-              <button
-                className="confirm-button"
-                onClick={() => payNextInstallment(false)}
-                disabled={!nextPayment || loadingOrderId === selectedOrder.id}
-              >
-                {loadingOrderId === selectedOrder.id ? "Processing…" : "Pay Now"}
-              </button>
-              <button
-                className="confirm-button ghost"
-                onClick={() => payNextInstallment(true)}
-                disabled={!nextPayment || loadingOrderId === selectedOrder.id}
-              >
-                Pay Extra
-              </button>
-              <button
-                className="cancel-button"
-                onClick={() => setModalOpen(false)}
-              >
-                Close
-              </button>
-            </div>
-
-            <div className="modal-schedule">
-              <h4>Schedule</h4>
+          <div className="schedule-section">
+            <h4>Payment Schedule</h4>
+            <div className="schedule-list">
               {paymentHistory.length === 0 ? (
-                <p>No schedule available</p>
+                <div className="no-schedule">No payment schedule available</div>
               ) : (
-                <ul className="history-list">
-                  {paymentHistory.map((p) => (
-                    <li
-                      key={p.id}
-                      className={p.status === "paid" ? "paid" : "pending"}
-                    >
-                      <span className="h-date">{p.due_date?.slice(0, 10)}</span>
-                      <span className="h-amount">
-                        OMC {formatCurrency(p.amount)}
-                      </span>
-                      <span className="h-status">
-                        {p.status === "paid"
-                          ? "Paid ✅"
-                          : "Pending ⏳"}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {!nextPayment && (
-                <p style={{ color: "#a00", marginTop: 8 }}>
-                  No pending payment found. If this looks wrong, refresh or
-                  contact support.
-                </p>
+                paymentHistory.map((payment) => (
+                  <div key={payment.id} className={`schedule-item ${payment.status}`}>
+                    <div className="schedule-date">
+                      {new Date(payment.due_date).toLocaleDateString()}
+                    </div>
+                    <div className="schedule-amount">
+                      OMC {formatCurrency(payment.amount)}
+                    </div>
+                    <div className={`schedule-status ${payment.status}`}>
+                      {payment.status === 'paid' ? '✅ Paid' : '⏳ Pending'}
+                    </div>
+                  </div>
+                ))
               )}
             </div>
           </div>
         </div>
+
+        <div className="modal-actions">
+          <button
+            className="btn btn-primary btn-large"
+            onClick={() => payNextInstallment(false)}
+            disabled={!nextPayment || loadingOrderId === selectedOrder.id || 
+              (paymentMethod === 'wallet' && walletBalance < (nextPayment?.amount || selectedOrder.installment_amount))}
+          >
+            {loadingOrderId === selectedOrder.id ? (
+              <>
+                <div className="btn-spinner"></div>
+                Processing...
+              </>
+            ) : (
+              `Pay OMC ${formatCurrency(nextPayment ? nextPayment.amount : selectedOrder.installment_amount)}`
+            )}
+          </button>
+          
+          <button
+            className="btn btn-secondary"
+            onClick={() => payNextInstallment(true)}
+            disabled={!nextPayment || loadingOrderId === selectedOrder.id}
+          >
+            Pay Extra
+          </button>
+        </div>
       </div>
     </div>
-  );
-}
-
-function ScheduleTable({ orderId, userId }) {
-  const [rows, setRows] = useState([]);
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      const { data, error } = await supabase
-        .from("installment_payments")
-        .select("id, due_date, amount, status, paid_date, payment_method")
-        .eq("order_id", orderId)
-        .eq("buyer_id", userId)
-        .order("due_date", { ascending: true });
-      if (!error && mounted) setRows(data || []);
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, [orderId, userId]);
-
-  if (!rows.length)
-    return (
-      <table className="schedule-table" role="table">
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Amount</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td colSpan="3">No schedule</td>
-          </tr>
-        </tbody>
-      </table>
-    );
-
-  return (
-    <table className="schedule-table" role="table">
-      <thead>
-        <tr>
-          <th>Date</th>
-          <th>Amount</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((r) => (
-          <tr key={r.id}>
-            <td>{r.due_date?.slice(0, 10)}</td>
-            <td>
-              OMC{" "}
-              {Number(r.amount).toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-            </td>
-            <td>
-              {r.status === "paid"
-                ? `Paid (${r.paid_date?.slice(0, 10)}${
-                    r.payment_method ? ` via ${r.payment_method}` : ""
-                  })`
-                : "Pending"}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
   );
 }
