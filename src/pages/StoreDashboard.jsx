@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect, useContext } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FaHome, FaBox, FaCommentDots, FaUpload, FaSmile, FaClipboardCheck, FaBoxOpen,
   FaUser, FaMapMarkerAlt, FaMoneyBillAlt, FaMoneyBillWave, FaArrowLeft, FaArrowRight,
   FaChartLine, FaCreditCard, FaMoneyCheckAlt, FaShoppingBag, FaDollarSign,
-  FaStore, FaUsers, FaStar
+  FaStore, FaUsers, FaStar, FaBell, FaShoppingCart, FaTimes, FaBars
 } from 'react-icons/fa';
 import { useDropzone } from 'react-dropzone';
 import { supabase } from '../lib/supabaseClient';
@@ -36,6 +35,10 @@ const StoreDashboard = () => {
   const [requiredInfoDrafts, setRequiredInfoDrafts] = useState({});
   const [savingDetails, setSavingDetails] = useState({});
   const [currentImageIndices, setCurrentImageIndices] = useState({});
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
+  const [newOrderNotification, setNewOrderNotification] = useState(false);
+  const [newPaymentNotification, setNewPaymentNotification] = useState(false);
   
   const [dashboardStats, setDashboardStats] = useState({
     totalEarnings: 0,
@@ -56,6 +59,15 @@ const StoreDashboard = () => {
     totalRatings: 0,
     averageRating: 0
   });
+
+  // Check if user is first-time seller and show tutorial
+  useEffect(() => {
+    const isFirstTimeSeller = localStorage.getItem('firstTimeSeller');
+    if (!isFirstTimeSeller) {
+      setShowTutorial(true);
+      localStorage.setItem('firstTimeSeller', 'false');
+    }
+  }, []);
 
   const getNextStatus = (current) => {
     const flow = ["pending", "processing", "shipped", "out for delivery", "delivered"];
@@ -91,6 +103,16 @@ const StoreDashboard = () => {
         console.error('Orders fetch error:', ordersError);
         throw ordersError;
       }
+
+      // Check for new orders
+      const hasNewOrders = ordersData?.some(order => {
+        const orderDate = new Date(order.created_at);
+        const now = new Date();
+        const diffTime = Math.abs(now - orderDate);
+        const diffHours = diffTime / (1000 * 60 * 60);
+        return diffHours < 24; // New in last 24 hours
+      });
+      setNewOrderNotification(hasNewOrders);
 
       const totalRevenue = ordersData?.reduce((sum, order) => sum + (order.total_price || 0), 0) || 0;
       const totalEarnings = ordersData?.reduce((sum, order) => sum + (order.price_paid || 0), 0) || 0;
@@ -151,6 +173,9 @@ const StoreDashboard = () => {
         .eq('seller_id', user.id)
         .order('created_at', { ascending: false })
         .limit(10);
+
+      // Check for new payments
+      setNewPaymentNotification(paymentData && paymentData.length > 0);
 
       if (!paymentError && paymentData) {
         setPaymentHistory(paymentData.map(payment => ({
@@ -336,14 +361,14 @@ const StoreDashboard = () => {
   }, [store]);
 
   const navItems = [
-    { id: 'overview', label: 'Overview', icon: <FaHome /> },
-    { id: 'products', label: 'Products', icon: <FaBox /> },
-    { id: 'earnings', label: 'Earnings', icon: <FaChartLine /> },
-    { id: 'payments', label: 'Payments', icon: <FaCreditCard /> },
-    { id: 'lipa-products', label: 'Lipa Products', icon: <FaShoppingBag /> },
-    { id: 'chat', label: 'Support', icon: <FaCommentDots /> },
-    { id: 'orders', label: 'Orders', icon: <FaClipboardCheck /> },
-    { id: 'installments', label: 'Lipa Orders', icon: <FaMoneyBillWave /> },
+    { id: 'overview', label: 'Overview', icon: <FaHome />, notification: false },
+    { id: 'products', label: 'Products', icon: <FaBox />, notification: false },
+    { id: 'earnings', label: 'Earnings', icon: <FaChartLine />, notification: false },
+    { id: 'payments', label: 'Payments', icon: <FaCreditCard />, notification: newPaymentNotification },
+    { id: 'lipa-products', label: 'Lipa Products', icon: <FaShoppingBag />, notification: false },
+    { id: 'chat', label: 'Support', icon: <FaCommentDots />, notification: false },
+    { id: 'orders', label: 'Orders', icon: <FaClipboardCheck />, notification: newOrderNotification },
+    { id: 'installments', label: 'Lipa Orders', icon: <FaMoneyBillWave />, notification: false },
   ];
 
   const fetchProducts = async () => {
@@ -598,27 +623,106 @@ const StoreDashboard = () => {
     });
   };
 
+  const closeTutorial = () => {
+    setShowTutorial(false);
+  };
+
   return (
     <div className="dashboard-glass">
-      <nav className="tabs-container">
+      {/* Mobile Header */}
+      <div className="mobile-header">
+        <div className="mobile-header-content">
+          <button 
+            className="mobile-menu-btn"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          >
+            {mobileMenuOpen ? <FaTimes /> : <FaBars />}
+          </button>
+          <div className="mobile-store-info">
+            <span className="store-name-mobile">{store?.name || 'My Store'}</span>
+            <span className="seller-name-mobile">Hi, {userInfo?.name || 'Seller'}</span>
+          </div>
+          <div className="mobile-notifications">
+            {newOrderNotification && <div className="notification-dot mobile-dot"></div>}
+            {newPaymentNotification && <div className="notification-dot mobile-dot"></div>}
+          </div>
+        </div>
+      </div>
+
+      {/* Tutorial Modal */}
+      {showTutorial && (
+        <div className="tutorial-modal">
+          <div className="tutorial-content">
+            <div className="tutorial-header">
+              <h2>Welcome to Your Seller Dashboard! 🎉</h2>
+              <button className="tutorial-close" onClick={closeTutorial}>
+                <FaTimes />
+              </button>
+            </div>
+            <div className="tutorial-steps">
+              <div className="tutorial-step">
+                <div className="step-icon">📦</div>
+                <div className="step-content">
+                  <h3>Add Your Products</h3>
+                  <p>Start by adding your products with images, descriptions, and pricing</p>
+                </div>
+              </div>
+              <div className="tutorial-step">
+                <div className="step-icon">💰</div>
+                <div className="step-content">
+                  <h3>Track Earnings</h3>
+                  <p>Monitor your sales, revenue, and payments in real-time</p>
+                </div>
+              </div>
+              <div className="tutorial-step">
+                <div className="step-icon">🚚</div>
+                <div className="step-content">
+                  <h3>Manage Orders</h3>
+                  <p>Update order status and track deliveries with red dot notifications</p>
+                </div>
+              </div>
+              <div className="tutorial-step">
+                <div className="step-icon">💬</div>
+                <div className="step-content">
+                  <h3>Get Support</h3>
+                  <p>Use the support chat for any questions or assistance</p>
+                </div>
+              </div>
+            </div>
+            <div className="tutorial-actions">
+              <button className="tutorial-start-btn" onClick={closeTutorial}>
+                Start Selling!
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <nav className={`tabs-container ${mobileMenuOpen ? 'mobile-open' : ''}`}>
         <div className="tabs-scroll">
-          {navItems.map(({ id, label, icon }) => (
+          {navItems.map(({ id, label, icon, notification }) => (
             <motion.button
               key={id}
               className={`tab-button ${section === id ? 'active' : ''}`}
-              onClick={() => setSection(id)}
+              onClick={() => {
+                setSection(id);
+                setMobileMenuOpen(false);
+              }}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
-              {icon} {label}
+              <span className="tab-icon">{icon}</span>
+              <span className="tab-label">{label}</span>
+              {notification && <div className="notification-dot"></div>}
             </motion.button>
           ))}
         </div>
       </nav>
+
       <main className="glass-main">
         <div className="glass-topbar">
           <div className="welcome-section">
-            <span>Welcome, {userInfo?.name || 'Seller'}</span>
+            <span className="welcome-text">Welcome, {userInfo?.name || 'Seller'}</span>
             {store && <span className="store-name">{store.name}</span>}
           </div>
           {dashboardStats.walletBalance > 0 && (
@@ -628,6 +732,7 @@ const StoreDashboard = () => {
             </div>
           )}
         </div>
+
         <AnimatePresence mode="wait">
           {section === 'overview' && (
             <motion.section
@@ -976,7 +1081,10 @@ const StoreDashboard = () => {
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.4 }}
             >
-              <h3>Payment History</h3>
+              <div className="section-header-with-notification">
+                <h3>Payment History</h3>
+                {newPaymentNotification && <div className="section-notification-dot"></div>}
+              </div>
               {loadingEarnings ? (
                 <p className="loading-text">Loading payment history...</p>
               ) : paymentHistory.length === 0 ? (
@@ -1320,7 +1428,10 @@ const StoreDashboard = () => {
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.4 }}
             >
-              <h3>Manage Orders</h3>
+              <div className="section-header-with-notification">
+                <h3>Manage Orders</h3>
+                {newOrderNotification && <div className="section-notification-dot"></div>}
+              </div>
               {orders.length === 0 ? (
                 <p>No orders yet.</p>
               ) : (
@@ -1386,6 +1497,7 @@ const StoreDashboard = () => {
             </motion.section>
           )}
         </AnimatePresence>
+
         {confirmingDeleteId && (
           <div className="modal-backdrop">
             <div className="modal-glass">
@@ -1398,6 +1510,7 @@ const StoreDashboard = () => {
             </div>
           </div>
         )}
+
         {editModalProduct && (
           <div className="modal-backdrop">
             <div className="modal-glass">
@@ -1448,6 +1561,7 @@ const StoreDashboard = () => {
             </div>
           </div>
         )}
+
         <footer className="dashboard-footer">
           <p>© {new Date().getFullYear()} OmniFlow. All rights reserved.</p>
         </footer>
