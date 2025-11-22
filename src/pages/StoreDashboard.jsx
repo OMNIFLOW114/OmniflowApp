@@ -4,7 +4,8 @@ import {
   FaHome, FaBox, FaCommentDots, FaUpload, FaSmile, FaClipboardCheck, FaBoxOpen,
   FaUser, FaMapMarkerAlt, FaMoneyBillAlt, FaMoneyBillWave, FaArrowLeft, FaArrowRight,
   FaChartLine, FaCreditCard, FaMoneyCheckAlt, FaShoppingBag, FaDollarSign,
-  FaStore, FaUsers, FaStar, FaBell, FaShoppingCart, FaTimes, FaBars
+  FaStore, FaUsers, FaStar, FaBell, FaShoppingCart, FaTimes, FaBars,
+  FaWallet, FaReceipt, FaDownload, FaFilter
 } from 'react-icons/fa';
 import { useDropzone } from 'react-dropzone';
 import { supabase } from '../lib/supabaseClient';
@@ -627,9 +628,46 @@ const StoreDashboard = () => {
     setShowTutorial(false);
   };
 
+  // Generate receipt function
+  const generateReceipt = (payment) => {
+    const receiptWindow = window.open('', '_blank');
+    receiptWindow.document.write(`
+      <html>
+        <head>
+          <title>Receipt - ${payment.reference_id}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px; }
+            .details { margin: 20px 0; }
+            .detail-row { display: flex; justify-content: space-between; margin: 8px 0; }
+            .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #666; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2>PAYMENT RECEIPT</h2>
+            <p>Reference: ${payment.reference_id}</p>
+          </div>
+          <div class="details">
+            <div class="detail-row"><strong>Date:</strong> ${new Date(payment.created_at).toLocaleDateString()}</div>
+            <div class="detail-row"><strong>Amount:</strong> Ksh ${payment.amount?.toLocaleString()}</div>
+            <div class="detail-row"><strong>Type:</strong> ${payment.type}</div>
+            <div class="detail-row"><strong>Status:</strong> ${payment.status}</div>
+            <div class="detail-row"><strong>Method:</strong> ${payment.payment_method}</div>
+            <div class="detail-row"><strong>Description:</strong> ${payment.description || 'N/A'}</div>
+          </div>
+          <div class="footer">
+            <p>Generated on ${new Date().toLocaleDateString()}</p>
+          </div>
+        </body>
+      </html>
+    `);
+    receiptWindow.document.close();
+  };
+
   return (
     <div className="dashboard-glass">
-      {/* Mobile Header */}
+      {/* Mobile Header with Wallet */}
       <div className="mobile-header">
         <div className="mobile-header-content">
           <button 
@@ -642,9 +680,17 @@ const StoreDashboard = () => {
             <span className="store-name-mobile">{store?.name || 'My Store'}</span>
             <span className="seller-name-mobile">Hi, {userInfo?.name || 'Seller'}</span>
           </div>
-          <div className="mobile-notifications">
-            {newOrderNotification && <div className="notification-dot mobile-dot"></div>}
-            {newPaymentNotification && <div className="notification-dot mobile-dot"></div>}
+          <div className="mobile-wallet-notification">
+            {dashboardStats.walletBalance > 0 && (
+              <div className="mobile-wallet-balance">
+                <FaWallet className="wallet-icon" />
+                <span>Ksh {dashboardStats.walletBalance.toLocaleString()}</span>
+              </div>
+            )}
+            <div className="mobile-notifications">
+              {newOrderNotification && <div className="notification-dot mobile-dot"></div>}
+              {newPaymentNotification && <div className="notification-dot mobile-dot"></div>}
+            </div>
           </div>
         </div>
       </div>
@@ -707,6 +753,13 @@ const StoreDashboard = () => {
               onClick={() => {
                 setSection(id);
                 setMobileMenuOpen(false);
+                // Clear notifications when opening the tab
+                if (id === 'orders' && newOrderNotification) {
+                  setNewOrderNotification(false);
+                }
+                if (id === 'payments' && newPaymentNotification) {
+                  setNewPaymentNotification(false);
+                }
               }}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -720,6 +773,7 @@ const StoreDashboard = () => {
       </nav>
 
       <main className="glass-main">
+        {/* Compact Top Bar */}
         <div className="glass-topbar">
           <div className="welcome-section">
             <span className="welcome-text">Welcome, {userInfo?.name || 'Seller'}</span>
@@ -727,7 +781,7 @@ const StoreDashboard = () => {
           </div>
           {dashboardStats.walletBalance > 0 && (
             <div className="wallet-balance">
-              <FaDollarSign />
+              <FaWallet className="wallet-icon" />
               <span>Ksh {dashboardStats.walletBalance.toLocaleString()}</span>
             </div>
           )}
@@ -744,49 +798,68 @@ const StoreDashboard = () => {
               transition={{ duration: 0.4 }}
             >
               <h3>Store Overview</h3>
-              <div className="overview-stats">
-                <div className="stat-card">
-                  <FaBox className="stat-icon" />
-                  <div className="stat-info">
+              
+              {/* Compact Stats Grid - 3 per row on mobile */}
+              <div className="overview-stats-grid">
+                <div className="stat-card-compact">
+                  <div className="stat-icon-compact">
+                    <FaBox />
+                  </div>
+                  <div className="stat-info-compact">
                     <h4>Total Products</h4>
-                    <p className="stat-number">{products.length}</p>
+                    <p className="stat-number-compact">{products.length}</p>
                   </div>
                 </div>
-                <div className="stat-card">
-                  <FaClipboardCheck className="stat-icon" />
-                  <div className="stat-info">
+                
+                <div className="stat-card-compact">
+                  <div className="stat-icon-compact">
+                    <FaClipboardCheck />
+                  </div>
+                  <div className="stat-info-compact">
                     <h4>Total Orders</h4>
-                    <p className="stat-number">{dashboardStats.totalOrders}</p>
+                    <p className="stat-number-compact">{dashboardStats.totalOrders}</p>
                     <small>{dashboardStats.successfulOrders} successful</small>
                   </div>
                 </div>
-                <div className="stat-card">
-                  <FaMoneyCheckAlt className="stat-icon" />
-                  <div className="stat-info">
+                
+                <div className="stat-card-compact">
+                  <div className="stat-icon-compact">
+                    <FaMoneyCheckAlt />
+                  </div>
+                  <div className="stat-info-compact">
                     <h4>Total Earnings</h4>
-                    <p className="stat-number">Ksh {dashboardStats.totalEarnings.toLocaleString()}</p>
+                    <p className="stat-number-compact">Ksh {dashboardStats.totalEarnings.toLocaleString()}</p>
                   </div>
                 </div>
-                <div className="stat-card">
-                  <FaShoppingBag className="stat-icon" />
-                  <div className="stat-info">
+                
+                <div className="stat-card-compact">
+                  <div className="stat-icon-compact">
+                    <FaShoppingBag />
+                  </div>
+                  <div className="stat-info-compact">
                     <h4>Lipa Products</h4>
-                    <p className="stat-number">{lipaPolepoleProducts.length}</p>
+                    <p className="stat-number-compact">{lipaPolepoleProducts.length}</p>
                   </div>
                 </div>
-                <div className="stat-card">
-                  <FaStar className="stat-icon" />
-                  <div className="stat-info">
+                
+                <div className="stat-card-compact">
+                  <div className="stat-icon-compact">
+                    <FaStar />
+                  </div>
+                  <div className="stat-info-compact">
                     <h4>Seller Score</h4>
-                    <p className="stat-number">{storePerformance.sellerScore.toFixed(1)}</p>
+                    <p className="stat-number-compact">{storePerformance.sellerScore.toFixed(1)}</p>
                     <small>{storePerformance.totalRatings} ratings</small>
                   </div>
                 </div>
-                <div className="stat-card">
-                  <FaChartLine className="stat-icon" />
-                  <div className="stat-info">
+                
+                <div className="stat-card-compact">
+                  <div className="stat-icon-compact">
+                    <FaChartLine />
+                  </div>
+                  <div className="stat-info-compact">
                     <h4>This Month</h4>
-                    <p className="stat-number">Ksh {dashboardStats.thisMonthEarnings.toLocaleString()}</p>
+                    <p className="stat-number-compact">Ksh {dashboardStats.thisMonthEarnings.toLocaleString()}</p>
                   </div>
                 </div>
               </div>
@@ -979,91 +1052,89 @@ const StoreDashboard = () => {
                 <p className="loading-text">Loading earnings data...</p>
               ) : (
                 <div className="earnings-dashboard">
-                  <div className="earnings-cards">
-                    <div className="earnings-card">
-                      <div className="earnings-icon total">
+                  {/* Compact Earnings Cards - 3 per row */}
+                  <div className="earnings-cards-compact">
+                    <div className="earnings-card-compact">
+                      <div className="earnings-icon-compact total">
                         <FaMoneyCheckAlt />
                       </div>
-                      <div className="earnings-info">
+                      <div className="earnings-info-compact">
                         <h4>Total Earnings</h4>
-                        <p className="earnings-amount">Ksh {dashboardStats.totalEarnings.toLocaleString()}</p>
+                        <p className="earnings-amount-compact">Ksh {dashboardStats.totalEarnings.toLocaleString()}</p>
                         <span className="earnings-subtitle">Amount received</span>
                       </div>
                     </div>
-                    <div className="earnings-card">
-                      <div className="earnings-icon pending">
+                    
+                    <div className="earnings-card-compact">
+                      <div className="earnings-icon-compact pending">
                         <FaCreditCard />
                       </div>
-                      <div className="earnings-info">
+                      <div className="earnings-info-compact">
                         <h4>Pending Payouts</h4>
-                        <p className="earnings-amount">Ksh {dashboardStats.pendingPayouts.toLocaleString()}</p>
-                        <span className="earnings-subtitle">Awaiting escrow release</span>
+                        <p className="earnings-amount-compact">Ksh {dashboardStats.pendingPayouts.toLocaleString()}</p>
+                        <span className="earnings-subtitle">Awaiting release</span>
                       </div>
                     </div>
-                    <div className="earnings-card">
-                      <div className="earnings-icon completed">
+                    
+                    <div className="earnings-card-compact">
+                      <div className="earnings-icon-compact completed">
                         <FaMoneyBillWave />
                       </div>
-                      <div className="earnings-info">
+                      <div className="earnings-info-compact">
                         <h4>Completed Payouts</h4>
-                        <p className="earnings-amount">Ksh {dashboardStats.completedPayouts.toLocaleString()}</p>
+                        <p className="earnings-amount-compact">Ksh {dashboardStats.completedPayouts.toLocaleString()}</p>
                         <span className="earnings-subtitle">Escrow released</span>
                       </div>
                     </div>
-                    <div className="earnings-card">
-                      <div className="earnings-icon month">
+                    
+                    <div className="earnings-card-compact">
+                      <div className="earnings-icon-compact month">
                         <FaChartLine />
                       </div>
-                      <div className="earnings-info">
+                      <div className="earnings-info-compact">
                         <h4>This Month</h4>
-                        <p className="earnings-amount">Ksh {dashboardStats.thisMonthEarnings.toLocaleString()}</p>
-                        <span className="earnings-subtitle">Current month earnings</span>
+                        <p className="earnings-amount-compact">Ksh {dashboardStats.thisMonthEarnings.toLocaleString()}</p>
+                        <span className="earnings-subtitle">Current month</span>
                       </div>
                     </div>
-                    <div className="earnings-card">
-                      <div className="earnings-icon lipa">
+                    
+                    <div className="earnings-card-compact">
+                      <div className="earnings-icon-compact lipa">
                         <FaShoppingBag />
                       </div>
-                      <div className="earnings-info">
+                      <div className="earnings-info-compact">
                         <h4>Lipa Polepole</h4>
-                        <p className="earnings-amount">Ksh {dashboardStats.lipaPolepoleEarnings.toLocaleString()}</p>
+                        <p className="earnings-amount-compact">Ksh {dashboardStats.lipaPolepoleEarnings.toLocaleString()}</p>
                         <span className="earnings-subtitle">Installment sales</span>
                       </div>
                     </div>
-                    <div className="earnings-card">
-                      <div className="earnings-icon wallet">
-                        <FaDollarSign />
+                    
+                    <div className="earnings-card-compact">
+                      <div className="earnings-icon-compact wallet">
+                        <FaWallet />
                       </div>
-                      <div className="earnings-info">
+                      <div className="earnings-info-compact">
                         <h4>Wallet Balance</h4>
-                        <p className="earnings-amount">Ksh {dashboardStats.walletBalance.toLocaleString()}</p>
+                        <p className="earnings-amount-compact">Ksh {dashboardStats.walletBalance.toLocaleString()}</p>
                         <span className="earnings-subtitle">Available funds</span>
                       </div>
                     </div>
                   </div>
                   
-                  <div className="performance-metrics">
+                  <div className="performance-metrics-compact">
                     <h4>Store Performance</h4>
-                    <div className="metrics-grid">
-                      <div className="metric-item">
+                    <div className="metrics-grid-compact">
+                      <div className="metric-item-compact">
                         <span className="metric-label">Total Revenue</span>
                         <span className="metric-value">Ksh {dashboardStats.totalRevenue.toLocaleString()}</span>
                       </div>
-                      <div className="metric-item">
-                        <span className="metric-label">Successful Orders</span>
-                        <span className="metric-value">{dashboardStats.successfulOrders} / {dashboardStats.totalOrders}</span>
-                      </div>
-                      <div className="metric-item">
+                      <div className="metric-item-compact">
                         <span className="metric-label">Success Rate</span>
                         <span className="metric-value">
                           {dashboardStats.totalOrders > 0 
                             ? ((dashboardStats.successfulOrders / dashboardStats.totalOrders) * 100).toFixed(1)
                             : 0}%
                         </span>
-                      </div>
-                      <div className="metric-item">
-                        <span className="metric-label">Seller Score</span>
-                        <span className="metric-value">{storePerformance.sellerScore.toFixed(1)}/5</span>
                       </div>
                     </div>
                   </div>
@@ -1081,10 +1152,16 @@ const StoreDashboard = () => {
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.4 }}
             >
-              <div className="section-header-with-notification">
-                <h3>Payment History</h3>
-                {newPaymentNotification && <div className="section-notification-dot"></div>}
+              <div className="section-header-with-actions">
+                <div className="section-title-with-notification">
+                  <h3>Payment History</h3>
+                  {newPaymentNotification && <div className="section-notification-dot"></div>}
+                </div>
+                <button className="generate-receipt-btn" onClick={() => toast.info("Receipt generation available for weekly summaries")}>
+                  <FaDownload /> Generate Weekly Report
+                </button>
               </div>
+              
               {loadingEarnings ? (
                 <p className="loading-text">Loading payment history...</p>
               ) : paymentHistory.length === 0 ? (
@@ -1103,9 +1180,8 @@ const StoreDashboard = () => {
                           <th>Amount</th>
                           <th>Type</th>
                           <th>Status</th>
-                          <th>Method</th>
                           <th>Reference</th>
-                          <th>Description</th>
+                          <th>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1123,9 +1199,16 @@ const StoreDashboard = () => {
                                 {payment.status}
                               </span>
                             </td>
-                            <td>{payment.payment_method || 'Wallet'}</td>
                             <td className="reference">{payment.reference_id}</td>
-                            <td className="description">{payment.description || 'N/A'}</td>
+                            <td>
+                              <button 
+                                className="receipt-btn"
+                                onClick={() => generateReceipt(payment)}
+                                title="Generate Receipt"
+                              >
+                                <FaReceipt />
+                              </button>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -1136,6 +1219,197 @@ const StoreDashboard = () => {
             </motion.section>
           )}
 
+          {section === 'products' && (
+            <motion.section
+              key="products"
+              className="glass-section"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.4 }}
+            >
+              <h3>Your Products</h3>
+              
+              {loadingProducts ? (
+                <p className="loading-text">Loading products...</p>
+              ) : products.length === 0 ? (
+                <div className="empty-state">
+                  <FaBox size={48} />
+                  <p>No products yet</p>
+                  <small>Create your first product to get started</small>
+                  <button 
+                    className="add-product-btn"
+                    onClick={() => setSection('products')}
+                    style={{marginTop: '1rem'}}
+                  >
+                    <FaBox /> Add New Product
+                  </button>
+                </div>
+              ) : (
+                <div className="products-grid-compact">
+                  {products.map((p) => {
+                    const images = p.image_gallery?.length ? p.image_gallery : ['/placeholder.jpg'];
+                    const currentImageIndex = currentImageIndices[p.id] || 0;
+
+                    return (
+                      <motion.div
+                        key={p.id}
+                        className="product-card-compact"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                      >
+                        <div className="product-image-compact">
+                          <img
+                            src={images[currentImageIndex]}
+                            alt={p.name}
+                          />
+                          {p.lipa_polepole && (
+                            <div className="product-lipa-badge">
+                              <FaMoneyBillWave /> Lipa
+                            </div>
+                          )}
+                        </div>
+                        <div className="product-info-compact">
+                          <h4 className="product-title-compact">{p.name}</h4>
+                          <p className="product-price-compact">Ksh {p.price}</p>
+                          <div className="product-meta-compact">
+                            <span>Stock: {p.stock_quantity}</span>
+                            {p.discount > 0 && <span className="discount">{p.discount}% off</span>}
+                          </div>
+                          <div className="product-actions-compact">
+                            <button className="edit-btn-compact" onClick={() => handleEditClick(p)}>
+                              Edit
+                            </button>
+                            <button className="delete-btn-compact" onClick={() => confirmDelete(p.id)}>
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              )}
+              
+              {/* Add Product Form */}
+              <div className="add-product-section">
+                <h4>Add New Product</h4>
+                <form className="glass-form" onSubmit={handleProductPost}>
+                  <div className="form-row-compact">
+                    <input name="name" type="text" placeholder="Product Name" required />
+                    <input name="price" type="number" step="0.01" placeholder="Price (Ksh)" required />
+                  </div>
+                  <div className="lipa-toggle">
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={lipaPolepole}
+                        onChange={(e) => setLipaPolepole(e.target.checked)}
+                      />
+                      Sell via Lipa Polepole
+                    </label>
+                  </div>
+                  <div className="form-row-compact">
+                    <input name="category" type="text" placeholder="Category" required />
+                    <input name="stock" type="number" placeholder="Stock Quantity" required />
+                  </div>
+                  <textarea name="description" rows="2" placeholder="Product Description" required />
+                  <div {...getRootProps()} className={`dropzone-glass ${isDragActive ? 'active' : ''}`}>
+                    <input {...getInputProps()} />
+                    <p>{isDragActive ? 'Drop images here...' : 'Drag & drop product images or click to upload'}</p>
+                    <FaUpload size={16} />
+                  </div>
+                  <motion.button
+                    type="submit"
+                    className="submit-btn"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    Post Product
+                  </motion.button>
+                </form>
+              </div>
+            </motion.section>
+          )}
+
+          {section === 'orders' && (
+            <motion.section
+              key="orders"
+              className="glass-section"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.4 }}
+            >
+              <div className="section-header-with-actions">
+                <div className="section-title-with-notification">
+                  <h3>Manage Orders</h3>
+                  {newOrderNotification && <div className="section-notification-dot"></div>}
+                </div>
+                <div className="order-filters">
+                  <button className="filter-btn active">
+                    <FaFilter /> All
+                  </button>
+                  <button className="filter-btn">
+                    Pending
+                  </button>
+                  <button className="filter-btn">
+                    Processing
+                  </button>
+                </div>
+              </div>
+              
+              {orders.length === 0 ? (
+                <div className="empty-state">
+                  <FaClipboardCheck size={48} />
+                  <p>No orders yet</p>
+                  <small>Orders from customers will appear here</small>
+                </div>
+              ) : (
+                <div className="orders-grid-compact">
+                  {orders.map(order => (
+                    <div key={order.id} className="order-card-compact">
+                      <div className="order-header-compact">
+                        <div className="order-info">
+                          <h4>{order.product?.name || 'Unknown Product'}</h4>
+                          <p className="order-date">{new Date(order.created_at).toLocaleDateString()}</p>
+                        </div>
+                        <span className={`order-status status-${order.status?.replace(/\s+/g, '-').toLowerCase()}`}>
+                          {order.status}
+                        </span>
+                      </div>
+                      
+                      <div className="order-details-compact">
+                        <div className="detail-item">
+                          <span className="label">Buyer:</span>
+                          <span className="value">{order.buyer?.name || 'Anonymous'}</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="label">Quantity:</span>
+                          <span className="value">{order.quantity}</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="label">Total:</span>
+                          <span className="value">Ksh {order.total_price}</span>
+                        </div>
+                      </div>
+                      
+                      {getNextStatus(order.status) && (
+                        <button
+                          className="status-update-btn-compact"
+                          onClick={() => updateOrderStatus(order.id, getNextStatus(order.status))}
+                        >
+                          Mark as {getNextStatus(order.status)}
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </motion.section>
+          )}
+
+          {/* Other sections remain similar but with compact styling */}
           {section === 'lipa-products' && (
             <motion.section
               key="lipa-products"
@@ -1153,7 +1427,7 @@ const StoreDashboard = () => {
                   <small>Enable "Sell via Lipa Polepole" when creating products to see them here</small>
                 </div>
               ) : (
-                <div className="product-gallery">
+                <div className="products-grid-compact">
                   {lipaPolepoleProducts.map((p) => {
                     const images = p.image_gallery?.length ? p.image_gallery : ['/placeholder.jpg'];
                     const currentImageIndex = currentImageIndices[p.id] || 0;
@@ -1161,198 +1435,42 @@ const StoreDashboard = () => {
                     return (
                       <motion.div
                         key={p.id}
-                        className="product-card-glass lipa-product-card"
+                        className="product-card-compact lipa-product"
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                       >
-                        <div className="image-container">
+                        <div className="product-image-compact">
                           <img
                             src={images[currentImageIndex]}
                             alt={p.name}
-                            className="product-image"
                           />
-                          {images.length > 1 && (
-                            <div className="image-nav">
-                              <button
-                                className="image-nav-btn"
-                                onClick={() => handleImageChange(p.id, 'prev')}
-                                disabled={currentImageIndex === 0}
-                              >
-                                <FaArrowLeft />
-                              </button>
-                              <div className="image-dots">
-                                {images.map((_, i) => (
-                                  <span
-                                    key={i}
-                                    className={`dot ${i === currentImageIndex ? 'active' : ''}`}
-                                  />
-                                ))}
-                              </div>
-                              <button
-                                className="image-nav-btn"
-                                onClick={() => handleImageChange(p.id, 'next')}
-                                disabled={currentImageIndex === images.length - 1}
-                              >
-                                <FaArrowRight />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                        <div className="lipa-product-header">
-                          <h4 className="product-title">{p.name}</h4>
-                          <div className="lipa-badge">
-                            <FaMoneyBillWave /> Lipa Polepole
+                          <div className="product-lipa-badge">
+                            <FaMoneyBillWave /> Lipa
                           </div>
                         </div>
-                        <p className="product-description">{p.description}</p>
-                        <div className="lipa-details">
-                          <div className="installment-plan">
-                            <strong>Installment Plan:</strong>
-                            <div className="plan-details">
+                        <div className="product-info-compact">
+                          <h4 className="product-title-compact">{p.name}</h4>
+                          <p className="product-price-compact">Ksh {p.price}</p>
+                          <div className="lipa-details-compact">
+                            <div className="installment-plan-compact">
                               <span>Initial: {p.installment_plan?.initial_percent}%</span>
                               <span>Installments: {p.installment_plan?.installments?.length || 0}</span>
                             </div>
                           </div>
-                        </div>
-                        <small className="product-meta">
-                          Price: Ksh {p.price} | Stock: {p.stock_quantity}
-                        </small>
-                        <div className="product-actions">
-                          <button className="edit-btn" onClick={() => handleEditClick(p)}>
-                            Edit
-                          </button>
-                          <button className="delete-btn" onClick={() => confirmDelete(p.id)}>
-                            Delete
-                          </button>
+                          <div className="product-actions-compact">
+                            <button className="edit-btn-compact" onClick={() => handleEditClick(p)}>
+                              Edit
+                            </button>
+                            <button className="delete-btn-compact" onClick={() => confirmDelete(p.id)}>
+                              Delete
+                            </button>
+                          </div>
                         </div>
                       </motion.div>
                     );
                   })}
                 </div>
               )}
-            </motion.section>
-          )}
-
-          {section === 'products' && (
-            <motion.section
-              key="products"
-              className="glass-section"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.4 }}
-            >
-              <h3>Post a Product</h3>
-              <form className="glass-form" onSubmit={handleProductPost}>
-                <div className="form-row">
-                  <input name="name" type="text" placeholder="Product Name" required />
-                  <input name="price" type="number" step="0.01" placeholder="Price (Ksh)" required />
-                </div>
-                <div className="lipa-toggle">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={lipaPolepole}
-                      onChange={(e) => setLipaPolepole(e.target.checked)}
-                    />
-                    Sell via Lipa Polepole
-                  </label>
-                </div>
-                {lipaPolepole && (
-                  <div className="lipa-fields">
-                    <label>Initial Deposit (%):</label>
-                    <input
-                      type="number"
-                      value={initialDeposit}
-                      onChange={(e) => setInitialDeposit(e.target.value)}
-                      min={10}
-                      max={90}
-                    />
-                    <p className="hint-text">
-                      Remaining {(100 - initialDeposit).toFixed(2)}% will be distributed across installments
-                    </p>
-                    <label>Number of Installments:</label>
-                    <input
-                      type="number"
-                      value={installments.length}
-                      onChange={(e) => {
-                        const count = parseInt(e.target.value);
-                        const remaining = 100 - parseFloat(initialDeposit || 0);
-                        const evenPercent = parseFloat((remaining / count).toFixed(2));
-                        const autoInstallments = Array.from({ length: count }, (_, i) => ({
-                          percent: i === count - 1 ? (remaining - evenPercent * (count - 1)).toFixed(2) : evenPercent,
-                          due_in_days: '',
-                        }));
-                        setInstallments(autoInstallments);
-                      }}
-                      min={1}
-                      max={5}
-                    />
-                    {installments.map((item, index) => (
-                      <div key={index} className="installment-block">
-                        <label>Installment {index + 1} (%):</label>
-                        <input
-                          type="number"
-                          value={item.percent}
-                          onChange={(e) =>
-                            setInstallments((prev) => {
-                              const copy = [...prev];
-                              copy[index].percent = e.target.value;
-                              return copy;
-                            })
-                          }
-                          required
-                        />
-                        <label>Due in (days):</label>
-                        <input
-                          type="number"
-                          value={item.due_in_days}
-                          onChange={(e) =>
-                            setInstallments((prev) => {
-                              const copy = [...prev];
-                              copy[index].due_in_days = e.target.value;
-                              return copy;
-                            })
-                          }
-                          required
-                        />
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <div className="form-row">
-                  <input name="category" type="text" placeholder="Category" required />
-                  <input name="stock" type="number" placeholder="Stock Quantity" required />
-                </div>
-                <div className="form-row">
-                  <input name="tags" type="text" placeholder="Tags (comma separated)" />
-                  <input name="discount" type="number" step="0.01" placeholder="Discount %" />
-                </div>
-                <input name="variants" type="text" placeholder="Variants (e.g., size: S,M,L)" />
-                <textarea name="description" rows="3" placeholder="Product Description" required />
-                <div {...getRootProps()} className={`dropzone-glass ${isDragActive ? 'active' : ''}`}>
-                  <input {...getInputProps()} />
-                  <p>{isDragActive ? 'Drop images here...' : 'Drag & drop product images or click to upload'}</p>
-                  <FaUpload size={20} />
-                </div>
-                {files.length > 0 && (
-                  <div className="preview-gallery">
-                    {files.map((file, i) => (
-                      <div key={i} className="preview-image">
-                        <img src={URL.createObjectURL(file)} alt={`preview-${i}`} />
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <motion.button
-                  type="submit"
-                  className="submit-btn"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  Post Product
-                </motion.button>
-              </form>
             </motion.section>
           )}
 
@@ -1416,70 +1534,6 @@ const StoreDashboard = () => {
                   <FaSmile /> Send
                 </button>
               </div>
-            </motion.section>
-          )}
-
-          {section === 'orders' && (
-            <motion.section
-              key="orders"
-              className="glass-section"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.4 }}
-            >
-              <div className="section-header-with-notification">
-                <h3>Manage Orders</h3>
-                {newOrderNotification && <div className="section-notification-dot"></div>}
-              </div>
-              {orders.length === 0 ? (
-                <p>No orders yet.</p>
-              ) : (
-                <div className="order-management-list">
-                  {orders.map(order => (
-                    <div key={order.id} className="order-box-glass">
-                      <h4><FaBoxOpen className="icon" /> Product Details</h4>
-                      <p><strong>Name:</strong> {order.product?.name || 'Unknown Product'}</p>
-                      {order.variant && <p><strong>Variant:</strong> {order.variant}</p>}
-                      <p><strong>Quantity:</strong> {order.quantity}</p>
-                      <p><strong>Unit Price:</strong> OMC {(order.total_price / order.quantity).toFixed(2)}</p>
-                      <p><strong>Total Price:</strong> OMC {order.total_price}</p>
-                      <h4><FaUser className="icon" /> Buyer Details</h4>
-                      <p><strong>Name:</strong> {order.buyer?.name || 'Anonymous'}</p>
-                      {order.buyer_phone && <p><strong>Phone:</strong> {order.buyer_phone}</p>}
-                      {order.buyer_location && <p><strong>Location:</strong> {order.buyer_location}</p>}
-                      <h4><FaMapMarkerAlt className="icon" /> Delivery Details</h4>
-                      <p><strong>Method:</strong> {order.delivery_method || 'Not specified'}</p>
-                      <p><strong>Address:</strong> {order.delivery_location || 'Not provided'}</p>
-                      {order.delivery_fee > 0 && <p><strong>Delivery Fee:</strong> OMC {order.delivery_fee}</p>}
-                      {order.pickup_station && <p><strong>Pickup Station:</strong> {order.pickup_station}</p>}
-                      <h4><FaMoneyBillAlt className="icon" /> Payment Details</h4>
-                      <p><strong>Payment Method:</strong> {order.payment_method || 'N/A'}</p>
-                      <p><strong>Deposit Paid:</strong> OMC {order.deposit_amount}</p>
-                      <p><strong>Balance Due:</strong> OMC {order.balance_due}</p>
-                      <p><strong>Paid via Wallet:</strong> {order.deposit_paid ? 'Yes' : 'No'}</p>
-                      <h4><FaClipboardCheck className="icon" /> Order Status</h4>
-                      <p>
-                        <strong>Placed:</strong> {new Date(order.created_at).toLocaleString()}
-                      </p>
-                      <p>
-                        <strong>Status:</strong>
-                        <span className={`status-label status-${order.status?.replace(/\s+/g, '-').toLowerCase()}`}>
-                          {order.status}
-                        </span>
-                      </p>
-                      {getNextStatus(order.status) && (
-                        <button
-                          className="status-update-btn"
-                          onClick={() => updateOrderStatus(order.id, getNextStatus(order.status))}
-                        >
-                          Mark as {getNextStatus(order.status)}
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
             </motion.section>
           )}
 
