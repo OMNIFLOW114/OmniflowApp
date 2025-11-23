@@ -1,317 +1,78 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-        xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
-        http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   
-  <!-- ========== CORE PAGES - HIGH PRIORITY ========== -->
-  
-  <!-- Homepage - Main Landing -->
+  <!-- Core Pages -->
   <url>
     <loc>https://omniflowapp.co.ke/</loc>
-    <lastmod>2025-09-30</lastmod>
+    <lastmod>2025-01-15</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
 
-  <!-- TradeStore - Kenya's Premier Campus Marketplace -->
-  <url>
-    <loc>https://omniflowapp.co.ke/trade</loc>
-    <lastmod>2025-09-30</lastmod>
-    <changefreq>hourly</changefreq>
-    <priority>0.9</priority>
-  </url>
-
-  <!-- OmniMarket - Discover Amazing Deals & Products -->
-  <url>
-    <loc>https://omniflowapp.co.ke/market</loc>
-    <lastmod>2025-09-30</lastmod>
-    <changefreq>hourly</changefreq>
-    <priority>0.9</priority>
-  </url>
-
-  <!-- Wallet - Secure Digital Payments & Money Management -->
-  <url>
-    <loc>https://omniflowapp.co.ke/wallet</loc>
-    <lastmod>2025-09-30</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.9</priority>
-  </url>
-
-  <!-- ========== USER EXPERIENCE PAGES ========== -->
-  
-  <!-- Student Dashboard - Your Academic & Campus Life Hub -->
-  <url>
-    <loc>https://omniflowapp.co.ke/student</loc>
-    <lastmod>2025-09-30</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-
-  <!-- Profile - Manage Your Personal Account & Preferences -->
-  <url>
-    <loc>https://omniflowapp.co.ke/profile</loc>
-    <lastmod>2025-09-30</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-
-  <!-- Shopping Cart - Your Selected Items Ready for Checkout -->
-  <url>
-    <loc>https://omniflowapp.co.ke/cart</loc>
-    <lastmod>2025-09-30</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.9</priority>
-  </url>
-
-  <!-- Wishlist - Save Your Favorite Products for Later -->
-  <url>
-    <loc>https://omniflowapp.co.ke/wishlist</loc>
-    <lastmod>2025-09-30</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-
-  <!-- ========== DISCOVERY & EXPLORATION PAGES ========== -->
-  
-  <!-- Discover - Explore Trending Products & Campus Deals -->
-  <url>
-    <loc>https://omniflowapp.co.ke/discover</loc>
-    <lastmod>2025-09-30</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.9</priority>
-  </url>
-
-  <!-- Flash Sales - Limited Time Offers & Exclusive Discounts -->
-  <url>
-    <loc>https://omniflowapp.co.ke/flash-sales</loc>
-    <lastmod>2025-09-30</lastmod>
-    <changefreq>hourly</changefreq>
-    <priority>0.9</priority>
-  </url>
-
-  <!-- Featured Products - Curated Selection of Best Sellers -->
-  <url>
-    <loc>https://omniflowapp.co.ke/featured</loc>
-    <lastmod>2025-09-30</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-
-  <!-- Trending Now - Most Popular Products This Week -->
-  <url>
-    <loc>https://omniflowapp.co.ke/trending</loc>
-    <lastmod>2025-09-30</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-
-  <!-- ========== COMMUNICATION & NOTIFICATIONS ========== -->
-  
-  <!-- Messages - Connect with Sellers & Buyers Instantly -->
-  <url>
-    <loc>https://omniflowapp.co.ke/messages</loc>
-    <lastmod>2025-09-30</lastmod>
-    <changefreq>hourly</changefreq>
-    <priority>0.8</priority>
-  </url>
-
-  <!-- Notifications - Stay Updated with Alerts & Updates -->
-  <url>
-    <loc>https://omniflowapp.co.ke/notifications</loc>
-    <lastmod>2025-09-30</lastmod>
-    <changefreq>hourly</changefreq>
-    <priority>0.7</priority>
-  </url>
-
-  <!-- ========== CREATION & MANAGEMENT PAGES ========== -->
-  
-  <!-- Create - List Your Products & Start Selling Today -->
-  <url>
-    <loc>https://omniflowapp.co.ke/create</loc>
-    <lastmod>2025-09-30</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
-  </url>
-
-  <!-- My Store - Manage Your Products & Track Sales -->
-  <url>
-    <loc>https://omniflowapp.co.ke/my-store</loc>
-    <lastmod>2025-09-30</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-
-  <!-- Orders - Track Your Purchases & Sales History -->
-  <url>
-    <loc>https://omniflowapp.co.ke/orders</loc>
-    <lastmod>2025-09-30</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-
-  <!-- ========== AUTHENTICATION & SECURITY ========== -->
-  
-  <!-- Login/Signup - Join Kenya's Fastest Growing Campus Community -->
-  <url>
-    <loc>https://omniflowapp.co.ke/auth</loc>
-    <lastmod>2025-09-30</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
-  </url>
-
-  <!-- Settings - Customize Your App Experience & Privacy -->
-  <url>
-    <loc>https://omniflowapp.co.ke/settings</loc>
-    <lastmod>2025-09-30</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
-  </url>
-
-  <!-- Security - Manage Your Account Safety & Preferences -->
-  <url>
-    <loc>https://omniflowapp.co.ke/security</loc>
-    <lastmod>2025-09-30</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
-  </url>
-
-  <!-- ========== PREMIUM & EXCLUSIVE FEATURES ========== -->
-  
-  <!-- Premium - Unlock Exclusive Features & Benefits -->
-  <url>
-    <loc>https://omniflowapp.co.ke/premium</loc>
-    <lastmod>2025-09-30</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-  </url>
-
-  <!-- VIP Membership - Exclusive Deals & Early Access -->
-  <url>
-    <loc>https://omniflowapp.co.ke/vip</loc>
-    <lastmod>2025-09-30</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-  </url>
-
-  <!-- ========== HELP & SUPPORT PAGES ========== -->
-  
-  <!-- Help Center - Get Support & Find Answers -->
-  <url>
-    <loc>https://omniflowapp.co.ke/help</loc>
-    <lastmod>2025-09-30</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.4</priority>
-  </url>
-
-  <!-- FAQ - Frequently Asked Questions About OmniFlow -->
-  <url>
-    <loc>https://omniflowapp.co.ke/faq</loc>
-    <lastmod>2025-09-30</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.4</priority>
-  </url>
-
-  <!-- Contact Us - Reach Our Support Team -->
-  <url>
-    <loc>https://omniflowapp.co.ke/contact</loc>
-    <lastmod>2025-09-30</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.3</priority>
-  </url>
-
-  <!-- About Us - Learn More About OmniFlow Mission -->
   <url>
     <loc>https://omniflowapp.co.ke/about</loc>
-    <lastmod>2025-09-30</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.3</priority>
+    <lastmod>2025-01-15</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
   </url>
 
-  <!-- ========== CATEGORY PAGES FOR BETTER SEO ========== -->
-  
-  <!-- Electronics - Latest Gadgets & Tech Products -->
   <url>
-    <loc>https://omniflowapp.co.ke/category/electronics</loc>
-    <lastmod>2025-09-30</lastmod>
+    <loc>https://omniflowapp.co.ke/marketplace</loc>
+    <lastmod>2025-01-15</lastmod>
     <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <url>
+    <loc>https://omniflowapp.co.ke/wallet</loc>
+    <lastmod>2025-01-15</lastmod>
+    <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
 
-  <!-- Fashion - Trendy Clothes & Accessories -->
+  <!-- User Pages -->
   <url>
-    <loc>https://omniflowapp.co.ke/category/fashion</loc>
-    <lastmod>2025-09-30</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-
-  <!-- Home & Living - Furniture & Decor Items -->
-  <url>
-    <loc>https://omniflowapp.co.ke/category/home-living</loc>
-    <lastmod>2025-09-30</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-
-  <!-- Books & Stationery - Academic & Study Materials -->
-  <url>
-    <loc>https://omniflowapp.co.ke/category/books-stationery</loc>
-    <lastmod>2025-09-30</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.7</priority>
-  </url>
-
-  <!-- Services - Campus Services & Offerings -->
-  <url>
-    <loc>https://omniflowapp.co.ke/category/services</loc>
-    <lastmod>2025-09-30</lastmod>
+    <loc>https://omniflowapp.co.ke/profile</loc>
+    <lastmod>2025-01-15</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
 
-  <!-- ========== SPECIAL OFFERS & PROMOTIONS ========== -->
-  
-  <!-- Discounts - All Products on Sale -->
   <url>
-    <loc>https://omniflowapp.co.ke/discounts</loc>
-    <lastmod>2025-09-30</lastmod>
+    <loc>https://omniflowapp.co.ke/cart</loc>
+    <lastmod>2025-01-15</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
 
-  <!-- New Arrivals - Fresh Products Just Added -->
   <url>
-    <loc>https://omniflowapp.co.ke/new-arrivals</loc>
-    <lastmod>2025-09-30</lastmod>
+    <loc>https://omniflowapp.co.ke/wishlist</loc>
+    <lastmod>2025-01-15</lastmod>
     <changefreq>daily</changefreq>
-    <priority>0.8</priority>
+    <priority>0.7</priority>
   </url>
 
-  <!-- Best Sellers - Most Popular Products -->
+  <!-- Auth Pages -->
   <url>
-    <loc>https://omniflowapp.co.ke/best-sellers</loc>
-    <lastmod>2025-09-30</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-
-  <!-- ========== MOBILE APP PROMOTION ========== -->
-  
-  <!-- Download App - Get OmniFlow Mobile Application -->
-  <url>
-    <loc>https://omniflowapp.co.ke/download</loc>
-    <lastmod>2025-09-30</lastmod>
+    <loc>https://omniflowapp.co.ke/auth</loc>
+    <lastmod>2025-01-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
 
-  <!-- App Features - Discover Mobile App Benefits -->
+  <!-- Support Pages -->
   <url>
-    <loc>https://omniflowapp.co.ke/app-features</loc>
-    <lastmod>2025-09-30</lastmod>
+    <loc>https://omniflowapp.co.ke/help</loc>
+    <lastmod>2025-01-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
+  </url>
+
+  <url>
+    <loc>https://omniflowapp.co.ke/download</loc>
+    <lastmod>2025-01-15</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
 
 </urlset>
