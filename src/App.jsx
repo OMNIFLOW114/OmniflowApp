@@ -39,6 +39,7 @@ import TermsPage from "@/components/TermsPage";
 // Main Features
 import OmniCashWallet from "./pages/OmniCashWallet";
 import CurrencyConverter from "@/pages/CurrencyConverter";
+import AboutUs from '@/pages/AboutUs';
 
 // Marketplace
 import TradeStore from "./pages/TradeStore";
@@ -124,9 +125,7 @@ function AppRoutes() {
         <Route path="/product/:id" element={<ProductDetail />} />
         <Route path="/wishlist" element={<ProtectedRoute><Wishlist /></ProtectedRoute>} />
         <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
-        
-        {/* REMOVED: BusinessHub route */}
-        
+        <Route path="/about" element={<AboutUs />} />
         <Route path="/student" element={<ProtectedRoute><StudentDashboard /></ProtectedRoute>} />
         <Route path="/orders" element={<BuyerOrders />} />
         <Route path="/admin/ratings" element={<Ratings />} />

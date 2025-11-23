@@ -13,6 +13,7 @@ import { AuthContext } from '../context/AuthContext';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import InstallmentOrdersTab from '../components/InstallmentOrdersTab';
+import InstallmentSetupModal from '../components/InstallmentSetupModal';
 import './StoreDashboard.css';
 
 const StoreDashboard = () => {
@@ -40,6 +41,7 @@ const StoreDashboard = () => {
   const [showTutorial, setShowTutorial] = useState(false);
   const [newOrderNotification, setNewOrderNotification] = useState(false);
   const [newPaymentNotification, setNewPaymentNotification] = useState(false);
+  const [installmentModalProduct, setInstallmentModalProduct] = useState(null);
   
   const [dashboardStats, setDashboardStats] = useState({
     totalEarnings: 0,
@@ -61,6 +63,9 @@ const StoreDashboard = () => {
     averageRating: 0
   });
 
+  const handleMarkForInstallment = (product) => {
+  setInstallmentModalProduct(product);
+};
   // Check if user is first-time seller and show tutorial
   useEffect(() => {
     const isFirstTimeSeller = localStorage.getItem('firstTimeSeller');
@@ -1277,13 +1282,19 @@ const StoreDashboard = () => {
                             {p.discount > 0 && <span className="discount">{p.discount}% off</span>}
                           </div>
                           <div className="product-actions-compact">
-                            <button className="edit-btn-compact" onClick={() => handleEditClick(p)}>
-                              Edit
-                            </button>
-                            <button className="delete-btn-compact" onClick={() => confirmDelete(p.id)}>
-                              Delete
-                            </button>
-                          </div>
+  <button 
+    className="installment-btn-compact" 
+    onClick={() => handleMarkForInstallment(p)}
+  >
+    <FaMoneyBillWave /> Lipa Setup
+  </button>
+  <button className="edit-btn-compact" onClick={() => handleEditClick(p)}>
+    Edit
+  </button>
+  <button className="delete-btn-compact" onClick={() => confirmDelete(p.id)}>
+    Delete
+  </button>
+</div>
                         </div>
                       </motion.div>
                     );
@@ -1615,7 +1626,17 @@ const StoreDashboard = () => {
             </div>
           </div>
         )}
-
+        {installmentModalProduct && (
+  <InstallmentSetupModal
+    product={installmentModalProduct}
+    isOpen={!!installmentModalProduct}
+    onClose={() => setInstallmentModalProduct(null)}
+    onSuccess={() => {
+      fetchProducts();
+      fetchDashboardData();
+    }}
+  />
+)}
         <footer className="dashboard-footer">
           <p>© {new Date().getFullYear()} OmniFlow. All rights reserved.</p>
         </footer>

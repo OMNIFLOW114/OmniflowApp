@@ -11,7 +11,8 @@ import {
   FaGraduationCap,
   FaStore,
   FaShoppingCart,
-  FaHeart
+  FaHeart,
+  FaInfoCircle
 } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { useDarkMode } from "@/context/DarkModeContext";
@@ -81,7 +82,7 @@ const SidebarMenu = ({ onClose, onLogout }) => {
     onClose();
   };
 
-  // Updated menu items with new features
+  // Updated menu items with About Us button
   const menuItems = [
     { 
       icon: <FaUserCircle size={18} />, 
@@ -122,6 +123,13 @@ const SidebarMenu = ({ onClose, onLogout }) => {
       link: "/wishlist",
       requiresAuth: true,
       count: wishlistItemsCount
+    },
+    { 
+      icon: <FaInfoCircle size={18} />, 
+      text: "About Us", 
+      link: "/about",
+      requiresAuth: false,
+      badge: "✨"
     },
     { 
       icon: <FaCogs size={18} />, 
@@ -272,6 +280,7 @@ const SidebarMenu = ({ onClose, onLogout }) => {
         {/* App Version */}
         <div className="sidebar-footer">
           <p className="app-version">OmniFlow v2.0</p>
+          <p className="app-tagline">Kenya's Powered E-Commerce</p>
         </div>
       </motion.div>
     </>

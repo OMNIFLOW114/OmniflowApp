@@ -1,0 +1,357 @@
+/* src/components/InstallmentSetupModal.css */
+.installment-modal .modal-content {
+  max-width: 800px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.installment-modal-content .modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.modal-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.title-icon {
+  color: #0ea5e9;
+  font-size: 1.5rem;
+}
+
+.modal-title h2 {
+  margin: 0;
+  color: #1e293b;
+  font-size: 1.5rem;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 1.25rem;
+  color: #64748b;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 0.375rem;
+}
+
+.modal-close:hover {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.modal-body {
+  padding: 1.5rem;
+}
+
+/* Toggle Section */
+.toggle-section {
+  margin-bottom: 2rem;
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  font-weight: 500;
+  color: #1e293b;
+}
+
+.toggle-label input {
+  display: none;
+}
+
+.toggle-slider {
+  width: 50px;
+  height: 24px;
+  background: #cbd5e1;
+  border-radius: 12px;
+  position: relative;
+  transition: background-color 0.3s;
+}
+
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  background: white;
+  border-radius: 50%;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.3s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.toggle-label input:checked + .toggle-slider {
+  background: #0ea5e9;
+}
+
+.toggle-label input:checked + .toggle-slider::before {
+  transform: translateX(26px);
+}
+
+.toggle-text {
+  font-size: 1.1rem;
+}
+
+/* Settings Sections */
+.installment-settings {
+  margin-top: 1.5rem;
+}
+
+.settings-section {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: #f8fafc;
+  border-radius: 0.75rem;
+  border: 1px solid #e2e8f0;
+}
+
+.settings-section h3 {
+  margin: 0 0 1rem 0;
+  color: #1e293b;
+  font-size: 1.25rem;
+}
+
+/* Form Grid */
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-group label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+  color: #374151;
+  font-size: 0.875rem;
+}
+
+.input-icon {
+  color: #64748b;
+  font-size: 0.875rem;
+}
+
+.form-group input,
+.form-group select {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #0ea5e9;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+}
+
+.form-group small {
+  color: #6b7280;
+  font-size: 0.75rem;
+}
+
+/* Checkbox Group */
+.checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-weight: 500;
+  color: #374151;
+}
+
+.checkbox-label input {
+  width: 1rem;
+  height: 1rem;
+}
+
+.info-icon {
+  color: #9ca3af;
+  font-size: 0.875rem;
+  cursor: help;
+}
+
+/* Schedule Preview */
+.schedule-preview {
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.schedule-header {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: #f1f5f9;
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.875rem;
+}
+
+.schedule-item {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e2e8f0;
+  align-items: center;
+}
+
+.schedule-item:last-child {
+  border-bottom: none;
+}
+
+.schedule-item input {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+  width: 80px;
+}
+
+.schedule-total {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: #f8fafc;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.total-percentage {
+  color: #059669;
+}
+
+/* Price Preview */
+.price-preview {
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+}
+
+.price-preview h4 {
+  margin: 0 0 1rem 0;
+  color: #1e293b;
+}
+
+.price-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.price-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.price-item.installment {
+  padding-left: 1rem;
+  color: #64748b;
+  font-size: 0.875rem;
+}
+
+.price-item.total {
+  font-weight: 600;
+  color: #1e293b;
+  border-top: 2px solid #e2e8f0;
+  border-bottom: none;
+  padding-top: 1rem;
+  margin-top: 0.5rem;
+}
+
+/* Modal Footer */
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  padding: 1.5rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.btn-secondary {
+  padding: 0.5rem 1rem;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  color: #374151;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.btn-secondary:hover {
+  background: #f9fafb;
+}
+
+.btn-primary {
+  padding: 0.5rem 1.5rem;
+  background: #0ea5e9;
+  border: none;
+  border-radius: 0.375rem;
+  color: white;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #0284c7;
+}
+
+.btn-primary:disabled {
+  background: #cbd5e1;
+  cursor: not-allowed;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .installment-modal .modal-content {
+    margin: 1rem;
+    max-height: 95vh;
+  }
+  
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .schedule-header,
+  .schedule-item,
+  .schedule-total {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+  
+  .modal-footer {
+    flex-direction: column;
+  }
+}
