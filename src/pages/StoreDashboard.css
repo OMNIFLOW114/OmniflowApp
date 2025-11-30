@@ -1,13 +1,13 @@
 :root {
   --light-bg: #f8fafc;
   --light-card: #ffffff;
-  --light-text: #111827; /* Darker for better contrast */
-  --light-border: #d1d5db;
-  --light-secondary: #6b7280;
-  --dark-bg: #0f172a;
-  --dark-card: #1a2235; /* Darker for better contrast */
+  --light-text: #010308; /* Darker for better contrast */
+  --light-border: #eff1f3;
+  --light-secondary: #165ef0;
+  --dark-bg: #000207;
+  --dark-card: #020408; /* Darker for better contrast */
   --dark-text: #f8fafc; /* Lighter text */
-  --dark-border: #374151; /* Better border contrast */
+  --dark-border: #0f408f; /* Better border contrast */
   --dark-secondary: #cbd5e1; /* Lighter secondary text */
   --accent: #2563eb;
   --danger: #dc2626;
@@ -168,10 +168,10 @@ html.dark .dashboard-glass .store-name-mobile {
 }
 
 html.dark .dashboard-glass .tabs-container {
-  background: #1a2235; /* Darker background for better contrast */
+  background: #000205; /* Darker background for better contrast */
   box-shadow: 0 2px 5px rgba(0,0,0,0.3);
   color: #e2e8f0; /* Lighter text color */
-  border-right: 1px solid #2d3748; /* Add border for separation */
+  border-right: 1px solid #085ff7; /* Add border for separation */
 }
 
 .dashboard-glass .tabs-scroll {
@@ -251,7 +251,7 @@ html.dark .dashboard-glass .tab-button {
 }
 
 html.dark .dashboard-glass .glass-main {
-  background: #1a2235; /* Darker background */
+  background: #000207; /* Darker background */
   color: #f7fafc; /* Lighter text for better contrast */
 }
 
@@ -310,14 +310,14 @@ html.dark .dashboard-glass .store-name {
   background: var(--light-card);
   border-radius: 16px;
   padding: 1.5rem;
-  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.06);
+  box-shadow: 0 4px 16px rgba(37, 100, 235, 0.63);
   margin-bottom: 2rem;
   border: 1px solid var(--light-border);
   color: var(--light-text); /* Ensure text contrast */
 }
 
 html.dark .dashboard-glass .glass-section {
-  background: #1e293b; /* Slightly darker than main background */
+  background: #000103; /* Slightly darker than main background */
   border-color: #374151;
   color: #f1f5f9; /* Lighter text */
 }
@@ -327,7 +327,7 @@ html.dark .dashboard-glass .glass-section {
   font-size: 1.4rem;
   font-weight: 600;
   color: var(--accent);
-  border-bottom: 2px solid rgba(37, 99, 235, 0.15);
+  border-bottom: 2px solid rgba(37, 100, 235, 0.678);
   padding-bottom: 0.5rem;
 }
 
@@ -349,7 +349,7 @@ html.dark .dashboard-glass .glass-section {
   align-items: center;
   text-align: center;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
+  box-shadow: 0 4px 12px rgba(37, 100, 235, 0.616);
   position: relative;
   overflow: hidden;
 }
@@ -432,7 +432,7 @@ html.dark .dashboard-glass .stat-info-compact h4 {
   margin: 0;
   font-size: 1.3rem;
   font-weight: 900;
-  color: var(--accent);
+  color: purple;
 }
 
 .dashboard-glass .stat-card-compact:nth-child(2) .stat-number-compact {
@@ -483,7 +483,7 @@ html.dark .dashboard-glass .stat-info-compact small {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
+  box-shadow: 0 4px 12px rgba(37, 100, 235, 0.521);
 }
 
 html.dark .dashboard-glass .compact-product-card {
@@ -493,7 +493,7 @@ html.dark .dashboard-glass .compact-product-card {
 
 .dashboard-glass .compact-product-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.87);
 }
 
 .dashboard-glass .compact-image-container {
@@ -565,7 +565,7 @@ html.dark .dashboard-glass .compact-image-container {
 .dashboard-glass .compact-dot {
   width: 8px;
   height: 8px;
-  background: rgba(255, 255, 255, 0.5);
+  background: rgba(14, 126, 218, 0.897);
   border-radius: 50%;
   transition: all 0.3s ease;
 }
@@ -619,7 +619,7 @@ html.dark .dashboard-glass .compact-product-title {
 .dashboard-glass .compact-product-price {
   font-size: 1.1rem;
   font-weight: 900;
-  color: var(--accent);
+  color: green;
   margin: 0;
 }
 
@@ -638,7 +638,7 @@ html.dark .dashboard-glass .compact-product-meta {
 .dashboard-glass .discount {
   color: var(--success);
   font-weight: 800;
-  background: rgba(16, 185, 129, 0.1);
+  background: rgba(4, 247, 77, 0.918);
   padding: 0.2rem 0.4rem;
   border-radius: 6px;
 }
@@ -647,7 +647,7 @@ html.dark .dashboard-glass .compact-product-meta {
 .dashboard-glass .compact-required-info {
   margin-top: 0.75rem;
   padding: 1rem;
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(139, 92, 246, 0.1));
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.479), rgba(138, 92, 246, 0.63));
   border-radius: 12px;
   border: 2px dashed var(--accent);
   backdrop-filter: blur(10px);
@@ -757,7 +757,7 @@ html.dark .dashboard-glass .checkbox-group-compact label {
 }
 
 .dashboard-glass .compact-save-btn:hover:not(:disabled) {
-  background: #15803d;
+  background: #02f35ad7;
   transform: translateY(-1px);
 }
 
@@ -836,7 +836,7 @@ html.dark .dashboard-glass .checkbox-group-compact label {
   align-items: center;
   text-align: center;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
+  box-shadow: 0 4px 12px rgba(1, 238, 179, 0.041);
   position: relative;
   overflow: hidden;
 }
@@ -853,7 +853,7 @@ html.dark .dashboard-glass .earnings-card-compact {
   left: 0;
   right: 0;
   height: 3px;
-  background: var(--accent);
+  background: gold;
 }
 
 .dashboard-glass .earnings-card-compact:nth-child(2)::before {
@@ -878,7 +878,7 @@ html.dark .dashboard-glass .earnings-card-compact {
 
 .dashboard-glass .earnings-card-compact:hover {
   transform: translateY(-3px);
-  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+  box-shadow: 0 8px 25px rgba(6, 134, 102, 0.349);
 }
 
 .dashboard-glass .earnings-icon-compact {
@@ -893,12 +893,12 @@ html.dark .dashboard-glass .earnings-card-compact {
 }
 
 .dashboard-glass .earnings-icon-compact.total {
-  background: var(--accent);
+  background: blue;
   color: white;
 }
 
 .dashboard-glass .earnings-icon-compact.pending {
-  background: var(--warning);
+  background: gold;
   color: white;
 }
 
@@ -943,7 +943,7 @@ html.dark .dashboard-glass .earnings-info-compact h4 {
   margin: 0 0 0.4rem 0;
   font-size: 1.1rem;
   font-weight: 900;
-  color: var(--accent);
+  color: green;
 }
 
 .dashboard-glass .earnings-card-compact:nth-child(2) .earnings-amount-compact {
@@ -969,7 +969,7 @@ html.dark .dashboard-glass .earnings-subtitle {
   border: 1px solid var(--light-border);
   border-radius: 14px;
   padding: 1.5rem;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
+  box-shadow: 0 4px 12px rgba(2, 77, 238, 0.014);
   position: relative;
   overflow: hidden;
 }
@@ -991,7 +991,7 @@ html.dark .dashboard-glass .performance-metrics-compact {
 
 .dashboard-glass .performance-metrics-compact h4 {
   margin: 0 0 1rem 0;
-  color: var(--accent);
+  color: goldenrod;
   font-size: 1.1rem;
   font-weight: 800;
 }
@@ -1021,7 +1021,7 @@ html.dark .dashboard-glass .metric-item-compact {
 
 .dashboard-glass .metric-item-compact:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.1);
+  box-shadow: 0 4px 12px rgba(37, 100, 235, 0.596);
 }
 
 .dashboard-glass .metric-label {
@@ -1039,7 +1039,7 @@ html.dark .dashboard-glass .metric-label {
 .dashboard-glass .metric-value {
   font-size: 1rem;
   font-weight: 900;
-  color: var(--accent);
+  color: green;
 }
 
 /* Products Grid Compact */
@@ -1056,7 +1056,7 @@ html.dark .dashboard-glass .metric-label {
   border-radius: 14px;
   overflow: hidden;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
+  box-shadow: 0 4px 12px rgba(37, 100, 235, 0.671);
   position: relative;
 }
 
@@ -1067,7 +1067,7 @@ html.dark .dashboard-glass .product-card-compact {
 
 .dashboard-glass .product-card-compact:hover {
   transform: translateY(-3px);
-  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+  box-shadow: 0 8px 25px rgba(160, 6, 6, 0.596);
 }
 
 .dashboard-glass .product-image-compact {
@@ -1449,7 +1449,7 @@ html.dark .dashboard-glass .filter-btn:hover:not(.active) {
   border: 1px solid var(--light-border);
   border-radius: 14px;
   overflow: hidden;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
+  box-shadow: 0 4px 12px rgba(0, 14, 4, 0.075);
   position: relative;
 }
 
@@ -1469,7 +1469,7 @@ html.dark .dashboard-glass .payments-table-container {
 }
 
 .dashboard-glass .payments-table th {
-  background: rgba(37, 99, 235, 0.05);
+  background: rgba(111, 119, 112, 0.007);
   padding: 1rem;
   text-align: left;
   font-weight: 700;
@@ -1480,7 +1480,7 @@ html.dark .dashboard-glass .payments-table-container {
 }
 
 html.dark .dashboard-glass .payments-table th {
-  background: rgba(37, 99, 235, 0.1);
+  background: rgb(232, 185, 35);
   border-color: #4b5563;
   color: #e2e8f0; /* Lighter text */
 }
@@ -1501,16 +1501,16 @@ html.dark .dashboard-glass .payments-table td {
 }
 
 .dashboard-glass .payments-table tr:hover {
-  background: rgba(37, 99, 235, 0.02);
+  background: rgba(1, 78, 243, 0.062);
 }
 
 html.dark .dashboard-glass .payments-table tr:hover {
-  background: rgba(37, 99, 235, 0.05);
+  background: rgba(12, 81, 231, 0.021);
 }
 
 .dashboard-glass .amount {
   font-weight: 800;
-  color: var(--accent);
+  color: green;
 }
 
 .dashboard-glass .payment-type,
@@ -1575,7 +1575,7 @@ html.dark .dashboard-glass .reference {
 
 .dashboard-glass .receipt-btn {
   background: var(--accent);
-  color: white;
+  color: green;
   border: none;
   padding: 0.5rem;
   border-radius: 8px;
@@ -1781,8 +1781,8 @@ html.dark .dashboard-glass .add-product-section {
 html.dark .dashboard-glass .glass-form input,
 html.dark .dashboard-glass .glass-form textarea,
 html.dark .dashboard-glass .glass-form select {
-  background: #1e293b;
-  border-color: #4b5563;
+  background: #0460f5;
+  border-color: #1164d8;
   color: #f7fafc; /* Ensure input text is visible */
 }
 
