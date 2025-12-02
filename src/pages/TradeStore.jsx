@@ -8,7 +8,7 @@ import {
   FaStore, FaSearch, FaUser, FaTags, FaStar, FaBolt,
   FaFire, FaExclamationTriangle, FaSlidersH,
   FaUserCircle, FaEnvelope, FaShoppingCart, FaHeart,
-  FaCrown, FaGem, FaRocket, FaEye
+  FaCrown, FaGem, FaRocket, FaEye, FaMapMarkerAlt
 } from "react-icons/fa";
 import InfiniteScroll from "react-infinite-scroll-component";
 import ReactModal from "react-modal";
@@ -22,7 +22,7 @@ import SidebarMenu from "@/components/SidebarMenu";
 
 import "./TradeStore.css";
 
-const tabs = ["All", "Flash Sale", "Electronics", "Fashion", "Home", "Gaming", "Trending", "Discounted", "Featured"];
+const tabs = ["All", "Near You", "Flash Sale", "Electronics", "Fashion", "Home", "Gaming", "Trending", "Discounted", "Featured"];
 
 // ========== SKELETON COMPONENTS ==========
 const ProductCardSkeleton = () => (
@@ -89,10 +89,35 @@ const TabsSkeleton = () => (
   </div>
 );
 
+// ========== DISTANCE CALCULATION (pure JS) ==========
+const calculateDistance = (lat1, lon1, lat2, lon2) => {
+  if (!lat1 || !lon1 || !lat2 || !lon2) return Infinity;
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
+
+const formatDistance = (km) => {
+  if (km === Infinity) return "";
+  if (km < 1) return `${(km * 1000).toFixed(0)} m`;
+  if (km < 10) return `${km.toFixed(1)} km`;
+  return `${Math.round(km)} km`;
+};
+
 // ========== MAIN COMPONENTS ==========
-const ProductCard = ({ product, onClick, onAuthRequired }) => {
+const ProductCard = ({ product, onClick, onAuthRequired, buyerLocation }) => {
   const { user } = useAuth();
-  
+
+  const distance = buyerLocation?.lat && product.store_lat
+    ? calculateDistance(buyerLocation.lat, buyerLocation.lng, product.store_lat, product.store_lng)
+    : Infinity;
+
   const getBadge = () => {
     if (product.is_flash_sale) return <span className="badge flash"><FaBolt /> Flash</span>;
     if (product.is_trending) return <span className="badge trending"><FaFire /> Trending</span>;
@@ -100,13 +125,12 @@ const ProductCard = ({ product, onClick, onAuthRequired }) => {
     return null;
   };
 
-  const hasDiscount = parseFloat(product.discount) > 0;
+  const hasDiscount = parseFloat(product.discount || 0) > 0;
   const discountedPrice = hasDiscount
     ? product.price * (1 - parseFloat(product.discount) / 100)
     : product.price;
 
   const averageRating = product.average_rating || 0;
-  const ratingCount = product.rating_count || 0;
 
   const handleWishlistClick = (e) => {
     e.stopPropagation();
@@ -127,8 +151,8 @@ const ProductCard = ({ product, onClick, onAuthRequired }) => {
   };
 
   return (
-    <motion.div 
-      className="product-card" 
+    <motion.div
+      className="product-card"
       onClick={onClick}
       whileHover={{ y: -2, scale: 1.02 }}
       transition={{ type: "spring", stiffness: 300 }}
@@ -140,7 +164,6 @@ const ProductCard = ({ product, onClick, onAuthRequired }) => {
           onError={(e) => { e.target.src = "/placeholder.jpg"; }}
         />
         {getBadge()}
-        
         <div className="product-quick-actions">
           <motion.button 
             className="quick-action-btn wishlist-btn"
@@ -160,13 +183,15 @@ const ProductCard = ({ product, onClick, onAuthRequired }) => {
           </motion.button>
         </div>
       </div>
-      
+
       <div className="product-card-content">
         <h3>{product.name}</h3>
-        
         <div className="stars">
           {[...Array(5)].map((_, i) => (
-            <FaStar key={i} className={i < Math.round(averageRating) ? "star-filled" : "star-empty"} />
+            <FaStar 
+              key={i} 
+              className={i < Math.round(averageRating) ? "star-filled" : "star-empty"} 
+            />
           ))}
           <span className="rating-text">({averageRating.toFixed(1)})</span>
         </div>
@@ -197,7 +222,25 @@ const ProductCard = ({ product, onClick, onAuthRequired }) => {
         </div>
 
         <div className="seller-row">
-          <FaUser /> Verified Seller
+          <FaMapMarkerAlt style={{ 
+            color: distance < 15 ? "#10b981" : distance < 50 ? "#f59e0b" : "#94a3b8",
+            marginRight: 6 
+          }} />
+          {distance < 15 ? (
+            <span style={{ color: "#10b981", fontWeight: "600" }}>
+              {formatDistance(distance)} · Same-day possible
+            </span>
+          ) : distance < 50 ? (
+            <span style={{ color: "#f59e0b" }}>
+              {formatDistance(distance)} · Next-day
+            </span>
+          ) : distance !== Infinity ? (
+            <span style={{ color: "#94a3b8" }}>
+              {formatDistance(distance)} away
+            </span>
+          ) : (
+            <span>Verified Seller</span>
+          )}
         </div>
       </div>
     </motion.div>
@@ -206,7 +249,6 @@ const ProductCard = ({ product, onClick, onAuthRequired }) => {
 
 const PremiumStoreButton = ({ storeInfo, hasActiveSubscription, onStoreClick, onAuthRequired }) => {
   const { user } = useAuth();
-  
   const isStoreOwner = storeInfo && storeInfo.is_active;
   const hasPremiumStore = storeInfo && hasActiveSubscription;
 
@@ -215,19 +257,15 @@ const PremiumStoreButton = ({ storeInfo, hasActiveSubscription, onStoreClick, on
       onAuthRequired();
       return;
     }
-    
     if (!isStoreOwner) {
-      // Redirect to premium page if user doesn't have a store
       window.location.href = "/premium";
       return;
     }
-    
-    // If user has a store, navigate to their store
     onStoreClick();
   };
 
   return (
-    <motion.button 
+    <motion.button
       className={`nav-icon store-button ${isStoreOwner ? 'premium-store' : ''} ${hasPremiumStore ? 'vip-store' : ''}`}
       onClick={handleClick}
       whileHover={{ scale: 1.1 }}
@@ -241,7 +279,6 @@ const PremiumStoreButton = ({ storeInfo, hasActiveSubscription, onStoreClick, on
       ) : (
         <FaStore size={18} />
       )}
-      
       {isStoreOwner && (
         <span className="premium-badge">
           {hasPremiumStore ? 'VIP' : 'PRO'}
@@ -266,20 +303,20 @@ const CreateStoreModal = ({ isOpen, onClose, storeInfo, hasActiveSubscription, o
     if (storeInfo) {
       const { id, contact_email, contact_phone, location, is_active } = storeInfo;
       const incomplete = !contact_email || !contact_phone || !location;
-      
+
       if (!is_active) {
         toast.error("Your store has been deactivated. Contact support.");
         onClose();
         return;
       }
-      
+
       if (incomplete) {
         toast("Please complete your store setup.");
         navigate("/store/create");
         onClose();
         return;
       }
-      
+
       navigate(`/dashboard/store/${id}`);
       onClose();
       return;
@@ -294,10 +331,10 @@ const CreateStoreModal = ({ isOpen, onClose, storeInfo, hasActiveSubscription, o
   };
 
   return (
-    <ReactModal
-      isOpen={isOpen}
-      onRequestClose={onClose}
-      className="premium-modal"
+    <ReactModal 
+      isOpen={isOpen} 
+      onRequestClose={onClose} 
+      className="premium-modal" 
       overlayClassName="modal-overlay"
     >
       <div className="modal-header premium">
@@ -313,24 +350,14 @@ const CreateStoreModal = ({ isOpen, onClose, storeInfo, hasActiveSubscription, o
           </>
         )}
       </div>
-      
       <div className="modal-content">
         {storeInfo ? (
           <>
             <p className="premium-text">You're already a seller! Manage your store and grow your business.</p>
             <div className="store-stats">
-              <div className="stat-item">
-                <span className="stat-number">0</span>
-                <span className="stat-label">Products</span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-number">0</span>
-                <span className="stat-label">Orders</span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-number">KSH 0</span>
-                <span className="stat-label">Earnings</span>
-              </div>
+              <div className="stat-item"><span className="stat-number">0</span><span className="stat-label">Products</span></div>
+              <div className="stat-item"><span className="stat-number">0</span><span className="stat-label">Orders</span></div>
+              <div className="stat-item"><span className="stat-number">KSH 0</span><span className="stat-label">Earnings</span></div>
             </div>
           </>
         ) : (
@@ -345,24 +372,13 @@ const CreateStoreModal = ({ isOpen, onClose, storeInfo, hasActiveSubscription, o
           </>
         )}
       </div>
-
       <div className="modal-actions premium">
-        <button className="glass-button secondary" onClick={onClose}>
-          Maybe Later
-        </button>
+        <button className="glass-button secondary" onClick={onClose}>Maybe Later</button>
         <button 
-          className={`premium-action-button ${storeInfo ? 'manage' : 'create'}`}
+          className={`premium-action-button ${storeInfo ? 'manage' : 'create'}`} 
           onClick={handleAction}
         >
-          {storeInfo ? (
-            <>
-              <FaGem /> Manage Store
-            </>
-          ) : (
-            <>
-              <FaStore /> Start Selling
-            </>
-          )}
+          {storeInfo ? <><FaGem /> Manage Store</> : <><FaStore /> Start Selling</>}
         </button>
       </div>
     </ReactModal>
@@ -385,13 +401,11 @@ const TradeStore = () => {
     minPrice: "", 
     maxPrice: "", 
     minRating: 0, 
-    inStock: false,
-    sortBy: "newest",
+    inStock: false, 
+    sortBy: "newest", 
     quickFilter: ""
   });
   const [showFilterOverlay, setShowFilterOverlay] = useState(false);
-  
-  // UPDATED: Store and modal states
   const [showMenu, setShowMenu] = useState(false);
   const [newAdminNotification, setNewAdminNotification] = useState(false);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
@@ -400,10 +414,39 @@ const TradeStore = () => {
   const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
   const [showStoreModal, setShowStoreModal] = useState(false);
   const [initialLoad, setInitialLoad] = useState(true);
-  
+  const [buyerLocation, setBuyerLocation] = useState(null);
+
   const pageSize = 20;
 
-  const toggleMenu = useCallback(() => setShowMenu((prev) => !prev), []);
+  // Smart, silent location detection — no annoying toasts
+  useEffect(() => {
+    const cached = localStorage.getItem("buyerLocation");
+    if (cached) {
+      const data = JSON.parse(cached);
+      if (Date.now() - data.time < 60 * 60 * 1000) {
+        setBuyerLocation({ lat: data.lat, lng: data.lng });
+        return;
+      }
+    }
+
+    if (!localStorage.getItem("locationDenied")) {
+      const getLoc = async () => {
+        try {
+          const { Geolocation } = await import('@capacitor/geolocation');
+          const position = await Geolocation.getCurrentPosition({ enableHighAccuracy: false, timeout: 8000 });
+          const { latitude, longitude } = position.coords;
+          setBuyerLocation({ lat: latitude, lng: longitude });
+          localStorage.setItem("buyerLocation", JSON.stringify({ lat: latitude, lng: longitude, time: Date.now() }));
+        } catch (err) {
+          localStorage.setItem("locationDenied", "true");
+          // Silent — no toast, user still gets full experience
+        }
+      };
+      getLoc();
+    }
+  }, []);
+
+  const toggleMenu = useCallback(() => setShowMenu(prev => !prev), []);
   const closeMenu = useCallback(() => setShowMenu(false), []);
 
   const handleAuthRequired = () => {
@@ -411,12 +454,10 @@ const TradeStore = () => {
     navigate("/auth");
   };
 
-  // Function to redirect to search page
   const handleSearchRedirect = () => {
     navigate("/search");
   };
 
-  // FIXED: Fetch store information with correct column name
   useEffect(() => {
     if (!user?.id) {
       setInitialLoad(false);
@@ -425,7 +466,6 @@ const TradeStore = () => {
 
     const fetchUserData = async () => {
       try {
-        // Check for active subscription
         const { data: subscriptionData, error: subscriptionError } = await supabase
           .from("subscriptions")
           .select("id, status")
@@ -439,7 +479,6 @@ const TradeStore = () => {
           setHasActiveSubscription(!!subscriptionData);
         }
 
-        // FIXED: Use 'name' instead of 'store_name'
         const { data: storeData, error: storeError } = await supabase
           .from("stores")
           .select("id, contact_email, contact_phone, location, is_active, name")
@@ -482,7 +521,6 @@ const TradeStore = () => {
       .then(({ data }) => data?.length > 0 && setHasInstallmentPlan(true));
   }, [user]);
 
-  // Fixed: Fetch unread messages count with correct table structure
   useEffect(() => {
     const fetchUnreadMessagesCount = async () => {
       try {
@@ -492,7 +530,6 @@ const TradeStore = () => {
           return;
         }
 
-        // Get user's stores to check if they're sellers
         const { data: userStores } = await supabase
           .from("stores")
           .select("id")
@@ -518,19 +555,16 @@ const TradeStore = () => {
           return;
         }
 
-        // Count unread messages (status = 'sent') for current user as receiver
-        const unreadCount = allMessages.filter(message => {
+        const unreadCount = allMessages?.filter(message => {
           const isUnread = message.status === 'sent';
           const isStoreOwner = storeIds.includes(message.store_id);
           
           if (isStoreOwner) {
-            // User owns the store - unread if message is from buyer
             return isUnread && message.sender_role === 'buyer';
           } else {
-            // User is buyer - unread if message is from seller
             return isUnread && message.sender_role === 'seller';
           }
-        }).length;
+        }).length || 0;
 
         setUnreadMessagesCount(unreadCount);
       } catch (error) {
@@ -541,7 +575,6 @@ const TradeStore = () => {
 
     fetchUnreadMessagesCount();
     
-    // Set up real-time subscription for messages
     const messagesSubscription = supabase
       .channel('messages-changes')
       .on(
@@ -562,7 +595,6 @@ const TradeStore = () => {
     };
   }, [user, storeInfo]);
 
-  // Fetch new orders count with live updates
   useEffect(() => {
     const fetchNewOrdersCount = async () => {
       try {
@@ -572,7 +604,6 @@ const TradeStore = () => {
           return;
         }
 
-        // For buyers: count orders that are not completed
         const { data: ordersData, error: ordersError } = await supabase
           .from("orders")
           .select("id", { count: 'exact' })
@@ -591,7 +622,6 @@ const TradeStore = () => {
 
     fetchNewOrdersCount();
     
-    // Set up real-time subscription for orders
     const ordersSubscription = supabase
       .channel('orders-changes')
       .on(
@@ -620,96 +650,120 @@ const TradeStore = () => {
 
   const fetchProducts = async () => {
     const offset = (page - 1) * pageSize;
+    
     const { data, error } = await supabase
       .from("products")
-      .select(`id, name, description, price, discount, stock_quantity,
+      .select(`
+        id, name, description, price, discount, stock_quantity,
         category, tags, image_gallery, created_at, views,
         is_featured, is_rare_drop, is_flash_sale, is_trending,
-        stores(id, is_active)`)
+        store_id,
+        stores!inner (
+          id, 
+          is_active,
+          location_lat,
+          location_lng
+        )
+      `)
       .eq("visibility", "public")
       .eq("status", "active")
+      .eq("stores.is_active", true)
+      .not("stores.location_lat", "is", null)
       .order("created_at", { ascending: false })
       .range(offset, offset + pageSize - 1);
 
     if (error) {
       console.error("Failed to load products:", error);
-      return toast.error("Failed to load products");
+      toast.error("Failed to load products");
+      return;
     }
 
-    const valid = data.filter((p) => p.stores?.is_active);
-    if (valid.length < pageSize) setHasMore(false);
+    const validProducts = data?.filter(p => p.stores?.is_active) || [];
 
-    const productIds = valid.map((p) => p.id);
-    const { data: ratingsData, error: ratingsError } = await supabase
+    const productIds = validProducts.map(p => p.id);
+    const { data: ratingsData } = await supabase
       .from("product_ratings")
       .select("product_id, avg_rating, rating_count")
       .in("product_id", productIds);
 
-    if (ratingsError) {
-      console.error("Failed to load ratings:", ratingsError);
-      toast.error("Failed to load product ratings");
-    }
+    const ratingsAvgMap = new Map(ratingsData?.map(r => [r.product_id, r.avg_rating]) || []);
+    const ratingsCountMap = new Map(ratingsData?.map(r => [r.product_id, r.rating_count]) || []);
 
-    const ratingsAvgMap = new Map(ratingsData?.map((r) => [r.product_id, r.avg_rating]) || []);
-    const ratingsCountMap = new Map(ratingsData?.map((r) => [r.product_id, r.rating_count]) || []);
-
-    const withImagesAndRatings = valid.map((p) => ({
+    const withImagesAndRatings = validProducts.map(p => ({
       ...p,
       imageUrl: getImageUrl(p.image_gallery?.[0]),
       average_rating: ratingsAvgMap.get(p.id) || 0,
-      rating_count: ratingsCountMap.get(p.id) || 0
+      rating_count: ratingsCountMap.get(p.id) || 0,
+      store_lat: p.stores?.location_lat,
+      store_lng: p.stores?.location_lng
     }));
 
-    setProducts((prev) => {
+    setProducts(prev => {
       const combined = [...prev, ...withImagesAndRatings];
-      return Array.from(new Map(combined.map((p) => [p.id, p])).values());
+      return Array.from(new Map(combined.map(p => [p.id, p])).values());
     });
-    setPage((prev) => prev + 1);
+    setPage(prev => prev + 1);
+    
+    if (validProducts.length < pageSize) {
+      setHasMore(false);
+    }
   };
 
-  useEffect(() => { 
-    fetchProducts(); 
+  useEffect(() => {
+    fetchProducts();
   }, []);
 
   useEffect(() => {
     let result = [...products];
-    
+
+    // Apply sorting based on buyer location for "Near You" tab
+    if (buyerLocation && activeTab === "Near You") {
+      result.sort((a, b) => {
+        const distA = calculateDistance(buyerLocation.lat, buyerLocation.lng, a.store_lat, a.store_lng);
+        const distB = calculateDistance(buyerLocation.lat, buyerLocation.lng, b.store_lat, b.store_lng);
+        return distA - distB;
+      });
+    }
+
+    // Apply filters
     if (filters.category) {
-      result = result.filter((p) => p.category?.toLowerCase().trim() === filters.category);
+      result = result.filter(p => p.category?.toLowerCase().trim() === filters.category);
     }
     
     if (filters.minPrice) {
-      result = result.filter((p) => parseFloat(p.price) >= parseFloat(filters.minPrice));
+      result = result.filter(p => parseFloat(p.price) >= parseFloat(filters.minPrice));
     }
+    
     if (filters.maxPrice) {
-      result = result.filter((p) => parseFloat(p.price) <= parseFloat(filters.maxPrice));
+      result = result.filter(p => parseFloat(p.price) <= parseFloat(filters.maxPrice));
     }
     
     if (filters.minRating) {
-      result = result.filter((p) => p.average_rating >= filters.minRating);
+      result = result.filter(p => p.average_rating >= filters.minRating);
     }
     
     if (filters.inStock) {
-      result = result.filter((p) => p.stock_quantity > 0);
+      result = result.filter(p => p.stock_quantity > 0);
     }
     
     if (filters.quickFilter) {
       switch (filters.quickFilter) {
         case "flash":
-          result = result.filter((p) => p.is_flash_sale);
+          result = result.filter(p => p.is_flash_sale);
           break;
         case "trending":
-          result = result.filter((p) => p.is_trending || p.views > 20);
+          result = result.filter(p => p.is_trending || p.views > 20);
           break;
         case "featured":
-          result = result.filter((p) => p.is_featured);
+          result = result.filter(p => p.is_featured);
           break;
         case "discounted":
-          result = result.filter((p) => parseFloat(p.discount || 0) > 0);
+          result = result.filter(p => parseFloat(p.discount || 0) > 0);
           break;
       }
     }
-    
+
+    // Apply sorting
     switch (filters.sortBy) {
       case "price-low":
         result.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
@@ -728,38 +782,46 @@ const TradeStore = () => {
         break;
     }
 
+    // Apply tab filters
     switch (activeTab) {
+      case "Near You":
+        if (buyerLocation) {
+          result = result.filter(p => {
+            const dist = calculateDistance(buyerLocation.lat, buyerLocation.lng, p.store_lat, p.store_lng);
+            return dist < 100; // Within 100km
+          });
+        }
+        break;
       case "Flash Sale": 
-        result = result.filter((p) => p.is_flash_sale); 
+        result = result.filter(p => p.is_flash_sale); 
         break;
       case "Trending": 
-        result = result.filter((p) => p.is_trending || p.views > 20); 
+        result = result.filter(p => p.is_trending || p.views > 20); 
         break;
       case "Discounted": 
-        result = result.filter((p) => parseFloat(p.discount || 0) > 0); 
+        result = result.filter(p => parseFloat(p.discount || 0) > 0); 
         break;
       case "Featured": 
-        result = result.filter((p) => p.is_featured); 
+        result = result.filter(p => p.is_featured); 
         break;
       case "Electronics": 
-        result = result.filter((p) => p.category?.toLowerCase() === "electronics"); 
+        result = result.filter(p => p.category?.toLowerCase() === "electronics"); 
         break;
       case "Fashion": 
-        result = result.filter((p) => p.category?.toLowerCase().includes("fashion")); 
+        result = result.filter(p => p.category?.toLowerCase().includes("fashion")); 
         break;
       case "Home": 
-        result = result.filter((p) => p.category?.toLowerCase().includes("home")); 
+        result = result.filter(p => p.category?.toLowerCase().includes("home")); 
         break;
     }
 
     setFiltered(result);
-  }, [products, filters, activeTab]);
+  }, [products, filters, activeTab, buyerLocation]);
 
   const handleSearch = () => {
     navigate("/search", { state: { query: search } });
   };
 
-  // Show skeleton during initial load
   if (initialLoad) {
     return (
       <div className={`marketplace-wrapper ${isDarkMode ? "dark" : "light"}`}>
@@ -768,9 +830,7 @@ const TradeStore = () => {
         <SearchSkeleton />
         <TabsSkeleton />
         <div className="product-grid">
-          {[...Array(10)].map((_, index) => (
-            <ProductCardSkeleton key={index} />
-          ))}
+          {[...Array(10)].map((_, i) => <ProductCardSkeleton key={i} />)}
         </div>
       </div>
     );
@@ -961,6 +1021,7 @@ const TradeStore = () => {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
+            {tab === "Near You" && buyerLocation && <FaMapMarkerAlt style={{ marginRight: 4 }} />}
             {tab}
           </motion.button>
         ))}
@@ -987,7 +1048,7 @@ const TradeStore = () => {
         }
         endMessage={
           <div className="end-message">
-            <p> You've discovered all our products!</p>
+            <p>You've discovered all our products!</p>
           </div>
         }
       >
@@ -999,6 +1060,7 @@ const TradeStore = () => {
             <ProductCard 
               key={p.id} 
               product={p} 
+              buyerLocation={buyerLocation}
               onClick={() => navigate(`/product/${p.id}`)}
               onAuthRequired={handleAuthRequired}
             />

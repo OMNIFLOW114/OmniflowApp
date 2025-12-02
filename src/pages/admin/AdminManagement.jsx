@@ -1,4 +1,4 @@
-// AdminManagement.jsx — Fixed Version
+// AdminManagement.jsx — Protected Super Admin Version
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -13,12 +13,16 @@ import {
   FiUserCheck,
   FiUserX,
   FiShield,
-  FiMail
+  FiMail,
+  FiLock
 } from 'react-icons/fi';
 import { FaCrown } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import './AdminPages.css';
+
+// Protected super admin email - this should never be changed
+const PROTECTED_SUPER_ADMIN_EMAIL = 'omniflow718@gmail.com';
 
 const AdminManagement = () => {
   const navigate = useNavigate();
@@ -87,12 +91,22 @@ const AdminManagement = () => {
     }
   };
 
-  // Fixed: Direct database approach instead of Edge Function
+  // Check if admin is protected super admin
+  const isProtectedSuperAdmin = (admin) => {
+    return admin.email === PROTECTED_SUPER_ADMIN_EMAIL || admin.protected_super_admin === true;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!formData.email.trim()) {
       toast.error('Email is required');
+      return;
+    }
+
+    // Prevent creating account with protected email
+    if (formData.email.toLowerCase() === PROTECTED_SUPER_ADMIN_EMAIL.toLowerCase()) {
+      toast.error('This email is reserved for system super admin');
       return;
     }
 
@@ -140,6 +154,7 @@ const AdminManagement = () => {
               permissions: availablePermissions[formData.role] || [],
               is_active: true,
               created_by: currentUser.id,
+              protected_super_admin: false // Always false for new admins
             }
           ])
           .select()
@@ -168,7 +183,6 @@ const AdminManagement = () => {
 
         if (inviteError) throw inviteError;
 
-        // TODO: Send email invitation (you can integrate with your email service)
         toast.success(`Invitation sent to ${formData.email}. They have 7 days to accept.`);
       }
 
@@ -184,15 +198,19 @@ const AdminManagement = () => {
     }
   };
 
-  // Helper function to generate invite token
   const generateInviteToken = () => {
     return Math.random().toString(36).substring(2, 15) + 
            Math.random().toString(36).substring(2, 15);
   };
 
   const handleEdit = async (admin) => {
+    // Prevent editing protected super admin
+    if (isProtectedSuperAdmin(admin)) {
+      toast.error('This super admin account is protected and cannot be modified');
+      return;
+    }
+
     if (editingAdmin?.id === admin.id) {
-      // Update existing admin
       try {
         const { error } = await supabase
           .from('admin_users')
@@ -215,7 +233,6 @@ const AdminManagement = () => {
         toast.error('Failed to update admin');
       }
     } else {
-      // Set up for editing
       setEditingAdmin(admin);
       setFormData({
         email: admin.email || '',
@@ -227,6 +244,14 @@ const AdminManagement = () => {
   };
 
   const toggleAdminStatus = async (adminId, currentStatus) => {
+    const admin = admins.find(a => a.id === adminId);
+    
+    // Prevent deactivating protected super admin
+    if (isProtectedSuperAdmin(admin)) {
+      toast.error('Protected super admin account cannot be deactivated');
+      return;
+    }
+
     if (!window.confirm(`Are you sure you want to ${currentStatus ? 'deactivate' : 'activate'} this admin?`)) {
       return;
     }
@@ -251,6 +276,14 @@ const AdminManagement = () => {
   };
 
   const handleDelete = async (adminId) => {
+    const admin = admins.find(a => a.id === adminId);
+    
+    // Prevent deleting protected super admin
+    if (isProtectedSuperAdmin(admin)) {
+      toast.error('Protected super admin account cannot be deleted');
+      return;
+    }
+
     if (!window.confirm('Are you sure you want to delete this admin? This action cannot be undone.')) {
       return;
     }
@@ -271,20 +304,27 @@ const AdminManagement = () => {
     }
   };
 
-  const getRoleColor = (role) => {
+  const getRoleColor = (admin) => {
+    if (isProtectedSuperAdmin(admin)) {
+      return 'var(--gold-color)';
+    }
+    
     const colors = {
       super_admin: 'var(--gold-color)',
       admin: 'var(--danger-color)',
       moderator: 'var(--warning-color)',
       support: 'var(--info-color)'
     };
-    return colors[role] || colors.moderator;
+    return colors[admin.role] || colors.moderator;
   };
 
-  const getRoleIcon = (role) => {
-    if (role === 'super_admin') return <FaCrown />;
-    if (role === 'admin') return <FiShield />;
-    if (role === 'moderator') return <FiUserCheck />;
+  const getRoleIcon = (admin) => {
+    if (isProtectedSuperAdmin(admin)) {
+      return <FaCrown />;
+    }
+    if (admin.role === 'super_admin') return <FaCrown />;
+    if (admin.role === 'admin') return <FiShield />;
+    if (admin.role === 'moderator') return <FiUserCheck />;
     return <FiUser />;
   };
 
@@ -327,6 +367,14 @@ const AdminManagement = () => {
         </button>
       </div>
 
+      {/* Protected Admin Notice */}
+      <div className="protected-admin-notice">
+        <FiLock className="notice-icon" />
+        <div className="notice-content">
+          <strong>Protected Super Admin:</strong> The account <code>{PROTECTED_SUPER_ADMIN_EMAIL}</code> is a system-protected super admin and cannot be modified or deleted.
+        </div>
+      </div>
+
       {/* Search Bar */}
       <div className="search-section">
         <div className="search-bar">
@@ -347,6 +395,10 @@ const AdminManagement = () => {
             <FiUserCheck />
             <span>{admins.filter(a => a.is_active).length} Active</span>
           </div>
+          <div className="stat-item protected">
+            <FaCrown />
+            <span>{admins.filter(a => isProtectedSuperAdmin(a)).length} Protected</span>
+          </div>
         </div>
       </div>
 
@@ -365,89 +417,109 @@ const AdminManagement = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredAdmins.map((admin, index) => (
-                <motion.tr
-                  key={admin.id}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: index * 0.05 }}
-                >
-                  <td>
-                    <div className="user-info">
-                      <div className="user-avatar">
-                        {getRoleIcon(admin.role)}
+              {filteredAdmins.map((admin, index) => {
+                const isProtected = isProtectedSuperAdmin(admin);
+                return (
+                  <motion.tr
+                    key={admin.id}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: index * 0.05 }}
+                    className={isProtected ? 'protected-admin-row' : ''}
+                  >
+                    <td>
+                      <div className="user-info">
+                        <div className="user-avatar protected">
+                          {getRoleIcon(admin)}
+                          {isProtected && <div className="protected-badge" title="Protected Super Admin"></div>}
+                        </div>
+                        <div className="user-details">
+                          <strong>
+                            {admin.email}
+                            {isProtected && <span className="protected-label">Protected</span>}
+                          </strong>
+                          <span>Admin ID: {admin.id.substring(0, 8)}...</span>
+                        </div>
                       </div>
-                      <div className="user-details">
-                        <strong>{admin.email}</strong>
-                        <span>Admin ID: {admin.id.substring(0, 8)}...</span>
+                    </td>
+                    <td>
+                      <span
+                        className="role-badge"
+                        style={{
+                          backgroundColor: `${getRoleColor(admin)}15`,
+                          color: getRoleColor(admin)
+                        }}
+                      >
+                        {getRoleIcon(admin)}
+                        {isProtected ? 'Super Admin (Protected)' : admin.role.replace('_', ' ')}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="permissions-list">
+                        {admin.permissions?.includes('all') ? (
+                          <span className="permission-tag all">All Permissions</span>
+                        ) : (
+                          admin.permissions?.slice(0, 3).map(permission => (
+                            <span key={permission} className="permission-tag">
+                              {permission.replace('_', ' ')}
+                            </span>
+                          ))
+                        )}
+                        {admin.permissions?.length > 3 && !admin.permissions?.includes('all') && (
+                          <span className="permission-more">+{admin.permissions.length - 3} more</span>
+                        )}
                       </div>
-                    </div>
-                  </td>
-                  <td>
-                    <span
-                      className="role-badge"
-                      style={{
-                        backgroundColor: `${getRoleColor(admin.role)}15`,
-                        color: getRoleColor(admin.role)
-                      }}
-                    >
-                      {getRoleIcon(admin.role)}
-                      {admin.role.replace('_', ' ')}
-                    </span>
-                  </td>
-                  <td>
-                    <div className="permissions-list">
-                      {admin.permissions?.includes('all') ? (
-                        <span className="permission-tag all">All Permissions</span>
-                      ) : (
-                        admin.permissions?.slice(0, 3).map(permission => (
-                          <span key={permission} className="permission-tag">
-                            {permission.replace('_', ' ')}
-                          </span>
-                        ))
-                      )}
-                      {admin.permissions?.length > 3 && !admin.permissions?.includes('all') && (
-                        <span className="permission-more">+{admin.permissions.length - 3} more</span>
-                      )}
-                    </div>
-                  </td>
-                  <td>
-                    <span className={`status-badge ${admin.is_active ? 'active' : 'inactive'}`}>
-                      {admin.is_active ? 'Active' : 'Inactive'}
-                    </span>
-                  </td>
-                  <td>
-                    {new Date(admin.created_at).toLocaleDateString()}
-                  </td>
-                  <td>
-                    <div className="action-buttons">
-                      <button
-                        className="edit-btn"
-                        onClick={() => handleEdit(admin)}
-                        title="Edit admin"
-                      >
-                        <FiEdit />
-                      </button>
-                      <button
-                        className={`status-toggle-btn ${admin.is_active ? 'deactivate' : 'activate'}`}
-                        onClick={() => toggleAdminStatus(admin.id, admin.is_active)}
-                        title={admin.is_active ? 'Deactivate' : 'Activate'}
-                      >
-                        {admin.is_active ? <FiUserX /> : <FiUserCheck />}
-                      </button>
-                      {admin.role !== 'super_admin' && (
+                    </td>
+                    <td>
+                      <span className={`status-badge ${admin.is_active ? 'active' : 'inactive'}`}>
+                        {admin.is_active ? 'Active' : 'Inactive'}
+                        {isProtected && admin.is_active && <FiLock size={12} />}
+                      </span>
+                    </td>
+                    <td>
+                      {new Date(admin.created_at).toLocaleDateString()}
+                    </td>
+                    <td>
+                      <div className="action-buttons">
                         <button
-                          className="delete-btn"
-                          onClick={() => handleDelete(admin.id)}
-                          title="Delete admin"
+                          className={`edit-btn ${isProtected ? 'disabled' : ''}`}
+                          onClick={() => handleEdit(admin)}
+                          title={isProtected ? 'Protected account cannot be edited' : 'Edit admin'}
+                          disabled={isProtected}
                         >
-                          <FiTrash2 />
+                          <FiEdit />
                         </button>
-                      )}
-                    </div>
-                  </td>
-                </motion.tr>
-              ))}
+                        <button
+                          className={`status-toggle-btn ${admin.is_active ? 'deactivate' : 'activate'} ${isProtected ? 'disabled' : ''}`}
+                          onClick={() => toggleAdminStatus(admin.id, admin.is_active)}
+                          title={isProtected ? 'Protected account status cannot be changed' : (admin.is_active ? 'Deactivate' : 'Activate')}
+                          disabled={isProtected}
+                        >
+                          {admin.is_active ? <FiUserX /> : <FiUserCheck />}
+                        </button>
+                        {!isProtected && admin.role !== 'super_admin' && (
+                          <button
+                            className="delete-btn"
+                            onClick={() => handleDelete(admin.id)}
+                            title="Delete admin"
+                          >
+                            <FiTrash2 />
+                          </button>
+                        )}
+                        {isProtected && (
+                          <button
+                            className="protected-btn disabled"
+                            title="Protected super admin - cannot be modified"
+                            disabled
+                          >
+                            <FiLock />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </motion.tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -487,6 +559,9 @@ const AdminManagement = () => {
                   required
                   disabled={!!editingAdmin}
                 />
+                {formData.email.toLowerCase() === PROTECTED_SUPER_ADMIN_EMAIL.toLowerCase() && (
+                  <small className="error-text">This email is reserved for system super admin</small>
+                )}
               </div>
 
               <div className="form-group">
@@ -526,7 +601,11 @@ const AdminManagement = () => {
                 >
                   Cancel
                 </button>
-                <button type="submit" className="confirm-btn" disabled={loading}>
+                <button 
+                  type="submit" 
+                  className="confirm-btn" 
+                  disabled={loading || formData.email.toLowerCase() === PROTECTED_SUPER_ADMIN_EMAIL.toLowerCase()}
+                >
                   {loading ? 'Processing...' : editingAdmin ? 'Update Admin' : 'Send Invitation'}
                 </button>
               </div>

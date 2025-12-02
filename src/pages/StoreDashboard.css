@@ -1307,7 +1307,7 @@ html.dark .dashboard-glass .order-date {
 }
 
 .dashboard-glass .status-out-for-delivery {
-  background: var(--accent);
+  background: lightgreen;
   color: white;
 }
 
@@ -1449,7 +1449,7 @@ html.dark .dashboard-glass .filter-btn:hover:not(.active) {
   border: 1px solid var(--light-border);
   border-radius: 14px;
   overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0, 14, 4, 0.075);
+  box-shadow: 0 4px 12px rgba(0, 14, 4, 0.911);
   position: relative;
 }
 

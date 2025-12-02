@@ -689,7 +689,7 @@ const StoreDashboard = () => {
             {dashboardStats.walletBalance > 0 && (
               <div className="mobile-wallet-balance">
                 <FaWallet className="wallet-icon" />
-                <span>Ksh {dashboardStats.walletBalance.toLocaleString()}</span>
+                <span>Ksh {dashboardStats.walletBalance.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
             )}
             <div className="mobile-notifications">
@@ -787,7 +787,7 @@ const StoreDashboard = () => {
           {dashboardStats.walletBalance > 0 && (
             <div className="wallet-balance">
               <FaWallet className="wallet-icon" />
-              <span>Ksh {dashboardStats.walletBalance.toLocaleString()}</span>
+              <span>Ksh {dashboardStats.walletBalance.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             </div>
           )}
         </div>
@@ -1120,7 +1120,9 @@ const StoreDashboard = () => {
                       </div>
                       <div className="earnings-info-compact">
                         <h4>Wallet Balance</h4>
-                        <p className="earnings-amount-compact">Ksh {dashboardStats.walletBalance.toLocaleString()}</p>
+                        <p className="earnings-amount-compact">
+  Ksh {dashboardStats.walletBalance.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+</p>
                         <span className="earnings-subtitle">Available funds</span>
                       </div>
                     </div>

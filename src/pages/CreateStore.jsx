@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/supabase";
 import { useAuth } from "@/context/AuthContext";
 import { useDarkMode } from "@/context/DarkModeContext";
-import { ToastContainer, toast } from "react-toastify";
+import { toast } from "react-hot-toast";
 import {
   FiChevronRight,
   FiChevronLeft,
@@ -12,18 +12,12 @@ import {
   FiClock,
   FiXCircle,
   FiLoader,
+  FiMapPin,
 } from "react-icons/fi";
-import "react-toastify/dist/ReactToastify.css";
 import "./CreateStore.css";
 
 const Spinner = ({ size = 24 }) => (
-  <svg
-    className="cs-spinner"
-    width={size}
-    height={size}
-    viewBox="0 0 50 50"
-    aria-hidden
-  >
+  <svg className="cs-spinner" width={size} height={size} viewBox="0 0 50 50">
     <circle cx="25" cy="25" r="20" stroke="currentColor" strokeWidth="5" fill="none" />
   </svg>
 );
@@ -39,12 +33,15 @@ const CreateStore = () => {
   const [submitting, setSubmitting] = useState(false);
   const [isEligible, setIsEligible] = useState(null);
   const [totalStores, setTotalStores] = useState(0);
+
   const [storeData, setStoreData] = useState({
     name: "",
     description: "",
     contactEmail: "",
     contactPhone: "",
     location: "",
+    location_lat: null,
+    location_lng: null,
     kraPin: "",
     registrationNumber: "",
     businessType: "",
@@ -52,6 +49,59 @@ const CreateStore = () => {
     ownerIdCard: null,
   });
 
+  const [detectedLocation, setDetectedLocation] = useState(null);
+  const [detectingLocation, setDetectingLocation] = useState(false);
+
+  // AUTO DETECT LOCATION ON MOUNT
+  useEffect(() => {
+    const detectLocation = async () => {
+      if (detectedLocation || !navigator.geolocation) return;
+
+      setDetectingLocation(true);
+      try {
+        const position = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 300000, // 5 mins
+          });
+        });
+
+        const { latitude, longitude } = position.coords;
+
+        // Reverse Geocode to get city name
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`
+        );
+        const data = await response.json();
+
+        const city = data.address?.city || data.address?.town || data.address?.state_district || "Kenya";
+        const county = data.address?.county || "";
+        const displayLocation = [city, county].filter(Boolean).join(", ") || "Kenya";
+
+        setDetectedLocation({ lat: latitude, lng: longitude, display: displayLocation });
+
+        // Auto-fill location field
+        setStoreData(prev => ({
+          ...prev,
+          location: displayLocation,
+          location_lat: latitude,
+          location_lng: longitude,
+        }));
+
+        toast.success(`Location detected: ${displayLocation}`);
+      } catch (err) {
+        console.log("Location denied or unavailable");
+        // Silent fail — user can type manually
+      } finally {
+        setDetectingLocation(false);
+      }
+    };
+
+    detectLocation();
+  }, []);
+
+  // Check existing store request
   useEffect(() => {
     const fetchExistingRequest = async () => {
       if (!user?.id) return;
@@ -77,6 +127,7 @@ const CreateStore = () => {
     fetchExistingRequest();
   }, [user]);
 
+  // Check eligibility (free slots or subscription)
   useEffect(() => {
     if (user && !requestStatus) {
       async function fetchEligibility() {
@@ -105,6 +156,7 @@ const CreateStore = () => {
     }
   }, [user, requestStatus]);
 
+  // Verify subscription session from Stripe
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const sessionId = params.get("session_id");
@@ -169,10 +221,11 @@ const CreateStore = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!user?.id) {
-      toast.info("Please log in to continue.");
+      toast.error("Please log in to continue");
       return;
     }
 
+    // Validate required fields
     if (!storeData.name || !storeData.contactEmail || !storeData.contactPhone || !storeData.location) {
       toast.error("Please complete the required fields in Step 1.");
       setStep(1);
@@ -204,6 +257,8 @@ const CreateStore = () => {
         contact_email: storeData.contactEmail.trim(),
         contact_phone: storeData.contactPhone.trim(),
         location: storeData.location.trim(),
+        location_lat: storeData.location_lat,
+        location_lng: storeData.location_lng,
         kra_pin: storeData.kraPin.trim(),
         registration_number: storeData.registrationNumber.trim(),
         business_type: storeData.businessType,
@@ -223,7 +278,7 @@ const CreateStore = () => {
       toast.success("Store request submitted. We'll notify you when it's reviewed.");
     } catch (err) {
       console.error("submit error:", err);
-      toast.error(`Failed to submit request: ${err.message}. Please check your Supabase storage policies and try again.`);
+      toast.error(`Failed to submit request: ${err.message}. Please try again.`);
     } finally {
       setSubmitting(false);
     }
@@ -231,6 +286,7 @@ const CreateStore = () => {
 
   const fileLabel = (file) => (file ? `${file.name}` : "No file selected");
 
+  // Loading state
   if (loading) {
     return (
       <div className={`create-store-page ${darkMode ? "dark" : "light"}`}>
@@ -242,6 +298,7 @@ const CreateStore = () => {
     );
   }
 
+  // Pending request
   if (requestStatus === "pending") {
     return (
       <div className={`create-store-page ${darkMode ? "dark" : "light"}`}>
@@ -262,11 +319,11 @@ const CreateStore = () => {
             </button>
           </div>
         </div>
-        <ToastContainer position="bottom-center" />
       </div>
     );
   }
 
+  // Approved request
   if (requestStatus === "approved") {
     return (
       <div className={`create-store-page ${darkMode ? "dark" : "light"}`}>
@@ -282,11 +339,11 @@ const CreateStore = () => {
             </button>
           </div>
         </div>
-        <ToastContainer position="bottom-center" />
       </div>
     );
   }
 
+  // Rejected request
   if (requestStatus === "rejected") {
     return (
       <div className={`create-store-page ${darkMode ? "dark" : "light"}`}>
@@ -305,11 +362,11 @@ const CreateStore = () => {
             </a>
           </div>
         </div>
-        <ToastContainer position="bottom-center" />
       </div>
     );
   }
 
+  // Checking eligibility
   if (isEligible === null) {
     return (
       <div className={`create-store-page ${darkMode ? "dark" : "light"}`}>
@@ -321,6 +378,7 @@ const CreateStore = () => {
     );
   }
 
+  // Not eligible (needs premium)
   if (!isEligible) {
     return (
       <div className={`create-store-page ${darkMode ? "dark" : "light"}`}>
@@ -336,11 +394,11 @@ const CreateStore = () => {
             </button>
           </div>
         </div>
-        <ToastContainer position="bottom-center" />
       </div>
     );
   }
 
+  // Main form
   return (
     <div className={`create-store-page ${darkMode ? "dark" : "light"}`}>
       <div className="cs-container" role="main">
@@ -360,7 +418,32 @@ const CreateStore = () => {
         </div>
 
         <form className="cs-form" onSubmit={handleSubmit} noValidate>
+          {/* STEP 1 */}
           <div className={`cs-step-panel ${step === 1 ? "visible" : "hidden"}`}>
+            <div className="cs-location-box">
+              <div className="cs-location-header">
+                <FiMapPin className={detectingLocation ? "pulse" : ""} />
+                <span>Your Location</span>
+                {detectingLocation && <Spinner size={18} />}
+              </div>
+              <input
+                className="cs-input"
+                name="location"
+                value={storeData.location}
+                onChange={handleInputChange}
+                placeholder="e.g. Westlands, Nairobi"
+                required
+              />
+              {detectedLocation && (
+                <div className="cs-location-detected">
+                  Detected: {detectedLocation.display}
+                </div>
+              )}
+              <small style={{ color: "var(--text-secondary)", marginTop: 4 }}>
+                We auto-detected your location for better delivery accuracy
+              </small>
+            </div>
+
             <label className="cs-label">Store Name *</label>
             <input
               className="cs-input"
@@ -378,6 +461,7 @@ const CreateStore = () => {
               value={storeData.description}
               onChange={handleInputChange}
               placeholder="Describe your store in one or two lines (optional)"
+              rows="3"
             />
 
             <div className="cs-grid-2">
@@ -407,20 +491,10 @@ const CreateStore = () => {
               </div>
             </div>
 
-            <label className="cs-label">Location *</label>
-            <input
-              className="cs-input"
-              name="location"
-              value={storeData.location}
-              onChange={handleInputChange}
-              required
-              placeholder="City / Town"
-            />
-
             <div className="cs-step-buttons">
               <button
                 type="button"
-                className="cs-btn cs-btn-muted"
+                className="cs-btn cs-btn-primary"
                 onClick={() => {
                   if (!storeData.name || !storeData.contactEmail || !storeData.contactPhone || !storeData.location) {
                     toast.error("Please fill required fields before continuing.");
@@ -435,6 +509,7 @@ const CreateStore = () => {
             </div>
           </div>
 
+          {/* STEP 2 */}
           <div className={`cs-step-panel ${step === 2 ? "visible" : "hidden"}`}>
             <label className="cs-label">KRA PIN *</label>
             <input
@@ -481,12 +556,14 @@ const CreateStore = () => {
                     <input
                       type="file"
                       name="businessDocument"
-                      accept=".pdf,image/*"
+                      accept=".pdf,.jpg,.jpeg,.png"
                       onChange={handleFileChange}
+                      hidden
                     />
                   </label>
                   <div className="cs-file-info">{fileLabel(storeData.businessDocument)}</div>
                 </div>
+                <small className="cs-file-hint">PDF or image, max 10MB</small>
               </div>
 
               <div className="cs-file-box">
@@ -497,12 +574,14 @@ const CreateStore = () => {
                     <input
                       type="file"
                       name="ownerIdCard"
-                      accept=".pdf,image/*"
+                      accept=".pdf,.jpg,.jpeg,.png"
                       onChange={handleFileChange}
+                      hidden
                     />
                   </label>
                   <div className="cs-file-info">{fileLabel(storeData.ownerIdCard)}</div>
                 </div>
+                <small className="cs-file-hint">PDF or image, max 10MB</small>
               </div>
             </div>
 
@@ -548,8 +627,6 @@ const CreateStore = () => {
           </div>
         </div>
       )}
-
-      <ToastContainer position="bottom-center" />
     </div>
   );
 };
