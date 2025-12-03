@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/supabase";
@@ -6,9 +6,10 @@ import { useAuth } from "@/context/AuthContext";
 import { toast } from "react-hot-toast";
 import {
   FaStore, FaSearch, FaUser, FaTags, FaStar, FaBolt,
-  FaFire, FaExclamationTriangle, FaSlidersH,
+  FaFire, FaExclamationTriangle,
   FaUserCircle, FaEnvelope, FaShoppingCart, FaHeart,
-  FaCrown, FaGem, FaRocket, FaEye, FaMapMarkerAlt
+  FaCrown, FaGem, FaEye, FaMapMarkerAlt,
+  FaGamepad
 } from "react-icons/fa";
 import InfiniteScroll from "react-infinite-scroll-component";
 import ReactModal from "react-modal";
@@ -39,11 +40,22 @@ const ProductCardSkeleton = () => (
       </div>
       <div className="skeleton-line skeleton-price"></div>
       <div className="product-info">
-        <div className="skeleton-line skeleton-category"></div>
         <div className="skeleton-line skeleton-stock"></div>
       </div>
       <div className="skeleton-line skeleton-seller"></div>
     </div>
+  </div>
+);
+
+const EmptyTabState = ({ tabName }) => (
+  <div className="empty-tab-state">
+    <div className="empty-tab-icon">
+      {tabName === "Gaming" ? <FaGamepad /> : 
+       tabName === "Near You" ? <FaMapMarkerAlt /> :
+       <FaTags />}
+    </div>
+    <h3>No {tabName} Products Yet</h3>
+    <p>Check back soon for exciting {tabName.toLowerCase()} products!</p>
   </div>
 );
 
@@ -62,14 +74,10 @@ const NavigationSkeleton = () => (
 );
 
 const HeroSkeleton = () => (
-  <div className="marketplace-hero skeleton">
+  <div className="marketplace-hero compact skeleton">
     <div className="hero-content">
       <div className="skeleton-hero-title"></div>
       <div className="skeleton-hero-tagline"></div>
-      <div className="hero-controls">
-        <div className="skeleton-button"></div>
-        <div className="skeleton-button"></div>
-      </div>
     </div>
   </div>
 );
@@ -415,8 +423,11 @@ const TradeStore = () => {
   const [showStoreModal, setShowStoreModal] = useState(false);
   const [initialLoad, setInitialLoad] = useState(true);
   const [buyerLocation, setBuyerLocation] = useState(null);
-
+  const [isTabsSticky, setIsTabsSticky] = useState(false);
+  
   const pageSize = 20;
+  const tabsRef = useRef(null);
+  const heroRef = useRef(null);
 
   // Smart, silent location detection — no annoying toasts
   useEffect(() => {
@@ -444,6 +455,26 @@ const TradeStore = () => {
       };
       getLoc();
     }
+  }, []);
+
+  // Sticky tabs logic
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!tabsRef.current || !heroRef.current) return;
+      
+      const heroRect = heroRef.current.getBoundingClientRect();
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      
+      // When hero section is scrolled out of view, make tabs sticky
+      if (scrollTop > heroRect.height) {
+        setIsTabsSticky(true);
+      } else {
+        setIsTabsSticky(false);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   const toggleMenu = useCallback(() => setShowMenu(prev => !prev), []);
@@ -695,7 +726,8 @@ const TradeStore = () => {
       average_rating: ratingsAvgMap.get(p.id) || 0,
       rating_count: ratingsCountMap.get(p.id) || 0,
       store_lat: p.stores?.location_lat,
-      store_lng: p.stores?.location_lng
+      store_lng: p.stores?.location_lng,
+      tags: Array.isArray(p.tags) ? p.tags : (p.tags ? JSON.parse(p.tags) : [])
     }));
 
     setProducts(prev => {
@@ -808,10 +840,30 @@ const TradeStore = () => {
         result = result.filter(p => p.category?.toLowerCase() === "electronics"); 
         break;
       case "Fashion": 
-        result = result.filter(p => p.category?.toLowerCase().includes("fashion")); 
+        result = result.filter(p => 
+          p.category?.toLowerCase().includes("fashion") || 
+          p.tags?.some(tag => tag.toLowerCase().includes("fashion"))
+        ); 
         break;
       case "Home": 
-        result = result.filter(p => p.category?.toLowerCase().includes("home")); 
+        result = result.filter(p => 
+          p.category?.toLowerCase().includes("home") || 
+          p.tags?.some(tag => tag.toLowerCase().includes("home"))
+        ); 
+        break;
+      case "Gaming":
+        // Gaming filter: category is gaming OR tags contain gaming
+        result = result.filter(p => 
+          p.category?.toLowerCase().includes("gaming") || 
+          p.tags?.some(tag => 
+            tag.toLowerCase().includes("gaming") ||
+            tag.toLowerCase().includes("game") ||
+            tag.toLowerCase().includes("console") ||
+            tag.toLowerCase().includes("playstation") ||
+            tag.toLowerCase().includes("xbox") ||
+            tag.toLowerCase().includes("nintendo")
+          )
+        );
         break;
     }
 
@@ -967,6 +1019,7 @@ const TradeStore = () => {
       />
 
       <motion.header 
+        ref={heroRef}
         className="marketplace-hero compact"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -974,99 +1027,96 @@ const TradeStore = () => {
       >
         <div className="hero-content">
           <h1>Welcome to <span className="hero-highlight">OmniMarket</span></h1>
-          <p className="hero-tagline">Kenya's #1 Marketplace — Shop Smarter, Live Better!</p>
-          
-          <div className="hero-controls">
-            {hasInstallmentPlan && (
-              <motion.button 
-                className="glass-button compact" 
-                onClick={() => navigate("/my-installments")}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                My Installments
-              </motion.button>
-            )}
-            <motion.button 
-              className="glass-button compact" 
-              onClick={() => setShowFilterOverlay(true)}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <FaSlidersH style={{ marginRight: 4 }} /> Filters
-            </motion.button>
-          </div>
+          <p className="hero-tagline">Kenya's #1 Marketplace — Discover Amazing Deals!</p>
         </div>
         
-        {/* Enhanced 3D Promoted Carousel */}
-        <div className="promoted-section-3d">
+        {/* Fixed Promoted Carousel - Shows full content */}
+        <div className="promoted-section-fixed">
           <PromotedCarousel />
         </div>
       </motion.header>
 
-      <FlashDeals />
-      <FeaturedHighlights />
+      {/* Only show FlashDeals and FeaturedHighlights when NOT on Home tab */}
+      {activeTab !== "Home" && (
+        <>
+          <FlashDeals />
+          <FeaturedHighlights />
+        </>
+      )}
 
-      <motion.div 
-        className="tab-bar-scrollable compact"
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
+      {/* Sticky Tabs - NO GAP */}
+      <div 
+        ref={tabsRef}
+        className={`tab-bar-scrollable-wrapper ${isTabsSticky ? 'sticky' : ''}`}
       >
-        {tabs.map((tab) => (
-          <motion.button
-            key={tab}
-            className={`tab-button compact ${activeTab === tab ? "active" : ""}`}
-            onClick={() => setActiveTab(tab)}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            {tab === "Near You" && buyerLocation && <FaMapMarkerAlt style={{ marginRight: 4 }} />}
-            {tab}
-          </motion.button>
-        ))}
-      </motion.div>
+        <motion.div 
+          className="tab-bar-scrollable compact"
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+        >
+          {tabs.map((tab) => (
+            <motion.button
+              key={tab}
+              className={`tab-button compact ${activeTab === tab ? "active" : ""}`}
+              onClick={() => setActiveTab(tab)}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              {tab === "Near You" && buyerLocation && <FaMapMarkerAlt style={{ marginRight: 4 }} />}
+              {tab === "Gaming" && <FaGamepad style={{ marginRight: 4 }} />}
+              {tab}
+            </motion.button>
+          ))}
+        </motion.div>
+      </div>
 
-      {activeTab === "Home" && (
+      {/* Home Tab - Show HomeTabSections only */}
+      {activeTab === "Home" ? (
         <div className="home-sections-wrapper">
           <HomeTabSections />
         </div>
-      )}
-
-      <InfiniteScroll
-        dataLength={filtered.length}
-        next={fetchProducts}
-        hasMore={hasMore}
-        loader={
-          <div className="loading-section">
-            <div className="skeleton-loader">
-              {[...Array(6)].map((_, index) => (
-                <ProductCardSkeleton key={index} />
-              ))}
+      ) : (
+        /* Other Tabs - Show products with infinite scroll */
+        <InfiniteScroll
+          dataLength={filtered.length}
+          next={fetchProducts}
+          hasMore={hasMore}
+          loader={
+            <div className="loading-section">
+              <div className="skeleton-loader">
+                {[...Array(6)].map((_, index) => (
+                  <ProductCardSkeleton key={index} />
+                ))}
+              </div>
             </div>
-          </div>
-        }
-        endMessage={
-          <div className="end-message">
-            <p>You've discovered all our products!</p>
-          </div>
-        }
-      >
-        <motion.div 
-          className="product-grid compact"
-          layout
+          }
+          endMessage={
+            <div className="end-message">
+              <p>You've discovered all our products!</p>
+            </div>
+          }
         >
-          {filtered.map((p) => (
-            <ProductCard 
-              key={p.id} 
-              product={p} 
-              buyerLocation={buyerLocation}
-              onClick={() => navigate(`/product/${p.id}`)}
-              onAuthRequired={handleAuthRequired}
-            />
-          ))}
-        </motion.div>
-      </InfiniteScroll>
+          <motion.div 
+            className="product-grid"
+            layout
+          >
+            {filtered.length === 0 ? (
+              <EmptyTabState tabName={activeTab} />
+            ) : (
+              filtered.map((p) => (
+                <ProductCard 
+                  key={p.id} 
+                  product={p} 
+                  buyerLocation={buyerLocation}
+                  onClick={() => navigate(`/product/${p.id}`)}
+                  onAuthRequired={handleAuthRequired}
+                />
+              ))
+            )}
+          </motion.div>
+        </InfiniteScroll>
+      )}
 
       {showFilterOverlay && (
         <AdvancedFilterOverlay

@@ -1,672 +1,400 @@
 // src/pages/TermsPage.jsx
-import React, { useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { 
-  ArrowLeft, 
-  Shield, 
-  FileText, 
-  Users, 
-  CreditCard, 
-  AlertTriangle,
-  CheckCircle,
-  XCircle,
-  ChevronDown,
-  ChevronUp,
   ChevronRight,
-  Search,
-  BookOpen,
-  Scale,
-  Globe,
+  Home,
+  FileText,
+  Shield,
+  Users,
+  CreditCard,
+  AlertCircle,
+  Clock,
   Mail,
   Phone,
   MapPin,
-  Clock,
-  Download,
-  Printer
+  ExternalLink,
+  ArrowLeft
 } from 'lucide-react';
 import './TermsPage.css';
 
 export default function TermsPage() {
-  const [expandedSections, setExpandedSections] = useState({
-    acceptance: true,
-    eligibility: true,
-    responsibilities: true,
-    payments: true,
-    prohibited: true,
-    liability: true
-  });
-  const [searchTerm, setSearchTerm] = useState('');
-
-  const toggleSection = (sectionId) => {
-    setExpandedSections(prev => ({
-      ...prev,
-      [sectionId]: !prev[sectionId]
-    }));
+  const termsData = {
+    lastUpdated: 'December 2, 2025',
+    effectiveDate: 'January 1, 2026',
+    version: '2.0'
   };
 
-  const scrollToSection = (sectionId) => {
-    const element = document.getElementById(sectionId);
+  const scrollToSection = (id) => {
+    const element = document.getElementById(id);
     if (element) {
       element.scrollIntoView({ behavior: 'smooth' });
-      setExpandedSections(prev => ({ ...prev, [sectionId]: true }));
     }
   };
 
-  const termsData = {
-    lastUpdated: 'October 26, 2025',
-    version: 'v3.1',
-    effectiveDate: 'November 1, 2025'
-  };
-
-  const quickStats = [
-    { label: 'Sections', value: '12' },
-    { label: 'Pages', value: '8' },
-    { label: 'Read Time', value: '15 min' },
-    { label: 'Last Updated', value: termsData.lastUpdated }
-  ];
-
-  const keyClauses = [
-    { id: 'acceptance', title: 'Acceptance', icon: CheckCircle, color: '#10B981' },
-    { id: 'eligibility', title: 'Eligibility', icon: Users, color: '#3B82F6' },
-    { id: 'responsibilities', title: 'Responsibilities', icon: Shield, color: '#8B5CF6' },
-    { id: 'payments', title: 'Payments', icon: CreditCard, color: '#F59E0B' },
-    { id: 'prohibited', title: 'Prohibited Items', icon: AlertTriangle, color: '#EF4444' },
-    { id: 'liability', title: 'Liability', icon: Scale, color: '#6B7280' }
-  ];
-
   return (
-    <div className="legal-document">
-      {/* Top Action Bar */}
-      <div className="legal-action-bar">
+    <div className="terms-page">
+      {/* Breadcrumb Navigation */}
+      <div className="breadcrumb-nav">
         <div className="container">
-          <div className="action-bar-content">
-            <div className="document-meta">
-              <div className="document-badge">
-                <FileText size={14} />
-                <span>LEGAL DOCUMENT</span>
-              </div>
-              <span className="document-version">{termsData.version}</span>
-            </div>
-            
-            <div className="action-buttons">
-              <button className="action-btn">
-                <Printer size={16} />
-                <span>Print</span>
-              </button>
-              <button className="action-btn">
-                <Download size={16} />
-                <span>Download</span>
-              </button>
-              <Link to="/auth" className="back-to-signup">
-                <ArrowLeft size={16} />
-                <span>Back to Sign Up</span>
-              </Link>
-            </div>
+          <div className="breadcrumb">
+            <Link to="/" className="breadcrumb-link">
+              <Home size={16} />
+              <span>Home</span>
+            </Link>
+            <ChevronRight size={16} />
+            <Link to="/legal" className="breadcrumb-link">Legal</Link>
+            <ChevronRight size={16} />
+            <span className="breadcrumb-current">Terms & Conditions</span>
           </div>
         </div>
       </div>
 
+      {/* Main Content */}
       <div className="container">
-        <div className="legal-content-wrapper">
-          {/* Left Sidebar - Quick Navigation */}
-          <aside className="legal-sidebar">
-            <div className="sidebar-section">
-              <h3 className="sidebar-title">
-                <BookOpen size={18} />
-                <span>Document Overview</span>
-              </h3>
-              
-              <div className="stats-grid">
-                {quickStats.map((stat, index) => (
-                  <div key={index} className="stat-item">
-                    <div className="stat-value">{stat.value}</div>
-                    <div className="stat-label">{stat.label}</div>
-                  </div>
-                ))}
-              </div>
+        <div className="terms-container">
+          {/* Sidebar */}
+          <aside className="terms-sidebar">
+            <div className="sidebar-header">
+              <h3>Quick Links</h3>
             </div>
+            <nav className="sidebar-nav">
+              <button onClick={() => scrollToSection('introduction')} className="nav-link">
+                <span>1. Introduction</span>
+              </button>
+              <button onClick={() => scrollToSection('account')} className="nav-link">
+                <span>2. Account Registration</span>
+              </button>
+              <button onClick={() => scrollToSection('orders')} className="nav-link">
+                <span>3. Orders & Payments</span>
+              </button>
+              <button onClick={() => scrollToSection('delivery')} className="nav-link">
+                <span>4. Delivery & Returns</span>
+              </button>
+              <button onClick={() => scrollToSection('prohibited')} className="nav-link">
+                <span>5. Prohibited Activities</span>
+              </button>
+              <button onClick={() => scrollToSection('intellectual')} className="nav-link">
+                <span>6. Intellectual Property</span>
+              </button>
+              <button onClick={() => scrollToSection('liability')} className="nav-link">
+                <span>7. Limitation of Liability</span>
+              </button>
+              <button onClick={() => scrollToSection('governing')} className="nav-link">
+                <span>8. Governing Law</span>
+              </button>
+              <button onClick={() => scrollToSection('contact')} className="nav-link">
+                <span>9. Contact Us</span>
+              </button>
+            </nav>
 
-            <div className="sidebar-section">
-              <h3 className="sidebar-title">
-                <Search size={18} />
-                <span>Quick Find</span>
-              </h3>
-              
-              <div className="search-box">
-                <Search size={16} />
-                <input
-                  type="text"
-                  placeholder="Search terms..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="search-input"
-                />
+            <div className="sidebar-help">
+              <div className="help-header">
+                <AlertCircle size={18} />
+                <span>Need Help?</span>
               </div>
-            </div>
-
-            <div className="sidebar-section">
-              <h3 className="sidebar-title">Key Clauses</h3>
-              <div className="clauses-list">
-                {keyClauses.map((clause) => {
-                  const Icon = clause.icon;
-                  return (
-                    <button
-                      key={clause.id}
-                      onClick={() => scrollToSection(clause.id)}
-                      className="clause-item"
-                    >
-                      <div className="clause-icon" style={{ backgroundColor: `${clause.color}15`, color: clause.color }}>
-                        <Icon size={16} />
-                      </div>
-                      <span>{clause.title}</span>
-                      <ChevronRight size={16} className="chevron" />
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="sidebar-section">
-              <h3 className="sidebar-title">Need Help?</h3>
-              <div className="help-contact">
-                <div className="contact-item">
-                  <Mail size={14} />
-                  <a href="mailto:legal@omniflowapp.co.ke">legal@omniflowapp.co.ke</a>
-                </div>
-                <div className="contact-item">
-                  <Phone size={14} />
-                  <span>+254 700 000 000</span>
-                </div>
+              <div className="help-links">
+                <Link to="/help-center" className="help-link">
+                  <ExternalLink size={14} />
+                  <span>Help Center</span>
+                </Link>
+                <Link to="/privacy" className="help-link">
+                  <Shield size={14} />
+                  <span>Privacy Policy</span>
+                </Link>
               </div>
             </div>
           </aside>
 
-          {/* Main Document Content */}
-          <main className="legal-main">
-            {/* Document Header */}
-            <header className="document-header">
-              <div className="header-badge">
-                <Shield size={20} />
-                <span>OmniFlow Technologies Ltd.</span>
-              </div>
-              
-              <h1 className="document-title">Terms & Conditions Agreement</h1>
-              
-              <div className="document-subtitle">
-                <p>E-Commerce Marketplace Platform Terms</p>
-                <div className="effective-badge">
-                  <Clock size={14} />
-                  <span>Effective: {termsData.effectiveDate}</span>
+          {/* Main Content */}
+          <main className="terms-content">
+            {/* Header */}
+            <header className="terms-header">
+              <h1>Terms and Conditions</h1>
+              <div className="terms-meta">
+                <div className="meta-item">
+                  <Clock size={16} />
+                  <span>Last Updated: {termsData.lastUpdated}</span>
+                </div>
+                <div className="meta-item">
+                  <FileText size={16} />
+                  <span>Version: {termsData.version}</span>
                 </div>
               </div>
-
-              <div className="warning-banner">
-                <AlertTriangle size={20} />
-                <div>
-                  <strong>Legal Notice:</strong> This document constitutes a legally binding agreement. 
-                  By using OmniFlow, you agree to all terms herein.
-                </div>
+              <div className="terms-notice">
+                <AlertCircle size={20} />
+                <p>
+                  Welcome to OmniFlow. These Terms and Conditions govern your use of our website and services. 
+                  By accessing or using OmniFlow, you agree to be bound by these terms.
+                </p>
               </div>
             </header>
 
-            {/* Quick Summary Cards */}
-            <div className="summary-cards">
-              <div className="summary-card">
-                <div className="summary-icon" style={{ backgroundColor: '#10B98115', color: '#10B981' }}>
-                  <Users size={20} />
-                </div>
-                <div className="summary-content">
-                  <h4>User Requirements</h4>
-                  <p>18+ years, valid information, Kenyan resident</p>
-                </div>
-              </div>
+            {/* Introduction */}
+            <section id="introduction" className="terms-section">
+              <h2>1. Introduction</h2>
+              <p>
+                These Terms and Conditions ("Terms") govern your use of the OmniFlow e-commerce platform 
+                available at <a href="https://omniflowapp.co.ke">omniflowapp.co.ke</a> and related mobile 
+                applications (collectively, the "Platform"). The Platform is operated by OmniFlow Technologies 
+                Ltd., a company registered in Kenya.
+              </p>
+              <p>
+                By accessing, browsing, or using the Platform, you acknowledge that you have read, understood, 
+                and agree to be bound by these Terms. If you do not agree to these Terms, you must not use 
+                the Platform.
+              </p>
+            </section>
+
+            {/* Account Registration */}
+            <section id="account" className="terms-section">
+              <h2>2. Account Registration</h2>
               
-              <div className="summary-card">
-                <div className="summary-icon" style={{ backgroundColor: '#3B82F615', color: '#3B82F6' }}>
-                  <CreditCard size={20} />
-                </div>
-                <div className="summary-content">
-                  <h4>Fees & Payments</h4>
-                  <p>5% platform fee + 2.5% processing</p>
-                </div>
-              </div>
+              <h3>2.1 Eligibility</h3>
+              <p>To use the Platform, you must:</p>
+              <ul>
+                <li>Be at least 18 years of age</li>
+                <li>Have the legal capacity to enter into a binding contract</li>
+                <li>Provide accurate and complete registration information</li>
+                <li>Maintain the confidentiality of your account credentials</li>
+              </ul>
+
+              <h3>2.2 Account Security</h3>
+              <p>
+                You are responsible for all activities that occur under your account. You must immediately 
+                notify us of any unauthorized use of your account or any other security breach.
+              </p>
+
+              <h3>2.3 Account Suspension</h3>
+              <p>
+                We reserve the right to suspend or terminate your account if we suspect fraudulent activity, 
+                violation of these Terms, or for any other reason at our sole discretion.
+              </p>
+            </section>
+
+            {/* Orders & Payments */}
+            <section id="orders" className="terms-section">
+              <h2>3. Orders & Payments</h2>
               
-              <div className="summary-card">
-                <div className="summary-icon" style={{ backgroundColor: '#8B5CF615', color: '#8B5CF6' }}>
-                  <Shield size={20} />
+              <h3>3.1 Order Placement</h3>
+              <p>
+                When you place an order through the Platform, you are making an offer to purchase the product(s) 
+                at the listed price. All orders are subject to acceptance by the seller and availability.
+              </p>
+
+              <h3>3.2 Pricing</h3>
+              <p>
+                All prices are displayed in Kenyan Shillings (KES) and include VAT where applicable. 
+                We reserve the right to change prices at any time without prior notice.
+              </p>
+
+              <h3>3.3 Payment Methods</h3>
+              <p>We accept the following payment methods:</p>
+              <ul>
+                <li>M-Pesa</li>
+                <li>Visa/MasterCard credit/debit cards</li>
+                <li>Bank transfers</li>
+                <li>OmniFlow Wallet (where available)</li>
+              </ul>
+
+              <h3>3.4 Payment Processing</h3>
+              <p>
+                Payment is processed at the time of order placement. For card payments, we use secure 
+                payment gateways that comply with PCI DSS standards.
+              </p>
+            </section>
+
+            {/* Delivery & Returns */}
+            <section id="delivery" className="terms-section">
+              <h2>4. Delivery & Returns</h2>
+              
+              <h3>4.1 Delivery</h3>
+              <p>
+                Delivery times vary depending on the seller's location and the delivery method selected. 
+                Standard delivery within major Kenyan cities is 3-7 business days.
+              </p>
+              <p>
+                Delivery fees are calculated based on the delivery location and displayed at checkout. 
+                You are responsible for providing accurate delivery information.
+              </p>
+
+              <h3>4.2 Returns Policy</h3>
+              <p>You may return products within 7 days of delivery if:</p>
+              <ul>
+                <li>The product is defective or damaged</li>
+                <li>The product is not as described</li>
+                <li>You received the wrong product</li>
+              </ul>
+              <p>
+                Returns must be in original packaging with all accessories. Some items (e.g., perishable goods, 
+                personal care items) are not eligible for return.
+              </p>
+
+              <h3>4.3 Refunds</h3>
+              <p>
+                Refunds are processed within 7-14 business days after we receive and inspect the returned product. 
+                Refunds will be issued to the original payment method.
+              </p>
+            </section>
+
+            {/* Prohibited Activities */}
+            <section id="prohibited" className="terms-section">
+              <h2>5. Prohibited Activities</h2>
+              <p>You agree not to:</p>
+              <ul>
+                <li>Use the Platform for any illegal purpose</li>
+                <li>Sell counterfeit or stolen goods</li>
+                <li>List prohibited items including but not limited to:
+                  <ul>
+                    <li>Illegal drugs and substances</li>
+                    <li>Weapons and firearms</li>
+                    <li>Stolen property</li>
+                    <li>Counterfeit products</li>
+                    <li>Pornographic material</li>
+                    <li>Hazardous materials</li>
+                  </ul>
+                </li>
+                <li>Engage in fraudulent activities</li>
+                <li>Circumvent Platform fees</li>
+                <li>Harass other users or Platform staff</li>
+                <li>Use automated systems to access the Platform</li>
+              </ul>
+            </section>
+
+            {/* Intellectual Property */}
+            <section id="intellectual" className="terms-section">
+              <h2>6. Intellectual Property</h2>
+              
+              <h3>6.1 Platform Content</h3>
+              <p>
+                All content on the Platform, including text, graphics, logos, images, and software, is the 
+                property of OmniFlow Technologies Ltd. or its licensors and is protected by copyright and 
+                trademark laws.
+              </p>
+
+              <h3>6.2 User Content</h3>
+              <p>
+                By posting content on the Platform, you grant us a non-exclusive, worldwide, royalty-free 
+                license to use, display, and distribute that content in connection with the Platform.
+              </p>
+
+              <h3>6.3 Trademarks</h3>
+              <p>
+                "OmniFlow", the OmniFlow logo, and related marks are trademarks of OmniFlow Technologies Ltd. 
+                You may not use these marks without our prior written permission.
+              </p>
+            </section>
+
+            {/* Limitation of Liability */}
+            <section id="liability" className="terms-section">
+              <h2>7. Limitation of Liability</h2>
+              
+              <h3>7.1 Platform Services</h3>
+              <p>
+                The Platform is provided "as is" and "as available". We do not warrant that the Platform 
+                will be uninterrupted, error-free, or completely secure.
+              </p>
+
+              <h3>7.2 Third-Party Sellers</h3>
+              <p>
+                OmniFlow acts as a marketplace connecting buyers and sellers. We are not responsible for:
+              </p>
+              <ul>
+                <li>The quality, safety, or legality of products sold by third-party sellers</li>
+                <li>The accuracy of product descriptions</li>
+                <li>Seller fulfillment of orders</li>
+                <li>Disputes between buyers and sellers</li>
+              </ul>
+
+              <h3>7.3 Liability Cap</h3>
+              <p>
+                To the maximum extent permitted by law, OmniFlow's total liability to you for any claims 
+                arising from your use of the Platform shall not exceed the total amount paid by you to 
+                OmniFlow in the 6 months preceding the claim.
+              </p>
+            </section>
+
+            {/* Governing Law */}
+            <section id="governing" className="terms-section">
+              <h2>8. Governing Law</h2>
+              
+              <h3>8.1 Applicable Law</h3>
+              <p>
+                These Terms shall be governed by and construed in accordance with the laws of Kenya, 
+                without regard to its conflict of law principles.
+              </p>
+
+              <h3>8.2 Dispute Resolution</h3>
+              <p>
+                Any disputes arising from these Terms shall first be attempted to be resolved through 
+                negotiation. If unresolved, disputes shall be submitted to the exclusive jurisdiction 
+                of the courts of Nairobi, Kenya.
+              </p>
+
+              <h3>8.3 Changes to Terms</h3>
+              <p>
+                We reserve the right to modify these Terms at any time. Changes will be effective upon 
+                posting to the Platform. Your continued use of the Platform after changes constitutes 
+                acceptance of the modified Terms.
+              </p>
+            </section>
+
+            {/* Contact Us */}
+            <section id="contact" className="terms-section">
+              <h2>9. Contact Us</h2>
+              <p>For questions about these Terms, please contact us:</p>
+              
+              <div className="contact-info">
+                <div className="contact-item">
+                  <Mail size={18} />
+                  <div>
+                    <strong>Email:</strong>
+                    <a href="mailto:legal@omniflowapp.co.ke">legal@omniflowapp.co.ke</a>
+                  </div>
                 </div>
-                <div className="summary-content">
-                  <h4>Security</h4>
-                  <p>You are responsible for account security</p>
+                
+                <div className="contact-item">
+                  <Phone size={18} />
+                  <div>
+                    <strong>Phone:</strong>
+                    <a href="tel:+254700000000">+254 700 000 000</a>
+                  </div>
+                </div>
+                
+                <div className="contact-item">
+                  <MapPin size={18} />
+                  <div>
+                    <strong>Address:</strong>
+                    <span>OmniFlow Technologies Ltd.<br />Nairobi, Kenya</span>
+                  </div>
                 </div>
               </div>
-            </div>
+            </section>
 
-            {/* Document Content */}
-            <div className="document-sections">
-              {/* Section 1 */}
-              <section id="acceptance" className="document-section">
-                <div className="section-header" onClick={() => toggleSection('acceptance')}>
-                  <div className="section-number">01</div>
-                  <div className="section-title-content">
-                    <h2>Acceptance of Terms</h2>
-                    <p className="section-subtitle">Binding agreement upon platform usage</p>
+            {/* Acceptance Section */}
+            <footer className="terms-footer">
+              <div className="acceptance-box">
+                <h3>Acceptance of Terms</h3>
+                <p>
+                  By using the OmniFlow Platform, you acknowledge that you have read, understood, and agree 
+                  to be bound by these Terms and Conditions.
+                </p>
+                <div className="footer-meta">
+                  <div className="meta-item">
+                    <strong>Effective Date:</strong> {termsData.effectiveDate}
                   </div>
-                  <button className="expand-toggle">
-                    {expandedSections.acceptance ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                  </button>
-                </div>
-                
-                {expandedSections.acceptance && (
-                  <div className="section-content">
-                    <div className="content-block">
-                      <p>
-                        By accessing, browsing, or using the OmniFlow platform (including our website, 
-                        mobile applications, and services), you acknowledge that you have read, understood, 
-                        and agree to be bound by these Terms & Conditions.
-                      </p>
-                      
-                      <div className="highlight-box critical">
-                        <div className="highlight-icon">⚠️</div>
-                        <div className="highlight-content">
-                          <strong>Critical Notice:</strong> If you do not agree with any part of these terms, 
-                          you must immediately discontinue use of the platform. Continued use constitutes 
-                          acceptance of all terms.
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </section>
-
-              {/* Section 2 */}
-              <section id="eligibility" className="document-section">
-                <div className="section-header" onClick={() => toggleSection('eligibility')}>
-                  <div className="section-number">02</div>
-                  <div className="section-title-content">
-                    <h2>Eligibility Requirements</h2>
-                    <p className="section-subtitle">Who can use OmniFlow</p>
-                  </div>
-                  <button className="expand-toggle">
-                    {expandedSections.eligibility ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                  </button>
-                </div>
-                
-                {expandedSections.eligibility && (
-                  <div className="section-content">
-                    <div className="requirements-grid">
-                      <div className="requirement-card">
-                        <div className="requirement-status valid">
-                          <CheckCircle size={20} />
-                        </div>
-                        <h4>Age Requirement</h4>
-                        <ul>
-                          <li>18 years or older</li>
-                          <li>13-17 with parental consent</li>
-                          <li>Valid age verification</li>
-                        </ul>
-                      </div>
-                      
-                      <div className="requirement-card">
-                        <div className="requirement-status valid">
-                          <CheckCircle size={20} />
-                        </div>
-                        <h4>Information Accuracy</h4>
-                        <ul>
-                          <li>Truthful registration data</li>
-                          <li>Valid contact information</li>
-                          <li>Current details maintained</li>
-                        </ul>
-                      </div>
-                      
-                      <div className="requirement-card">
-                        <div className="requirement-status warning">
-                          <AlertTriangle size={20} />
-                        </div>
-                        <h4>Geographic Restrictions</h4>
-                        <ul>
-                          <li>Available in Kenya</li>
-                          <li>Subject to local laws</li>
-                          <li>Export restrictions apply</li>
-                        </ul>
-                      </div>
-                      
-                      <div className="requirement-card">
-                        <div className="requirement-status valid">
-                          <CheckCircle size={20} />
-                        </div>
-                        <h4>Legal Capacity</h4>
-                        <ul>
-                          <li>Full contractual capacity</li>
-                          <li>No legal prohibitions</li>
-                          <li>Authorized representative if business</li>
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </section>
-
-              {/* Section 3 */}
-              <section id="responsibilities" className="document-section">
-                <div className="section-header" onClick={() => toggleSection('responsibilities')}>
-                  <div className="section-number">03</div>
-                  <div className="section-title-content">
-                    <h2>User Responsibilities</h2>
-                    <p className="section-subtitle">Your obligations as a user</p>
-                  </div>
-                  <button className="expand-toggle">
-                    {expandedSections.responsibilities ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                  </button>
-                </div>
-                
-                {expandedSections.responsibilities && (
-                  <div className="section-content">
-                    <div className="responsibility-table">
-                      <div className="table-header">
-                        <div className="table-cell">Responsibility</div>
-                        <div className="table-cell">Description</div>
-                        <div className="table-cell">Consequence of Breach</div>
-                      </div>
-                      
-                      <div className="table-row">
-                        <div className="table-cell">
-                          <strong>Account Security</strong>
-                        </div>
-                        <div className="table-cell">
-                          Maintain password confidentiality, enable 2FA if available
-                        </div>
-                        <div className="table-cell">
-                          <span className="tag critical">Account Suspension</span>
-                        </div>
-                      </div>
-                      
-                      <div className="table-row">
-                        <div className="table-cell">
-                          <strong>Information Accuracy</strong>
-                        </div>
-                        <div className="table-cell">
-                          Keep all profile and contact information current
-                        </div>
-                        <div className="table-cell">
-                          <span className="tag warning">Restricted Access</span>
-                        </div>
-                      </div>
-                      
-                      <div className="table-row">
-                        <div className="table-cell">
-                          <strong>Transaction Integrity</strong>
-                        </div>
-                        <div className="table-cell">
-                          Complete transactions as described, no fraudulent activity
-                        </div>
-                        <div className="table-cell">
-                          <span className="tag critical">Permanent Ban + Legal</span>
-                        </div>
-                      </div>
-                      
-                      <div className="table-row">
-                        <div className="table-cell">
-                          <strong>Content Compliance</strong>
-                        </div>
-                        <div className="table-cell">
-                          List only permitted items with accurate descriptions
-                        </div>
-                        <div className="table-cell">
-                          <span className="tag warning">Content Removal + Fine</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </section>
-
-              {/* Section 4 */}
-              <section id="payments" className="document-section">
-                <div className="section-header" onClick={() => toggleSection('payments')}>
-                  <div className="section-number">04</div>
-                  <div className="section-title-content">
-                    <h2>Payments & Fees</h2>
-                    <p className="section-subtitle">Transaction costs and processing</p>
-                  </div>
-                  <button className="expand-toggle">
-                    {expandedSections.payments ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                  </button>
-                </div>
-                
-                {expandedSections.payments && (
-                  <div className="section-content">
-                    <div className="fee-breakdown">
-                      <h3>Fee Structure</h3>
-                      <div className="fee-chart">
-                        <div className="fee-item">
-                          <div className="fee-label">Platform Commission</div>
-                          <div className="fee-bar">
-                            <div className="bar-fill" style={{ width: '50%', backgroundColor: '#3B82F6' }}></div>
-                          </div>
-                          <div className="fee-value">5.0%</div>
-                        </div>
-                        
-                        <div className="fee-item">
-                          <div className="fee-label">Payment Processing</div>
-                          <div className="fee-bar">
-                            <div className="bar-fill" style={{ width: '25%', backgroundColor: '#10B981' }}></div>
-                          </div>
-                          <div className="fee-value">2.5%</div>
-                        </div>
-                        
-                        <div className="fee-item">
-                          <div className="fee-label">Service Fee</div>
-                          <div className="fee-bar">
-                            <div className="bar-fill" style={{ width: '25%', backgroundColor: '#8B5CF6' }}></div>
-                          </div>
-                          <div className="fee-value">2.5%</div>
-                        </div>
-                      </div>
-                      
-                      <div className="total-fee">
-                        <span>Total Transaction Cost</span>
-                        <span className="total-value">10.0%</span>
-                      </div>
-                    </div>
-                    
-                    <div className="payment-methods">
-                      <h3>Accepted Payment Methods</h3>
-                      <div className="methods-grid">
-                        <div className="method-card">
-                          <div className="method-icon">💳</div>
-                          <div className="method-name">OmniCash</div>
-                          <div className="method-fee">No Fee</div>
-                        </div>
-                        
-                        <div className="method-card">
-                          <div className="method-icon">📱</div>
-                          <div className="method-name">M-Pesa</div>
-                          <div className="method-fee">2.5%</div>
-                        </div>
-                        
-                        <div className="method-card">
-                          <div className="method-icon">🌐</div>
-                          <div className="method-name">PayPal</div>
-                          <div className="method-fee">3.5%</div>
-                        </div>
-                        
-                        <div className="method-card">
-                          <div className="method-icon">💳</div>
-                          <div className="method-name">Cards</div>
-                          <div className="method-fee">2.9%</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </section>
-
-              {/* Section 5 */}
-              <section id="prohibited" className="document-section">
-                <div className="section-header" onClick={() => toggleSection('prohibited')}>
-                  <div className="section-number">05</div>
-                  <div className="section-title-content">
-                    <h2>Prohibited Items & Activities</h2>
-                    <p className="section-subtitle">What you cannot sell or do</p>
-                  </div>
-                  <button className="expand-toggle">
-                    {expandedSections.prohibited ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                  </button>
-                </div>
-                
-                {expandedSections.prohibited && (
-                  <div className="section-content">
-                    <div className="prohibited-categories">
-                      <div className="prohibited-category illegal">
-                        <div className="category-header">
-                          <XCircle size={20} />
-                          <h4>Illegal Items</h4>
-                        </div>
-                        <ul>
-                          <li>Controlled substances & drugs</li>
-                          <li>Weapons, firearms, ammunition</li>
-                          <li>Stolen property or counterfeit goods</li>
-                          <li>Government documents or IDs</li>
-                        </ul>
-                      </div>
-                      
-                      <div className="prohibited-category restricted">
-                        <div className="category-header">
-                          <AlertTriangle size={20} />
-                          <h4>Restricted Content</h4>
-                        </div>
-                        <ul>
-                          <li>Adult or explicit material</li>
-                          <li>Hate speech or discriminatory content</li>
-                          <li>Personal information of others</li>
-                          <li>Violent or threatening material</li>
-                        </ul>
-                      </div>
-                      
-                      <div className="prohibited-category abuse">
-                        <div className="category-header">
-                          <Shield size={20} />
-                          <h4>Platform Abuse</h4>
-                        </div>
-                        <ul>
-                          <li>Multiple fake accounts</li>
-                          <li>Spam or harassment</li>
-                          <li>System hacking or exploitation</li>
-                          <li>Fee circumvention</li>
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </section>
-
-              {/* Section 6 */}
-              <section id="liability" className="document-section">
-                <div className="section-header" onClick={() => toggleSection('liability')}>
-                  <div className="section-number">06</div>
-                  <div className="section-title-content">
-                    <h2>Limitation of Liability</h2>
-                    <p className="section-subtitle">Our responsibilities and limits</p>
-                  </div>
-                  <button className="expand-toggle">
-                    {expandedSections.liability ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                  </button>
-                </div>
-                
-                {expandedSections.liability && (
-                  <div className="section-content">
-                    <div className="liability-content">
-                      <div className="liability-card">
-                        <h4>What We Are Not Liable For</h4>
-                        <ul>
-                          <li>User-to-user disputes or transactions</li>
-                          <li>Product quality or authenticity</li>
-                          <li>Platform downtime or technical issues</li>
-                          <li>Third-party actions or content</li>
-                          <li>Unauthorized account access due to user negligence</li>
-                        </ul>
-                      </div>
-                      
-                      <div className="liability-card">
-                        <h4>Liability Cap</h4>
-                        <div className="cap-display">
-                          <div className="cap-value">6 months commissions</div>
-                          <div className="cap-description">
-                            Maximum liability limited to commissions paid in last 6 months
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="notice-box">
-                        <Scale size={24} />
-                        <div>
-                          <strong>Legal Disclaimer:</strong> This limitation applies to the fullest 
-                          extent permitted by Kenyan law. Some jurisdictions do not allow certain 
-                          limitations, so these may not apply to you.
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </section>
-
-              {/* Contact & Legal Info */}
-              <section className="contact-section">
-                <div className="contact-grid">
-                  <div className="contact-card">
-                    <div className="contact-icon">
-                      <Globe size={24} />
-                    </div>
-                    <h4>Governing Law</h4>
-                    <p>Laws of Kenya apply to all matters relating to your use of the platform.</p>
-                  </div>
-                  
-                  <div className="contact-card">
-                    <div className="contact-icon">
-                      <Scale size={24} />
-                    </div>
-                    <h4>Dispute Resolution</h4>
-                    <p>Courts in Nairobi have exclusive jurisdiction over any disputes.</p>
-                  </div>
-                  
-                  <div className="contact-card">
-                    <div className="contact-icon">
-                      <MapPin size={24} />
-                    </div>
-                    <h4>Registered Office</h4>
-                    <p>OmniFlow Technologies Ltd.<br />Nairobi, Kenya</p>
+                  <div className="meta-item">
+                    <strong>Version:</strong> {termsData.version}
                   </div>
                 </div>
-              </section>
-
-              {/* Acceptance Footer */}
-              <footer className="acceptance-footer">
-                <div className="acceptance-banner">
-                  <div className="acceptance-content">
-                    <h3>Agreement Acceptance</h3>
-                    <p>
-                      By proceeding with registration, you confirm that you have read, understood, 
-                      and agree to be bound by all terms and conditions in this document.
-                    </p>
-                    <div className="acceptance-actions">
-                      <Link to="/auth" className="btn-accept">
-                        <CheckCircle size={18} />
-                        <span>I Accept & Continue</span>
-                      </Link>
-                      <Link to="/" className="btn-decline">
-                        <XCircle size={18} />
-                        <span>I Decline & Exit</span>
-                      </Link>
-                    </div>
-                    <p className="legal-note">
-                      This document constitutes the complete and exclusive statement of the agreement 
-                      between you and OmniFlow Technologies Ltd.
-                    </p>
-                  </div>
+                <div className="footer-actions">
+                  <Link to="/" className="btn-back">
+                    <ArrowLeft size={18} />
+                    <span>Back to Home</span>
+                  </Link>
                 </div>
-              </footer>
-            </div>
+              </div>
+            </footer>
           </main>
         </div>
       </div>
