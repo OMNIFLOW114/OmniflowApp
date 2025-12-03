@@ -1,3 +1,6 @@
+/* TradeStore.css - COMPLETE UPDATED VERSION */
+/* Removed hero section, added simple tagline above promoted carousel */
+
 /* General Reset and Base Styles */
 * {
   margin: 0;
@@ -35,8 +38,8 @@ html.dark .marketplace-wrapper {
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
   position: sticky;
   top: 0;
-  z-index: 1001; /* Higher than tabs */
-  margin-bottom: 0.8rem;
+  z-index: 1000;
+  margin-bottom: 0.3rem; /* REDUCED from 0.8rem */
   border-radius: 0.6rem;
   height: 56px;
   min-height: 56px;
@@ -67,6 +70,7 @@ html.dark .premium-navbar.compact {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   transition: all 0.3s ease;
   border: 1px solid rgba(0, 0, 0, 0.06);
+  cursor: pointer;
 }
 
 html.dark .search-bar.compact {
@@ -82,6 +86,7 @@ html.dark .search-bar.compact {
   font-size: 0.8rem;
   color: #1a1a1a;
   padding: 0.2rem 0;
+  cursor: pointer;
 }
 
 html.dark .search-bar.compact input {
@@ -254,61 +259,89 @@ html.dark .premium-badge {
   padding: 0.08rem 0.18rem;
 }
 
-/* ========== COMPACT HERO SECTION ========== */
-.marketplace-hero.compact {
+/* ========== SIMPLE TAGLINE SECTION ========== */
+.marketplace-tagline {
   text-align: center;
-  padding: 0.8rem 0.8rem 0.5rem;
+  padding: 0.4rem 0.8rem 0.2rem; /* Minimal padding */
+  margin-bottom: 0.3rem; /* Very small margin */
+  border-radius: 0.6rem;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 0.8rem;
-  margin-bottom: 0.8rem;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
-  position: relative;
-  overflow: hidden;
-  min-height: 180px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  animation: fadeIn 0.4s ease;
 }
 
-html.dark .marketplace-hero.compact {
+html.dark .marketplace-tagline {
   background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
 }
 
-.hero-content {
-  margin-bottom: 0.5rem;
-}
-
-.hero-content h1 {
-  font-size: 1.4rem;
-  font-weight: 800;
-  color: white;
-  margin-bottom: 0.3rem;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-}
-
-.hero-highlight {
-  color: #ffd700;
-  text-shadow: 0 1px 3px rgba(255, 215, 0, 0.3);
-}
-
-.hero-tagline {
-  font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.9);
+.tagline-text {
+  font-size: 0.75rem; /* Small font size */
+  color: rgba(255, 255, 255, 0.95);
   font-weight: 500;
-  margin-bottom: 0.5rem;
+  margin: 0;
+  line-height: 1.2;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
-.promoted-section-compact {
-  height: 120px;
-  margin: 0 auto;
+/* ========== PROMOTED CAROUSEL FIXED SECTION ========== */
+.promoted-section-fixed {
   width: 100%;
   max-width: 100%;
-  overflow: hidden;
   border-radius: 0.6rem;
   position: relative;
+  height: auto; /* Auto height based on content */
+  margin-bottom: 0.5rem; /* Reduced margin */
+  overflow: visible; /* Ensure content is visible */
+  background: transparent;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
 }
 
-/* ========== STICKY TABS WRAPPER - NO GAP ========== */
+/* Override PromotedCarousel styles for proper display */
+.promoted-section-fixed .promoted-carousel-container {
+  width: 100%;
+  margin: 0;
+  border-radius: 0.6rem;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.promoted-section-fixed .promoted-slide {
+  height: 160px; /* Reduced from 200px for mobile-first */
+  border-radius: 0.6rem;
+}
+
+.promoted-section-fixed .promoted-text {
+  top: 15%;
+  left: 5%;
+  max-width: 90%;
+}
+
+.promoted-section-fixed .promo-title {
+  font-size: 1.2rem; /* Reduced from 1.3rem */
+  font-weight: 700;
+  line-height: 1.2;
+  margin-bottom: 0.3rem;
+}
+
+.promoted-section-fixed .graffiti-tagline {
+  font-size: 0.8rem; /* Reduced from 0.9rem */
+  margin-bottom: 0.6rem;
+}
+
+.promoted-section-fixed .promo-button {
+  padding: 0.4rem 0.8rem; /* Reduced from 0.5rem 1rem */
+  font-size: 0.75rem; /* Reduced from 0.8rem */
+  border-radius: 1.5rem;
+}
+
+.promoted-section-fixed .discount-badge {
+  top: 8px; /* Adjusted from 10px */
+  right: 8px;
+  padding: 0.25rem 0.5rem; /* Reduced from 0.3rem 0.6rem */
+  font-size: 0.75rem; /* Reduced from 0.8rem */
+}
+
+/* ========== STICKY TABS WRAPPER ========== */
 .tab-bar-scrollable-wrapper {
   position: relative;
   margin-bottom: 0.8rem;
@@ -317,7 +350,7 @@ html.dark .marketplace-hero.compact {
 
 .tab-bar-scrollable-wrapper.sticky {
   position: fixed;
-  top: 56px; /* Directly under navbar - NO GAP */
+  top: 56px; /* Directly under navbar */
   left: 0;
   right: 0;
   z-index: 1000;
@@ -478,7 +511,7 @@ html.dark .product-card:hover {
   aspect-ratio: 1 / 1;
   overflow: hidden;
   background: #f8f8f8;
-  padding: 0.2rem; /* Added padding to make image smaller */
+  padding: 0.2rem;
 }
 
 html.dark .product-img-wrapper {
@@ -489,7 +522,7 @@ html.dark .product-img-wrapper {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: 0.4rem; /* Slight rounding */
+  border-radius: 0.4rem;
   transition: transform 0.4s ease;
 }
 
@@ -836,15 +869,6 @@ html.dark .empty-tab-state p {
     transform: scale(1);
     box-shadow: 0 0 0 0 rgba(255, 71, 87, 0);
   }
-}
-
-/* Search bar cursor pointer */
-.search-bar {
-  cursor: pointer;
-}
-
-.search-bar input {
-  cursor: pointer;
 }
 
 /* Dark mode adjustments */
@@ -1246,20 +1270,19 @@ html.dark .skeleton-nav-title {
   background: #374151;
 }
 
-/* Hero Skeleton */
-.skeleton-hero-title {
-  width: 200px;
-  height: 28px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.3);
-  margin: 0 auto 0.5rem;
+/* Tagline Skeleton */
+.tagline-skeleton {
+  padding: 0.4rem 0.8rem 0.2rem;
+  margin-bottom: 0.3rem;
+  border-radius: 0.6rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
-.skeleton-hero-tagline {
-  width: 280px;
-  height: 14px;
-  border-radius: 5px;
-  background: rgba(255, 255, 255, 0.2);
+.skeleton-tagline-line {
+  width: 200px;
+  height: 12px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.3);
   margin: 0 auto;
 }
 
@@ -1391,7 +1414,7 @@ html.dark .skeleton-star {
   
   .premium-navbar.compact {
     padding: 0.5rem 0.6rem;
-    margin-bottom: 0.6rem;
+    margin-bottom: 0.2rem; /* Further reduced */
     height: 52px;
     min-height: 52px;
   }
@@ -1411,26 +1434,49 @@ html.dark .skeleton-star {
     font-size: 0.75rem;
   }
   
-  .marketplace-hero.compact {
-    padding: 0.6rem 0.6rem 0.4rem;
-    margin-bottom: 0.6rem;
-    min-height: 150px;
+  .marketplace-tagline {
+    padding: 0.3rem 0.6rem 0.15rem;
+    margin-bottom: 0.2rem;
   }
   
-  .hero-content h1 {
-    font-size: 1.1rem;
+  .tagline-text {
+    font-size: 0.7rem; /* Smaller on mobile */
   }
   
-  .hero-tagline {
-    font-size: 0.7rem;
+  /* Promoted carousel mobile adjustments */
+  .promoted-section-fixed .promoted-slide {
+    height: 140px; /* Reduced from 160px */
   }
   
-  .promoted-section-fixed {
-    height: 120px;
+  .promoted-section-fixed .promoted-text {
+    top: 12%;
+    left: 5%;
+    max-width: 90%;
+  }
+  
+  .promoted-section-fixed .promo-title {
+    font-size: 1rem; /* Reduced from 1.2rem */
+  }
+  
+  .promoted-section-fixed .graffiti-tagline {
+    font-size: 0.7rem; /* Reduced from 0.8rem */
+    margin-bottom: 0.4rem;
+  }
+  
+  .promoted-section-fixed .promo-button {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.7rem; /* Reduced from 0.75rem */
+  }
+  
+  .promoted-section-fixed .discount-badge {
+    top: 6px; /* Further reduced */
+    right: 6px;
+    padding: 0.2rem 0.4rem;
+    font-size: 0.7rem; /* Reduced from 0.75rem */
   }
   
   .tab-bar-scrollable-wrapper.sticky {
-    top: 52px; /* Mobile navbar height */
+    top: 52px;
   }
   
   .product-grid {
@@ -1555,6 +1601,99 @@ html.dark .skeleton-star {
   .empty-tab-state h3 {
     font-size: 1rem;
   }
+  
+  /* Extra small mobile */
+  .promoted-section-fixed .promoted-slide {
+    height: 120px; /* Further reduced */
+  }
+  
+  .promoted-section-fixed .promo-title {
+    font-size: 0.85rem;
+  }
+  
+  .promoted-section-fixed .graffiti-tagline {
+    font-size: 0.65rem;
+  }
+  
+  .tagline-text {
+    font-size: 0.65rem;
+  }
+}
+
+/* Tablet adjustments */
+@media (min-width: 768px) {
+  .promoted-section-fixed .promoted-slide {
+    height: 200px; /* Increased from 160px */
+  }
+  
+  .promoted-section-fixed .promoted-text {
+    top: 20%;
+    left: 8%;
+    max-width: 60%;
+  }
+  
+  .promoted-section-fixed .promo-title {
+    font-size: 1.4rem; /* Increased from 1.2rem */
+  }
+  
+  .promoted-section-fixed .graffiti-tagline {
+    font-size: 1rem; /* Increased from 0.8rem */
+  }
+  
+  .promoted-section-fixed .promo-button {
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+  }
+  
+  .tagline-text {
+    font-size: 0.85rem;
+  }
+}
+
+/* Desktop adjustments */
+@media (min-width: 1024px) {
+  .promoted-section-fixed .promoted-slide {
+    height: 240px; /* Increased from 200px */
+  }
+  
+  .promoted-section-fixed .promoted-text {
+    top: 25%;
+    left: 10%;
+    max-width: 50%;
+  }
+  
+  .promoted-section-fixed .promo-title {
+    font-size: 1.6rem; /* Increased from 1.4rem */
+  }
+  
+  .promoted-section-fixed .graffiti-tagline {
+    font-size: 1.1rem; /* Increased from 1rem */
+  }
+  
+  .tagline-text {
+    font-size: 0.9rem;
+  }
+}
+
+/* Large desktop adjustments */
+@media (min-width: 1280px) {
+  .promoted-section-fixed .promoted-slide {
+    height: 280px; /* Increased from 240px */
+  }
+  
+  .promoted-section-fixed .promoted-text {
+    top: 30%;
+    left: 10%;
+    max-width: 45%;
+  }
+  
+  .promoted-section-fixed .promo-title {
+    font-size: 1.8rem; /* Increased from 1.6rem */
+  }
+  
+  .tagline-text {
+    font-size: 0.95rem;
+  }
 }
 
 /* Home Sections */
@@ -1582,4 +1721,23 @@ html.dark .skeleton-star {
 html.dark .infinite-scroll-component__loader,
 html.dark .infinite-scroll-component__end-message {
   color: #b0b0b0;
+}
+
+/* Fix for sticky tabs content spacing */
+.tab-bar-scrollable-wrapper.sticky + .marketplace-wrapper {
+  padding-top: 3.5rem; /* Space for sticky navbar + tabs */
+}
+
+/* Adjust for mobile */
+@media (max-width: 480px) {
+  .tab-bar-scrollable-wrapper.sticky + .marketplace-wrapper {
+    padding-top: 3.2rem;
+  }
+}
+
+/* Very small mobile */
+@media (max-width: 360px) {
+  .tab-bar-scrollable-wrapper.sticky + .marketplace-wrapper {
+    padding-top: 3rem;
+  }
 }

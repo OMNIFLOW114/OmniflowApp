@@ -73,12 +73,10 @@ const NavigationSkeleton = () => (
   </nav>
 );
 
-const HeroSkeleton = () => (
-  <div className="marketplace-hero compact skeleton">
-    <div className="hero-content">
-      <div className="skeleton-hero-title"></div>
-      <div className="skeleton-hero-tagline"></div>
-    </div>
+// UPDATED: Simple tagline skeleton instead of full hero
+const TaglineSkeleton = () => (
+  <div className="tagline-skeleton skeleton">
+    <div className="skeleton-tagline-line"></div>
   </div>
 );
 
@@ -427,7 +425,7 @@ const TradeStore = () => {
   
   const pageSize = 20;
   const tabsRef = useRef(null);
-  const heroRef = useRef(null);
+  const promotedRef = useRef(null); // Changed from heroRef
 
   // Smart, silent location detection — no annoying toasts
   useEffect(() => {
@@ -457,16 +455,16 @@ const TradeStore = () => {
     }
   }, []);
 
-  // Sticky tabs logic
+  // Sticky tabs logic - updated to use promoted section ref
   useEffect(() => {
     const handleScroll = () => {
-      if (!tabsRef.current || !heroRef.current) return;
+      if (!tabsRef.current || !promotedRef.current) return;
       
-      const heroRect = heroRef.current.getBoundingClientRect();
+      const promotedRect = promotedRef.current.getBoundingClientRect();
       const scrollTop = window.scrollY || document.documentElement.scrollTop;
       
-      // When hero section is scrolled out of view, make tabs sticky
-      if (scrollTop > heroRect.height) {
+      // When promoted section is scrolled out of view, make tabs sticky
+      if (scrollTop > promotedRect.height) {
         setIsTabsSticky(true);
       } else {
         setIsTabsSticky(false);
@@ -878,7 +876,7 @@ const TradeStore = () => {
     return (
       <div className={`marketplace-wrapper ${isDarkMode ? "dark" : "light"}`}>
         <NavigationSkeleton />
-        <HeroSkeleton />
+        <TaglineSkeleton />
         <SearchSkeleton />
         <TabsSkeleton />
         <div className="product-grid">
@@ -1018,23 +1016,18 @@ const TradeStore = () => {
         onNavigate={navigate}
       />
 
-      <motion.header 
-        ref={heroRef}
-        className="marketplace-hero compact"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
+      {/* UPDATED: Simple tagline section above promoted carousel */}
+      <div className="marketplace-tagline">
+        <p className="tagline-text">Kenya's #1 Marketplace — Discover Amazing Deals!</p>
+      </div>
+
+      {/* Promoted Carousel Section */}
+      <div 
+        ref={promotedRef}
+        className="promoted-section-fixed"
       >
-        <div className="hero-content">
-          <h1>Welcome to <span className="hero-highlight">OmniMarket</span></h1>
-          <p className="hero-tagline">Kenya's #1 Marketplace — Discover Amazing Deals!</p>
-        </div>
-        
-        {/* Fixed Promoted Carousel - Shows full content */}
-        <div className="promoted-section-fixed">
-          <PromotedCarousel />
-        </div>
-      </motion.header>
+        <PromotedCarousel />
+      </div>
 
       {/* Only show FlashDeals and FeaturedHighlights when NOT on Home tab */}
       {activeTab !== "Home" && (
