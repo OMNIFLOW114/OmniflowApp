@@ -3,8 +3,8 @@ import { supabase } from "@/supabase";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import {
-  FaSearch, FaEllipsisV, FaStore, FaTimes, FaStar, FaRegStar,
-  FaCog, FaPlus, FaComment, FaCircle, FaRegCircle
+  FaSearch, FaTimes, FaStar, FaRegStar,
+  FaCircle, FaRegCircle, FaComment,FaStore
 } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "react-hot-toast";
@@ -16,307 +16,446 @@ const Messages = () => {
   const [conversations, setConversations] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(true);
-  const [onlineUsers] = useState(new Set());
   const [userDetails, setUserDetails] = useState({});
   const [storeDetails, setStoreDetails] = useState({});
   const [selectedFilter, setSelectedFilter] = useState("all");
-  const [showMenu, setShowMenu] = useState(false);
 
   const searchInputRef = useRef(null);
-  const menuRef = useRef(null);
 
   // Auto-detect dark mode
   const isDark = document.documentElement.classList.contains("dark");
 
-  useEffect(() => { searchInputRef.current?.focus(); }, []);
-
-  useEffect(() => {
-    const handler = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) setShowMenu(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+  useEffect(() => { 
+    searchInputRef.current?.focus(); 
   }, []);
 
   // ────── FETCHERS ──────
-  const fetchUserDetails = useCallback(async (ids) => {
-    if (!ids.length) return;
-    const { data } = await supabase.from("users").select("id, full_name, avatar_url").in("id", ids);
-    const map = {};
-    data.forEach(u => {
-      map[u.id] = { name: u.full_name || "Customer", avatar: u.avatar_url };
-    });
-    setUserDetails(prev => ({ ...prev, ...map }));
+  const fetchUserDetails = useCallback(async (userIds) => {
+    if (!userIds?.length) return {};
+    try {
+      const { data, error } = await supabase
+        .from("users")
+        .select("id, full_name, avatar_url")
+        .in("id", userIds);
+
+      if (error) throw error;
+
+      const userMap = {};
+      data?.forEach(user => {
+        userMap[user.id] = { 
+          name: user.full_name || "Customer", 
+          avatar: user.avatar_url 
+        };
+      });
+      return userMap;
+    } catch (error) {
+      console.error("Error fetching user details:", error);
+      return {};
+    }
   }, []);
 
-  const fetchStoreDetails = useCallback(async (ids) => {
-    if (!ids.length) return;
-    const { data } = await supabase.from("stores").select("id, name, owner_id").in("id", ids);
-    const map = {};
-    data.forEach(s => {
-      map[s.id] = { name: s.name || "My Store", owner_id: s.owner_id };
-    });
-    setStoreDetails(prev => ({ ...prev, ...map }));
+  const fetchStoreDetails = useCallback(async (storeIds) => {
+    if (!storeIds?.length) return {};
+    try {
+      const { data, error } = await supabase
+        .from("stores")
+        .select(`
+          id, 
+          name, 
+          owner_id,
+          is_verified,
+          is_active,
+          verified,
+          verified_at,
+          seller_score,
+          contact_phone,
+          location
+        `)
+        .in("id", storeIds)
+        .eq("is_active", true);
+
+      if (error) throw error;
+
+      const storeMap = {};
+      data?.forEach(store => {
+        storeMap[store.id] = {
+          name: store.name || "Store",
+          owner_id: store.owner_id,
+          is_verified: store.is_verified || store.verified || false,
+          verified_at: store.verified_at,
+          seller_score: store.seller_score || 0,
+          contact_phone: store.contact_phone,
+          location: store.location
+        };
+      });
+      return storeMap;
+    } catch (error) {
+      console.error("Error fetching store details:", error);
+      return {};
+    }
   }, []);
 
   // ────── MAIN FETCH ──────
   const fetchConversations = useCallback(async () => {
-    if (!currentUser?.id) return;
+    if (!currentUser?.id) {
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
-
     try {
-      const { data: myStores } = await supabase.from("stores").select("id").eq("owner_id", currentUser.id);
-      const myStoreIds = myStores?.map(s => s.id) || [];
+      // Step 1: Get stores owned by current user
+      const { data: myStores, error: storesError } = await supabase
+        .from("stores")
+        .select("id, owner_id, name")
+        .eq("owner_id", currentUser.id)
+        .eq("is_active", true);
 
-      let query = supabase
+      if (storesError) throw storesError;
+
+      const myStoreIds = myStores?.map(s => s.id) || [];
+      const myStoreDetails = {};
+      myStores?.forEach(store => {
+        myStoreDetails[store.id] = {
+          name: store.name || "My Store",
+          owner_id: store.owner_id
+        };
+      });
+
+      // Step 2: Get all messages where user is involved
+      const { data: messages, error: messagesError } = await supabase
         .from("store_messages")
-        .select("id, store_id, user_id, sender_role, content, created_at, product_id, is_read")
+        .select(`
+          id, 
+          store_id, 
+          user_id, 
+          sender_role, 
+          content, 
+          created_at, 
+          product_id, 
+          is_read,
+          status
+        `)
+        .or(`user_id.eq.${currentUser.id},store_id.in.(${myStoreIds.join(",")})`)
         .order("created_at", { ascending: false });
 
-      if (myStoreIds.length) {
-        query = query.or(`user_id.eq.${currentUser.id},store_id.in.(${myStoreIds.join(",")})`);
-      } else {
-        query = query.eq("user_id", currentUser.id);
+      if (messagesError) throw messagesError;
+
+      if (!messages || messages.length === 0) {
+        setConversations([]);
+        setIsLoading(false);
+        return;
       }
 
-      const { data: msgs } = await query;
+      // Step 3: Collect unique user and store IDs
+      const storeIds = [...new Set(messages.map(m => m.store_id).filter(Boolean))];
+      const userIds = [...new Set(
+        messages
+          .map(m => m.user_id)
+          .filter(id => id && id !== currentUser.id)
+      )];
 
-      const storeIds = [...new Set(msgs.map(m => m.store_id))];
-      const userIds = [...new Set(msgs.map(m => m.user_id).filter(id => id !== currentUser.id))];
+      // Step 4: Fetch details in parallel
+      const [fetchedUserDetails, fetchedStoreDetails] = await Promise.all([
+        fetchUserDetails(userIds),
+        fetchStoreDetails(storeIds)
+      ]);
 
-      await Promise.all([fetchStoreDetails(storeIds), fetchUserDetails(userIds)]);
+      // Merge store details (my stores + fetched stores)
+      const allStoreDetails = { ...myStoreDetails, ...fetchedStoreDetails };
+      setStoreDetails(allStoreDetails);
+      setUserDetails(fetchedUserDetails);
 
-      const convMap = new Map();
+      // Step 5: Group messages by conversation
+      const conversationMap = new Map();
 
-      msgs.forEach(msg => {
-        const isBuyer = msg.user_id === currentUser.id;
-        const storeId = msg.store_id;
-        const otherUserId = isBuyer ? storeDetails[storeId]?.owner_id : msg.user_id;
-        const key = `${storeId}-${msg.product_id || "general"}`;
+      messages.forEach(message => {
+        const isBuyer = message.user_id === currentUser.id;
+        const storeId = message.store_id;
+        const productId = message.product_id || null;
+        
+        // Create unique conversation key
+        const conversationKey = productId 
+          ? `${storeId}-${productId}`
+          : `${storeId}-general`;
 
-        if (!convMap.has(key)) {
-          convMap.set(key, {
-            id: key,
+        const store = allStoreDetails[storeId] || { name: "Loading Store...", owner_id: null };
+        const otherUserId = isBuyer ? store.owner_id : message.user_id;
+
+        if (!conversationMap.has(conversationKey)) {
+          conversationMap.set(conversationKey, {
+            id: conversationKey,
             store_id: storeId,
-            product_id: msg.product_id,
-            user_id: otherUserId || msg.user_id,
-            store_name: storeDetails[storeId]?.name || "Loading Store...",
-            last_message: msg.content || "Photo",
-            last_message_time: msg.created_at,
+            product_id: productId,
+            user_id: otherUserId || message.user_id,
+            store_owner_id: store.owner_id,
+            store_name: store.name,
+            last_message: message.content?.substring(0, 100) || "Photo",
+            last_message_time: message.created_at,
             unread_count: 0,
             is_buyer: isBuyer,
             is_pinned: false,
+            is_read: message.is_read
           });
         }
 
-        const conv = convMap.get(key);
-        if (new Date(msg.created_at) > new Date(conv.last_message_time)) {
-          conv.last_message = msg.content || "Photo";
-          conv.last_message_time = msg.created_at;
+        const conversation = conversationMap.get(conversationKey);
+        
+        // Update with latest message
+        if (new Date(message.created_at) > new Date(conversation.last_message_time)) {
+          conversation.last_message = message.content?.substring(0, 100) || "Photo";
+          conversation.last_message_time = message.created_at;
         }
 
-        const fromOther = isBuyer
-          ? msg.sender_role === "seller"
-          : msg.sender_role === "buyer";
+        // Count unread messages
+        const isFromOther = isBuyer 
+          ? message.sender_role === "seller"
+          : message.sender_role === "buyer";
 
-        if (fromOther && !msg.is_read) conv.unread_count++;
+        if (isFromOther && !message.is_read) {
+          conversation.unread_count += 1;
+        }
       });
 
-      const sorted = Array.from(convMap.values())
+      // Step 6: Convert to array and sort by last message time
+      const sortedConversations = Array.from(conversationMap.values())
         .sort((a, b) => new Date(b.last_message_time) - new Date(a.last_message_time));
 
-      setConversations(sorted);
-    } catch (e) {
+      setConversations(sortedConversations);
+
+    } catch (error) {
+      console.error("Error fetching conversations:", error);
       toast.error("Failed to load chats");
+      setConversations([]);
     } finally {
       setIsLoading(false);
     }
-  }, [currentUser, fetchStoreDetails, fetchUserDetails]);
+  }, [currentUser, fetchUserDetails, fetchStoreDetails]);
 
-  useEffect(() => { fetchConversations(); }, [fetchConversations]);
+  useEffect(() => { 
+    fetchConversations();
+  }, [fetchConversations]);
 
-  // Fake online (no re-render)
-  useEffect(() => {
-    const iv = setInterval(() => {
-      const dots = document.querySelectorAll(".online-dot");
-      dots.forEach(dot => {
-        dot.style.opacity = Math.random() > 0.5 ? "1" : "0";
-      });
-    }, 10000);
-    return () => clearInterval(iv);
-  }, []);
-
-  const formatTime = (ts) => {
-    const d = new Date(ts);
+  const formatTime = (timestamp) => {
+    if (!timestamp) return "Just now";
+    
+    const messageTime = new Date(timestamp);
     const now = new Date();
-    const diff = (now - d) / 36e5;
-    if (diff < 1) return "now";
-    if (diff < 24) return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    if (diff < 48) return "Yesterday";
-    return d.toLocaleDateString([], { month: "short", day: "numeric" });
+    const diffMs = now - messageTime;
+    const diffHours = diffMs / (1000 * 60 * 60);
+    const diffDays = diffHours / 24;
+
+    if (diffHours < 1) {
+      return "Just now";
+    } else if (diffHours < 24) {
+      return messageTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } else if (diffDays < 2) {
+      return "Yesterday";
+    } else if (diffDays < 7) {
+      return messageTime.toLocaleDateString([], { weekday: 'short' });
+    } else {
+      return messageTime.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    }
   };
 
-  const getName = (c) => {
-    return c.is_buyer
-      ? c.store_name
-      : userDetails[c.user_id]?.name || "Customer";
+  const getName = (conversation) => {
+    if (conversation.is_buyer) {
+      return conversation.store_name || "Store";
+    } else {
+      return userDetails[conversation.user_id]?.name || "Customer";
+    }
   };
 
-  const filtered = conversations.filter(c => {
-    const name = getName(c).toLowerCase();
-    const msg = c.last_message.toLowerCase();
-    const matches = !searchTerm || name.includes(searchTerm.toLowerCase()) || msg.includes(searchTerm.toLowerCase());
-    return selectedFilter === "unread" ? matches && c.unread_count > 0 : matches;
+  const getAvatar = (conversation) => {
+    if (conversation.is_buyer) {
+      return null; // Will use store icon
+    } else {
+      return userDetails[conversation.user_id]?.avatar;
+    }
+  };
+
+  const filteredConversations = conversations.filter(conv => {
+    const name = getName(conv).toLowerCase();
+    const message = conv.last_message?.toLowerCase() || "";
+    const searchLower = searchTerm.toLowerCase();
+    
+    const matchesSearch = !searchTerm || 
+      name.includes(searchLower) || 
+      message.includes(searchLower);
+    
+    if (selectedFilter === "unread") {
+      return matchesSearch && conv.unread_count > 0;
+    }
+    
+    return matchesSearch;
   });
 
   const togglePin = (id, e) => {
     e.stopPropagation();
-    setConversations(p => p.map(c => c.id === id ? { ...c, is_pinned: !c.is_pinned } : c));
+    setConversations(prev => prev.map(conv => 
+      conv.id === id ? { ...conv, is_pinned: !conv.is_pinned } : conv
+    ));
   };
 
-  const openChat = (c) => {
+  const openChat = (conversation) => {
     navigate("/chat", {
       state: {
-        conversation: c,
-        userDetails: userDetails[c.user_id],
-        storeDetails: storeDetails[c.store_id],
+        conversation: conversation,
+        userDetails: userDetails[conversation.user_id],
+        storeDetails: storeDetails[conversation.store_id],
+        fromMessages: true
       },
     });
   };
 
   const markAllRead = () => {
-    setConversations(p => p.map(c => ({ ...c, unread_count: 0 })));
-    toast.success("All marked as read");
-    setShowMenu(false);
+    setConversations(prev => prev.map(conv => ({ 
+      ...conv, 
+      unread_count: 0 
+    })));
+    toast.success("All messages marked as read");
   };
 
-  // ────── MEMOIZED ITEM ──────
-  const ChatItem = memo(({ c }) => {
-    const name = getName(c);
-    const avatar = c.is_buyer ? null : userDetails[c.user_id]?.avatar;
+  // ────── MEMOIZED CHAT ITEM ──────
+  const ChatItem = memo(({ conversation }) => {
+    const name = getName(conversation);
+    const avatar = getAvatar(conversation);
+    const isOnline = Math.random() > 0.5;
 
     return (
       <motion.div
         layout
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className={`conversation ${c.is_pinned ? "pinned" : ""} ${c.unread_count > 0 ? "unread" : ""}`}
-        onClick={() => openChat(c)}
-        style={{ height: 72 }}
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className={`conversation ${conversation.is_pinned ? "pinned" : ""} ${conversation.unread_count > 0 ? "unread" : ""}`}
+        onClick={() => openChat(conversation)}
       >
         <div className="avatar-wrapper">
-          {c.is_buyer ? (
-            <div className="avatar store"><FaStore /></div>
+          {conversation.is_buyer ? (
+            <div className="avatar store">
+              <FaStore />
+            </div>
           ) : avatar ? (
             <img src={avatar} alt={name} className="avatar" />
           ) : (
-            <div className="avatar user"><span>{name[0]}</span></div>
+            <div className="avatar user">
+              <div className="avatar-initial">
+                {name[0]?.toUpperCase() || "U"}
+              </div>
+            </div>
           )}
-          <div className="online-dot" />
+          {isOnline && <div className="online-dot" />}
         </div>
 
-        <div className="body">
-          <div className="top">
+        <div className="conversation-body">
+          <div className="conversation-top">
             <h3>{name}</h3>
-            <div className="meta">
-              <span>{formatTime(c.last_message_time)}</span>
-              <button onClick={(e) => togglePin(c.id, e)} className="pin">
-                {c.is_pinned ? <FaStar color="#f59e0b" /> : <FaRegStar />}
+            <div className="conversation-meta">
+              <span className="time">{formatTime(conversation.last_message_time)}</span>
+              <button 
+                onClick={(e) => togglePin(conversation.id, e)} 
+                className="pin-btn"
+              >
+                {conversation.is_pinned ? (
+                  <FaStar color="#f59e0b" />
+                ) : (
+                  <FaRegStar />
+                )}
               </button>
             </div>
           </div>
-          <div className="preview">
-            <p>{c.last_message}</p>
-            {c.unread_count > 0 && <span className="badge">{c.unread_count > 99 ? "99+" : c.unread_count}</span>}
+          
+          <div className="conversation-preview">
+            <p className="message-preview">
+              {conversation.last_message || "No messages"}
+            </p>
+            {conversation.unread_count > 0 && (
+              <span className="unread-badge">
+                {conversation.unread_count > 99 ? "99+" : conversation.unread_count}
+              </span>
+            )}
           </div>
         </div>
       </motion.div>
     );
   });
 
-  const Skeleton = () => (
-    <div className="conversation skeleton" style={{ height: 72 }}>
+  const SkeletonItem = () => (
+    <div className="conversation skeleton">
       <div className="avatar skeleton-avatar" />
-      <div className="body">
-        <div className="top">
-          <div className="line short" />
-          <div className="line tiny" />
+      <div className="conversation-body">
+        <div className="conversation-top">
+          <div className="skeleton-line short" />
+          <div className="skeleton-line tiny" />
         </div>
-        <div className="preview">
-          <div className="line long" />
+        <div className="conversation-preview">
+          <div className="skeleton-line long" />
         </div>
       </div>
     </div>
   );
 
   return (
-    <div className={`page ${isDark ? "dark" : ""}`}>
-      <div className="container">
-        <header className="header fixed">
-          <div className="header-inner">
-            <div className="title">
-              <h1>Chats</h1>
-              <span className="count">{conversations.length}</span>
-            </div>
-
-            <div className="search-wrapper">
-              <FaSearch className="icon" />
-              <input
-                ref={searchInputRef}
-                type="text"
-                placeholder="Search chats..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              {searchTerm && (
-                <button onClick={() => setSearchTerm("")} className="clear">
-                  <FaTimes />
-                </button>
-              )}
-            </div>
-
-            <div className="filters">
-              <button className={selectedFilter === "all" ? "active" : ""} onClick={() => setSelectedFilter("all")}>
-                <FaRegCircle /> All
+    <div className={`messages-page ${isDark ? "dark" : ""}`}>
+      <div className="messages-container">
+        {/* Minimal Header with only search */}
+        <header className="messages-header">
+          <div className="search-container">
+            <FaSearch className="search-icon" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              placeholder="Search messages..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="search-input"
+            />
+            {searchTerm && (
+              <button 
+                onClick={() => setSearchTerm("")} 
+                className="clear-search"
+              >
+                <FaTimes />
               </button>
-              <button className={selectedFilter === "unread" ? "active" : ""} onClick={() => setSelectedFilter("unread")}>
-                <FaCircle /> Unread
-              </button>
-            </div>
+            )}
+          </div>
 
-            <div className="menu" ref={menuRef}>
-              <button onClick={() => setShowMenu(v => !v)} className="menu-btn">
-                <FaEllipsisV />
-              </button>
-              <AnimatePresence>
-                {showMenu && (
-                  <motion.div className="dropdown" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
-                    <button onClick={() => { toast("Coming soon"); setShowMenu(false); }}>
-                      <FaPlus /> New Chat
-                    </button>
-                    <button onClick={markAllRead}>
-                      <FaRegCircle /> Mark All Read
-                    </button>
-                    <button onClick={() => { navigate("/settings"); setShowMenu(false); }}>
-                      <FaCog /> Settings
-                    </button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+          {/* Filter buttons - minimal, next to search */}
+          <div className="filter-buttons">
+            <button 
+              className={`filter-btn ${selectedFilter === "all" ? "active" : ""}`}
+              onClick={() => setSelectedFilter("all")}
+            >
+              <FaRegCircle /> All
+            </button>
+            <button 
+              className={`filter-btn ${selectedFilter === "unread" ? "active" : ""}`}
+              onClick={() => setSelectedFilter("unread")}
+            >
+              <FaCircle /> Unread
+            </button>
           </div>
         </header>
 
-        <main className="list">
+        {/* Conversation List */}
+        <main className="conversations-list">
           {isLoading ? (
-            [...Array(8)].map((_, i) => <Skeleton key={i} />)
-          ) : filtered.length > 0 ? (
-            filtered.map(c => <ChatItem key={c.id} c={c} />)
+            [...Array(8)].map((_, index) => <SkeletonItem key={index} />)
+          ) : filteredConversations.length > 0 ? (
+            <AnimatePresence>
+              {filteredConversations.map(conversation => (
+                <ChatItem key={conversation.id} conversation={conversation} />
+              ))}
+            </AnimatePresence>
           ) : (
-            <div className="empty">
-              <FaComment />
-              <h3>No chats</h3>
-              <p>{searchTerm ? "Try another search" : "Start a conversation!"}</p>
+            <div className="empty-state">
+              <div className="empty-icon">
+                <FaComment />
+              </div>
+              <h3>No conversations yet</h3>
+              <p className="empty-text">
+                {searchTerm ? "No chats match your search" : "Start a conversation with a seller!"}
+              </p>
             </div>
           )}
         </main>

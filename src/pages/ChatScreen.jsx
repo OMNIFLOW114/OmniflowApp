@@ -40,9 +40,16 @@ const ChatScreen = () => {
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
 
+  // Fix: Check if we're coming from messages page, if not, redirect to messages
+  useEffect(() => {
+    if (!conversation) {
+      navigate('/messages', { replace: true });
+      return;
+    }
+  }, [conversation, navigate]);
+
   if (!conversation) {
-    navigate('/messages');
-    return null;
+    return null; // Will redirect in useEffect
   }
 
   // Auto-resize textarea
@@ -317,6 +324,17 @@ const ChatScreen = () => {
     toast.success("Recording stopped");
   };
 
+  // FIXED: Back navigation logic
+  const handleBack = () => {
+    // Check if we came from messages page (has previous state)
+    if (location.state?.fromMessages) {
+      navigate('/messages', { replace: true });
+    } else {
+      // Go back in history, but ensure we don't get stuck
+      navigate(-1);
+    }
+  };
+
   const chatPartnerInfo = getChatPartnerInfo();
 
   // Message Skeleton
@@ -330,12 +348,28 @@ const ChatScreen = () => {
     </div>
   );
 
+  // FIXED: Check if message is from current user (CORRECTED VERSION)
+  const isMessageFromCurrentUser = (message) => {
+    if (!currentUser || !conversation) return false;
+    
+    // If message is from seller and current user is the store owner
+    if (message.sender_role === 'seller') {
+      return currentUser.id === conversation.store_owner_id;
+    } 
+    // If message is from buyer and current user is the user in conversation
+    else if (message.sender_role === 'buyer') {
+      return currentUser.id === conversation.user_id;
+    }
+    
+    return false;
+  };
+
   return (
     <div className="chat-screen-container">
       <div className="chat-header">
         <button 
           className="back-btn" 
-          onClick={() => navigate('/messages')}
+          onClick={handleBack}
           title="Back to messages"
         >
           <FaArrowLeft />
@@ -387,53 +421,63 @@ const ChatScreen = () => {
               <MessageSkeleton key={i} />
             ))}
           </div>
+        ) : messages.length === 0 ? (
+          <div className="no-messages">
+            <div className="no-messages-icon">
+              <FaPaperPlane />
+            </div>
+            <p>No messages yet</p>
+            <p className="subtext">Start a conversation by sending a message!</p>
+          </div>
         ) : (
           <div className="messages-list">
             {messages.map((message) => {
-              const isUser = message.sender_role === (currentUser.id === conversation.store_owner_id ? 'seller' : 'buyer');
+              const isUserMessage = isMessageFromCurrentUser(message);
               const parsedMessage = parseOrderMessage(message.content);
               
               return (
                 <motion.div
                   key={message.id}
-                  className={`message ${isUser ? 'sent' : 'received'}`}
-                  initial={{ opacity: 0, y: 20 }}
+                  className={`message-wrapper ${isUserMessage ? 'message-wrapper-sent' : 'message-wrapper-received'}`}
+                  initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3 }}
+                  transition={{ duration: 0.2 }}
                 >
-                  <div className="message-bubble">
-                    {parsedMessage.isOrder ? (
-                      <div className="order-card">
-                        <div className="order-header">
-                          <FaShoppingBag />
-                          <span>New Order</span>
-                        </div>
-                        <div className="order-details">
-                          <div className="order-field">
-                            <strong>Customer:</strong>
-                            <span>{parsedMessage.email}</span>
+                  <div className={`message ${isUserMessage ? 'sent' : 'received'}`}>
+                    <div className="message-bubble">
+                      {parsedMessage.isOrder ? (
+                        <div className="order-card">
+                          <div className="order-header">
+                            <FaShoppingBag />
+                            <span>New Order</span>
                           </div>
-                          <div className="order-field">
-                            <strong>Product:</strong>
-                            <span className="product-name">{parsedMessage.product}</span>
+                          <div className="order-details">
+                            <div className="order-field">
+                              <strong>Customer:</strong>
+                              <span>{parsedMessage.email}</span>
+                            </div>
+                            <div className="order-field">
+                              <strong>Product:</strong>
+                              <span className="product-name">{parsedMessage.product}</span>
+                            </div>
+                            <div className="order-field">
+                              <FaMapMarkerAlt />
+                              <span>{parsedMessage.address}</span>
+                            </div>
                           </div>
-                          <div className="order-field">
-                            <FaMapMarkerAlt />
-                            <span>{parsedMessage.address}</span>
+                          <div className="order-actions">
+                            <button className="order-btn accept">Accept</button>
+                            <button className="order-btn decline">Details</button>
                           </div>
                         </div>
-                        <div className="order-actions">
-                          <button className="order-btn accept">Accept</button>
-                          <button className="order-btn decline">Details</button>
-                        </div>
+                      ) : (
+                        <p>{message.content}</p>
+                      )}
+                      
+                      <div className="message-footer">
+                        <span className="time">{formatMessageTime(message.created_at)}</span>
+                        {getMessageStatus(message)}
                       </div>
-                    ) : (
-                      <p>{message.content}</p>
-                    )}
-                    
-                    <div className="message-footer">
-                      <span className="time">{formatMessageTime(message.created_at)}</span>
-                      {getMessageStatus(message)}
                     </div>
                   </div>
                 </motion.div>
