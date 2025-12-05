@@ -5,7 +5,7 @@ import {
   FaUser, FaMapMarkerAlt, FaMoneyBillAlt, FaMoneyBillWave, FaArrowLeft, FaArrowRight,
   FaChartLine, FaCreditCard, FaMoneyCheckAlt, FaShoppingBag, FaDollarSign,
   FaStore, FaUsers, FaStar, FaBell, FaShoppingCart, FaTimes, FaBars,
-  FaWallet, FaReceipt, FaDownload, FaFilter
+  FaWallet, FaReceipt, FaDownload, FaFilter, FaEdit, FaFire, FaCheck
 } from 'react-icons/fa';
 import { useDropzone } from 'react-dropzone';
 import { supabase } from '../lib/supabaseClient';
@@ -42,6 +42,10 @@ const StoreDashboard = () => {
   const [newOrderNotification, setNewOrderNotification] = useState(false);
   const [newPaymentNotification, setNewPaymentNotification] = useState(false);
   const [installmentModalProduct, setInstallmentModalProduct] = useState(null);
+  const [flashSaleModalProduct, setFlashSaleModalProduct] = useState(null);
+  const [flashSaleDuration, setFlashSaleDuration] = useState(24);
+  const [flashSaleDiscount, setFlashSaleDiscount] = useState(10);
+  const [loadingFlashSale, setLoadingFlashSale] = useState(false);
   
   const [dashboardStats, setDashboardStats] = useState({
     totalEarnings: 0,
@@ -63,17 +67,69 @@ const StoreDashboard = () => {
     averageRating: 0
   });
 
+  const [newProduct, setNewProduct] = useState({
+    name: '',
+    price: '',
+    discount: '',
+    category: '',
+    stock_quantity: '',
+    description: '',
+    tags: '',
+    variants: '',
+    warranty: '',
+    return_policy: '',
+    return_policy_days: 7,
+    delivery_methods: { pickup: true, door: true, express: false, same_day: false, standard: true },
+    delivery_estimated_days: 3,
+    free_delivery_threshold: 5000,
+    delivery_notes: '',
+    usage_guide: '',
+    commission_rate: 5
+  });
+
+  const [loadingPost, setLoadingPost] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState([]);
+
   const handleMarkForInstallment = (product) => {
-  setInstallmentModalProduct(product);
-};
-  // Check if user is first-time seller and show tutorial
-  useEffect(() => {
-    const isFirstTimeSeller = localStorage.getItem('firstTimeSeller');
-    if (!isFirstTimeSeller) {
-      setShowTutorial(true);
-      localStorage.setItem('firstTimeSeller', 'false');
+    setInstallmentModalProduct(product);
+  };
+
+  const handleFlashSaleRequest = (product) => {
+    setFlashSaleModalProduct(product);
+  };
+
+  const submitFlashSaleRequest = async () => {
+    if (!flashSaleModalProduct) return;
+    
+    setLoadingFlashSale(true);
+    try {
+      const expiresAt = new Date();
+      expiresAt.setHours(expiresAt.getHours() + parseInt(flashSaleDuration));
+      
+      const { error } = await supabase
+        .from('flash_sale_requests')
+        .insert({
+          product_id: flashSaleModalProduct.id,
+          store_id: flashSaleModalProduct.store_id,
+          requested_duration_hours: parseInt(flashSaleDuration),
+          requested_discount_percent: parseInt(flashSaleDiscount),
+          status: 'pending',
+          expires_at: expiresAt.toISOString()
+        });
+
+      if (error) throw error;
+
+      toast.success('Flash sale request submitted for admin approval!');
+      setFlashSaleModalProduct(null);
+      setFlashSaleDuration(24);
+      setFlashSaleDiscount(10);
+    } catch (error) {
+      console.error('Flash sale request error:', error);
+      toast.error('Failed to submit flash sale request');
+    } finally {
+      setLoadingFlashSale(false);
     }
-  }, []);
+  };
 
   const getNextStatus = (current) => {
     const flow = ["pending", "processing", "shipped", "out for delivery", "delivered"];
@@ -228,17 +284,21 @@ const StoreDashboard = () => {
   };
 
   const updateOrderStatus = async (orderId, newStatus) => {
-    const { error } = await supabase
-      .from('orders')
-      .update({ status: newStatus })
-      .eq('id', orderId);
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: newStatus })
+        .eq('id', orderId);
 
-    if (!error) {
-      setOrders((prev) =>
-        prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
-      );
-      toast.success(`Order marked as ${newStatus}`);
-    } else {
+      if (!error) {
+        setOrders((prev) =>
+          prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
+        );
+        toast.success(`Order marked as ${newStatus}`);
+      } else {
+        throw error;
+      }
+    } catch (error) {
       toast.error('Failed to update status.');
       console.error('Update status error:', error);
     }
@@ -291,40 +351,46 @@ const StoreDashboard = () => {
 
     setSavingDetails(prev => ({ ...prev, [productId]: true }));
 
-    const { error } = await supabase
-      .from('products')
-      .update(payload)
-      .eq('id', productId);
+    try {
+      const { error } = await supabase
+        .from('products')
+        .update(payload)
+        .eq('id', productId);
 
-    setSavingDetails(prev => ({ ...prev, [productId]: false }));
+      if (error) throw error;
 
-    if (error) {
+      setProducts(prev =>
+        prev.map(p => (p.id === productId ? { ...p, ...payload } : p))
+      );
+
+      setRequiredInfoDrafts(prev => {
+        const next = { ...prev };
+        next[productId] = { ...next[productId], isOpen: false, dirty: false };
+        return next;
+      });
+
+      toast.success('Product details updated');
+    } catch (error) {
       toast.error('Error saving product details');
-      return;
+      console.error('Save product details error:', error);
+    } finally {
+      setSavingDetails(prev => ({ ...prev, [productId]: false }));
     }
-
-    setProducts(prev =>
-      prev.map(p => (p.id === productId ? { ...p, ...payload } : p))
-    );
-
-    setRequiredInfoDrafts(prev => {
-      const next = { ...prev };
-      next[productId] = { ...next[productId], isOpen: false, dirty: false };
-      return next;
-    });
-
-    toast.success('Product details updated');
   };
 
   const fetchUserInfo = async () => {
     if (!user?.id) return;
-    const { data, error } = await supabase
-      .from('users')
-      .select('name, email, avatar_url')
-      .eq('id', user.id)
-      .single();
-    if (data) setUserInfo(data);
-    else console.error('Error fetching user info:', error);
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('name, email, avatar_url')
+        .eq('id', user.id)
+        .single();
+      if (data) setUserInfo(data);
+      if (error) console.error('Error fetching user info:', error);
+    } catch (error) {
+      console.error('Error fetching user info:', error);
+    }
   };
 
   useEffect(() => {
@@ -333,14 +399,19 @@ const StoreDashboard = () => {
 
   useEffect(() => {
     const fetchStore = async () => {
-      const { data, error } = await supabase
-        .from('stores')
-        .select('*')
-        .eq('owner_id', user?.id)
-        .single();
-      if (data) {
-        setStore(data);
-      } else if (error) {
+      try {
+        const { data, error } = await supabase
+          .from('stores')
+          .select('*')
+          .eq('owner_id', user?.id)
+          .single();
+        if (data) {
+          setStore(data);
+        }
+        if (error) {
+          console.error('Error fetching store:', error);
+        }
+      } catch (error) {
         console.error('Error fetching store:', error);
       }
     };
@@ -350,17 +421,22 @@ const StoreDashboard = () => {
   useEffect(() => {
     const fetchOrders = async () => {
       if (!store) return;
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*, buyer:buyer_id(name, phone), product:product_id(name, price)')
-        .eq('store_id', store.id)
-        .order('created_at', { ascending: false });
+      try {
+        const { data, error } = await supabase
+          .from('orders')
+          .select('*, buyer:buyer_id(name, phone), product:product_id(name, price)')
+          .eq('store_id', store.id)
+          .order('created_at', { ascending: false });
 
-      if (error) {
+        if (error) {
+          console.error("Failed to fetch orders:", error);
+          toast.error("Failed to load orders.");
+        } else {
+          setOrders(data);
+        }
+      } catch (error) {
         console.error("Failed to fetch orders:", error);
         toast.error("Failed to load orders.");
-      } else {
-        setOrders(data);
       }
     };
     fetchOrders();
@@ -380,37 +456,45 @@ const StoreDashboard = () => {
   const fetchProducts = async () => {
     if (!store) return;
     setLoadingProducts(true);
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .eq('store_id', store?.id)
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('store_id', store?.id)
+        .order('created_at', { ascending: false });
 
-    if (data) {
-      setProducts(data);
-      setCurrentImageIndices(data.reduce((acc, p) => ({ ...acc, [p.id]: 0 }), {}));
-      
-      // Initialize required info drafts for products that need completion
-      const drafts = {};
-      data.forEach(product => {
-        const needsInfo = !product.warranty || !product.return_policy || !product.delivery_methods;
-        if (needsInfo) {
-          drafts[product.id] = {
-            warranty: product.warranty || '',
-            return_policy: product.return_policy || '',
-            delivery: {
-              pickup: (product.delivery_methods?.pickup === 'Yes') || false,
-              door: (product.delivery_methods?.door === 'Yes') || false,
-            },
-            isOpen: true,
-            dirty: false,
-          };
-        }
-      });
-      setRequiredInfoDrafts(drafts);
+      if (error) {
+        toast.error("Failed to load products.");
+        return;
+      }
+
+      if (data) {
+        setProducts(data);
+        setCurrentImageIndices(data.reduce((acc, p) => ({ ...acc, [p.id]: 0 }), {}));
+        
+        const drafts = {};
+        data.forEach(product => {
+          const needsInfo = !product.warranty || !product.return_policy || !product.delivery_methods;
+          if (needsInfo) {
+            drafts[product.id] = {
+              warranty: product.warranty || '',
+              return_policy: product.return_policy || '',
+              delivery: {
+                pickup: (product.delivery_methods?.pickup === 'Yes') || false,
+                door: (product.delivery_methods?.door === 'Yes') || false,
+              },
+              isOpen: true,
+              dirty: false,
+            };
+          }
+        });
+        setRequiredInfoDrafts(drafts);
+      }
+    } catch (error) {
+      toast.error("Failed to load products.");
+    } finally {
+      setLoadingProducts(false);
     }
-    if (error) toast.error("Failed to load products.");
-    setLoadingProducts(false);
   };
 
   useEffect(() => {
@@ -430,15 +514,19 @@ const StoreDashboard = () => {
       fetchDashboardData();
       
       const fetchLipaProducts = async () => {
-        const { data: lipaProducts, error } = await supabase
-          .from('products')
-          .select('*')
-          .eq('store_id', store.id)
-          .eq('lipa_polepole', true)
-          .order('created_at', { ascending: false });
+        try {
+          const { data: lipaProducts, error } = await supabase
+            .from('products')
+            .select('*')
+            .eq('store_id', store.id)
+            .eq('lipa_polepole', true)
+            .order('created_at', { ascending: false });
 
-        if (!error && lipaProducts) {
-          setLipaPolepoleProducts(lipaProducts);
+          if (!error && lipaProducts) {
+            setLipaPolepoleProducts(lipaProducts);
+          }
+        } catch (error) {
+          console.error('Error fetching Lipa products:', error);
         }
       };
       fetchLipaProducts();
@@ -448,15 +536,24 @@ const StoreDashboard = () => {
   const fetchMessages = async () => {
     if (!store) return;
     setLoadingMessages(true);
-    const { data, error } = await supabase
-      .from('store_messages')
-      .select('*')
-      .eq('store_id', store?.id)
-      .order('created_at', { ascending: true });
+    try {
+      const { data, error } = await supabase
+        .from('store_messages')
+        .select('*')
+        .eq('store_id', store?.id)
+        .order('created_at', { ascending: true });
 
-    if (data) setMessages(data);
-    if (error) toast.error("Failed to load messages.");
-    setLoadingMessages(false);
+      if (error) {
+        toast.error("Failed to load messages.");
+        return;
+      }
+
+      if (data) setMessages(data);
+    } catch (error) {
+      toast.error("Failed to load messages.");
+    } finally {
+      setLoadingMessages(false);
+    }
   };
 
   useEffect(() => {
@@ -485,103 +582,191 @@ const StoreDashboard = () => {
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: { 'image/*': [] },
-    onDrop: (acceptedFiles) => setFiles((prev) => [...prev, ...acceptedFiles]),
+    onDrop: (acceptedFiles) => {
+      setFiles((prev) => [...prev, ...acceptedFiles]);
+      toast.success(`Added ${acceptedFiles.length} image(s)`);
+    },
   });
 
   const handleSend = async () => {
-    if (!message.trim() || !store) return;
-    const { error } = await supabase.from('store_messages').insert({
-      store_id: store.id,
-      user_id: user.id,
-      sender_role: 'seller',
-      content: message,
-    });
+    if (!message.trim() || !store) {
+      toast.error('Message cannot be empty');
+      return;
+    }
+    
+    try {
+      const { error } = await supabase.from('store_messages').insert({
+        store_id: store.id,
+        user_id: user.id,
+        sender_role: 'seller',
+        content: message,
+      });
 
-    if (!error) {
+      if (error) throw error;
+
       toast.success("Message sent.");
       setMessage('');
-    } else {
+    } catch (error) {
       toast.error("Failed to send message.");
       console.error('Message send error:', error);
     }
   };
 
-  const handleProductPost = async (e) => {
-    e.preventDefault();
-    if (!store || !user) return;
+  const uploadImage = async (file) => {
+    const filePath = `${user.id}/${Date.now()}-${file.name}`;
+    const { error: uploadError } = await supabase.storage
+      .from('product-images')
+      .upload(filePath, file);
 
-    const form = e.target;
-    const newProduct = {
-      name: form.name.value,
-      price: parseFloat(form.price.value),
-      lipa_polepole: lipaPolepole,
-      installment_plan: lipaPolepole
-        ? {
-            initial_percent: parseFloat(initialDeposit),
-            installments: installments.map((item) => ({
-              percent: parseFloat(item.percent),
-              due_in_days: parseInt(item.due_in_days),
-            })),
-          }
-        : null,
-      category: form.category.value,
-      stock_quantity: parseInt(form.stock.value),
-      tags: form.tags.value ? form.tags.value.split(',').map(tag => tag.trim()) : [],
-      discount: parseFloat(form.discount.value) || 0,
-      description: form.description.value,
-      variants: form.variants.value || null,
-      owner_id: user.id,
-      store_id: store.id,
-      image_gallery: [],
-    };
-
-    for (let file of files) {
-      const filePath = `${user.id}/${Date.now()}-${file.name}`;
-      const { error: uploadError } = await supabase.storage
-        .from('product-images')
-        .upload(filePath, file);
-
-      if (!uploadError) {
-        const { data: urlData } = supabase.storage
-          .from('product-images')
-          .getPublicUrl(filePath);
-        if (urlData?.publicUrl) {
-          newProduct.image_gallery.push(urlData.publicUrl);
-        }
-      } else {
-        toast.error("Failed to upload image.");
-        console.error('Upload error:', uploadError);
-      }
+    if (uploadError) {
+      throw new Error(`Upload failed: ${uploadError.message}`);
     }
 
-    const { error } = await supabase.from('products').insert([newProduct]);
+    const { data: urlData } = supabase.storage
+      .from('product-images')
+      .getPublicUrl(filePath);
+    
+    return urlData?.publicUrl || null;
+  };
 
-    if (!error) {
-      toast.success("Product posted!");
+  const handleProductPost = async (e) => {
+    e.preventDefault();
+    if (!store || !user) {
+      toast.error('Store or user information missing');
+      return;
+    }
+
+    if (files.length === 0) {
+      toast.error('Please upload at least one product image');
+      return;
+    }
+
+    setLoadingPost(true);
+    setUploadProgress([]);
+
+    try {
+      const imageUrls = [];
+      
+      // Upload images with progress tracking
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        setUploadProgress(prev => [...prev, { file: file.name, status: 'uploading' }]);
+        
+        try {
+          const url = await uploadImage(file);
+          if (url) {
+            imageUrls.push(url);
+            setUploadProgress(prev => [...prev.slice(0, -1), { file: file.name, status: 'completed' }]);
+          }
+        } catch (error) {
+          console.error(`Failed to upload ${file.name}:`, error);
+          setUploadProgress(prev => [...prev.slice(0, -1), { file: file.name, status: 'failed', error: error.message }]);
+          toast.error(`Failed to upload ${file.name}`);
+        }
+      }
+
+      if (imageUrls.length === 0) {
+        toast.error('No images were uploaded successfully');
+        setLoadingPost(false);
+        return;
+      }
+
+      const newProductData = {
+        name: newProduct.name,
+        price: parseFloat(newProduct.price),
+        discount: parseFloat(newProduct.discount) || 0,
+        category: newProduct.category,
+        stock_quantity: parseInt(newProduct.stock_quantity),
+        description: newProduct.description,
+        tags: newProduct.tags ? newProduct.tags.split(',').map(tag => tag.trim()) : [],
+        variants: newProduct.variants || null,
+        warranty: newProduct.warranty,
+        return_policy: newProduct.return_policy,
+        return_policy_days: parseInt(newProduct.return_policy_days) || 7,
+        delivery_methods: newProduct.delivery_methods,
+        delivery_estimated_days: parseInt(newProduct.delivery_estimated_days) || 3,
+        free_delivery_threshold: parseFloat(newProduct.free_delivery_threshold) || 5000,
+        delivery_notes: newProduct.delivery_notes,
+        usage_guide: newProduct.usage_guide,
+        commission_rate: parseFloat(newProduct.commission_rate) || 0.05,
+        owner_id: user.id,
+        store_id: store.id,
+        image_gallery: imageUrls,
+        lipa_polepole: lipaPolepole,
+        installment_plan: lipaPolepole
+          ? {
+              initial_percent: parseFloat(initialDeposit),
+              installments: installments.map((item) => ({
+                percent: parseFloat(item.percent),
+                due_in_days: parseInt(item.due_in_days),
+              })),
+            }
+          : null,
+      };
+
+      const { data, error } = await supabase
+        .from('products')
+        .insert([newProductData])
+        .select();
+
+      if (error) throw error;
+
+      toast.success("Product posted successfully!");
+      
+      // Reset form
       setFiles([]);
-      form.reset();
-      setSection('overview');
+      setUploadProgress([]);
+      setNewProduct({
+        name: '',
+        price: '',
+        discount: '',
+        category: '',
+        stock_quantity: '',
+        description: '',
+        tags: '',
+        variants: '',
+        warranty: '',
+        return_policy: '',
+        return_policy_days: 7,
+        delivery_methods: { pickup: true, door: true, express: false, same_day: false, standard: true },
+        delivery_estimated_days: 3,
+        free_delivery_threshold: 5000,
+        delivery_notes: '',
+        usage_guide: '',
+        commission_rate: 5
+      });
+      setLipaPolepole(false);
+      setInitialDeposit(30);
+      setInstallments([]);
+      
+      // Refresh data
       await fetchProducts();
       fetchDashboardData();
-    } else {
+      
+      toast.info('Product added successfully!');
+    } catch (error) {
+      console.error('Product post error:', error);
       toast.error("Failed to post product.");
-      console.error('Insert error:', error);
+    } finally {
+      setLoadingPost(false);
     }
   };
 
   const handleProductDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this product?')) return;
 
-    const { error } = await supabase
-      .from('products')
-      .delete()
-      .eq('id', id);
+    try {
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', id);
 
-    if (!error) {
+      if (error) throw error;
+
       toast.success("Product deleted!");
       fetchProducts();
       fetchDashboardData();
-    } else {
+    } catch (error) {
       toast.error("Failed to delete.");
       console.error('Delete error:', error);
     }
@@ -593,17 +778,20 @@ const StoreDashboard = () => {
 
   const handleConfirmDelete = async () => {
     if (!confirmingDeleteId) return;
-    const { error } = await supabase
-      .from('products')
-      .delete()
-      .eq('id', confirmingDeleteId);
+    try {
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', confirmingDeleteId);
 
-    if (!error) {
+      if (error) throw error;
+
       toast.success('Product deleted!');
       fetchProducts();
       fetchDashboardData();
-    } else {
+    } catch (error) {
       toast.error('Delete failed!');
+      console.error('Delete error:', error);
     }
     setConfirmingDeleteId(null);
   };
@@ -633,7 +821,6 @@ const StoreDashboard = () => {
     setShowTutorial(false);
   };
 
-  // Generate receipt function
   const generateReceipt = (payment) => {
     const receiptWindow = window.open('', '_blank');
     receiptWindow.document.write(`
@@ -669,6 +856,39 @@ const StoreDashboard = () => {
     `);
     receiptWindow.document.close();
   };
+
+  // Format price display
+  const formatPrice = (price) => {
+    return new Intl.NumberFormat('en-KE', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(price);
+  };
+
+  // Real-time order notification
+  useEffect(() => {
+    if (!store) return;
+
+    const orderChannel = supabase
+      .channel(`store-orders-${store.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'orders',
+          filter: `store_id=eq.${store.id}`
+        },
+        (payload) => {
+          setNewOrderNotification(true);
+          toast.info('New order received!');
+          fetchDashboardData();
+        }
+      )
+      .subscribe();
+
+    return () => supabase.removeChannel(orderChannel);
+  }, [store]);
 
   return (
     <div className="dashboard-glass">
@@ -939,85 +1159,28 @@ const StoreDashboard = () => {
                             </div>
                             <div className="compact-product-info">
                               <h5 className="compact-product-title">{p.name}</h5>
-                              <p className="compact-product-price">Ksh {p.price}</p>
+                              <p className="compact-product-price">Ksh {formatPrice(p.price)}</p>
                               <div className="compact-product-meta">
                                 <span>Stock: {p.stock_quantity}</span>
                                 {p.discount > 0 && <span className="discount">{p.discount}% off</span>}
                               </div>
                             </div>
-                            {showForm && (
-                              <motion.div
-                                className="compact-required-info"
-                                layout
-                                initial={{ opacity: 0, scale: 0.95 }}
-                                animate={{ opacity: 1, scale: 1 }}
+                            <div className="compact-product-actions">
+                              <button 
+                                className="edit-delivery-btn"
+                                onClick={() => {
+                                  setEditModalProduct(p);
+                                }}
                               >
-                                <h6>Complete Product Details</h6>
-                                <div className="required-fields-compact">
-                                  <div className="field-group">
-                                    <label>Warranty:</label>
-                                    <select 
-                                      value={draft?.warranty || ''}
-                                      onChange={(e) => updateDraftField(p.id, 'warranty', e.target.value)}
-                                    >
-                                      <option value="">Select warranty</option>
-                                      <option value="No warranty">No warranty</option>
-                                      <option value="1 month">1 month</option>
-                                      <option value="3 months">3 months</option>
-                                      <option value="6 months">6 months</option>
-                                      <option value="1 year">1 year</option>
-                                      <option value="2 years">2 years</option>
-                                    </select>
-                                  </div>
-                                  
-                                  <div className="field-group">
-                                    <label>Return Policy:</label>
-                                    <select 
-                                      value={draft?.return_policy || ''}
-                                      onChange={(e) => updateDraftField(p.id, 'return_policy', e.target.value)}
-                                    >
-                                      <option value="">Select return policy</option>
-                                      <option value="No returns">No returns</option>
-                                      <option value="7 days return">7 days return</option>
-                                      <option value="14 days return">14 days return</option>
-                                      <option value="30 days return">30 days return</option>
-                                    </select>
-                                  </div>
-                                  
-                                  <div className="delivery-options">
-                                    <label>Delivery Options:</label>
-                                    <div className="checkbox-group-compact">
-                                      <label>
-                                        <input
-                                          type="checkbox"
-                                          checked={draft?.delivery?.pickup || false}
-                                          onChange={(e) => updateDraftDelivery(p.id, 'pickup', e.target.checked)}
-                                        />
-                                        Pickup
-                                      </label>
-                                      <label>
-                                        <input
-                                          type="checkbox"
-                                          checked={draft?.delivery?.door || false}
-                                          onChange={(e) => updateDraftDelivery(p.id, 'door', e.target.checked)}
-                                        />
-                                        Door Delivery
-                                      </label>
-                                    </div>
-                                  </div>
-                                </div>
-                                
-                                <div className="compact-form-actions">
-                                  <button
-                                    className="compact-save-btn"
-                                    onClick={() => saveRequiredInfo(p.id)}
-                                    disabled={isSaving || !draft?.warranty || !draft?.return_policy}
-                                  >
-                                    {isSaving ? 'Saving...' : 'Save Details'}
-                                  </button>
-                                </div>
-                              </motion.div>
-                            )}
+                                <FaEdit /> Edit Details
+                              </button>
+                              <button 
+                                className="flash-sale-btn"
+                                onClick={() => handleFlashSaleRequest(p)}
+                              >
+                                <FaFire /> Flash Sale
+                              </button>
+                            </div>
                           </motion.div>
                         );
                       })}
@@ -1121,8 +1284,8 @@ const StoreDashboard = () => {
                       <div className="earnings-info-compact">
                         <h4>Wallet Balance</h4>
                         <p className="earnings-amount-compact">
-  Ksh {dashboardStats.walletBalance.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-</p>
+                          Ksh {dashboardStats.walletBalance.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
                         <span className="earnings-subtitle">Available funds</span>
                       </div>
                     </div>
@@ -1237,111 +1400,324 @@ const StoreDashboard = () => {
             >
               <h3>Your Products</h3>
               
+              {/* Add Product Form - Now at the TOP */}
+              <div className="add-product-section">
+                <h4>Add New Product</h4>
+                <form className="glass-form" onSubmit={handleProductPost}>
+                  {/* Progress indicator */}
+                  {loadingPost && (
+                    <div className="upload-progress">
+                      <div className="progress-bar">
+                        <div className="progress-fill" style={{ width: '50%' }}></div>
+                      </div>
+                      <p>Uploading product...</p>
+                    </div>
+                  )}
+
+                  {uploadProgress.length > 0 && (
+                    <div className="upload-status">
+                      {uploadProgress.map((item, index) => (
+                        <div key={index} className={`upload-item ${item.status}`}>
+                          <span>{item.file}</span>
+                          <span className="status-badge">{item.status}</span>
+                          {item.error && <span className="error-text">{item.error}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>Product Name *</label>
+                      <input 
+                        type="text" 
+                        placeholder="Product Name" 
+                        required 
+                        value={newProduct.name}
+                        onChange={(e) => setNewProduct({...newProduct, name: e.target.value})}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Price (Ksh) *</label>
+                      <input 
+                        type="number" 
+                        step="0.01" 
+                        placeholder="Price" 
+                        required 
+                        value={newProduct.price}
+                        onChange={(e) => setNewProduct({...newProduct, price: e.target.value})}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>Discount (%)</label>
+                      <input 
+                        type="number" 
+                        min="0" 
+                        max="100" 
+                        step="0.01" 
+                        placeholder="Discount percentage" 
+                        value={newProduct.discount}
+                        onChange={(e) => setNewProduct({...newProduct, discount: e.target.value})}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Stock Quantity *</label>
+                      <input 
+                        type="number" 
+                        placeholder="Available stock" 
+                        required 
+                        value={newProduct.stock_quantity}
+                        onChange={(e) => setNewProduct({...newProduct, stock_quantity: e.target.value})}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>Category *</label>
+                      <input 
+                        type="text" 
+                        placeholder="Category" 
+                        required 
+                        value={newProduct.category}
+                        onChange={(e) => setNewProduct({...newProduct, category: e.target.value})}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Tags (comma separated)</label>
+                      <input 
+                        type="text" 
+                        placeholder="e.g., electronics, gadget, new" 
+                        value={newProduct.tags}
+                        onChange={(e) => setNewProduct({...newProduct, tags: e.target.value})}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>Variants (JSON format)</label>
+                      <textarea 
+                        rows="2" 
+                        placeholder='{"color": ["red", "blue"], "size": ["S", "M", "L"]}' 
+                        value={newProduct.variants}
+                        onChange={(e) => setNewProduct({...newProduct, variants: e.target.value})}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Warranty</label>
+                      <select 
+                        value={newProduct.warranty}
+                        onChange={(e) => setNewProduct({...newProduct, warranty: e.target.value})}
+                      >
+                        <option value="">Select warranty</option>
+                        <option value="No warranty">No warranty</option>
+                        <option value="1 month">1 month</option>
+                        <option value="3 months">3 months</option>
+                        <option value="6 months">6 months</option>
+                        <option value="1 year">1 year</option>
+                        <option value="2 years">2 years</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Return Policy</label>
+                    <select 
+                      value={newProduct.return_policy}
+                      onChange={(e) => setNewProduct({...newProduct, return_policy: e.target.value})}
+                    >
+                      <option value="">Select return policy</option>
+                      <option value="No returns">No returns</option>
+                      <option value="7 days return">7 days return</option>
+                      <option value="14 days return">14 days return</option>
+                      <option value="30 days return">30 days return</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Description *</label>
+                    <textarea 
+                      rows="3" 
+                      placeholder="Detailed product description..." 
+                      required 
+                      value={newProduct.description}
+                      onChange={(e) => setNewProduct({...newProduct, description: e.target.value})}
+                    />
+                  </div>
+
+                  <div className="lipa-toggle">
+                    <label className="toggle-label">
+                      <input
+                        type="checkbox"
+                        checked={lipaPolepole}
+                        onChange={(e) => setLipaPolepole(e.target.checked)}
+                      />
+                      <span className="toggle-text">Sell via Lipa Polepole</span>
+                    </label>
+                  </div>
+
+                  <div className="dropzone-section">
+                    <label>Product Images *</label>
+                    <div {...getRootProps()} className={`dropzone-glass ${isDragActive ? 'active' : ''}`}>
+                      <input {...getInputProps()} />
+                      <FaUpload size={24} />
+                      <p>{isDragActive ? 'Drop images here...' : 'Drag & drop product images or click to upload'}</p>
+                      <small>Upload at least one image. Supported: JPG, PNG, WebP</small>
+                    </div>
+                    {files.length > 0 && (
+                      <div className="uploaded-files">
+                        <p>Uploaded: {files.length} file(s)</p>
+                        <div className="file-list">
+                          {files.map((file, index) => (
+                            <div key={index} className="file-item">
+                              <span>{file.name}</span>
+                              <button 
+                                type="button" 
+                                onClick={() => setFiles(files.filter((_, i) => i !== index))}
+                                className="remove-file-btn"
+                              >
+                                <FaTimes />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <motion.button
+                    type="submit"
+                    className="submit-btn"
+                    disabled={loadingPost}
+                    whileHover={{ scale: loadingPost ? 1 : 1.05 }}
+                    whileTap={{ scale: loadingPost ? 1 : 0.95 }}
+                  >
+                    {loadingPost ? (
+                      <>
+                        <div className="loading-spinner-small"></div>
+                        Posting Product...
+                      </>
+                    ) : (
+                      'Post Product'
+                    )}
+                  </motion.button>
+                </form>
+              </div>
+              
+              {/* Products Display - Now BELOW the form */}
               {loadingProducts ? (
-                <p className="loading-text">Loading products...</p>
+                <div className="loading-container">
+                  <div className="loading-spinner"></div>
+                  <p className="loading-text">Loading products...</p>
+                </div>
               ) : products.length === 0 ? (
                 <div className="empty-state">
                   <FaBox size={48} />
                   <p>No products yet</p>
-                  <small>Create your first product to get started</small>
-                  <button 
-                    className="add-product-btn"
-                    onClick={() => setSection('products')}
-                    style={{marginTop: '1rem'}}
-                  >
-                    <FaBox /> Add New Product
-                  </button>
+                  <small>Create your first product using the form above</small>
                 </div>
               ) : (
-                <div className="products-grid-compact">
+                <div className="compact-products-display">
                   {products.map((p) => {
                     const images = p.image_gallery?.length ? p.image_gallery : ['/placeholder.jpg'];
-                    const currentImageIndex = currentImageIndices[p.id] || 0;
+                    const mainImage = images[0];
 
                     return (
                       <motion.div
                         key={p.id}
-                        className="product-card-compact"
+                        className="compact-product-card-mini"
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        whileHover={{ y: -2 }}
                       >
-                        <div className="product-image-compact">
-                          <img
-                            src={images[currentImageIndex]}
-                            alt={p.name}
-                          />
-                          {p.lipa_polepole && (
-                            <div className="product-lipa-badge">
-                              <FaMoneyBillWave /> Lipa
+                        <div className="compact-image-mini">
+                          <img src={mainImage} alt={p.name} />
+                          <div className="compact-product-badges">
+                            {p.lipa_polepole && (
+                              <span className="compact-badge lipa">
+                                <FaMoneyBillWave size={8} /> Lipa
+                              </span>
+                            )}
+                            {p.discount > 0 && (
+                              <span className="compact-badge discount">
+                                -{p.discount}%
+                              </span>
+                            )}
+                            {p.is_flash_sale && (
+                              <span className="compact-badge flash">
+                                <FaFire size={8} /> Flash
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div className="compact-product-info-mini">
+                          <h5 className="compact-product-title-mini">{p.name}</h5>
+                          
+                          <div className="compact-price-row">
+                            <div>
+                              <span className="compact-price-mini">
+                                Ksh {formatPrice(p.price - (p.price * (p.discount || 0) / 100))}
+                              </span>
+                              {p.discount > 0 && (
+                                <span className="compact-original-price">
+                                  Ksh {formatPrice(p.price)}
+                                </span>
+                              )}
+                            </div>
+                            <span className="compact-stock-mini">
+                              Stock: {p.stock_quantity}
+                            </span>
+                          </div>
+                          
+                          <div className="compact-product-meta-mini">
+                            <span className="compact-meta-item">
+                              <strong>Category:</strong> {p.category || 'Uncategorized'}
+                            </span>
+                            {p.tags && p.tags.length > 0 && (
+                              <span className="compact-meta-item">
+                                <strong>Tags:</strong> {p.tags.slice(0, 2).join(', ')}
+                              </span>
+                            )}
+                          </div>
+                          
+                          {p.variants && (
+                            <div className="compact-meta-item">
+                              <strong>Variants:</strong> {typeof p.variants === 'string' ? p.variants.substring(0, 20) + '...' : 'Available'}
                             </div>
                           )}
                         </div>
-                        <div className="product-info-compact">
-                          <h4 className="product-title-compact">{p.name}</h4>
-                          <p className="product-price-compact">Ksh {p.price}</p>
-                          <div className="product-meta-compact">
-                            <span>Stock: {p.stock_quantity}</span>
-                            {p.discount > 0 && <span className="discount">{p.discount}% off</span>}
-                          </div>
-                          <div className="product-actions-compact">
-  <button 
-    className="installment-btn-compact" 
-    onClick={() => handleMarkForInstallment(p)}
-  >
-    <FaMoneyBillWave /> Lipa Setup
-  </button>
-  <button className="edit-btn-compact" onClick={() => handleEditClick(p)}>
-    Edit
-  </button>
-  <button className="delete-btn-compact" onClick={() => confirmDelete(p.id)}>
-    Delete
-  </button>
-</div>
+                        
+                        <div className="compact-product-actions-mini">
+                          <button 
+                            className="compact-action-btn compact-edit-btn"
+                            onClick={() => handleEditClick(p)}
+                          >
+                            <FaEdit size={10} /> Edit
+                          </button>
+                          <button 
+                            className="compact-action-btn compact-flash-btn"
+                            onClick={() => handleFlashSaleRequest(p)}
+                          >
+                            <FaFire size={10} /> Flash Sale
+                          </button>
+                          <button 
+                            className="compact-action-btn compact-delete-btn"
+                            onClick={() => confirmDelete(p.id)}
+                          >
+                            Delete
+                          </button>
                         </div>
                       </motion.div>
                     );
                   })}
                 </div>
               )}
-              
-              {/* Add Product Form */}
-              <div className="add-product-section">
-                <h4>Add New Product</h4>
-                <form className="glass-form" onSubmit={handleProductPost}>
-                  <div className="form-row-compact">
-                    <input name="name" type="text" placeholder="Product Name" required />
-                    <input name="price" type="number" step="0.01" placeholder="Price (Ksh)" required />
-                  </div>
-                  <div className="lipa-toggle">
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={lipaPolepole}
-                        onChange={(e) => setLipaPolepole(e.target.checked)}
-                      />
-                      Sell via Lipa Polepole
-                    </label>
-                  </div>
-                  <div className="form-row-compact">
-                    <input name="category" type="text" placeholder="Category" required />
-                    <input name="stock" type="number" placeholder="Stock Quantity" required />
-                  </div>
-                  <textarea name="description" rows="2" placeholder="Product Description" required />
-                  <div {...getRootProps()} className={`dropzone-glass ${isDragActive ? 'active' : ''}`}>
-                    <input {...getInputProps()} />
-                    <p>{isDragActive ? 'Drop images here...' : 'Drag & drop product images or click to upload'}</p>
-                    <FaUpload size={16} />
-                  </div>
-                  <motion.button
-                    type="submit"
-                    className="submit-btn"
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    Post Product
-                  </motion.button>
-                </form>
-              </div>
             </motion.section>
           )}
 
@@ -1357,17 +1733,22 @@ const StoreDashboard = () => {
               <div className="section-header-with-actions">
                 <div className="section-title-with-notification">
                   <h3>Manage Orders</h3>
-                  {newOrderNotification && <div className="section-notification-dot"></div>}
+                  {newOrderNotification && (
+                    <div className="new-order-badge">
+                      <span className="badge-dot"></span>
+                      New Orders
+                    </div>
+                  )}
                 </div>
                 <div className="order-filters">
                   <button className="filter-btn active">
-                    <FaFilter /> All
+                    <FaFilter /> All ({orders.length})
                   </button>
                   <button className="filter-btn">
-                    Pending
+                    <FaClipboardCheck /> Pending
                   </button>
                   <button className="filter-btn">
-                    Processing
+                    <FaBoxOpen /> Processing
                   </button>
                 </div>
               </div>
@@ -1379,50 +1760,176 @@ const StoreDashboard = () => {
                   <small>Orders from customers will appear here</small>
                 </div>
               ) : (
-                <div className="orders-grid-compact">
-                  {orders.map(order => (
-                    <div key={order.id} className="order-card-compact">
-                      <div className="order-header-compact">
-                        <div className="order-info">
-                          <h4>{order.product?.name || 'Unknown Product'}</h4>
-                          <p className="order-date">{new Date(order.created_at).toLocaleDateString()}</p>
+                <div className="orders-grid">
+                  {orders.map(order => {
+                    const nextStatus = getNextStatus(order.status);
+                    const orderTotal = order.total_price || 0;
+                    const deliveryFee = order.delivery_fee || 0;
+                    const productPrice = orderTotal - deliveryFee;
+
+                    return (
+                      <div key={order.id} className="premium-order-card">
+                        <div className="premium-order-header">
+                          <div className="premium-order-id">
+                            <span className="premium-order-id-label">Order ID</span>
+                            <span className="premium-order-id-value">ORD-{order.id.slice(0, 8).toUpperCase()}</span>
+                            <span className="premium-order-date">
+                              {new Date(order.created_at).toLocaleDateString('en-US', { 
+                                weekday: 'short', 
+                                year: 'numeric', 
+                                month: 'short', 
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </span>
+                          </div>
+                          
+                          <span className={`premium-order-status status-${order.status?.replace(/\s+/g, '-').toLowerCase()}`}>
+                            {order.status}
+                          </span>
                         </div>
-                        <span className={`order-status status-${order.status?.replace(/\s+/g, '-').toLowerCase()}`}>
-                          {order.status}
-                        </span>
+                        
+                        <div className="premium-order-body">
+                          <div className="premium-product-section">
+                            <h4 className="premium-product-name">
+                              <FaBoxOpen size={16} />
+                              {order.product?.name || 'Unknown Product'}
+                            </h4>
+                            
+                            <div className="premium-product-details">
+                              <div className="premium-detail-item">
+                                <span className="premium-detail-label">Quantity</span>
+                                <span className="premium-detail-value quantity">
+                                  {order.quantity}x
+                                </span>
+                              </div>
+                              
+                              <div className="premium-detail-item">
+                                <span className="premium-detail-label">Unit Price</span>
+                                <span className="premium-detail-value price">
+                                  Ksh {formatPrice(productPrice / (order.quantity || 1))}
+                                </span>
+                              </div>
+                              
+                              <div className="premium-detail-item">
+                                <span className="premium-detail-label">Subtotal</span>
+                                <span className="premium-detail-value price">
+                                  Ksh {formatPrice(productPrice)}
+                                </span>
+                              </div>
+                              
+                              <div className="premium-detail-item">
+                                <span className="premium-detail-label">Delivery</span>
+                                <span className="premium-detail-value">
+                                  Ksh {formatPrice(deliveryFee)}
+                                </span>
+                              </div>
+                              
+                              <div className="premium-detail-item">
+                                <span className="premium-detail-label">Payment</span>
+                                <span className="premium-detail-value">
+                                  {order.payment_method || 'Wallet'}
+                                </span>
+                              </div>
+                              
+                              <div className="premium-detail-item">
+                                <span className="premium-detail-label">Order Type</span>
+                                <span className="premium-detail-value">
+                                  {order.is_installment ? 'Installment' : 'Standard'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="premium-info-section">
+                            <div className="premium-buyer-info">
+                              <h5 className="premium-section-title">
+                                <FaUser size={14} /> Buyer Information
+                              </h5>
+                              <div className="premium-info-grid">
+                                <div className="premium-info-item">
+                                  <span className="premium-info-label">Name</span>
+                                  <span className="premium-info-value">
+                                    {order.buyer?.name || 'Anonymous'}
+                                  </span>
+                                </div>
+                                
+                                {order.buyer?.phone && (
+                                  <div className="premium-info-item">
+                                    <span className="premium-info-label">Phone</span>
+                                    <span className="premium-info-value">
+                                      {order.buyer.phone}
+                                    </span>
+                                  </div>
+                                )}
+                                
+                                {order.shipping_address && (
+                                  <div className="premium-info-item">
+                                    <span className="premium-info-label">Address</span>
+                                    <span className="premium-info-value">
+                                      {order.shipping_address}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            
+                            <div className="premium-payment-info">
+                              <h5 className="premium-section-title">
+                                <FaMoneyBillAlt size={14} /> Payment Summary
+                              </h5>
+                              <div className="premium-info-grid">
+                                <div className="premium-info-item">
+                                  <span className="premium-info-label">Product Total</span>
+                                  <span className="premium-info-value">
+                                    Ksh {formatPrice(productPrice)}
+                                  </span>
+                                </div>
+                                
+                                <div className="premium-info-item">
+                                  <span className="premium-info-label">Delivery Fee</span>
+                                  <span className="premium-info-value">
+                                    Ksh {formatPrice(deliveryFee)}
+                                  </span>
+                                </div>
+                                
+                                <div className="premium-info-item premium-total-row">
+                                  <span className="premium-info-label">Total Amount</span>
+                                  <span className="premium-info-value">
+                                    Ksh {formatPrice(orderTotal)}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="premium-order-actions">
+                          {nextStatus && (
+                            <button
+                              className="premium-status-btn update"
+                              onClick={() => updateOrderStatus(order.id, nextStatus)}
+                            >
+                              <FaClipboardCheck /> Mark as {nextStatus}
+                            </button>
+                          )}
+                          
+                          {order.status?.toLowerCase() === 'delivered' && (
+                            <button className="premium-status-btn completed">
+                              <FaCheck /> Order Completed
+                            </button>
+                          )}
+                        </div>
                       </div>
-                      
-                      <div className="order-details-compact">
-                        <div className="detail-item">
-                          <span className="label">Buyer:</span>
-                          <span className="value">{order.buyer?.name || 'Anonymous'}</span>
-                        </div>
-                        <div className="detail-item">
-                          <span className="label">Quantity:</span>
-                          <span className="value">{order.quantity}</span>
-                        </div>
-                        <div className="detail-item">
-                          <span className="label">Total:</span>
-                          <span className="value">Ksh {order.total_price}</span>
-                        </div>
-                      </div>
-                      
-                      {getNextStatus(order.status) && (
-                        <button
-                          className="status-update-btn-compact"
-                          onClick={() => updateOrderStatus(order.id, getNextStatus(order.status))}
-                        >
-                          Mark as {getNextStatus(order.status)}
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </motion.section>
           )}
 
-          {/* Other sections remain similar but with compact styling */}
+          {/* Lipa Products Section */}
           {section === 'lipa-products' && (
             <motion.section
               key="lipa-products"
@@ -1440,7 +1947,7 @@ const StoreDashboard = () => {
                   <small>Enable "Sell via Lipa Polepole" when creating products to see them here</small>
                 </div>
               ) : (
-                <div className="products-grid-compact">
+                <div className="products-grid">
                   {lipaPolepoleProducts.map((p) => {
                     const images = p.image_gallery?.length ? p.image_gallery : ['/placeholder.jpg'];
                     const currentImageIndex = currentImageIndices[p.id] || 0;
@@ -1448,33 +1955,46 @@ const StoreDashboard = () => {
                     return (
                       <motion.div
                         key={p.id}
-                        className="product-card-compact lipa-product"
+                        className="product-card lipa-product"
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
+                        whileHover={{ y: -5 }}
                       >
-                        <div className="product-image-compact">
+                        <div className="product-image-container">
                           <img
                             src={images[currentImageIndex]}
                             alt={p.name}
+                            className="product-image"
                           />
                           <div className="product-lipa-badge">
-                            <FaMoneyBillWave /> Lipa
+                            <FaMoneyBillWave /> Lipa Polepole
                           </div>
                         </div>
-                        <div className="product-info-compact">
-                          <h4 className="product-title-compact">{p.name}</h4>
-                          <p className="product-price-compact">Ksh {p.price}</p>
-                          <div className="lipa-details-compact">
-                            <div className="installment-plan-compact">
-                              <span>Initial: {p.installment_plan?.initial_percent}%</span>
-                              <span>Installments: {p.installment_plan?.installments?.length || 0}</span>
+                        <div className="product-info">
+                          <h4 className="product-title">{p.name}</h4>
+                          <p className="product-price">Ksh {formatPrice(p.price)}</p>
+                          <div className="lipa-details">
+                            <div className="installment-plan">
+                              <h5>Installment Plan</h5>
+                              <div className="installment-steps">
+                                <div className="installment-step">
+                                  <span className="step-label">Initial Deposit:</span>
+                                  <span className="step-value">{p.installment_plan?.initial_percent}%</span>
+                                </div>
+                                {p.installment_plan?.installments?.map((inst, idx) => (
+                                  <div key={idx} className="installment-step">
+                                    <span className="step-label">Installment {idx + 1}:</span>
+                                    <span className="step-value">{inst.percent}% in {inst.due_in_days} days</span>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
                           </div>
-                          <div className="product-actions-compact">
-                            <button className="edit-btn-compact" onClick={() => handleEditClick(p)}>
-                              Edit
+                          <div className="product-actions">
+                            <button className="edit-btn" onClick={() => handleEditClick(p)}>
+                              <FaEdit /> Edit
                             </button>
-                            <button className="delete-btn-compact" onClick={() => confirmDelete(p.id)}>
+                            <button className="delete-btn" onClick={() => confirmDelete(p.id)}>
                               Delete
                             </button>
                           </div>
@@ -1487,6 +2007,7 @@ const StoreDashboard = () => {
             </motion.section>
           )}
 
+          {/* Chat Section */}
           {section === 'chat' && (
             <motion.section
               key="chat"
@@ -1498,58 +2019,66 @@ const StoreDashboard = () => {
             >
               <h3>Store Support Chat</h3>
               {loadingMessages ? (
-                <p className="loading-text">Loading messages...</p>
+                <div className="loading-container">
+                  <div className="loading-spinner"></div>
+                  <p className="loading-text">Loading messages...</p>
+                </div>
               ) : (
-                <div className="chat-window-enhanced">
-                  {messages.map((msg, i) => {
-                    const isSeller = msg.sender_role === 'seller';
-                    const isAdmin = msg.sender_role === 'admin';
-                    const isUser = msg.sender_role === 'user';
-                    const bubbleClass = isSeller
-                      ? 'bubble-seller'
-                      : isAdmin
-                        ? 'bubble-admin'
-                        : 'bubble-user';
-                    const badge = isSeller
-                      ? 'Seller'
-                      : isAdmin
-                        ? 'Admin'
-                        : 'User';
+                <div className="chat-window">
+                  {messages.length === 0 ? (
+                    <div className="empty-chat">
+                      <FaCommentDots size={48} />
+                      <p>No messages yet</p>
+                      <small>Start a conversation with support</small>
+                    </div>
+                  ) : (
+                    messages.map((msg, i) => {
+                      const isSeller = msg.sender_role === 'seller';
+                      const bubbleClass = isSeller ? 'bubble-seller' : 'bubble-support';
 
-                    return (
-                      <motion.div
-                        key={i}
-                        className={`chat-bubble-enhanced ${bubbleClass}`}
-                        initial={{ opacity: 0, x: 40 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.04 }}
-                      >
-                        <div className="chat-meta">
-                          <span className="chat-badge">{badge}</span>
-                          <span className="timestamp">
-                            {new Date(msg.created_at).toLocaleTimeString()}
-                          </span>
-                        </div>
-                        <div className="chat-text">{msg.content}</div>
-                      </motion.div>
-                    );
-                  })}
+                      return (
+                        <motion.div
+                          key={i}
+                          className={`chat-bubble ${bubbleClass}`}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.05 }}
+                        >
+                          <div className="chat-meta">
+                            <span className="chat-sender">
+                              {isSeller ? 'You' : 'Support'}
+                            </span>
+                            <span className="timestamp">
+                              {new Date(msg.created_at).toLocaleTimeString()}
+                            </span>
+                          </div>
+                          <div className="chat-text">{msg.content}</div>
+                        </motion.div>
+                      );
+                    })
+                  )}
                 </div>
               )}
               <div className="chat-input-box">
                 <input
                   type="text"
-                  placeholder="Type a message..."
+                  placeholder="Type your message..."
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSend()}
                 />
-                <button onClick={handleSend}>
-                  <FaSmile /> Send
+                <button 
+                  onClick={handleSend} 
+                  disabled={!message.trim() || loadingMessages}
+                  className={!message.trim() || loadingMessages ? 'disabled' : ''}
+                >
+                  {loadingMessages ? 'Sending...' : 'Send'}
                 </button>
               </div>
             </motion.section>
           )}
 
+          {/* Installments Section */}
           {section === 'installments' && (
             <motion.section
               key="installments"
@@ -1565,19 +2094,25 @@ const StoreDashboard = () => {
           )}
         </AnimatePresence>
 
+        {/* Delete Confirmation Modal */}
         {confirmingDeleteId && (
           <div className="modal-backdrop">
             <div className="modal-glass">
               <h4>Confirm Delete</h4>
-              <p>Are you sure you want to delete this product?</p>
+              <p>Are you sure you want to delete this product? This action cannot be undone.</p>
               <div className="modal-actions">
-                <button onClick={handleConfirmDelete} className="delete-btn">Yes, Delete</button>
-                <button onClick={cancelDelete} className="cancel-btn">Cancel</button>
+                <button onClick={handleConfirmDelete} className="delete-btn">
+                  Yes, Delete
+                </button>
+                <button onClick={cancelDelete} className="cancel-btn">
+                  Cancel
+                </button>
               </div>
             </div>
           </div>
         )}
 
+        {/* Edit Product Modal */}
         {editModalProduct && (
           <div className="modal-backdrop">
             <div className="modal-glass">
@@ -1591,54 +2126,222 @@ const StoreDashboard = () => {
                     description: form.description.value,
                     category: form.category.value,
                     price: parseFloat(form.price.value),
-                    stock: parseInt(form.stock.value),
+                    stock_quantity: parseInt(form.stock.value),
                     discount: parseFloat(form.discount.value) || 0,
                     tags: form.tags.value ? form.tags.value.split(',').map(tag => tag.trim()) : [],
                     variants: form.variants.value,
+                    warranty: form.warranty.value,
+                    return_policy: form.return_policy.value,
+                    return_policy_days: parseInt(form.return_policy_days.value) || 7,
+                    delivery_estimated_days: parseInt(form.delivery_estimated_days.value) || 3,
+                    free_delivery_threshold: parseFloat(form.free_delivery_threshold.value) || 5000,
+                    delivery_notes: form.delivery_notes.value,
+                    usage_guide: form.usage_guide.value,
+                    commission_rate: parseFloat(form.commission_rate.value) || 0.05,
                     hasBeenEdited: true
                   };
-                  const { error } = await supabase
-                    .from('products')
-                    .update(updates)
-                    .eq('id', editModalProduct.id);
-                  if (!error) {
-                    toast.success('Product updated!');
+                  
+                  try {
+                    const { error } = await supabase
+                      .from('products')
+                      .update(updates)
+                      .eq('id', editModalProduct.id);
+                    
+                    if (error) throw error;
+                    
+                    toast.success('Product updated successfully!');
                     fetchProducts();
                     setEditedProductIds((prev) => [...prev, editModalProduct.id]);
                     setEditModalProduct(null);
-                  } else {
+                  } catch (error) {
                     toast.error('Update failed!');
                     console.error('Update error:', error);
                   }
                 }}
               >
-                <input name="name" defaultValue={editModalProduct.name} required />
-                <textarea name="description" defaultValue={editModalProduct.description} required />
-                <input name="category" defaultValue={editModalProduct.category} required />
-                <input name="price" type="number" defaultValue={editModalProduct.price} required />
-                <input name="stock" type="number" defaultValue={editModalProduct.stock} required />
-                <input name="discount" type="number" defaultValue={editModalProduct.discount || 0} />
-                <input name="tags" defaultValue={editModalProduct.tags?.join(', ') || ''} />
-                <input name="variants" defaultValue={editModalProduct.variants || ''} />
+                <div className="form-group">
+                  <label>Product Name *</label>
+                  <input name="name" defaultValue={editModalProduct.name} required />
+                </div>
+                
+                <div className="form-group">
+                  <label>Description *</label>
+                  <textarea name="description" defaultValue={editModalProduct.description} required rows="3" />
+                </div>
+                
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Category *</label>
+                    <input name="category" defaultValue={editModalProduct.category} required />
+                  </div>
+                  <div className="form-group">
+                    <label>Price (Ksh) *</label>
+                    <input name="price" type="number" step="0.01" defaultValue={editModalProduct.price} required />
+                  </div>
+                </div>
+                
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Stock Quantity *</label>
+                    <input name="stock" type="number" defaultValue={editModalProduct.stock_quantity} required />
+                  </div>
+                  <div className="form-group">
+                    <label>Discount (%)</label>
+                    <input name="discount" type="number" step="0.01" defaultValue={editModalProduct.discount || 0} />
+                  </div>
+                </div>
+                
+                <div className="form-group">
+                  <label>Tags (comma separated)</label>
+                  <input name="tags" defaultValue={editModalProduct.tags?.join(', ') || ''} />
+                </div>
+                
+                <div className="form-group">
+                  <label>Variants (JSON format)</label>
+                  <textarea name="variants" defaultValue={editModalProduct.variants || ''} rows="2" />
+                </div>
+                
+                <div className="form-group">
+                  <label>Warranty</label>
+                  <select name="warranty" defaultValue={editModalProduct.warranty || ''}>
+                    <option value="">Select warranty</option>
+                    <option value="No warranty">No warranty</option>
+                    <option value="1 month">1 month</option>
+                    <option value="3 months">3 months</option>
+                    <option value="6 months">6 months</option>
+                    <option value="1 year">1 year</option>
+                    <option value="2 years">2 years</option>
+                  </select>
+                </div>
+                
+                <div className="form-group">
+                  <label>Return Policy</label>
+                  <select name="return_policy" defaultValue={editModalProduct.return_policy || ''}>
+                    <option value="">Select return policy</option>
+                    <option value="No returns">No returns</option>
+                    <option value="7 days return">7 days return</option>
+                    <option value="14 days return">14 days return</option>
+                    <option value="30 days return">30 days return</option>
+                  </select>
+                </div>
+                
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Return Policy Days</label>
+                    <input name="return_policy_days" type="number" defaultValue={editModalProduct.return_policy_days || 7} />
+                  </div>
+                  <div className="form-group">
+                    <label>Delivery Days</label>
+                    <input name="delivery_estimated_days" type="number" defaultValue={editModalProduct.delivery_estimated_days || 3} />
+                  </div>
+                </div>
+                
+                <div className="form-group">
+                  <label>Free Delivery Threshold (Ksh)</label>
+                  <input name="free_delivery_threshold" type="number" step="0.01" defaultValue={editModalProduct.free_delivery_threshold || 5000} />
+                </div>
+                
+                <div className="form-group">
+                  <label>Delivery Notes</label>
+                  <textarea name="delivery_notes" defaultValue={editModalProduct.delivery_notes || ''} rows="2" />
+                </div>
+                
+                <div className="form-group">
+                  <label>Usage Guide</label>
+                  <textarea name="usage_guide" defaultValue={editModalProduct.usage_guide || ''} rows="2" />
+                </div>
+                
+                <div className="form-group">
+                  <label>Commission Rate (%)</label>
+                  <input name="commission_rate" type="number" step="0.01" defaultValue={editModalProduct.commission_rate || 5} />
+                </div>
+                
                 <div className="modal-actions">
                   <button type="submit" className="submit-btn">Save Changes</button>
-                  <button type="button" className="cancel-btn" onClick={() => setEditModalProduct(null)}>Cancel</button>
+                  <button type="button" className="cancel-btn" onClick={() => setEditModalProduct(null)}>
+                    Cancel
+                  </button>
                 </div>
               </form>
             </div>
           </div>
         )}
+
+        {/* Installment Setup Modal */}
         {installmentModalProduct && (
-  <InstallmentSetupModal
-    product={installmentModalProduct}
-    isOpen={!!installmentModalProduct}
-    onClose={() => setInstallmentModalProduct(null)}
-    onSuccess={() => {
-      fetchProducts();
-      fetchDashboardData();
-    }}
-  />
-)}
+          <InstallmentSetupModal
+            product={installmentModalProduct}
+            isOpen={!!installmentModalProduct}
+            onClose={() => setInstallmentModalProduct(null)}
+            onSuccess={() => {
+              fetchProducts();
+              fetchDashboardData();
+              toast.success('Installment plan updated!');
+            }}
+          />
+        )}
+
+        {/* Flash Sale Modal */}
+        {flashSaleModalProduct && (
+          <div className="modal-backdrop">
+            <div className="modal-glass">
+              <h4>Request Flash Sale</h4>
+              <p>Request a flash sale for: <strong>{flashSaleModalProduct.name}</strong></p>
+              
+              <div className="form-group">
+                <label>Flash Sale Duration (Hours)</label>
+                <select 
+                  value={flashSaleDuration}
+                  onChange={(e) => setFlashSaleDuration(e.target.value)}
+                  disabled={loadingFlashSale}
+                >
+                  <option value="6">6 hours</option>
+                  <option value="12">12 hours</option>
+                  <option value="24">24 hours</option>
+                  <option value="48">48 hours</option>
+                  <option value="72">72 hours</option>
+                </select>
+              </div>
+              
+              <div className="form-group">
+                <label>Discount Percentage</label>
+                <input 
+                  type="number" 
+                  min="5" 
+                  max="70" 
+                  step="5"
+                  value={flashSaleDiscount}
+                  onChange={(e) => setFlashSaleDiscount(e.target.value)}
+                  disabled={loadingFlashSale}
+                />
+                <small>Discounts between 5-70% are recommended</small>
+              </div>
+              
+              <div className="form-group">
+                <label>Current Price: Ksh {formatPrice(flashSaleModalProduct.price)}</label>
+                <label>Flash Sale Price: Ksh {formatPrice(flashSaleModalProduct.price - (flashSaleModalProduct.price * flashSaleDiscount / 100))}</label>
+              </div>
+              
+              <div className="modal-actions">
+                <button 
+                  onClick={submitFlashSaleRequest}
+                  disabled={loadingFlashSale}
+                  className="submit-btn"
+                >
+                  {loadingFlashSale ? 'Submitting...' : 'Submit Request'}
+                </button>
+                <button 
+                  onClick={() => setFlashSaleModalProduct(null)}
+                  disabled={loadingFlashSale}
+                  className="cancel-btn"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <footer className="dashboard-footer">
           <p>© {new Date().getFullYear()} OmniFlow. All rights reserved.</p>
         </footer>

@@ -1,14 +1,14 @@
 :root {
   --light-bg: #f8fafc;
   --light-card: #ffffff;
-  --light-text: #010308; /* Darker for better contrast */
+  --light-text: #010308;
   --light-border: #eff1f3;
   --light-secondary: #165ef0;
   --dark-bg: #000207;
-  --dark-card: #020408; /* Darker for better contrast */
-  --dark-text: #f8fafc; /* Lighter text */
-  --dark-border: #0f408f; /* Better border contrast */
-  --dark-secondary: #cbd5e1; /* Lighter secondary text */
+  --dark-card: #020408;
+  --dark-text: #f8fafc;
+  --dark-border: #0f408f;
+  --dark-secondary: #cbd5e1;
   --accent: #2563eb;
   --danger: #dc2626;
   --success: #16a34a;
@@ -60,14 +60,14 @@ body {
   top: 0;
   z-index: 1000;
   box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-  color: var(--light-text); /* Add text color */
+  color: var(--light-text);
 }
 
 html.dark .dashboard-glass .mobile-header {
   background: #1a2235;
   border-color: #374151;
   box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-  color: #f7fafc; /* Lighter text */
+  color: #f7fafc;
 }
 
 .dashboard-glass .mobile-header-content {
@@ -152,52 +152,57 @@ html.dark .dashboard-glass .store-name-mobile {
   animation: pulse 2s infinite;
 }
 
-/* Navigation Tabs */
-/* Replace the existing tabs-container styles */
+/* 1. MINIMIZED NAV BAR STYLES */
 .dashboard-glass .tabs-container {
   background: var(--light-card);
-  padding: 1rem;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  padding: 0.5rem 1rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  height: 50px;
+  display: flex;
+  align-items: center;
   overflow-x: auto;
   white-space: nowrap;
   position: sticky;
   top: 0;
   z-index: 100;
-  /* Add better text contrast */
   color: var(--light-text);
 }
 
 html.dark .dashboard-glass .tabs-container {
-  background: #000205; /* Darker background for better contrast */
-  box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-  color: #e2e8f0; /* Lighter text color */
-  border-right: 1px solid #085ff7; /* Add border for separation */
+  background: #000205;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  color: #e2e8f0;
+  border-right: 1px solid #085ff7;
 }
 
 .dashboard-glass .tabs-scroll {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.3rem;
+  align-items: center;
+  width: 100%;
+  justify-content: space-between;
 }
 
 .dashboard-glass .tab-button {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.4rem;
   border: none;
   background: none;
-  font-size: 1rem;
-  color: var(--light-text); /* Ensure text uses theme color */
-  padding: 0.6rem 1.2rem;
-  border-radius: 8px;
+  font-size: 0.8rem;
+  color: var(--light-text);
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
   position: relative;
-  font-weight: 500; /* Better readability */
+  font-weight: 500;
+  height: 36px;
 }
 
 html.dark .dashboard-glass .tab-button {
-  color: #e2e8f0; /* Much lighter text for dark mode */
+  color: #e2e8f0;
 }
 
 .dashboard-glass .tab-button:hover,
@@ -207,21 +212,22 @@ html.dark .dashboard-glass .tab-button {
   font-weight: 600;
   transform: translateY(-1px);
 }
+
 .dashboard-glass .tab-icon {
-  font-size: 1rem;
+  font-size: 0.8rem;
 }
 
 .dashboard-glass .tab-label {
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   font-weight: 600;
 }
 
 .dashboard-glass .notification-dot {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 8px;
-  height: 8px;
+  top: 4px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
   background: var(--danger);
   border-radius: 50%;
   animation: pulse 2s infinite;
@@ -251,8 +257,8 @@ html.dark .dashboard-glass .tab-button {
 }
 
 html.dark .dashboard-glass .glass-main {
-  background: #000207; /* Darker background */
-  color: #f7fafc; /* Lighter text for better contrast */
+  background: #000207;
+  color: #f7fafc;
 }
 
 .dashboard-glass .glass-topbar {
@@ -313,13 +319,13 @@ html.dark .dashboard-glass .store-name {
   box-shadow: 0 4px 16px rgba(37, 100, 235, 0.63);
   margin-bottom: 2rem;
   border: 1px solid var(--light-border);
-  color: var(--light-text); /* Ensure text contrast */
+  color: var(--light-text);
 }
 
 html.dark .dashboard-glass .glass-section {
-  background: #000103; /* Slightly darker than main background */
+  background: #000103;
   border-color: #374151;
-  color: #f1f5f9; /* Lighter text */
+  color: #f1f5f9;
 }
 
 .dashboard-glass .glass-section h3 {
@@ -467,10 +473,239 @@ html.dark .dashboard-glass .stat-info-compact small {
   font-weight: 800;
 }
 
+/* Updated Grid Styles */
 .dashboard-glass .compact-product-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 0.75rem;
+  gap: 1rem;
+}
+
+/* 2. COMPACT PRODUCT CARDS FOR PRODUCTS TAB */
+.dashboard-glass .compact-products-display {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.dashboard-glass .compact-product-card-mini {
+  background: var(--light-card);
+  border: 1px solid var(--light-border);
+  border-radius: 12px;
+  padding: 0.75rem;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  height: 100%;
+}
+
+html.dark .dashboard-glass .compact-product-card-mini {
+  background: var(--dark-card);
+  border-color: var(--dark-border);
+}
+
+.dashboard-glass .compact-product-card-mini:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.dashboard-glass .compact-image-mini {
+  width: 100%;
+  height: 120px;
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+  background: var(--light-bg);
+}
+
+html.dark .dashboard-glass .compact-image-mini {
+  background: var(--dark-bg);
+}
+
+.dashboard-glass .compact-image-mini img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.dashboard-glass .compact-product-card-mini:hover .compact-image-mini img {
+  transform: scale(1.05);
+}
+
+.dashboard-glass .compact-product-badges {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  display: flex;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+
+.dashboard-glass .compact-badge {
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.dashboard-glass .compact-badge.lipa {
+  background: var(--success);
+}
+
+.dashboard-glass .compact-badge.discount {
+  background: var(--danger);
+}
+
+.dashboard-glass .compact-badge.flash {
+  background: #f59e0b;
+}
+
+.dashboard-glass .compact-product-info-mini {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.dashboard-glass .compact-product-title-mini {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--light-text);
+  margin: 0;
+  line-height: 1.2;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+html.dark .dashboard-glass .compact-product-title-mini {
+  color: var(--dark-text);
+}
+
+.dashboard-glass .compact-price-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.2rem;
+}
+
+.dashboard-glass .compact-price-mini {
+  font-size: 1rem;
+  font-weight: 900;
+  color: green;
+}
+
+.dashboard-glass .compact-original-price {
+  font-size: 0.75rem;
+  color: red;
+  text-decoration: line-through;
+  margin-right: 0.5rem;
+}
+
+.dashboard-glass .compact-stock-mini {
+  font-size: 0.7rem;
+  color: var(--light-secondary);
+  font-weight: 600;
+  padding: 0.2rem 0.5rem;
+  background: var(--light-bg);
+  border-radius: 4px;
+  display: inline-block;
+}
+
+html.dark .dashboard-glass .compact-stock-mini {
+  background: var(--dark-bg);
+  color: var(--dark-secondary);
+}
+
+.dashboard-glass .compact-product-meta-mini {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.dashboard-glass .compact-meta-item {
+  font-size: 0.7rem;
+  color: var(--light-secondary);
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+html.dark .dashboard-glass .compact-meta-item {
+  color: var(--dark-secondary);
+}
+
+.dashboard-glass .compact-meta-item strong {
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.dashboard-glass .compact-product-actions-mini {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.dashboard-glass .compact-action-btn {
+  padding: 0.4rem 0.6rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex: 1;
+  justify-content: center;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.dashboard-glass .compact-edit-btn {
+  background: var(--accent);
+  color: white;
+}
+
+.dashboard-glass .compact-flash-btn {
+  background: #f59e0b;
+  color: white;
+}
+
+.dashboard-glass .compact-delete-btn {
+  background: var(--danger);
+  color: white;
+}
+
+.dashboard-glass .compact-action-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+
+.dashboard-glass .products-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.dashboard-glass .orders-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
 }
 
 .dashboard-glass .compact-product-card {
@@ -486,17 +721,29 @@ html.dark .dashboard-glass .stat-info-compact small {
   box-shadow: 0 4px 12px rgba(37, 100, 235, 0.521);
 }
 
-html.dark .dashboard-glass .compact-product-card {
+.dashboard-glass .product-card {
+  background: var(--light-card);
+  border: 1px solid var(--light-border);
+  border-radius: 16px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(37, 100, 235, 0.1);
+}
+
+html.dark .dashboard-glass .compact-product-card,
+html.dark .dashboard-glass .product-card {
   background: var(--dark-card);
   border-color: var(--dark-border);
 }
 
-.dashboard-glass .compact-product-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.87);
+.dashboard-glass .compact-product-card:hover,
+.dashboard-glass .product-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
 }
 
-.dashboard-glass .compact-image-container {
+.dashboard-glass .compact-image-container,
+.dashboard-glass .product-image-container {
   position: relative;
   width: 100%;
   aspect-ratio: 1 / 1;
@@ -506,19 +753,22 @@ html.dark .dashboard-glass .compact-product-card {
   border: 1px solid var(--light-border);
 }
 
-html.dark .dashboard-glass .compact-image-container {
+html.dark .dashboard-glass .compact-image-container,
+html.dark .dashboard-glass .product-image-container {
   background: var(--dark-bg);
   border-color: var(--dark-border);
 }
 
-.dashboard-glass .compact-product-image {
+.dashboard-glass .compact-product-image,
+.dashboard-glass .product-image {
   width: 100%;
   height: 100%;
   object-fit: cover;
   transition: transform 0.3s ease;
 }
 
-.dashboard-glass .compact-product-card:hover .compact-product-image {
+.dashboard-glass .compact-product-card:hover .compact-product-image,
+.dashboard-glass .product-card:hover .product-image {
   transform: scale(1.05);
 }
 
@@ -533,26 +783,41 @@ html.dark .dashboard-glass .compact-image-container {
   padding: 0 10px;
 }
 
-.dashboard-glass .compact-image-nav-btn {
+.dashboard-glass .image-navigation {
+  position: absolute;
+  bottom: 10px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 10px;
+}
+
+.dashboard-glass .compact-image-nav-btn,
+.dashboard-glass .image-nav-btn {
   background: rgba(0, 0, 0, 0.8);
   color: white;
   border: none;
   border-radius: 50%;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   transition: all 0.3s ease;
 }
 
-.dashboard-glass .compact-image-nav-btn:hover:not(:disabled) {
+.dashboard-glass .compact-image-nav-btn:hover:not(:disabled),
+.dashboard-glass .image-nav-btn:hover:not(:disabled) {
   background: rgba(0, 0, 0, 0.9);
+  transform: scale(1.1);
 }
 
-.dashboard-glass .compact-image-nav-btn:disabled {
+.dashboard-glass .compact-image-nav-btn:disabled,
+.dashboard-glass .image-nav-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
@@ -575,12 +840,14 @@ html.dark .dashboard-glass .compact-image-container {
   transform: scale(1.2);
 }
 
-.dashboard-glass .compact-lipa-badge {
+.dashboard-glass .compact-lipa-badge,
+.dashboard-glass .product-lipa-badge,
+.dashboard-glass .product-discount-badge,
+.dashboard-glass .product-flash-badge {
   position: absolute;
   top: 10px;
   right: 10px;
-  background: var(--success);
-  color: white;
+  color: rgb(7, 243, 26);
   padding: 0.3rem 0.6rem;
   border-radius: 8px;
   font-size: 0.7rem;
@@ -592,16 +859,35 @@ html.dark .dashboard-glass .compact-image-container {
   text-transform: uppercase;
 }
 
-.dashboard-glass .compact-product-info {
-  text-align: center;
-  flex: 1;
+.dashboard-glass .compact-lipa-badge,
+.dashboard-glass .product-lipa-badge {
+  background: var(--success);
+  left: 10px;
+  right: auto;
+}
+
+.dashboard-glass .product-discount-badge {
+  background: var(--danger);
+  right: 10px;
+}
+
+.dashboard-glass .product-flash-badge {
+  background: #f59e0b;
+  right: 10px;
+  top: 45px;
+}
+
+.dashboard-glass .compact-product-info,
+.dashboard-glass .product-info {
+  padding: 1rem;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
 }
 
-.dashboard-glass .compact-product-title {
-  font-size: 0.9rem;
+.dashboard-glass .compact-product-title,
+.dashboard-glass .product-title {
+  font-size: 1rem;
   font-weight: 800;
   margin: 0;
   line-height: 1.2;
@@ -612,7 +898,8 @@ html.dark .dashboard-glass .compact-image-container {
   color: var(--light-text);
 }
 
-html.dark .dashboard-glass .compact-product-title {
+html.dark .dashboard-glass .compact-product-title,
+html.dark .dashboard-glass .product-title {
   color: var(--dark-text);
 }
 
@@ -623,15 +910,36 @@ html.dark .dashboard-glass .compact-product-title {
   margin: 0;
 }
 
-.dashboard-glass .compact-product-meta {
+.dashboard-glass .price-section {
   display: flex;
-  justify-content: space-between;
-  font-size: 0.75rem;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dashboard-glass .current-price {
+  font-size: 1.2rem;
+  font-weight: 900;
+  color: greenyellow;
+}
+
+.dashboard-glass .original-price {
+  font-size: 0.9rem;
+  color: red;
+  text-decoration: line-through;
+}
+
+.dashboard-glass .compact-product-meta,
+.dashboard-glass .product-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.85rem;
   color: var(--light-secondary);
   font-weight: 600;
 }
 
-html.dark .dashboard-glass .compact-product-meta {
+html.dark .dashboard-glass .compact-product-meta,
+html.dark .dashboard-glass .product-meta {
   color: var(--dark-secondary);
 }
 
@@ -641,6 +949,108 @@ html.dark .dashboard-glass .compact-product-meta {
   background: rgba(4, 247, 77, 0.918);
   padding: 0.2rem 0.4rem;
   border-radius: 6px;
+  display: inline-block;
+}
+
+.dashboard-glass .product-variants {
+  font-size: 0.85rem;
+  color: goldenrod;
+  padding: 0.5rem;
+  background: rgba(0,0,0,0.05);
+  border-radius: 8px;
+  margin-top: 0.5rem;
+}
+
+.dashboard-glass .product-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--light-secondary);
+  padding: 0.5rem;
+  background: rgba(0,0,0,0.02);
+  border-radius: 8px;
+  margin-top: 0.5rem;
+}
+
+/* Product Actions */
+.dashboard-glass .compact-product-actions,
+.dashboard-glass .product-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.dashboard-glass .edit-delivery-btn,
+.dashboard-glass .flash-sale-btn,
+.dashboard-glass .installment-btn,
+.dashboard-glass .edit-btn,
+.dashboard-glass .delete-btn {
+  padding: 0.6rem 1rem;
+  border: none;
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.dashboard-glass .edit-delivery-btn {
+  background: var(--accent);
+  color: white;
+}
+
+.dashboard-glass .flash-sale-btn {
+  background: #f59e0b;
+  color: white;
+}
+
+.dashboard-glass .installment-btn {
+  background: #8b5cf6;
+  color: white;
+}
+
+.dashboard-glass .edit-btn {
+  background: var(--accent);
+  color: white;
+}
+
+.dashboard-glass .delete-btn {
+  background: var(--danger);
+  color: white;
+}
+
+.dashboard-glass .edit-delivery-btn:hover,
+.dashboard-glass .flash-sale-btn:hover,
+.dashboard-glass .installment-btn:hover,
+.dashboard-glass .edit-btn:hover,
+.dashboard-glass .delete-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.dashboard-glass .edit-delivery-btn:hover {
+  background: #1d4ed8;
+}
+
+.dashboard-glass .flash-sale-btn:hover {
+  background: #d97706;
+}
+
+.dashboard-glass .installment-btn:hover {
+  background: #7c3aed;
+}
+
+.dashboard-glass .edit-btn:hover {
+  background: #1d4ed8;
+}
+
+.dashboard-glass .delete-btn:hover {
+  background: #b91c1c;
 }
 
 /* Required Info Form Styles */
@@ -1042,144 +1452,341 @@ html.dark .dashboard-glass .metric-label {
   color: green;
 }
 
-/* Products Grid Compact */
-.dashboard-glass .products-grid-compact {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
-}
-
-.dashboard-glass .product-card-compact {
-  background: var(--light-card);
+/* 3. PREMIUM ORDER CARDS */
+.dashboard-glass .premium-order-card {
+  background: linear-gradient(135deg, var(--light-card), rgba(37, 99, 235, 0.03));
   border: 1px solid var(--light-border);
-  border-radius: 14px;
-  overflow: hidden;
+  border-radius: 16px;
+  padding: 1.5rem;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(37, 100, 235, 0.671);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.05);
   position: relative;
+  overflow: hidden;
 }
 
-html.dark .dashboard-glass .product-card-compact {
+html.dark .dashboard-glass .premium-order-card {
+  background: linear-gradient(135deg, var(--dark-card), rgba(37, 99, 235, 0.05));
+  border-color: var(--dark-border);
+}
+
+.dashboard-glass .premium-order-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--accent), #8b5cf6);
+}
+
+.dashboard-glass .premium-order-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 30px rgba(37, 99, 235, 0.15);
+}
+
+.dashboard-glass .premium-order-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--light-border);
+}
+
+.dashboard-glass .premium-order-id {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.dashboard-glass .premium-order-id-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: blue;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+html.dark .dashboard-glass .premium-order-id-label {
+  color: purple;
+}
+
+.dashboard-glass .premium-order-id-value {
+  font-size: 1.1rem;
+  font-weight: 900;
+  color: burlywood;
+  font-family: 'Courier New', monospace;
+}
+
+.dashboard-glass .premium-order-status {
+  padding: 0.6rem 1.2rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: black;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.dashboard-glass .premium-order-status::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0));
+  z-index: 1;
+}
+
+.dashboard-glass .premium-order-status.status-pending {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.dashboard-glass .premium-order-status.status-processing {
+  background: linear-gradient(135deg, var(--accent), #1d4ed8);
+}
+
+.dashboard-glass .premium-order-status.status-shipped {
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+}
+
+.dashboard-glass .premium-order-status.status-out-for-delivery {
+  background: linear-gradient(135deg, #10b981, #059669);
+}
+
+.dashboard-glass .premium-order-status.status-delivered {
+  background: linear-gradient(135deg, #10b981, #047857);
+}
+
+.dashboard-glass .premium-order-date {
+  font-size: 0.8rem;
+  color: var(--light-secondary);
+  font-weight: 600;
+  margin-top: 0.5rem;
+}
+
+.dashboard-glass .premium-order-body {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1.5rem;
+}
+
+.dashboard-glass .premium-product-section {
+  background: rgba(37, 99, 235, 0.02);
+  padding: 1.2rem;
+  border-radius: 12px;
+  border: 1px solid var(--light-border);
+}
+
+.dashboard-glass .premium-product-name {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: peru;
+  margin: 0 0 0.8rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+html.dark .dashboard-glass .premium-product-name {
+  color: var(--dark-text);
+}
+
+.dashboard-glass .premium-product-details {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.dashboard-glass .premium-detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.dashboard-glass .premium-detail-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--light-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+html.dark .dashboard-glass .premium-detail-label {
+  color: var(--dark-secondary);
+}
+
+.dashboard-glass .premium-detail-value {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--light-text);
+}
+
+html.dark .dashboard-glass .premium-detail-value {
+  color: var(--dark-text);
+}
+
+.dashboard-glass .premium-detail-value.price {
+  color: green;
+}
+
+.dashboard-glass .premium-detail-value.quantity {
+  color: #8b5cf6;
+}
+
+.dashboard-glass .premium-info-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.dashboard-glass .premium-buyer-info,
+.dashboard-glass .premium-payment-info {
+  background: var(--light-card);
+  padding: 1.2rem;
+  border-radius: 12px;
+  border: 1px solid var(--light-border);
+}
+
+html.dark .dashboard-glass .premium-buyer-info,
+html.dark .dashboard-glass .premium-payment-info {
   background: var(--dark-card);
   border-color: var(--dark-border);
 }
 
-.dashboard-glass .product-card-compact:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 25px rgba(160, 6, 6, 0.596);
-}
-
-.dashboard-glass .product-image-compact {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  overflow: hidden;
-  background: var(--light-bg);
-}
-
-html.dark .dashboard-glass .product-image-compact {
-  background: var(--dark-bg);
-}
-
-.dashboard-glass .product-image-compact img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.dashboard-glass .product-lipa-badge {
-  position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
-  background: var(--success);
-  color: white;
-  padding: 0.3rem 0.6rem;
-  border-radius: 8px;
-  font-size: 0.7rem;
+.dashboard-glass .premium-section-title {
+  font-size: 0.85rem;
   font-weight: 800;
+  color: blueviolet;
+  margin: 0 0 0.8rem 0;
   display: flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.5rem;
   text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
-.dashboard-glass .product-info-compact {
-  padding: 0.75rem;
+.dashboard-glass .premium-info-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
 }
 
-.dashboard-glass .product-title-compact {
-  font-size: 0.9rem;
-  font-weight: 800;
-  margin: 0 0 0.5rem 0;
-  line-height: 1.2;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  color: var(--light-text);
-}
-
-html.dark .dashboard-glass .product-title-compact {
-  color: var(--dark-text);
-}
-
-.dashboard-glass .product-price-compact {
-  font-size: 1rem;
-  font-weight: 900;
-  color: var(--accent);
-  margin: 0 0 0.5rem 0;
-}
-
-.dashboard-glass .product-meta-compact {
+.dashboard-glass .premium-info-item {
   display: flex;
   justify-content: space-between;
-  font-size: 0.75rem;
-  color: var(--light-secondary);
-  font-weight: 600;
-  margin-bottom: 0.75rem;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--light-border);
 }
 
-html.dark .dashboard-glass .product-meta-compact {
+.dashboard-glass .premium-info-item:last-child {
+  border-bottom: none;
+}
+
+.dashboard-glass .premium-info-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--light-secondary);
+}
+
+html.dark .dashboard-glass .premium-info-label {
   color: var(--dark-secondary);
 }
 
-.dashboard-glass .product-actions-compact {
-  display: flex;
-  gap: 0.5rem;
+.dashboard-glass .premium-info-value {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--light-text);
 }
 
-.dashboard-glass .edit-btn-compact,
-.dashboard-glass .delete-btn-compact {
-  flex: 1;
-  padding: 0.6rem;
+html.dark .dashboard-glass .premium-info-value {
+  color: var(--dark-text);
+}
+
+.dashboard-glass .premium-total-row {
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.1), rgba(139, 92, 246, 0.1));
+  padding: 0.8rem 1rem;
   border-radius: 8px;
+  margin-top: 0.5rem;
+  border: 1px solid rgba(37, 99, 235, 0.2);
+}
+
+.dashboard-glass .premium-total-row .premium-info-label {
+  color: blue;
+  font-size: 0.9rem;
+}
+
+.dashboard-glass .premium-total-row .premium-info-value {
+  color: green;
+  font-size: 1.1rem;
+}
+
+.dashboard-glass .premium-order-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  justify-content: flex-end;
+}
+
+.dashboard-glass .premium-status-btn {
+  padding: 0.75rem 1.5rem;
   border: none;
-  font-weight: 700;
+  border-radius: 10px;
+  font-weight: 800;
+  font-size: 0.85rem;
   cursor: pointer;
-  font-size: 0.75rem;
   transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   text-transform: uppercase;
+  letter-spacing: 0.3px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
 }
 
-.dashboard-glass .edit-btn-compact {
-  background: var(--accent);
-  color: white;
+.dashboard-glass .premium-status-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  transition: left 0.6s;
 }
 
-.dashboard-glass .edit-btn-compact:hover {
-  background: #1d4ed8;
-  transform: translateY(-1px);
+.dashboard-glass .premium-status-btn:hover::before {
+  left: 100%;
 }
 
-.dashboard-glass .delete-btn-compact {
-  background: var(--danger);
-  color: white;
+.dashboard-glass .premium-status-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3);
 }
 
-.dashboard-glass .delete-btn-compact:hover {
-  background: #b91c1c;
-  transform: translateY(-1px);
+.dashboard-glass .premium-status-btn.update {
+  background: linear-gradient(135deg, var(--accent), #1d4ed8);
+  color: rgb(26, 219, 20);
+}
+
+.dashboard-glass .premium-status-btn.update:hover {
+  background: linear-gradient(135deg, #1d4ed8, var(--accent));
+}
+
+.dashboard-glass .premium-status-btn.completed {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: rgb(142, 11, 250);
+}
+
+.dashboard-glass .premium-status-btn.completed:hover {
+  background: linear-gradient(135deg, #059669, #10b981);
 }
 
 /* Lipa Products */
@@ -1192,177 +1799,84 @@ html.dark .dashboard-glass .lipa-product {
   background: linear-gradient(135deg, var(--dark-card), rgba(139, 92, 246, 0.1));
 }
 
-.dashboard-glass .lipa-details-compact {
-  margin: 0.5rem 0;
+.dashboard-glass .lipa-details {
+  margin: 1rem 0;
 }
 
-.dashboard-glass .installment-plan-compact {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.7rem;
-  color: var(--light-secondary);
-  font-weight: 600;
+.dashboard-glass .installment-plan {
   background: rgba(139, 92, 246, 0.1);
-  padding: 0.5rem;
-  border-radius: 6px;
-}
-
-html.dark .dashboard-glass .installment-plan-compact {
-  color: var(--dark-secondary);
-}
-
-/* Orders Grid Compact */
-.dashboard-glass .orders-grid-compact {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0.75rem;
-}
-
-.dashboard-glass .order-card-compact {
-  background: var(--light-card);
-  border: 1px solid var(--light-border);
-  border-radius: 14px;
   padding: 1rem;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
-  position: relative;
-  overflow: hidden;
+  border-radius: 10px;
+  margin-top: 0.5rem;
 }
 
-html.dark .dashboard-glass .order-card-compact {
-  background: var(--dark-card);
-  border-color: var(--dark-border);
-}
-
-.dashboard-glass .order-card-compact::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: var(--accent);
-}
-
-.dashboard-glass .order-card-compact:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-}
-
-.dashboard-glass .order-header-compact {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 0.75rem;
-}
-
-.dashboard-glass .order-info h4 {
+.dashboard-glass .installment-plan h5 {
+  margin: 0 0 0.5rem 0;
+  color: var(--accent);
   font-size: 0.9rem;
-  font-weight: 800;
-  margin: 0 0 0.25rem 0;
-  color: var(--light-text);
-  line-height: 1.2;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 
-html.dark .dashboard-glass .order-info h4 {
-  color: var(--dark-text);
+.dashboard-glass .installment-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
-.dashboard-glass .order-date {
-  font-size: 0.7rem;
-  color: var(--light-secondary);
-  font-weight: 600;
-}
-
-html.dark .dashboard-glass .order-date {
-  color: var(--dark-secondary);
-}
-
-.dashboard-glass .order-status {
-  padding: 0.3rem 0.6rem;
-  border-radius: 8px;
-  font-size: 0.7rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-
-.dashboard-glass .status-pending {
-  background: var(--warning);
-  color: white;
-}
-
-.dashboard-glass .status-processing {
-  background: var(--accent);
-  color: white;
-}
-
-.dashboard-glass .status-shipped {
-  background: #8b5cf6;
-  color: white;
-}
-
-.dashboard-glass .status-out-for-delivery {
-  background: lightgreen;
-  color: white;
-}
-
-.dashboard-glass .status-delivered {
-  background: var(--success);
-  color: white;
-}
-
-.dashboard-glass .order-details-compact {
-  margin-bottom: 0.75rem;
-}
-
-.dashboard-glass .detail-item {
+.dashboard-glass .installment-step {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.4rem;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
 }
 
-.dashboard-glass .detail-item .label {
+.dashboard-glass .step-label {
   color: var(--light-secondary);
   font-weight: 600;
 }
 
-html.dark .dashboard-glass .detail-item .label {
+html.dark .dashboard-glass .step-label {
   color: var(--dark-secondary);
 }
 
-.dashboard-glass .detail-item .value {
-  color: var(--light-text);
+.dashboard-glass .step-value {
+  color: var(--accent);
   font-weight: 700;
 }
 
-html.dark .dashboard-glass .detail-item .value {
-  color: var(--dark-text);
+/* Section Header with Actions */
+.dashboard-glass .section-header-with-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
 }
 
-.dashboard-glass .status-update-btn-compact {
-  width: 100%;
-  padding: 0.75rem;
-  border: none;
-  border-radius: 10px;
-  background: var(--accent);
+.dashboard-glass .section-title-with-notification {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.dashboard-glass .new-order-badge {
+  background: var(--danger);
   color: white;
-  font-weight: 700;
+  padding: 0.4rem 0.8rem;
+  border-radius: 20px;
   font-size: 0.8rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  text-transform: uppercase;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
-.dashboard-glass .status-update-btn-compact:hover {
-  background: #1d4ed8;
-  transform: translateY(-1px);
+.dashboard-glass .badge-dot {
+  width: 8px;
+  height: 8px;
+  background: white;
+  border-radius: 50%;
+  animation: pulse 2s infinite;
 }
 
 .dashboard-glass .order-filters {
@@ -1405,22 +1919,6 @@ html.dark .dashboard-glass .filter-btn {
 
 html.dark .dashboard-glass .filter-btn:hover:not(.active) {
   background: var(--dark-bg);
-}
-
-/* Section Header with Actions */
-.dashboard-glass .section-header-with-actions {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.5rem;
-  flex-wrap: wrap;
-  gap: 1rem;
-}
-
-.dashboard-glass .section-title-with-notification {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
 }
 
 .dashboard-glass .generate-receipt-btn {
@@ -1474,7 +1972,7 @@ html.dark .dashboard-glass .payments-table-container {
   text-align: left;
   font-weight: 700;
   font-size: 0.8rem;
-  color: var(--light-text); /* Better contrast */
+  color: var(--light-text);
   border-bottom: 2px solid var(--light-border);
   text-transform: uppercase;
 }
@@ -1482,8 +1980,9 @@ html.dark .dashboard-glass .payments-table-container {
 html.dark .dashboard-glass .payments-table th {
   background: rgb(232, 185, 35);
   border-color: #4b5563;
-  color: #e2e8f0; /* Lighter text */
+  color: #e2e8f0;
 }
+
 .dashboard-glass .payments-table td {
   padding: 1rem;
   border-bottom: 1px solid var(--light-border);
@@ -1598,7 +2097,7 @@ html.dark .dashboard-glass .reference {
   height: 60vh;
 }
 
-.dashboard-glass .chat-window-enhanced {
+.dashboard-glass .chat-window {
   flex: 1;
   overflow-y: auto;
   padding: 1.5rem;
@@ -1611,12 +2110,12 @@ html.dark .dashboard-glass .reference {
   border: 1px solid var(--light-border);
 }
 
-html.dark .dashboard-glass .chat-window-enhanced {
+html.dark .dashboard-glass .chat-window {
   background: var(--dark-bg);
   border-color: var(--dark-border);
 }
 
-.dashboard-glass .chat-bubble-enhanced {
+.dashboard-glass .chat-bubble {
   padding: 1rem 1.2rem;
   border-radius: 16px;
   max-width: 85%;
@@ -1644,21 +2143,16 @@ html.dark .dashboard-glass .chat-window-enhanced {
   align-self: flex-end;
 }
 
-.dashboard-glass .bubble-user {
+.dashboard-glass .bubble-support {
   background: var(--light-card);
   color: var(--light-text);
   border: 1px solid var(--light-border);
 }
 
-html.dark .dashboard-glass .bubble-user {
+html.dark .dashboard-glass .bubble-support {
   background: var(--dark-card);
   color: var(--dark-text);
   border-color: var(--dark-border);
-}
-
-.dashboard-glass .bubble-admin {
-  background: #8b5cf6;
-  color: white;
 }
 
 .dashboard-glass .chat-meta {
@@ -1669,25 +2163,18 @@ html.dark .dashboard-glass .bubble-user {
   margin-bottom: 0.6rem;
 }
 
-.dashboard-glass .bubble-user .chat-meta {
+.dashboard-glass .bubble-support .chat-meta {
   color: var(--light-secondary);
 }
 
-html.dark .dashboard-glass .bubble-user .chat-meta {
+html.dark .dashboard-glass .bubble-support .chat-meta {
   color: var(--dark-secondary);
 }
 
-.dashboard-glass .chat-badge {
+.dashboard-glass .chat-sender {
   font-weight: 800;
   text-transform: uppercase;
   font-size: 0.7rem;
-  padding: 0.2rem 0.5rem;
-  border-radius: 6px;
-  background: rgba(255,255,255,0.2);
-}
-
-.dashboard-glass .bubble-user .chat-badge {
-  background: rgba(0,0,0,0.1);
 }
 
 .dashboard-glass .timestamp {
@@ -1700,6 +2187,20 @@ html.dark .dashboard-glass .bubble-user .chat-meta {
   font-size: 0.9rem;
   line-height: 1.3;
   font-weight: 500;
+}
+
+.dashboard-glass .empty-chat {
+  text-align: center;
+  padding: 3rem 2rem;
+  color: var(--light-secondary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+html.dark .dashboard-glass .empty-chat {
+  color: var(--dark-secondary);
 }
 
 .dashboard-glass .chat-input-box {
@@ -1740,9 +2241,14 @@ html.dark .dashboard-glass .chat-input-box input {
   text-transform: uppercase;
 }
 
-.dashboard-glass .chat-input-box button:hover {
+.dashboard-glass .chat-input-box button:hover:not(.disabled) {
   background: #1d4ed8;
   transform: translateY(-1px);
+}
+
+.dashboard-glass .chat-input-box button.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* Add Product Section */
@@ -1783,7 +2289,7 @@ html.dark .dashboard-glass .glass-form textarea,
 html.dark .dashboard-glass .glass-form select {
   background: #0460f5;
   border-color: #1164d8;
-  color: #f7fafc; /* Ensure input text is visible */
+  color: #f7fafc;
 }
 
 html.dark .dashboard-glass .glass-form input,
@@ -1794,15 +2300,108 @@ html.dark .dashboard-glass .glass-form select {
   color: var(--dark-text);
 }
 
-.dashboard-glass .form-row-compact {
+.dashboard-glass .glass-form input:focus,
+.dashboard-glass .glass-form textarea:focus,
+.dashboard-glass .glass-form select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.dashboard-glass .glass-form label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: var(--light-text);
+}
+
+html.dark .dashboard-glass .glass-form label {
+  color: var(--dark-text);
+}
+
+.dashboard-glass .form-group {
+  margin-bottom: 1.5rem;
+}
+
+.dashboard-glass .form-row {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 0.75rem;
+  gap: 1rem;
   margin-bottom: 1rem;
+}
+
+.dashboard-glass .upload-progress {
+  margin-bottom: 1.5rem;
+}
+
+.dashboard-glass .progress-bar {
+  height: 6px;
+  background: var(--light-border);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.dashboard-glass .progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.dashboard-glass .upload-status {
+  margin-bottom: 1.5rem;
+}
+
+.dashboard-glass .upload-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  background: var(--light-card);
+  border: 1px solid var(--light-border);
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.dashboard-glass .upload-item.completed {
+  border-color: var(--success);
+  background: rgba(22, 163, 74, 0.05);
+}
+
+.dashboard-glass .upload-item.failed {
+  border-color: var(--danger);
+  background: rgba(220, 38, 38, 0.05);
+}
+
+.dashboard-glass .status-badge {
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.dashboard-glass .upload-item.completed .status-badge {
+  background: var(--success);
+  color: white;
+}
+
+.dashboard-glass .upload-item.failed .status-badge {
+  background: var(--danger);
+  color: white;
+}
+
+.dashboard-glass .error-text {
+  color: var(--danger);
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
 }
 
 .dashboard-glass .lipa-toggle {
   margin-top: 1rem;
+  margin-bottom: 1.5rem;
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -1813,7 +2412,7 @@ html.dark .dashboard-glass .glass-form select {
   border: 1px solid rgba(37, 99, 235, 0.1);
 }
 
-.dashboard-glass .lipa-toggle label {
+.dashboard-glass .toggle-label {
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -1822,6 +2421,14 @@ html.dark .dashboard-glass .glass-form select {
   font-size: 0.9rem;
   color: var(--accent);
   font-weight: 700;
+}
+
+.dashboard-glass .toggle-text {
+  margin: 0;
+}
+
+.dashboard-glass .dropzone-section {
+  margin-bottom: 1.5rem;
 }
 
 .dashboard-glass .dropzone-glass {
@@ -1847,6 +2454,53 @@ html.dark .dashboard-glass .dropzone-glass {
   background: rgba(37, 99, 235, 0.05);
 }
 
+.dashboard-glass .dropzone-glass p {
+  margin: 0.5rem 0;
+  font-weight: 600;
+}
+
+.dashboard-glass .dropzone-glass small {
+  color: var(--light-secondary);
+}
+
+.dashboard-glass .uploaded-files {
+  margin-top: 1rem;
+}
+
+.dashboard-glass .file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.dashboard-glass .file-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem;
+  background: var(--light-bg);
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+html.dark .dashboard-glass .file-item {
+  background: var(--dark-bg);
+}
+
+.dashboard-glass .remove-file-btn {
+  background: none;
+  border: none;
+  color: var(--danger);
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+}
+
+.dashboard-glass .remove-file-btn:hover {
+  background: rgba(220, 38, 38, 0.1);
+}
+
 .dashboard-glass .submit-btn {
   padding: 0.75rem 2rem;
   border: none;
@@ -1865,9 +2519,27 @@ html.dark .dashboard-glass .dropzone-glass {
   text-transform: uppercase;
 }
 
-.dashboard-glass .submit-btn:hover {
+.dashboard-glass .submit-btn:hover:not(:disabled) {
   background: #15803d;
   transform: translateY(-1px);
+}
+
+.dashboard-glass .submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.dashboard-glass .loading-spinner-small {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 /* Modal Styles */
@@ -1912,6 +2584,11 @@ html.dark .dashboard-glass .modal-glass {
   text-transform: uppercase;
 }
 
+.dashboard-glass .modal-glass p {
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+}
+
 .dashboard-glass .modal-actions {
   display: flex;
   justify-content: center;
@@ -1937,7 +2614,144 @@ html.dark .dashboard-glass .modal-glass {
   transform: translateY(-1px);
 }
 
+/* Tutorial Modal */
+.dashboard-glass .tutorial-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1001;
+  padding: 1rem;
+  backdrop-filter: blur(10px);
+}
+
+.dashboard-glass .tutorial-content {
+  background: var(--light-card);
+  color: var(--light-text);
+  padding: 2rem;
+  border-radius: 20px;
+  width: 100%;
+  max-width: 600px;
+  border: 1px solid var(--light-border);
+  box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+  position: relative;
+}
+
+html.dark .dashboard-glass .tutorial-content {
+  background: var(--dark-card);
+  color: var(--dark-text);
+  border-color: var(--dark-border);
+}
+
+.dashboard-glass .tutorial-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.dashboard-glass .tutorial-header h2 {
+  margin: 0;
+  color: var(--accent);
+  font-size: 1.5rem;
+}
+
+.dashboard-glass .tutorial-close {
+  background: none;
+  border: none;
+  color: var(--light-secondary);
+  cursor: pointer;
+  font-size: 1.2rem;
+  transition: all 0.3s ease;
+}
+
+.dashboard-glass .tutorial-close:hover {
+  color: var(--accent);
+  transform: rotate(90deg);
+}
+
+.dashboard-glass .tutorial-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.dashboard-glass .tutorial-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.dashboard-glass .step-icon {
+  font-size: 2rem;
+  flex-shrink: 0;
+}
+
+.dashboard-glass .step-content h3 {
+  margin: 0 0 0.5rem 0;
+  color: var(--light-text);
+  font-size: 1.1rem;
+}
+
+html.dark .dashboard-glass .step-content h3 {
+  color: var(--dark-text);
+}
+
+.dashboard-glass .step-content p {
+  margin: 0;
+  color: var(--light-secondary);
+  line-height: 1.6;
+}
+
+html.dark .dashboard-glass .step-content p {
+  color: var(--dark-secondary);
+}
+
+.dashboard-glass .tutorial-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.dashboard-glass .tutorial-start-btn {
+  background: var(--accent);
+  color: white;
+  border: none;
+  padding: 1rem 2rem;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.dashboard-glass .tutorial-start-btn:hover {
+  background: #1d4ed8;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(37, 99, 235, 0.3);
+}
+
 /* Loading and Empty States */
+.dashboard-glass .loading-container {
+  text-align: center;
+  padding: 3rem 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.dashboard-glass .loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--light-border);
+  border-radius: 50%;
+  border-top-color: var(--accent);
+  animation: spin 1s linear infinite;
+}
+
 .dashboard-glass .loading-text {
   text-align: center;
   padding: 2rem;
@@ -1992,11 +2806,11 @@ html.dark .dashboard-glass .empty-state {
 .dashboard-glass .dashboard-footer {
   text-align: center;
   margin-top: 3rem;
-  color: var(--accent);
+  color: goldenrod;
   font-size: 0.9rem;
   padding: 2rem;
   border-top: 1px solid var(--light-border);
-  background: var(--light-card);
+  background: goldenrod;
   font-weight: 700;
 }
 
@@ -2018,6 +2832,33 @@ html.dark .dashboard-glass .dashboard-footer {
   100% {
     transform: scale(1);
     opacity: 1;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Responsive adjustments for premium order cards */
+@media (max-width: 768px) {
+  .dashboard-glass .premium-order-body {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .dashboard-glass .premium-product-details {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .dashboard-glass .premium-order-actions {
+    flex-direction: column;
+  }
+  
+  .dashboard-glass .premium-status-btn {
+    width: 100%;
+    justify-content: center;
   }
 }
 
@@ -2113,15 +2954,20 @@ html.dark .dashboard-glass .dashboard-footer {
     font-size: 0.7rem;
   }
 
-  .dashboard-glass .products-grid-compact,
-  .dashboard-glass .orders-grid-compact {
+  .dashboard-glass .products-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+
+  .dashboard-glass .compact-products-display,
+  .dashboard-glass .compact-product-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 0.5rem;
   }
 
-  .dashboard-glass .product-info-compact,
-  .dashboard-glass .order-card-compact {
-    padding: 0.75rem;
+  .dashboard-glass .product-info,
+  .dashboard-glass .order-card {
+    padding: 1rem;
   }
 
   .dashboard-glass .section-header-with-actions {
@@ -2145,9 +2991,14 @@ html.dark .dashboard-glass .dashboard-footer {
     gap: 0.75rem;
   }
 
-  .dashboard-glass .form-row-compact {
+  .dashboard-glass .form-row {
     grid-template-columns: 1fr;
     gap: 0.75rem;
+  }
+
+  .dashboard-glass .info-grid,
+  .dashboard-glass .payment-grid {
+    grid-template-columns: 1fr;
   }
 
   .dashboard-glass .payments-table {
@@ -2163,7 +3014,8 @@ html.dark .dashboard-glass .dashboard-footer {
     height: 50vh;
   }
 
-  .dashboard-glass .modal-glass {
+  .dashboard-glass .modal-glass,
+  .dashboard-glass .tutorial-content {
     padding: 1.5rem;
     margin: 1rem;
   }
@@ -2175,8 +3027,9 @@ html.dark .dashboard-glass .dashboard-footer {
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .dashboard-glass .products-grid-compact,
-  .dashboard-glass .orders-grid-compact {
+  .dashboard-glass .products-grid,
+  .dashboard-glass .compact-products-display,
+  .dashboard-glass .compact-product-grid {
     grid-template-columns: 1fr;
   }
 
@@ -2199,8 +3052,33 @@ html.dark .dashboard-glass .dashboard-footer {
     order: 3;
   }
 
-  .dashboard-glass .compact-product-grid {
-    grid-template-columns: 1fr;
+  .dashboard-glass .order-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .dashboard-glass .order-actions {
+    flex-direction: column;
+  }
+
+  .dashboard-glass .status-update-btn,
+  .dashboard-glass .contact-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .dashboard-glass .compact-product-actions,
+  .dashboard-glass .product-actions {
+    flex-direction: column;
+  }
+
+  .dashboard-glass .edit-delivery-btn,
+  .dashboard-glass .flash-sale-btn,
+  .dashboard-glass .installment-btn,
+  .dashboard-glass .edit-btn,
+  .dashboard-glass .delete-btn {
+    width: 100%;
+    justify-content: center;
   }
 }
 
@@ -2208,14 +3086,14 @@ html.dark .dashboard-glass .dashboard-footer {
 .dashboard-glass .tab-button:hover,
 .dashboard-glass .stat-card-compact:hover,
 .dashboard-glass .earnings-card-compact:hover,
-.dashboard-glass .product-card-compact:hover,
-.dashboard-glass .order-card-compact:hover,
+.dashboard-glass .product-card:hover,
+.dashboard-glass .order-card:hover,
 .dashboard-glass .view-all-btn:hover,
 .dashboard-glass .add-product-btn:hover,
 .dashboard-glass .generate-receipt-btn:hover,
-.dashboard-glass .edit-btn-compact:hover,
-.dashboard-glass .delete-btn-compact:hover,
-.dashboard-glass .status-update-btn-compact:hover,
+.dashboard-glass .edit-btn:hover,
+.dashboard-glass .delete-btn:hover,
+.dashboard-glass .status-update-btn:hover,
 .dashboard-glass .submit-btn:hover,
 .dashboard-glass .chat-input-box button:hover,
 .dashboard-glass .receipt-btn:hover,
@@ -2231,15 +3109,15 @@ html.dark .dashboard-glass .dashboard-footer {
   box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
 }
 
-.dashboard-glass .edit-btn-compact:hover {
+.dashboard-glass .edit-btn:hover {
   box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
 }
 
-.dashboard-glass .delete-btn-compact:hover {
+.dashboard-glass .delete-btn:hover {
   box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
 }
 
-.dashboard-glass .status-update-btn-compact:hover {
+.dashboard-glass .status-update-btn:hover {
   box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
 }
 
