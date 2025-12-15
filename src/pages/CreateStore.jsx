@@ -13,6 +13,7 @@ import {
   FiXCircle,
   FiLoader,
   FiMapPin,
+  FiTruck,
 } from "react-icons/fi";
 import "./CreateStore.css";
 
@@ -47,59 +48,73 @@ const CreateStore = () => {
     businessType: "",
     businessDocument: null,
     ownerIdCard: null,
+    has_own_delivery: false,
   });
 
-  const [detectedLocation, setDetectedLocation] = useState(null);
   const [detectingLocation, setDetectingLocation] = useState(false);
 
-  // AUTO DETECT LOCATION ON MOUNT
+  // FINAL GPS DETECTION — GUARANTEED TO SAVE COORDINATES
   useEffect(() => {
     const detectLocation = async () => {
-      if (detectedLocation || !navigator.geolocation) return;
-
       setDetectingLocation(true);
+
+      let lat = -1.2921;  // Default fallback: Nairobi CBD
+      let lng = 36.8219;
+      let city = "Nairobi";
+
       try {
-        const position = await new Promise((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
+        let position;
+
+        if (window.Capacitor?.isNative) {
+          const { Geolocation } = await import("@capacitor/geolocation");
+          position = await Geolocation.getCurrentPosition({
             enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 300000, // 5 mins
+            timeout: 15000,
           });
-        });
+        } else {
+          position = await new Promise((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+              enableHighAccuracy: true,
+              timeout: 15000,
+            });
+          });
+        }
 
-        const { latitude, longitude } = position.coords;
+        lat = parseFloat(position.coords.latitude.toFixed(8));
+        lng = parseFloat(position.coords.longitude.toFixed(8));
 
-        // Reverse Geocode to get city name
         const response = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10&addressdetails=1`
         );
         const data = await response.json();
 
-        const city = data.address?.city || data.address?.town || data.address?.state_district || "Kenya";
-        const county = data.address?.county || "";
-        const displayLocation = [city, county].filter(Boolean).join(", ") || "Kenya";
+        city =
+          data.address?.city ||
+          data.address?.town ||
+          data.address?.village ||
+          data.address?.county ||
+          data.address?.state ||
+          "Kenya";
 
-        setDetectedLocation({ lat: latitude, lng: longitude, display: displayLocation });
-
-        // Auto-fill location field
+        toast.success(`Location detected: ${city}`);
+      } catch (err) {
+        console.log("GPS unavailable — using Nairobi fallback");
+        toast.info("Location not detected — using Nairobi (editable)");
+      } finally {
+        // FORCE SAVE COORDINATES — NO MATTER WHAT
         setStoreData(prev => ({
           ...prev,
-          location: displayLocation,
-          location_lat: latitude,
-          location_lng: longitude,
+          location: city,
+          location_lat: lat,
+          location_lng: lng,
         }));
 
-        toast.success(`Location detected: ${displayLocation}`);
-      } catch (err) {
-        console.log("Location denied or unavailable");
-        // Silent fail — user can type manually
-      } finally {
         setDetectingLocation(false);
       }
     };
 
-    detectLocation();
-  }, []);
+    if (user) detectLocation();
+  }, [user]);
 
   // Check existing store request
   useEffect(() => {
@@ -114,9 +129,7 @@ const CreateStore = () => {
           .order("created_at", { ascending: false })
           .limit(1)
           .single();
-        if (error && error.code !== "PGRST116") {
-          console.warn("fetchExistingRequest error:", error);
-        }
+        if (error && error.code !== "PGRST116") console.warn(error);
         setRequestStatus(data ? data.status : null);
       } catch (err) {
         console.error(err);
@@ -127,7 +140,7 @@ const CreateStore = () => {
     fetchExistingRequest();
   }, [user]);
 
-  // Check eligibility (free slots or subscription)
+  // Check eligibility
   useEffect(() => {
     if (user && !requestStatus) {
       async function fetchEligibility() {
@@ -146,8 +159,7 @@ const CreateStore = () => {
           setIsEligible((count || 0) < 1000 || !!subscription);
         } catch (err) {
           console.error(err);
-          toast.error("Failed to check eligibility");
-          setIsEligible(true); // Fallback
+          setIsEligible(true);
         } finally {
           setLoading(false);
         }
@@ -156,7 +168,7 @@ const CreateStore = () => {
     }
   }, [user, requestStatus]);
 
-  // Verify subscription session from Stripe
+  // Verify Stripe subscription
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const sessionId = params.get("session_id");
@@ -167,13 +179,12 @@ const CreateStore = () => {
             body: { session_id: sessionId },
           });
           if (error) throw error;
-          if (data.subscription && data.subscription.status === "active") {
-            toast.success("Subscription successful! You can now create your store.");
+          if (data.subscription?.status === "active") {
+            toast.success("Subscription successful!");
             setIsEligible(true);
           }
         } catch (err) {
-          console.error(err);
-          toast.error("Failed to verify subscription.");
+          toast.error("Verification failed.");
         }
       }
       verifySession();
@@ -181,60 +192,48 @@ const CreateStore = () => {
   }, [location, user]);
 
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setStoreData((p) => ({ ...p, [name]: value }));
+    const { name, value, type, checked } = e.target;
+    setStoreData(prev => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
   };
 
   const handleFileChange = (e) => {
     const { name, files } = e.target;
-    if (!files || files.length === 0) {
-      setStoreData((p) => ({ ...p, [name]: null }));
+    if (!files?.length) {
+      setStoreData(prev => ({ ...prev, [name]: null }));
       return;
     }
     const file = files[0];
     if (file.size > 10 * 1024 * 1024) {
-      toast.error("File too large. Limit is 10MB.");
+      toast.error("File too large (max 10MB)");
       return;
     }
-    setStoreData((p) => ({ ...p, [name]: file }));
+    setStoreData(prev => ({ ...prev, [name]: file }));
   };
 
-  const uploadFile = async (file, pathPrefix) => {
+  const uploadFile = async (file, prefix) => {
     if (!file || !user?.id) return null;
     const safeName = file.name.replace(/\s+/g, "_");
-    const filePath = `${pathPrefix}/${user.id}_${Date.now()}_${safeName}`;
-    try {
-      const { data, error } = await supabase.storage.from("store-documents").upload(filePath, file, {
-        cacheControl: "3600",
-        upsert: false,
-      });
-      if (error) {
-        console.error("Upload error:", error);
-        throw new Error(`Upload failed: ${error.message}`);
-      }
-      return data.path;
-    } catch (err) {
-      throw err;
-    }
+    const path = `${prefix}/${user.id}_${Date.now()}_${safeName}`;
+    const { error } = await supabase.storage.from("store-documents").upload(path, file, { upsert: false });
+    if (error) throw error;
+    return path;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!user?.id) {
-      toast.error("Please log in to continue");
-      return;
-    }
+    if (!user?.id) return toast.error("Login required");
 
-    // Validate required fields
-    if (!storeData.name || !storeData.contactEmail || !storeData.contactPhone || !storeData.location) {
-      toast.error("Please complete the required fields in Step 1.");
-      setStep(1);
-      return;
-    }
-    if (!storeData.kraPin || !storeData.registrationNumber || !storeData.businessType) {
-      toast.error("Please complete the required fields in Step 2.");
-      setStep(2);
-      return;
+    const required = ["name", "contactEmail", "contactPhone", "location", "kraPin", "registrationNumber", "businessType"];
+    for (const field of required) {
+      if (!storeData[field]) {
+        toast.error("All required fields must be filled");
+        if (["name", "contactEmail", "contactPhone", "location"].includes(field)) setStep(1);
+        else setStep(2);
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -243,12 +242,8 @@ const CreateStore = () => {
       let businessDocPath = null;
       let idCardPath = null;
 
-      if (storeData.businessDocument) {
-        businessDocPath = await uploadFile(storeData.businessDocument, "business-documents");
-      }
-      if (storeData.ownerIdCard) {
-        idCardPath = await uploadFile(storeData.ownerIdCard, "id-cards");
-      }
+      if (storeData.businessDocument) businessDocPath = await uploadFile(storeData.businessDocument, "business-documents");
+      if (storeData.ownerIdCard) idCardPath = await uploadFile(storeData.ownerIdCard, "id-cards");
 
       const payload = {
         user_id: user.id,
@@ -257,8 +252,10 @@ const CreateStore = () => {
         contact_email: storeData.contactEmail.trim(),
         contact_phone: storeData.contactPhone.trim(),
         location: storeData.location.trim(),
-        location_lat: storeData.location_lat,
-        location_lng: storeData.location_lng,
+        // GUARANTEED NON-NULL COORDINATES
+        location_lat: parseFloat(storeData.location_lat?.toFixed(8)) || -1.2921,
+        location_lng: parseFloat(storeData.location_lng?.toFixed(8)) || 36.8219,
+        has_own_delivery: storeData.has_own_delivery,
         kra_pin: storeData.kraPin.trim(),
         registration_number: storeData.registrationNumber.trim(),
         business_type: storeData.businessType,
@@ -268,25 +265,20 @@ const CreateStore = () => {
       };
 
       const { error } = await supabase.from("store_requests").insert(payload);
+      if (error) throw error;
 
-      if (error) {
-        console.error("Insert error:", error);
-        throw new Error(`Insert failed: ${error.message}`);
-      }
-
+      toast.success("Store request submitted! We'll review it soon.");
       setRequestStatus("pending");
-      toast.success("Store request submitted. We'll notify you when it's reviewed.");
     } catch (err) {
-      console.error("submit error:", err);
-      toast.error(`Failed to submit request: ${err.message}. Please try again.`);
+      console.error("Submit error:", err);
+      toast.error("Submission failed. Please try again.");
     } finally {
       setSubmitting(false);
     }
   };
 
-  const fileLabel = (file) => (file ? `${file.name}` : "No file selected");
+  const fileLabel = (file) => (file ? file.name : "No file selected");
 
-  // Loading state
   if (loading) {
     return (
       <div className={`create-store-page ${darkMode ? "dark" : "light"}`}>
@@ -298,7 +290,6 @@ const CreateStore = () => {
     );
   }
 
-  // Pending request
   if (requestStatus === "pending") {
     return (
       <div className={`create-store-page ${darkMode ? "dark" : "light"}`}>
@@ -314,7 +305,7 @@ const CreateStore = () => {
             <button className="cs-btn cs-btn-muted" onClick={() => navigate("/")}>
               Return Home
             </button>
-            <button className="cs-btn" onClick={() => toast.info("Check again later for updates.")}>
+            <button className="cs-btn" onClick={() => toast("Check again later for updates.")}>
               Refresh Status
             </button>
           </div>
@@ -323,7 +314,6 @@ const CreateStore = () => {
     );
   }
 
-  // Approved request
   if (requestStatus === "approved") {
     return (
       <div className={`create-store-page ${darkMode ? "dark" : "light"}`}>
@@ -343,7 +333,6 @@ const CreateStore = () => {
     );
   }
 
-  // Rejected request
   if (requestStatus === "rejected") {
     return (
       <div className={`create-store-page ${darkMode ? "dark" : "light"}`}>
@@ -366,7 +355,6 @@ const CreateStore = () => {
     );
   }
 
-  // Checking eligibility
   if (isEligible === null) {
     return (
       <div className={`create-store-page ${darkMode ? "dark" : "light"}`}>
@@ -378,7 +366,6 @@ const CreateStore = () => {
     );
   }
 
-  // Not eligible (needs premium)
   if (!isEligible) {
     return (
       <div className={`create-store-page ${darkMode ? "dark" : "light"}`}>
@@ -398,7 +385,6 @@ const CreateStore = () => {
     );
   }
 
-  // Main form
   return (
     <div className={`create-store-page ${darkMode ? "dark" : "light"}`}>
       <div className="cs-container" role="main">
@@ -418,7 +404,6 @@ const CreateStore = () => {
         </div>
 
         <form className="cs-form" onSubmit={handleSubmit} noValidate>
-          {/* STEP 1 */}
           <div className={`cs-step-panel ${step === 1 ? "visible" : "hidden"}`}>
             <div className="cs-location-box">
               <div className="cs-location-header">
@@ -434,13 +419,8 @@ const CreateStore = () => {
                 placeholder="e.g. Westlands, Nairobi"
                 required
               />
-              {detectedLocation && (
-                <div className="cs-location-detected">
-                  Detected: {detectedLocation.display}
-                </div>
-              )}
               <small style={{ color: "var(--text-secondary)", marginTop: 4 }}>
-                We auto-detected your location for better delivery accuracy
+                Auto-detected for accurate delivery. You can edit if needed.
               </small>
             </div>
 
@@ -491,6 +471,35 @@ const CreateStore = () => {
               </div>
             </div>
 
+            <div className="cs-delivery-preference">
+              <label className="cs-label">
+                <FiTruck style={{ marginRight: 8 }} />
+                Delivery Preference *
+              </label>
+              <div className="cs-radio-group">
+                <label className="cs-radio-label">
+                  <input
+                    type="radio"
+                    name="has_own_delivery"
+                    checked={storeData.has_own_delivery === true}
+                    onChange={() => setStoreData(prev => ({ ...prev, has_own_delivery: true }))}
+                    required
+                  />
+                  I have my own delivery means (free for buyers)
+                </label>
+                <label className="cs-radio-label">
+                  <input
+                    type="radio"
+                    name="has_own_delivery"
+                    checked={storeData.has_own_delivery === false}
+                    onChange={() => setStoreData(prev => ({ ...prev, has_own_delivery: false }))}
+                    required
+                  />
+                  Use Omniflow delivery (fee applies)
+                </label>
+              </div>
+            </div>
+
             <div className="cs-step-buttons">
               <button
                 type="button"
@@ -509,7 +518,6 @@ const CreateStore = () => {
             </div>
           </div>
 
-          {/* STEP 2 */}
           <div className={`cs-step-panel ${step === 2 ? "visible" : "hidden"}`}>
             <label className="cs-label">KRA PIN *</label>
             <input
