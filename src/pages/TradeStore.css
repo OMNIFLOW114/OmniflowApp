@@ -1,5 +1,6 @@
 /* TradeStore.css - COMPLETE UPDATED VERSION */
 /* Permanent tabs positioned just below navigation like Kilimall */
+/* Includes Location Permission Modal Styles */
 
 /* General Reset and Base Styles */
 * {
@@ -1572,6 +1573,431 @@ html.dark .skeleton-star {
   background: #374151;
 }
 
+/* ========== LOCATION PERMISSION STYLES ========== */
+.location-permission-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+html.dark .location-permission-overlay {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+}
+
+.location-permission-modal {
+  position: relative;
+  background: white;
+  border-radius: 20px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: modalSlideIn 0.4s ease;
+  overflow: hidden;
+}
+
+html.dark .location-permission-modal {
+  background: #1a1a1a;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.location-permission-modal .modal-header.location {
+  text-align: center;
+  padding: 30px 20px 0;
+  border-bottom: none;
+}
+
+.location-permission-modal .modal-header.location h2 {
+  color: #333;
+  font-size: 28px;
+  margin-top: 15px;
+  margin-bottom: 5px;
+  font-weight: 700;
+}
+
+html.dark .location-permission-modal .modal-header.location h2 {
+  color: #ffffff;
+}
+
+.location-permission-modal .modal-icon.location {
+  color: #667eea;
+  margin: 0 auto 10px;
+  display: block;
+  font-size: 42px;
+}
+
+html.dark .location-permission-modal .modal-icon.location {
+  color: #8b5cf6;
+}
+
+.location-permission-modal .modal-content.location {
+  padding: 20px 30px;
+  max-height: 60vh;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.location-benefits h3 {
+  color: #333;
+  margin-bottom: 15px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+html.dark .location-benefits h3 {
+  color: #ffffff;
+}
+
+.location-benefits .benefits-list {
+  list-style: none;
+  padding: 0;
+  margin-bottom: 25px;
+}
+
+.location-benefits .benefits-list li {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+  color: #555;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+html.dark .location-benefits .benefits-list li {
+  color: #d1d5db;
+}
+
+.benefit-icon {
+  margin-right: 10px;
+  color: #667eea;
+  min-width: 20px;
+  font-size: 16px;
+}
+
+html.dark .benefit-icon {
+  color: #8b5cf6;
+}
+
+.delivery-info {
+  background: rgba(102, 126, 234, 0.1);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 25px;
+  border: 1px solid rgba(102, 126, 234, 0.2);
+}
+
+html.dark .delivery-info {
+  background: rgba(102, 126, 234, 0.15);
+  border-color: rgba(102, 126, 234, 0.3);
+}
+
+.delivery-info h4 {
+  color: #333;
+  margin-bottom: 15px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+html.dark .delivery-info h4 {
+  color: #ffffff;
+}
+
+.delivery-tier {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+html.dark .delivery-tier {
+  border-bottom-color: rgba(255, 255, 255, 0.05);
+}
+
+.delivery-tier:last-child {
+  border-bottom: none;
+}
+
+.tier-badge {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  min-width: 80px;
+  text-align: center;
+}
+
+.tier-badge.same-day {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+
+html.dark .tier-badge.same-day {
+  background: rgba(16, 185, 129, 0.25);
+}
+
+.tier-badge.next-day {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
+html.dark .tier-badge.next-day {
+  background: rgba(245, 158, 11, 0.25);
+}
+
+.tier-badge.standard {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+html.dark .tier-badge.standard {
+  background: rgba(239, 68, 68, 0.25);
+}
+
+.tier-description {
+  color: #666;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+html.dark .tier-description {
+  color: #9ca3af;
+}
+
+.privacy-note {
+  background: rgba(255, 255, 255, 0.9);
+  border-left: 4px solid #667eea;
+  padding: 15px;
+  border-radius: 8px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-top: 20px;
+}
+
+html.dark .privacy-note {
+  background: rgba(255, 255, 255, 0.05);
+  border-left-color: #8b5cf6;
+}
+
+.privacy-note svg {
+  color: #667eea;
+  margin-top: 2px;
+  flex-shrink: 0;
+  font-size: 18px;
+}
+
+html.dark .privacy-note svg {
+  color: #8b5cf6;
+}
+
+.privacy-note p {
+  color: #666;
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0;
+  font-weight: 500;
+}
+
+html.dark .privacy-note p {
+  color: #9ca3af;
+}
+
+.modal-actions.location {
+  display: flex;
+  gap: 12px;
+  padding: 20px 30px 30px;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+html.dark .modal-actions.location {
+  border-top-color: rgba(255, 255, 255, 0.05);
+}
+
+.location-permission-button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 14px 24px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 16px;
+  cursor: pointer;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+html.dark .location-permission-button {
+  background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%);
+  box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
+}
+
+.location-permission-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+}
+
+html.dark .location-permission-button:hover {
+  box-shadow: 0 8px 25px rgba(139, 92, 246, 0.4);
+}
+
+.location-permission-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 10px rgba(102, 126, 234, 0.3);
+}
+
+.location-permission-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.location-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.95);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  border-radius: 20px;
+}
+
+html.dark .location-loading-overlay {
+  background: rgba(26, 26, 26, 0.95);
+}
+
+.location-loading-spinner {
+  width: 50px;
+  height: 50px;
+  border: 3px solid rgba(102, 126, 234, 0.2);
+  border-radius: 50%;
+  border-top-color: #667eea;
+  animation: spin 1s linear infinite;
+  margin-bottom: 20px;
+}
+
+html.dark .location-loading-spinner {
+  border-color: rgba(139, 92, 246, 0.2);
+  border-top-color: #8b5cf6;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.location-loading-overlay p {
+  color: #667eea;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+html.dark .location-loading-overlay p {
+  color: #8b5cf6;
+}
+
+/* Location reminder banner */
+.location-reminder-banner {
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  animation: slideDownBanner 0.3s ease;
+}
+
+html.dark .location-reminder-banner {
+  background: linear-gradient(90deg, #4a5568 0%, #2d3748 100%);
+}
+
+@keyframes slideDownBanner {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.location-reminder-banner svg {
+  font-size: 16px;
+}
+
+.enable-location-btn {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-left: 5px;
+}
+
+.enable-location-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.05);
+}
+
+.enable-location-btn:active {
+  transform: scale(0.95);
+}
+
+/* Error state for location */
+.location-error {
+  color: #ef4444;
+  font-size: 14px;
+  text-align: center;
+  padding: 10px;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: 8px;
+  margin-top: 15px;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
 /* ========== RESPONSIVE ADJUSTMENTS ========== */
 @media (max-width: 480px) {
   .marketplace-wrapper {
@@ -1738,6 +2164,67 @@ html.dark .skeleton-star {
   .stat-label {
     font-size: 0.7rem;
   }
+  
+  /* Location permission modal mobile adjustments */
+  .location-permission-modal {
+    width: 95%;
+    max-height: 90vh;
+    margin: 1rem;
+  }
+  
+  .modal-content.location {
+    padding: 15px 20px;
+  }
+  
+  .location-permission-modal .modal-header.location h2 {
+    font-size: 22px;
+  }
+  
+  .location-permission-modal .modal-icon.location {
+    font-size: 32px;
+  }
+  
+  .location-benefits h3 {
+    font-size: 16px;
+  }
+  
+  .location-benefits .benefits-list li {
+    font-size: 14px;
+    margin-bottom: 10px;
+  }
+  
+  .delivery-info {
+    padding: 15px;
+  }
+  
+  .tier-badge {
+    padding: 4px 8px;
+    font-size: 11px;
+    min-width: 70px;
+  }
+  
+  .tier-description {
+    font-size: 13px;
+  }
+  
+  .privacy-note {
+    padding: 12px;
+    font-size: 13px;
+  }
+  
+  .privacy-note p {
+    font-size: 12px;
+  }
+  
+  .location-permission-button,
+  .glass-button.secondary {
+    padding: 12px 16px;
+    font-size: 14px;
+  }
+  
+  .modal-actions.location {
+    padding: 15px 20px 20px;
+  }
 }
 
 @media (max-width: 360px) {
@@ -1807,6 +2294,17 @@ html.dark .skeleton-star {
   .tagline-text {
     font-size: 0.65rem;
   }
+  
+  /* Location permission modal extra small adjustments */
+  .modal-actions.location {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .location-permission-button,
+  .glass-button.secondary {
+    width: 100%;
+  }
 }
 
 /* Tablet adjustments */
@@ -1836,6 +2334,19 @@ html.dark .skeleton-star {
   
   .tagline-text {
     font-size: 0.85rem;
+  }
+  
+  /* Location permission modal tablet adjustments */
+  .location-permission-modal {
+    max-width: 600px;
+  }
+  
+  .location-permission-modal .modal-header.location h2 {
+    font-size: 32px;
+  }
+  
+  .location-permission-modal .modal-icon.location {
+    font-size: 48px;
   }
 }
 
@@ -1935,6 +2446,39 @@ html.dark .infinite-scroll-component__end-message {
 /* ========== SMOOTHER TRANSITIONS ========== */
 .tab-button.permanent,
 .product-card,
-.skeleton {
+.skeleton,
+.location-permission-button,
+.enable-location-btn {
   transition: all 0.3s ease;
+}
+
+/* ========== SCROLLBAR STYLES FOR LOCATION MODAL ========== */
+.location-permission-modal .modal-content.location::-webkit-scrollbar {
+  width: 6px;
+}
+
+.location-permission-modal .modal-content.location::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 3px;
+}
+
+html.dark .location-permission-modal .modal-content.location::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.location-permission-modal .modal-content.location::-webkit-scrollbar-thumb {
+  background: rgba(102, 126, 234, 0.3);
+  border-radius: 3px;
+}
+
+html.dark .location-permission-modal .modal-content.location::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.3);
+}
+
+.location-permission-modal .modal-content.location::-webkit-scrollbar-thumb:hover {
+  background: rgba(102, 126, 234, 0.5);
+}
+
+html.dark .location-permission-modal .modal-content.location::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.5);
 }

@@ -105,6 +105,72 @@ const TabsSkeleton = () => (
   </div>
 );
 
+// ========== NEW: Location Permission Modal Component ==========
+const LocationPermissionModal = ({ isOpen, onClose, onGrantPermission, onDenyPermission }) => {
+  return (
+    <ReactModal 
+      isOpen={isOpen} 
+      onRequestClose={onClose}
+      className="location-permission-modal"
+      overlayClassName="modal-overlay"
+      shouldCloseOnOverlayClick={false}
+      shouldCloseOnEsc={false}
+    >
+      <div className="modal-header location">
+        <FaMapMarkerAlt className="modal-icon location" size={32} />
+        <h2>Location Access Required</h2>
+      </div>
+      <div className="modal-content location">
+        <div className="location-benefits">
+          <h3>Why we need your location:</h3>
+          <ul className="benefits-list">
+            <li><FaMapMarkerAlt className="benefit-icon" /> See products near you</li>
+            <li><FaBolt className="benefit-icon" /> Get accurate delivery estimates</li>
+            <li><FaFire className="benefit-icon" /> Find same-day delivery options</li>
+            <li><FaStar className="benefit-icon" /> Personalized shopping experience</li>
+          </ul>
+          
+          <div className="delivery-info">
+            <h4>Delivery Based on Distance:</h4>
+            <div className="delivery-tier">
+              <span className="tier-badge same-day">Same Day</span>
+              <span className="tier-description">Within 100km</span>
+            </div>
+            <div className="delivery-tier">
+              <span className="tier-badge next-day">Next Day</span>
+              <span className="tier-description">100km - 220km</span>
+            </div>
+            <div className="delivery-tier">
+              <span className="tier-badge standard">3 Days</span>
+              <span className="tier-description">Beyond 220km</span>
+            </div>
+          </div>
+          
+          <div className="privacy-note">
+            <FaExclamationTriangle />
+            <p>Your location is only used to calculate distances and delivery times. We never share your exact location with sellers.</p>
+          </div>
+        </div>
+      </div>
+      <div className="modal-actions location">
+        <button 
+          className="glass-button secondary" 
+          onClick={onDenyPermission}
+        >
+          Skip for Now
+        </button>
+        <button 
+          className="location-permission-button" 
+          onClick={onGrantPermission}
+          autoFocus
+        >
+          <FaMapMarkerAlt /> Allow Location Access
+        </button>
+      </div>
+    </ReactModal>
+  );
+};
+
 // ========== DISTANCE CALCULATION (pure JS) ==========
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
   if (!lat1 || !lon1 || !lat2 || !lon2) return Infinity;
@@ -456,10 +522,130 @@ const TradeStore = () => {
   const [initialLoad, setInitialLoad] = useState(true);
   const [buyerLocation, setBuyerLocation] = useState(null);
   
+  // NEW: State for location permission
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [locationPermissionAsked, setLocationPermissionAsked] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationError, setLocationError] = useState(null);
+  
   const pageSize = 20;
 
   const toggleMenu = useCallback(() => setShowMenu(prev => !prev), []);
   const closeMenu = useCallback(() => setShowMenu(false), []);
+
+  // NEW: Function to request location permission
+  const requestLocationPermission = useCallback(() => {
+    setLocationLoading(true);
+    setLocationError(null);
+    
+    if (!navigator.geolocation) {
+      setLocationError("Geolocation is not supported by your browser");
+      setLocationLoading(false);
+      return;
+    }
+
+    // Request the browser's built-in location permission modal
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setBuyerLocation({
+          lat: latitude,
+          lng: longitude
+        });
+        setLocationLoading(false);
+        setShowLocationModal(false);
+        
+        // Save location to localStorage for future use
+        localStorage.setItem('userLocation', JSON.stringify({
+          lat: latitude,
+          lng: longitude,
+          timestamp: Date.now()
+        }));
+        
+        toast.success("Location access granted!");
+      },
+      (error) => {
+        console.error("Location error:", error);
+        setLocationLoading(false);
+        
+        let errorMessage = "Unable to get your location";
+        switch(error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = "Location permission denied. You can enable it later in browser settings.";
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = "Location information unavailable.";
+            break;
+          case error.TIMEOUT:
+            errorMessage = "Location request timed out.";
+            break;
+        }
+        
+        setLocationError(errorMessage);
+        toast.error(errorMessage);
+        
+        // Don't show the modal again if user denied
+        if (error.code === error.PERMISSION_DENIED) {
+          setShowLocationModal(false);
+        }
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      }
+    );
+  }, []);
+
+  // NEW: Check for existing location on component mount
+  useEffect(() => {
+    // Check if we already have location permission or saved location
+    const checkExistingLocation = () => {
+      // Check localStorage for previously saved location
+      const savedLocation = localStorage.getItem('userLocation');
+      if (savedLocation) {
+        try {
+          const locationData = JSON.parse(savedLocation);
+          // If location is less than 1 hour old, use it
+          if (Date.now() - locationData.timestamp < 3600000) {
+            setBuyerLocation({
+              lat: locationData.lat,
+              lng: locationData.lng
+            });
+            return true;
+          }
+        } catch (e) {
+          console.error("Error parsing saved location:", e);
+        }
+      }
+      
+      return false;
+    };
+
+    // Only show location modal if:
+    // 1. We haven't asked before in this session
+    // 2. We don't have a recent saved location
+    // 3. User hasn't explicitly skipped
+    const hasSkipped = localStorage.getItem('locationSkipped');
+    const hasRecentLocation = checkExistingLocation();
+    
+    if (!hasRecentLocation && !hasSkipped && !locationPermissionAsked) {
+      // Small delay to let the page load first
+      const timer = setTimeout(() => {
+        setShowLocationModal(true);
+        setLocationPermissionAsked(true);
+      }, 1000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [locationPermissionAsked]);
+
+  // NEW: Handle location permission denial
+  const handleSkipLocation = () => {
+    setShowLocationModal(false);
+    localStorage.setItem('locationSkipped', 'true');
+    toast("You can enable location later in settings for accurate delivery estimates");
+  };
 
   const handleAuthRequired = () => {
     toast.error("Please log in to continue");
@@ -860,6 +1046,26 @@ const TradeStore = () => {
     navigate("/search", { state: { query: search } });
   };
 
+  // NEW: Show location permission modal as full screen overlay
+  if (showLocationModal) {
+    return (
+      <div className="location-permission-overlay">
+        <LocationPermissionModal
+          isOpen={showLocationModal}
+          onClose={() => setShowLocationModal(false)}
+          onGrantPermission={requestLocationPermission}
+          onDenyPermission={handleSkipLocation}
+        />
+        {locationLoading && (
+          <div className="location-loading-overlay">
+            <div className="location-loading-spinner"></div>
+            <p>Getting your location...</p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   if (initialLoad) {
     return (
       <div className={`marketplace-wrapper ${isDarkMode ? "dark" : "light"}`}>
@@ -876,6 +1082,20 @@ const TradeStore = () => {
 
   return (
     <div className={`marketplace-wrapper ${isDarkMode ? "dark" : "light"}`}>
+      {/* NEW: Location reminder banner */}
+      {!buyerLocation && !showLocationModal && (
+        <div className="location-reminder-banner">
+          <FaMapMarkerAlt />
+          <span>Enable location for accurate delivery estimates</span>
+          <button 
+            className="enable-location-btn"
+            onClick={() => setShowLocationModal(true)}
+          >
+            Enable
+          </button>
+        </div>
+      )}
+
       {/* COMPACT NAVIGATION BAR */}
       <nav className="premium-navbar compact">
         <motion.button
