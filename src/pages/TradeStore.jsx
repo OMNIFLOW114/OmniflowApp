@@ -455,58 +455,8 @@ const TradeStore = () => {
   const [showStoreModal, setShowStoreModal] = useState(false);
   const [initialLoad, setInitialLoad] = useState(true);
   const [buyerLocation, setBuyerLocation] = useState(null);
-  const [isTabsSticky, setIsTabsSticky] = useState(false);
   
   const pageSize = 20;
-  const tabsRef = useRef(null);
-  const promotedRef = useRef(null);
-
-  // Smart, silent location detection — no annoying toasts
-  useEffect(() => {
-    const cached = localStorage.getItem("buyerLocation");
-    if (cached) {
-      const data = JSON.parse(cached);
-      if (Date.now() - data.time < 60 * 60 * 1000) {
-        setBuyerLocation({ lat: data.lat, lng: data.lng });
-        return;
-      }
-    }
-
-    if (!localStorage.getItem("locationDenied")) {
-      const getLoc = async () => {
-        try {
-          const { Geolocation } = await import('@capacitor/geolocation');
-          const position = await Geolocation.getCurrentPosition({ enableHighAccuracy: false, timeout: 8000 });
-          const { latitude, longitude } = position.coords;
-          setBuyerLocation({ lat: latitude, lng: longitude });
-          localStorage.setItem("buyerLocation", JSON.stringify({ lat: latitude, lng: longitude, time: Date.now() }));
-        } catch (err) {
-          localStorage.setItem("locationDenied", "true");
-          // Silent — no toast, user still gets full experience
-        }
-      };
-      getLoc();
-    }
-  }, []);
-
-  // Sticky tabs logic
-  useEffect(() => {
-    const handleScroll = () => {
-      if (!tabsRef.current || !promotedRef.current) return;
-      
-      const promotedRect = promotedRef.current.getBoundingClientRect();
-      const scrollTop = window.scrollY || document.documentElement.scrollTop;
-      
-      if (scrollTop > promotedRect.height) {
-        setIsTabsSticky(true);
-      } else {
-        setIsTabsSticky(false);
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
 
   const toggleMenu = useCallback(() => setShowMenu(prev => !prev), []);
   const closeMenu = useCallback(() => setShowMenu(false), []);
@@ -856,7 +806,8 @@ const TradeStore = () => {
         if (buyerLocation) {
           result = result.filter(p => {
             const dist = calculateDistance(buyerLocation.lat, buyerLocation.lng, p.store_lat, p.store_lng);
-            return dist < 100; // Within 100km
+            // UPDATED: Changed from 100km to 200km
+            return dist < 110; // Within 200km
           });
         }
         break;
@@ -1059,10 +1010,7 @@ const TradeStore = () => {
       </div>
 
       {/* Promoted Carousel Section */}
-      <div 
-        ref={promotedRef}
-        className="promoted-section-fixed"
-      >
+      <div className="promoted-section-fixed">
         <PromotedCarousel />
       </div>
 
@@ -1074,13 +1022,10 @@ const TradeStore = () => {
         </>
       )}
 
-      {/* Sticky Tabs - NO GAP */}
-      <div 
-        ref={tabsRef}
-        className={`tab-bar-scrollable-wrapper ${isTabsSticky ? 'sticky' : ''}`}
-      >
+      {/* PERMANENT TABS - Just below top nav like Kilimall */}
+      <div className="tab-bar-permanent-wrapper">
         <motion.div 
-          className="tab-bar-scrollable compact"
+          className="tab-bar-scrollable permanent"
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
@@ -1088,7 +1033,7 @@ const TradeStore = () => {
           {tabs.map((tab) => (
             <motion.button
               key={tab}
-              className={`tab-button compact ${activeTab === tab ? "active" : ""}`}
+              className={`tab-button permanent ${activeTab === tab ? "active" : ""}`}
               onClick={() => setActiveTab(tab)}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -1102,52 +1047,55 @@ const TradeStore = () => {
         </motion.div>
       </div>
 
-      {/* Home Tab - Show HomeTabSections only */}
-      {activeTab === "Home" ? (
-        <div className="home-sections-wrapper">
-          <HomeTabSections />
-        </div>
-      ) : (
-        /* Other Tabs - Show products with infinite scroll */
-        <InfiniteScroll
-          dataLength={filtered.length}
-          next={fetchProducts}
-          hasMore={hasMore}
-          loader={
-            <div className="loading-section">
-              <div className="skeleton-loader">
-                {[...Array(6)].map((_, index) => (
-                  <ProductCardSkeleton key={index} />
-                ))}
+      {/* Content that comes after tabs */}
+      <div className="content-below-tabs">
+        {/* Home Tab - Show HomeTabSections only */}
+        {activeTab === "Home" ? (
+          <div className="home-sections-wrapper">
+            <HomeTabSections />
+          </div>
+        ) : (
+          /* Other Tabs - Show products with infinite scroll */
+          <InfiniteScroll
+            dataLength={filtered.length}
+            next={fetchProducts}
+            hasMore={hasMore}
+            loader={
+              <div className="loading-section">
+                <div className="skeleton-loader">
+                  {[...Array(6)].map((_, index) => (
+                    <ProductCardSkeleton key={index} />
+                  ))}
+                </div>
               </div>
-            </div>
-          }
-          endMessage={
-            <div className="end-message">
-              <p>You've discovered all our products!</p>
-            </div>
-          }
-        >
-          <motion.div 
-            className="product-grid"
-            layout
+            }
+            endMessage={
+              <div className="end-message">
+                <p>You've discovered all our products!</p>
+              </div>
+            }
           >
-            {filtered.length === 0 ? (
-              <EmptyTabState tabName={activeTab} />
-            ) : (
-              filtered.map((p) => (
-                <ProductCard 
-                  key={p.id} 
-                  product={p} 
-                  buyerLocation={buyerLocation}
-                  onClick={() => navigate(`/product/${p.id}`)}
-                  onAuthRequired={handleAuthRequired}
-                />
-              ))
-            )}
-          </motion.div>
-        </InfiniteScroll>
-      )}
+            <motion.div 
+              className="product-grid"
+              layout
+            >
+              {filtered.length === 0 ? (
+                <EmptyTabState tabName={activeTab} />
+              ) : (
+                filtered.map((p) => (
+                  <ProductCard 
+                    key={p.id} 
+                    product={p} 
+                    buyerLocation={buyerLocation}
+                    onClick={() => navigate(`/product/${p.id}`)}
+                    onAuthRequired={handleAuthRequired}
+                  />
+                ))
+              )}
+            </motion.div>
+          </InfiniteScroll>
+        )}
+      </div>
 
       {showFilterOverlay && (
         <AdvancedFilterOverlay
