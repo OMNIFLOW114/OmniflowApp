@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OmniFlow Marketplace Kenya - Founder & Team | Student-Powered E-commerce</title>
-    <meta name="description" content="Meet Kirangi John Njeru and the OmniFlow team. Student-powered e-commerce with Lipa Mdogo Mdogo, zero commission, same-day delivery, and simple legal store setup.">
+    <title>OmniFlow Marketplace Kenya - Founder & Team | All-Inclusive E-commerce Platform</title>
+    <meta name="description" content="Meet Kirangi John Njeru and the OmniFlow team. Comprehensive e-commerce platform for all sellers with Lipa Mdogo Mdogo, zero commission, same-day delivery, and dedicated Student Marketplace.">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
@@ -14,6 +14,7 @@
             --light: #f8fafc;
             --dark: #1e293b;
             --success: #10b981;
+            --warning: #f59e0b;
             --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
             --radius: 12px;
         }
@@ -134,6 +135,11 @@
             border-left: 5px solid var(--primary);
             backdrop-filter: blur(10px);
             width: 100%;
+        }
+        
+        .platform-highlight {
+            background: linear-gradient(120deg, rgba(245, 158, 11, 0.1) 0%, rgba(254, 243, 199, 0.3) 100%);
+            border-left: 5px solid var(--warning);
         }
         
         .features-grid {
@@ -269,6 +275,14 @@
             font-weight: 500;
         }
         
+        .tag-warning {
+            background: var(--warning);
+        }
+        
+        .tag-success {
+            background: var(--success);
+        }
+        
         .footer {
             text-align: center;
             padding: 60px 20px;
@@ -292,6 +306,43 @@
             text-align: center;
             padding: 60px 20px;
             width: 100%;
+        }
+        
+        .audience-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+            gap: 25px;
+            margin: 40px 0;
+        }
+        
+        .audience-card {
+            background: white;
+            padding: 30px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        
+        .audience-card:hover {
+            transform: translateY(-10px);
+        }
+        
+        .audience-card.big-seller {
+            border-top: 4px solid var(--primary);
+        }
+        
+        .audience-card.small-seller {
+            border-top: 4px solid var(--success);
+        }
+        
+        .audience-card.student-section {
+            border-top: 4px solid var(--warning);
+        }
+        
+        .audience-icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
         }
         
         /* Responsive adjustments */
@@ -335,6 +386,10 @@
                 margin-left: auto;
                 margin-right: auto;
             }
+            
+            .audience-cards {
+                grid-template-columns: 1fr;
+            }
         }
         
         @media (max-width: 480px) {
@@ -373,6 +428,10 @@
                 font-size: 0.8rem;
                 padding: 6px 12px;
             }
+            
+            .audience-card {
+                padding: 20px;
+            }
         }
         
         /* Animation classes */
@@ -393,13 +452,14 @@
     <header class="header">
         <div class="container">
             <h1>OmniFlow Marketplace Kenya</h1>
-            <h2>Revolutionizing E-commerce for Students & Small Businesses</h2>
+            <h2>Kenya's All-Inclusive E-commerce Platform for Every Seller</h2>
             <div style="margin-top: 25px;">
+                <span class="tag">For All Sellers</span>
+                <span class="tag tag-warning">Student Marketplace</span>
                 <span class="tag">Zero Commission</span>
                 <span class="tag">Same-Day Delivery</span>
                 <span class="tag">Lipa Mdogo Mdogo</span>
-                <span class="tag">Student-Powered</span>
-                <span class="tag">Local First</span>
+                <span class="tag tag-success">Local First</span>
             </div>
         </div>
     </header>
@@ -422,13 +482,52 @@
         <div class="content">
             <div class="highlight fade-in">
                 <h3><i class="fas fa-rocket"></i> The OmniFlow Story</h3>
-                <p style="font-size: 1.1rem;">Founded on October 10, 2025, OmniFlow was born from my experience as a JKUAT Economics student struggling with expensive and complicated e-commerce platforms. I built OmniFlow to make online buying and selling simple, affordable, and accessible for every Kenyan - especially students and small businesses.</p>
+                <p style="font-size: 1.1rem;">Founded on October 10, 2025, OmniFlow was born from my experience as a JKUAT Economics student who recognized the need for an inclusive e-commerce platform that serves everyone. While we started with a focus on students, we've evolved into Kenya's most comprehensive marketplace platform serving sellers of all sizes - from large enterprises to individual entrepreneurs, with a dedicated Student Marketplace section.</p>
+            </div>
+            
+            <div class="highlight platform-highlight fade-in">
+                <h3><i class="fas fa-globe-africa"></i> Our Platform Philosophy</h3>
+                <p style="font-size: 1.1rem;">OmniFlow is designed as an <strong>all-inclusive marketplace</strong> where big sellers can scale their operations, small businesses can grow their reach, and students can learn entrepreneurship in a dedicated, supportive environment. We believe in democratizing e-commerce for all Kenyans.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Platform Audience Section -->
+    <section class="section">
+        <div class="content">
+            <h3 class="fade-in"><i class="fas fa-users"></i> Who Uses OmniFlow?</h3>
+            <p class="fade-in" style="margin-bottom: 20px; font-size: 1.1rem;">Our platform is built to serve the complete spectrum of Kenyan sellers and buyers:</p>
+            
+            <div class="audience-cards">
+                <div class="audience-card big-seller fade-in">
+                    <div class="audience-icon" style="color: var(--primary);">
+                        <i class="fas fa-building"></i>
+                    </div>
+                    <h4>Big Sellers & Enterprises</h4>
+                    <p>Scale your business with our advanced analytics, bulk listing tools, and corporate account features. Reach millions of customers across Kenya with our intelligent local-first algorithm.</p>
+                </div>
+                
+                <div class="audience-card small-seller fade-in">
+                    <div class="audience-icon" style="color: var(--success);">
+                        <i class="fas fa-store"></i>
+                    </div>
+                    <h4>Small Businesses & Entrepreneurs</h4>
+                    <p>Start and grow your online store with zero commission for the first 1,000 sellers. Access our Lipa Mdogo Mdogo payment system to increase your sales and customer reach.</p>
+                </div>
+                
+                <div class="audience-card student-section fade-in">
+                    <div class="audience-icon" style="color: var(--warning);">
+                        <i class="fas fa-graduation-cap"></i>
+                    </div>
+                    <h4>Student Marketplace Section</h4>
+                    <p>A dedicated space for students to buy affordable items, sell products, and learn entrepreneurship. Exclusive student discounts, campus delivery networks, and peer-to-peer trading.</p>
+                </div>
             </div>
         </div>
     </section>
 
     <!-- Team Section -->
-    <section class="section">
+    <section class="section section-alt">
         <div class="content">
             <h3 class="fade-in"><i class="fas fa-users"></i> Meet Our Core Team</h3>
             <div class="team-section">
@@ -455,12 +554,20 @@
                     <p>Customer Experience</p>
                     <p style="color: var(--primary); margin-top: 10px;">Logistics & Operations</p>
                 </div>
+                
+                <div class="team-member fade-in">
+                    <div class="team-avatar">GD</div>
+                    <h4>Gathuku Douglas Ndegwa</h4>
+                    <p><strong>Business Development</strong></p>
+                    <p>Partnerships & Growth</p>
+                    <p style="color: var(--primary); margin-top: 10px;">Enterprise Relations</p>
+                </div>
             </div>
         </div>
     </section>
 
     <!-- Features Section -->
-    <section class="section section-alt">
+    <section class="section">
         <div class="content">
             <h3 class="fade-in"><i class="fas fa-star"></i> Key Innovations</h3>
             <div class="features-grid">
@@ -479,25 +586,25 @@
                 <div class="feature-card fade-in">
                     <i class="fas fa-wallet"></i>
                     <h4>Lipa Mdogo Mdogo</h4>
-                    <p>Our revolutionary buy-now-pay-later system designed specifically for students and young entrepreneurs. Break down payments into manageable installments.</p>
+                    <p>Our revolutionary buy-now-pay-later system designed for all Kenyans. Break down payments into manageable installments to increase purchasing power.</p>
                 </div>
                 
                 <div class="feature-card fade-in">
                     <i class="fas fa-tags"></i>
                     <h4>Zero Commission Stores</h4>
-                    <p>Free for the first 1,000 sellers! Keep 100% of your profits while accessing our growing customer base.</p>
+                    <p>Free for the first 1,000 sellers! Keep 100% of your profits while accessing our growing customer base. Competitive rates for high-volume sellers.</p>
                 </div>
                 
                 <div class="feature-card fade-in">
                     <i class="fas fa-graduation-cap"></i>
-                    <h4>Student Marketplace</h4>
-                    <p>Exclusive deals, discounts, and opportunities for students. Buy affordable, sell easily, and build your business while studying.</p>
+                    <h4>Student Marketplace Section</h4>
+                    <p>Dedicated platform within OmniFlow for students. Exclusive deals, campus delivery, textbooks exchange, and entrepreneurship opportunities.</p>
                 </div>
                 
                 <div class="feature-card fade-in">
-                    <i class="fas fa-shield-alt"></i>
-                    <h4>OmniCash Wallet</h4>
-                    <p>Secure digital payments with end-to-end encryption. Send, receive, and store money safely within the platform.</p>
+                    <i class="fas fa-chart-line"></i>
+                    <h4>Enterprise Analytics</h4>
+                    <p>Advanced tools for big sellers including sales analytics, customer insights, and inventory management to help scale your business effectively.</p>
                 </div>
             </div>
 
@@ -509,7 +616,7 @@
     </section>
 
     <!-- Contact Section -->
-    <section class="section">
+    <section class="section section-alt">
         <div class="content">
             <h3 class="fade-in"><i class="fas fa-envelope"></i> Contact Information</h3>
             <div class="contact-info">
@@ -539,18 +646,21 @@
             </div>
             
             <h3 class="fade-in"><i class="fas fa-eye"></i> Our Vision</h3>
-            <p style="font-size: 1.1rem;" class="fade-in">To become Kenya's #1 e-commerce marketplace by 2027, creating thousands of young entrepreneurs across the country while revolutionizing how Kenyans shop and sell online.</p>
+            <p style="font-size: 1.1rem;" class="fade-in">To become Kenya's premier all-inclusive e-commerce platform by 2027, empowering sellers of all sizes while revolutionizing how Kenyans shop and sell online, with a special commitment to nurturing the next generation of entrepreneurs through our Student Marketplace.</p>
         </div>
     </section>
 
     <!-- CTA Section -->
-    <section class="section-alt cta-container">
+    <section class="section cta-container">
         <div class="content">
-            <h3 class="fade-in">Ready to Join the Revolution?</h3>
-            <p class="fade-in" style="margin-bottom: 30px; font-size: 1.1rem;">Start your e-commerce journey with OmniFlow today!</p>
+            <h3 class="fade-in">Ready to Join Kenya's Most Inclusive Marketplace?</h3>
+            <p class="fade-in" style="margin-bottom: 30px; font-size: 1.1rem;">Whether you're a big enterprise, small business, or student entrepreneur, OmniFlow has a place for you!</p>
             
             <a href="/about" class="btn fade-in"><i class="fas fa-external-link-alt"></i> Visit Full Interactive About Page</a>
             <a href="/create-store" class="btn btn-secondary fade-in"><i class="fas fa-store"></i> Create Your Free Store Now</a>
+            <a href="/student-marketplace" class="btn fade-in" style="background: linear-gradient(135deg, var(--warning) 0%, #d97706 100%);">
+                <i class="fas fa-graduation-cap"></i> Explore Student Marketplace
+            </a>
         </div>
     </section>
 
@@ -558,13 +668,13 @@
     <footer class="footer">
         <div class="content">
             <p>&copy; 2025 OmniFlow Marketplace Kenya. All rights reserved.</p>
-            <p style="margin-top: 15px; opacity: 0.8;">Empowering Kenyan Students & Entrepreneurs</p>
+            <p style="margin-top: 15px; opacity: 0.8;">Empowering Kenyan Sellers of All Sizes - From Enterprises to Students</p>
         </div>
     </footer>
 
     <!-- Hidden SEO content -->
     <div style="display: none;">
-        <p>Kirangi John Njeru Njoroge Joseph Ngugi Adrian Robin Oluoch OmniFlow CEO Founder JKUAT student Kenyan e-commerce Lipa Mdogo Mdogo zero commission stores same day delivery local delivery prioritize nearby products student marketplace Nairobi startup create store simple legal documents team members</p>
+        <p>Kirangi John Njeru Njoroge Joseph Ngugi Adrian Robin Oluoch Gathuku Douglas Ndegwa OmniFlow CEO Founder JKUAT student Kenyan e-commerce Lipa Mdogo Mdogo zero commission stores same day delivery local delivery prioritize nearby products all sellers marketplace big sellers small businesses student marketplace Nairobi startup create store simple legal documents team members inclusive e-commerce platform</p>
     </div>
 
     <script>
