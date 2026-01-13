@@ -9,7 +9,7 @@ import {
   FaFire, FaExclamationTriangle,
   FaUserCircle, FaEnvelope, FaShoppingCart, FaHeart,
   FaCrown, FaGem, FaEye, FaMapMarkerAlt,
-  FaGamepad
+  FaGamepad, FaMoneyBillWave
 } from "react-icons/fa";
 import InfiniteScroll from "react-infinite-scroll-component";
 import ReactModal from "react-modal";
@@ -23,13 +23,15 @@ import SidebarMenu from "@/components/SidebarMenu";
 
 import "./TradeStore.css";
 
-const tabs = ["All", "Near You", "Flash Sale", "Electronics", "Fashion", "Home", "Gaming", "Trending", "Discounted", "Featured"];
+// UPDATED: Added "Lipa Mdogomdogo" as second tab after "All"
+const tabs = ["All", "Lipa Mdogomdogo", "Near You", "Flash Sale", "Electronics", "Fashion", "Home", "Gaming", "Trending", "Discounted", "Featured"];
 
-// ========== SKELETON COMPONENTS ==========
+// ========== UPDATED SKELETON COMPONENTS ==========
 const ProductCardSkeleton = () => (
   <div className="product-card skeleton">
     <div className="product-img-wrapper skeleton">
       <div className="skeleton-image"></div>
+      <div className="skeleton-badge"></div>
     </div>
     <div className="product-card-content">
       <div className="skeleton-line skeleton-title"></div>
@@ -38,11 +40,17 @@ const ProductCardSkeleton = () => (
           <div key={i} className="skeleton-star"></div>
         ))}
       </div>
-      <div className="skeleton-line skeleton-price"></div>
-      <div className="product-info">
+      <div className="price-skeleton">
+        <div className="skeleton-line skeleton-price-main"></div>
+        <div className="skeleton-line skeleton-price-old"></div>
+      </div>
+      <div className="product-info-skeleton">
+        <div className="skeleton-line skeleton-category"></div>
         <div className="skeleton-line skeleton-stock"></div>
       </div>
-      <div className="skeleton-line skeleton-seller"></div>
+      <div className="seller-skeleton">
+        <div className="skeleton-line skeleton-seller"></div>
+      </div>
     </div>
   </div>
 );
@@ -52,6 +60,7 @@ const EmptyTabState = ({ tabName }) => (
     <div className="empty-tab-icon">
       {tabName === "Gaming" ? <FaGamepad /> : 
        tabName === "Near You" ? <FaMapMarkerAlt /> :
+       tabName === "Lipa Mdogomdogo" ? <FaMoneyBillWave /> :
        <FaTags />}
     </div>
     <h3>No {tabName} Products Yet</h3>
@@ -61,11 +70,13 @@ const EmptyTabState = ({ tabName }) => (
 
 const NavigationSkeleton = () => (
   <nav className="premium-navbar skeleton">
-    <div className="skeleton-nav-icon"></div>
-    <div className="nav-center">
-      <div className="skeleton-nav-title"></div>
+    <div className="nav-left-skeleton">
+      <div className="skeleton-nav-icon"></div>
     </div>
-    <div className="nav-right">
+    <div className="nav-center-skeleton">
+      <div className="skeleton-search-bar"></div>
+    </div>
+    <div className="nav-right-skeleton">
       <div className="skeleton-nav-icon"></div>
       <div className="skeleton-nav-icon"></div>
       <div className="skeleton-nav-icon"></div>
@@ -73,7 +84,6 @@ const NavigationSkeleton = () => (
   </nav>
 );
 
-// UPDATED: Simple tagline skeleton instead of full hero
 const TaglineSkeleton = () => (
   <div className="tagline-skeleton skeleton">
     <div className="skeleton-tagline-line"></div>
@@ -116,6 +126,33 @@ const formatDistance = (km) => {
   return `${Math.round(km)} km`;
 };
 
+// ========== UPDATED: Delivery Time Calculation ==========
+const getDeliveryTime = (distance) => {
+  if (distance === Infinity) return "Standard Delivery";
+  
+  // UPDATED: New distance thresholds
+  if (distance <= 100) {
+    return "Same Day Delivery";
+  } else if (distance > 100 && distance <= 220) {
+    return "Next Day Delivery";
+  } else {
+    return "3 Days Delivery";
+  }
+};
+
+const getDeliveryColor = (distance) => {
+  if (distance === Infinity) return "#94a3b8";
+  
+  // UPDATED: New distance thresholds with colors
+  if (distance <= 100) {
+    return "#10b981"; // Green for same day
+  } else if (distance > 100 && distance <= 220) {
+    return "#f59e0b"; // Orange/Yellow for next day
+  } else {
+    return "#ef4444"; // Red for 3 days
+  }
+};
+
 // ========== MAIN COMPONENTS ==========
 const ProductCard = ({ product, onClick, onAuthRequired, buyerLocation }) => {
   const { user } = useAuth();
@@ -124,10 +161,15 @@ const ProductCard = ({ product, onClick, onAuthRequired, buyerLocation }) => {
     ? calculateDistance(buyerLocation.lat, buyerLocation.lng, product.store_lat, product.store_lng)
     : Infinity;
 
+  // UPDATED: Get delivery time based on new thresholds
+  const deliveryTime = getDeliveryTime(distance);
+  const deliveryColor = getDeliveryColor(distance);
+
   const getBadge = () => {
     if (product.is_flash_sale) return <span className="badge flash"><FaBolt /> Flash</span>;
     if (product.is_trending) return <span className="badge trending"><FaFire /> Trending</span>;
     if (product.is_featured) return <span className="badge featured">Featured</span>;
+    if (product.lipa_polepole) return <span className="badge installment"><FaMoneyBillWave /> Lipa Mdogo</span>;
     return null;
   };
 
@@ -229,20 +271,12 @@ const ProductCard = ({ product, onClick, onAuthRequired, buyerLocation }) => {
 
         <div className="seller-row">
           <FaMapMarkerAlt style={{ 
-            color: distance < 15 ? "#10b981" : distance < 50 ? "#f59e0b" : "#94a3b8",
+            color: deliveryColor,
             marginRight: 6 
           }} />
-          {distance < 15 ? (
-            <span style={{ color: "#10b981", fontWeight: "600" }}>
-              {formatDistance(distance)} · Same-day possible
-            </span>
-          ) : distance < 50 ? (
-            <span style={{ color: "#f59e0b" }}>
-              {formatDistance(distance)} · Next-day
-            </span>
-          ) : distance !== Infinity ? (
-            <span style={{ color: "#94a3b8" }}>
-              {formatDistance(distance)} away
+          {distance !== Infinity ? (
+            <span style={{ color: deliveryColor, fontWeight: "600" }}>
+              {formatDistance(distance)} · {deliveryTime}
             </span>
           ) : (
             <span>Verified Seller</span>
@@ -425,7 +459,7 @@ const TradeStore = () => {
   
   const pageSize = 20;
   const tabsRef = useRef(null);
-  const promotedRef = useRef(null); // Changed from heroRef
+  const promotedRef = useRef(null);
 
   // Smart, silent location detection — no annoying toasts
   useEffect(() => {
@@ -455,7 +489,7 @@ const TradeStore = () => {
     }
   }, []);
 
-  // Sticky tabs logic - updated to use promoted section ref
+  // Sticky tabs logic
   useEffect(() => {
     const handleScroll = () => {
       if (!tabsRef.current || !promotedRef.current) return;
@@ -463,7 +497,6 @@ const TradeStore = () => {
       const promotedRect = promotedRef.current.getBoundingClientRect();
       const scrollTop = window.scrollY || document.documentElement.scrollTop;
       
-      // When promoted section is scrolled out of view, make tabs sticky
       if (scrollTop > promotedRect.height) {
         setIsTabsSticky(true);
       } else {
@@ -686,6 +719,7 @@ const TradeStore = () => {
         id, name, description, price, discount, stock_quantity,
         category, tags, image_gallery, created_at, views,
         is_featured, is_rare_drop, is_flash_sale, is_trending,
+        lipa_polepole, installment_plan,
         store_id,
         stores!inner (
           id, 
@@ -814,6 +848,10 @@ const TradeStore = () => {
 
     // Apply tab filters
     switch (activeTab) {
+      case "Lipa Mdogomdogo":
+        // NEW: Filter for installment products
+        result = result.filter(p => p.lipa_polepole === true);
+        break;
       case "Near You":
         if (buyerLocation) {
           result = result.filter(p => {
@@ -850,7 +888,6 @@ const TradeStore = () => {
         ); 
         break;
       case "Gaming":
-        // Gaming filter: category is gaming OR tags contain gaming
         result = result.filter(p => 
           p.category?.toLowerCase().includes("gaming") || 
           p.tags?.some(tag => 
@@ -1016,7 +1053,7 @@ const TradeStore = () => {
         onNavigate={navigate}
       />
 
-      {/* UPDATED: Simple tagline section above promoted carousel */}
+      {/* Simple tagline section above promoted carousel */}
       <div className="marketplace-tagline">
         <p className="tagline-text">Kenya's #1 Marketplace — Discover Amazing Deals!</p>
       </div>
@@ -1058,6 +1095,7 @@ const TradeStore = () => {
             >
               {tab === "Near You" && buyerLocation && <FaMapMarkerAlt style={{ marginRight: 4 }} />}
               {tab === "Gaming" && <FaGamepad style={{ marginRight: 4 }} />}
+              {tab === "Lipa Mdogomdogo" && <FaMoneyBillWave style={{ marginRight: 4 }} />}
               {tab}
             </motion.button>
           ))}

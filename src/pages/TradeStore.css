@@ -1741,3 +1741,309 @@ html.dark .infinite-scroll-component__end-message {
     padding-top: 3rem;
   }
 }
+/* Add these styles to your existing TradeStore.css file */
+
+/* ========== UPDATED SKELETON STYLES ========== */
+.price-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin: 0.2rem 0;
+}
+
+.skeleton-price-main {
+  height: 16px;
+  width: 80px;
+  margin-bottom: 0.1rem;
+}
+
+.skeleton-price-old {
+  height: 12px;
+  width: 60px;
+}
+
+.product-info-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin: 0.15rem 0;
+}
+
+.skeleton-category {
+  height: 10px;
+  width: 70px;
+}
+
+.skeleton-stock {
+  height: 10px;
+  width: 50px;
+}
+
+.seller-skeleton {
+  margin-top: auto;
+  padding-top: 0.3rem;
+  border-top: 1px solid #f0f0f0;
+}
+
+html.dark .seller-skeleton {
+  border-top-color: #333;
+}
+
+.skeleton-seller {
+  height: 10px;
+  width: 90px;
+}
+
+.skeleton-badge {
+  position: absolute;
+  top: 0.3rem;
+  left: 0.3rem;
+  width: 50px;
+  height: 18px;
+  border-radius: 0.4rem;
+  background: #e5e7eb;
+}
+
+html.dark .skeleton-badge {
+  background: #374151;
+}
+
+/* Navigation skeleton updates */
+.nav-left-skeleton {
+  display: flex;
+  align-items: center;
+}
+
+.nav-center-skeleton {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  max-width: 400px;
+}
+
+.skeleton-search-bar {
+  width: 100%;
+  max-width: 320px;
+  height: 32px;
+  border-radius: 1.2rem;
+  background: #e5e7eb;
+}
+
+html.dark .skeleton-search-bar {
+  background: #374151;
+}
+
+.nav-right-skeleton {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+/* ========== INSTALLMENT BADGE STYLES ========== */
+.badge.installment {
+  background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+  color: #ffffff;
+}
+
+/* ========== LOADING SECTION FOR INFINITE SCROLL ========== */
+.skeleton-loader {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.6rem;
+  padding: 0.4rem 0;
+  width: 100%;
+}
+
+@media (min-width: 640px) {
+  .skeleton-loader {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.8rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .skeleton-loader {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .skeleton-loader {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1.2rem;
+  }
+}
+
+@media (min-width: 1280px) {
+  .skeleton-loader {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+
+/* ========== TAB BUTTON UPDATES FOR LIPA MDOGOMDOGO ========== */
+.tab-button.compact .fa-money-bill-wave {
+  margin-right: 4px;
+  font-size: 0.7rem;
+}
+
+/* ========== UPDATED EMPTY STATE FOR LIPA MDOGOMDOGO ========== */
+.empty-tab-state .fa-money-bill-wave {
+  color: #10b981;
+  opacity: 0.8;
+}
+
+/* ========== RESPONSIVE ADJUSTMENTS ========== */
+@media (max-width: 480px) {
+  .skeleton-loader {
+    gap: 0.5rem;
+  }
+  
+  .skeleton-price-main {
+    height: 14px;
+    width: 70px;
+  }
+  
+  .skeleton-price-old {
+    height: 10px;
+    width: 50px;
+  }
+  
+  .skeleton-badge {
+    width: 45px;
+    height: 16px;
+  }
+  
+  .tab-button.compact .fa-money-bill-wave {
+    font-size: 0.65rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .skeleton-loader {
+    gap: 0.4rem;
+  }
+  
+  .skeleton-price-main {
+    height: 12px;
+    width: 60px;
+  }
+  
+  .tab-button.compact .fa-money-bill-wave {
+    font-size: 0.6rem;
+  }
+}
+
+/* ========== ENHANCED PRODUCT CARD SKELETON ANIMATION ========== */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.product-card.skeleton {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ========== TAB BAR ADJUSTMENTS FOR NEW TAB ========== */
+.tab-bar-scrollable.compact {
+  scroll-padding: 0 0.5rem;
+}
+
+/* Ensure the new tab is visible and properly spaced */
+.tab-button.compact:contains("Lipa Mdogomdogo") {
+  min-width: fit-content;
+}
+
+/* ========== DELIVERY TIME STYLES ========== */
+.delivery-time-indicator {
+  font-size: 0.55rem;
+  font-weight: 600;
+  padding: 0.1rem 0.3rem;
+  border-radius: 0.3rem;
+  display: inline-block;
+  margin-left: 0.3rem;
+}
+
+.delivery-same-day {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.delivery-next-day {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.delivery-three-days {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+/* ========== INSTALLMENT PLAN DISPLAY ========== */
+.installment-plan-info {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.6rem;
+  color: #10b981;
+  font-weight: 500;
+  margin-top: 0.2rem;
+}
+
+.installment-plan-info svg {
+  font-size: 0.7rem;
+}
+
+/* ========== SMOOTHER TRANSITIONS ========== */
+.tab-button.compact,
+.product-card,
+.skeleton {
+  transition: all 0.3s ease;
+}
+
+/* ========== LOADING OVERLAY FOR BETTER UX ========== */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+html.dark .loading-overlay {
+  background: rgba(26, 26, 26, 0.8);
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #f3f4f6;
+  border-top: 3px solid #ff6200;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+html.dark .loading-spinner {
+  border-color: #374151;
+  border-top-color: #ff6200;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
