@@ -1,16 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "@/supabase";
 import { useNavigate } from "react-router-dom";
-import { FaBolt, FaTags, FaStar } from "react-icons/fa";
+import { FaBolt, FaTags, FaStar, FaArrowRight } from "react-icons/fa";
 import "./FlashDeals.css";
 
-const FlashDeals = () => {
+const FlashDeals = ({ limit = 6, showViewMore = true }) => {
   const navigate = useNavigate();
   const [flashDeals, setFlashDeals] = useState([]);
   const [now, setNow] = useState(new Date());
   const [theme, setTheme] = useState("light");
 
-  /* ---------- Theme detection (unchanged) ---------- */
+  /* ---------- Theme detection ---------- */
   useEffect(() => {
     const detect = () =>
       window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
@@ -42,7 +42,9 @@ const FlashDeals = () => {
         .eq("is_flash_sale", true)
         .gt("flash_sale_ends_at", new Date().toISOString())
         .eq("visibility", "public")
-        .eq("status", "active");
+        .eq("status", "active")
+        .order("flash_sale_ends_at", { ascending: true }) // Show soonest ending first
+        .limit(limit + 3); // Fetch a few extra in case some expire
 
       if (error) return console.error(error);
 
@@ -55,7 +57,7 @@ const FlashDeals = () => {
       setFlashDeals(withImg);
     };
     fetch();
-  }, []);
+  }, [limit]);
 
   /* ---------- Real-time clock & auto-expire ---------- */
   useEffect(() => {
@@ -85,6 +87,7 @@ const FlashDeals = () => {
   };
 
   const handleClick = (id) => navigate(`/product/${id}`);
+  const handleViewMore = () => navigate("/flash-sales");
 
   /* ---------- Kenyan price formatter ---------- */
   const fmt = (num) =>
@@ -95,16 +98,28 @@ const FlashDeals = () => {
 
   if (!flashDeals.length) return null;
 
+  // Limit to specified number for display
+  const displayDeals = flashDeals.slice(0, limit);
+
   return (
     <section className={`flash-deals-section ${theme}`} data-theme={theme}>
       <header className="flash-header">
         <FaBolt className="flash-icon" />
-        <h2>Flash Deals</h2>
-        <p>Hurry up! Limited-time offers.</p>
+        <div className="flash-header-text">
+          <h2>Flash Deals</h2>
+          <p>Hurry up! Limited-time offers.</p>
+        </div>
+        
+        {showViewMore && flashDeals.length > limit && (
+          <button className="view-more-btn" onClick={handleViewMore}>
+            View All Deals
+            <FaArrowRight className="arrow-icon" />
+          </button>
+        )}
       </header>
 
       <div className="flash-carousel">
-        {flashDeals.map((p) => {
+        {displayDeals.map((p) => {
           const timeLeft = getTimeLeft(p.flash_sale_ends_at);
           if (!timeLeft) return null;
 
@@ -146,6 +161,15 @@ const FlashDeals = () => {
           );
         })}
       </div>
+
+      {showViewMore && flashDeals.length > limit && (
+        <div className="flash-footer">
+          <button className="view-more-bottom-btn" onClick={handleViewMore}>
+            View All {flashDeals.length} Flash Sale Deals
+            <FaArrowRight className="arrow-icon" />
+          </button>
+        </div>
+      )}
     </section>
   );
 };

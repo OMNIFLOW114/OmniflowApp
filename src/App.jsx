@@ -36,6 +36,7 @@ import StudentChatPage from './pages/StudentChatPage';
 import OrderTrackingPage from './pages/OrderTrackingPage';
 import StudentEarningsPage from './pages/StudentEarningsPage';
 import TermsPage from "@/components/TermsPage";
+import FlashSalesPage from './components/FlashSalesPage';
 // Main Features
 import OmniCashWallet from "./pages/OmniCashWallet";
 import CurrencyConverter from "@/pages/CurrencyConverter";
@@ -119,7 +120,7 @@ function AppRoutes() {
         <Route path="/chat" element={<ChatScreen />} />
         {/* REMOVED: ProtectedRoute from /trade since it's now the root */}
         <Route path="/trade" element={<TradeStore />} />
-        
+        <Route path="/flash-sales" element={<FlashSalesPage />} />
         <Route path="/store/create" element={<ProtectedRoute><CreateStore /></ProtectedRoute>} />
         <Route path="/dashboard/store/:storeId" element={<ProtectedRoute><StoreDashboard /></ProtectedRoute>} />
         <Route path="/product/:id" element={<ProductDetail />} />

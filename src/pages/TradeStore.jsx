@@ -13,7 +13,6 @@ import {
 } from "react-icons/fa";
 import InfiniteScroll from "react-infinite-scroll-component";
 import ReactModal from "react-modal";
-
 import FlashDeals from "@/components/FlashDeals";
 import FeaturedHighlights from "@/components/FeaturedHighlights";
 import PromotedCarousel from "@/components/PromotedCarousel";
@@ -1111,13 +1110,13 @@ const TradeStore = () => {
         <PromotedCarousel />
       </div>
 
-      {/* Only show FlashDeals and FeaturedHighlights when NOT on Home tab */}
-      {activeTab !== "Home" && (
-        <>
-          <FlashDeals />
-          <FeaturedHighlights />
-        </>
-      )}
+     {/* Only show FlashDeals and FeaturedHighlights when NOT on Home tab */}
+{activeTab !== "Home" && (
+  <>
+    <FlashDeals limit={6} showViewMore={true} />
+    <FeaturedHighlights />
+  </>
+)}
 
       {/* PERMANENT TABS - Just below top nav like Kilimall */}
       <div className="tab-bar-permanent-wrapper">

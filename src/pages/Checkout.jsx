@@ -11,7 +11,9 @@ import {
   FaChevronUp,
   FaStore,
   FaBox,
-  FaArrowLeft
+  FaArrowLeft,
+  FaBolt,
+  FaClock
 } from "react-icons/fa";
 import "./Checkout.css";
 
@@ -24,6 +26,12 @@ export default function Checkout() {
   const [products, setProducts] = useState([]);
   const [seller, setSeller] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Flash sale states
+  const [isFlashSale, setIsFlashSale] = useState(false);
+  const [flashSaleEndsAt, setFlashSaleEndsAt] = useState(null);
+  const [flashSaleTimeLeft, setFlashSaleTimeLeft] = useState("");
+  const [originalPrice, setOriginalPrice] = useState(null);
 
   // checkout fields
   const [deliveryMethod, setDeliveryMethod] = useState("");
@@ -45,9 +53,37 @@ export default function Checkout() {
   const [showInstallmentInfo, setShowInstallmentInfo] = useState(false);
   const [processingInstallment, setProcessingInstallment] = useState(false);
 
-  // Check if coming from cart
+  // Check if coming from cart or flash sale
   const fromCart = location.state?.fromCart;
   const storeId = location.state?.storeId;
+  const fromFlashSale = location.state?.fromFlashSale;
+
+  // Flash sale timer effect
+  useEffect(() => {
+    if (!isFlashSale || !flashSaleEndsAt) return;
+
+    const updateFlashTimer = () => {
+      const diff = new Date(flashSaleEndsAt) - new Date();
+      if (diff <= 0) {
+        setFlashSaleTimeLeft("Expired");
+        return;
+      }
+      
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      
+      if (hours > 0) {
+        setFlashSaleTimeLeft(`${hours}h ${minutes}m ${seconds}s`);
+      } else {
+        setFlashSaleTimeLeft(`${minutes}m ${seconds}s`);
+      }
+    };
+
+    updateFlashTimer();
+    const timer = setInterval(updateFlashTimer, 1000);
+    return () => clearInterval(timer);
+  }, [isFlashSale, flashSaleEndsAt]);
 
   // OPTIMIZED Mapbox search for deep Kenyan addresses
   const searchAddresses = async (query) => {
@@ -132,7 +168,12 @@ export default function Checkout() {
     async function load() {
       setLoading(true);
       try {
-        console.log("🔄 Checkout loading...", { productId, fromCart, locationState: location.state });
+        console.log("🔄 Checkout loading...", { 
+          productId, 
+          fromCart, 
+          fromFlashSale,
+          locationState: location.state 
+        });
 
         // Check if user is logged in FIRST
         if (!user?.id) {
@@ -141,6 +182,64 @@ export default function Checkout() {
           return;
         }
 
+        // ===== FLASH SALE FLOW =====
+        if (fromFlashSale && location.state?.product) {
+          console.log("⚡ Flash sale checkout flow activated");
+          
+          const flashProduct = location.state.product;
+          const flashPrice = location.state.flashPrice;
+          const originalPrice = location.state.originalPrice;
+          
+          // Validate flash sale is still active
+          const now = new Date();
+          const flashEndsAt = new Date(flashProduct.flash_sale_ends_at);
+          if (flashEndsAt <= now) {
+            toast.error("This flash sale has expired");
+            navigate("/flash-sales");
+            return;
+          }
+
+          // Set flash sale states
+          setIsFlashSale(true);
+          setFlashSaleEndsAt(flashProduct.flash_sale_ends_at);
+          setOriginalPrice(originalPrice);
+
+          // Prepare product with flash price
+          const productWithFlashPrice = {
+            ...flashProduct,
+            price: flashPrice, // Use flash price
+            original_price: originalPrice, // Store original for display
+            discount: flashProduct.discount || 0,
+            is_flash_sale: true,
+            quantity: 1
+          };
+
+          setProducts([productWithFlashPrice]);
+
+          // Fetch seller info
+          const { data: s, error: sellerError } = await supabase
+            .from("stores")
+            .select("id, name, contact_phone, location, owner_id")
+            .eq("owner_id", flashProduct.owner_id)
+            .maybeSingle();
+
+          if (sellerError) {
+            console.error("Error fetching seller:", sellerError);
+          }
+          setSeller(s || null);
+
+          // Set delivery method based on product
+          const dm = flashProduct.delivery_methods || {};
+          const offersPickup = dm && (dm.pickup === "Yes" || dm.pickup === true || (typeof dm.pickup === "string" && dm.pickup.trim() !== "") || typeof dm.pickup === "object");
+          const offersDoor = dm && (dm.door === "Yes" || dm.door === true || (typeof dm.door === "string" && dm.door.trim() !== "") || typeof dm.door === "object");
+          setDeliveryMethod(offersDoor ? "door" : offersPickup ? "pickup" : "");
+
+          console.log("✅ Flash sale checkout loaded successfully");
+          setLoading(false);
+          return;
+        }
+
+        // ===== EXISTING CART FLOW =====
         if (fromCart && location.state?.cartItems) {
           // Cart checkout flow
           const cartItems = location.state.cartItems;
@@ -167,7 +266,7 @@ export default function Checkout() {
             setDeliveryMethod(offersDoor ? "door" : offersPickup ? "pickup" : "");
           }
         } else {
-          // Single product checkout flow (original logic)
+          // ===== EXISTING SINGLE PRODUCT FLOW =====
           let p = location.state?.product || null;
 
           if (!p) {
@@ -202,13 +301,13 @@ export default function Checkout() {
       } catch (err) {
         console.error("❌ Checkout load error:", err);
         toast.error("Failed to load checkout");
-        navigate("/cart");
+        navigate(isFlashSale ? "/flash-sales" : "/cart");
       } finally {
         setLoading(false);
       }
     }
     load();
-  }, [productId, location.state, user, fromCart, navigate]);
+  }, [productId, location.state, user, fromCart, fromFlashSale, navigate, isFlashSale]);
 
   // delivery fee calculation
   function computeDeliveryFee() {
@@ -248,12 +347,23 @@ export default function Checkout() {
     fragile
   ]);
 
-  // Calculate totals
+  // Calculate totals - UPDATED to handle flash sale prices
   const productTotals = useMemo(() => {
     return products.map(product => {
-      const rawPrice = Number(product.price || 0);
-      const discount = Number(product.discount || 0);
-      const unitPrice = rawPrice * (1 - discount / 100);
+      // For flash sales, use the flash price that's already set
+      // For regular products, calculate discounted price
+      let unitPrice;
+      
+      if (product.is_flash_sale) {
+        // Flash sale: price is already the flash price
+        unitPrice = Number(product.price || 0);
+      } else {
+        // Regular product: calculate discount
+        const rawPrice = Number(product.price || 0);
+        const discount = Number(product.discount || 0);
+        unitPrice = rawPrice * (1 - discount / 100);
+      }
+      
       const productPrice = +(unitPrice * product.quantity).toFixed(2);
       const depositProduct = +(productPrice * depositPercent).toFixed(2);
       
@@ -261,7 +371,8 @@ export default function Checkout() {
         ...product,
         unitPrice,
         productPrice,
-        depositProduct
+        depositProduct,
+        originalPrice: product.original_price || product.price
       };
     });
   }, [products]);
@@ -280,13 +391,25 @@ export default function Checkout() {
   const balanceDue = useMemo(() => +(totalProductPrice - totalDeposit).toFixed(2), [totalProductPrice, totalDeposit]);
   const totalOrder = useMemo(() => +(totalProductPrice + deliveryFee).toFixed(2), [totalProductPrice, deliveryFee]);
 
-  // Check if any product has installment plan (disable for multi-product)
+  // Check if any product has installment plan (disable for multi-product and flash sales)
   const hasInstallmentPlan = useMemo(() => {
     if (fromCart && products.length > 1) return false;
+    if (isFlashSale) return false; // Disable installments for flash sales
     return products[0]?.installment_plan;
-  }, [products, fromCart]);
+  }, [products, fromCart, isFlashSale]);
 
-  // Payment handlers
+  // Enhanced back button handler
+  const handleBack = () => {
+    if (isFlashSale) {
+      navigate('/flash-sales');
+    } else if (fromCart) {
+      navigate('/cart');
+    } else {
+      navigate(-1);
+    }
+  };
+
+  // Enhanced payment handlers with flash sale support
   async function handlePayWithWallet() {
     if (!user?.id) return toast.error("Login required");
     if (!deliveryMethod) return toast.error("Choose a delivery option");
@@ -298,6 +421,18 @@ export default function Checkout() {
       product.stock_quantity < product.quantity
     );
     if (outOfStock) return toast.error("Some items are out of stock");
+
+    // For flash sales, check if still valid
+    if (isFlashSale && flashSaleEndsAt) {
+      const now = new Date();
+      const flashEndsAt = new Date(flashSaleEndsAt);
+      if (flashEndsAt <= now) {
+        toast.error("This flash sale has expired");
+        setIsFlashSale(false);
+        navigate("/flash-sales");
+        return;
+      }
+    }
 
     setBuying(true);
     toast.loading("Processing deposit...");
@@ -328,7 +463,7 @@ export default function Checkout() {
             .eq("id", product.cartItemId);
         }
       } else {
-        // Single product checkout
+        // Single product checkout (including flash sales)
         const product = productTotals[0];
         const rpcArgs = {
           p_buyer: user.id,
@@ -340,6 +475,8 @@ export default function Checkout() {
           p_contact_phone: contactPhone,
           p_payment_method: "wallet",
           p_deposit_percent: depositPercent,
+          p_is_flash_sale: isFlashSale, // Pass flash sale flag
+          p_original_price: isFlashSale ? originalPrice : null, // Pass original price for flash sales
         };
 
         const { data, error } = await supabase.rpc("create_order_with_deposit", rpcArgs);
@@ -347,7 +484,7 @@ export default function Checkout() {
       }
 
       toast.dismiss();
-      toast.success("Deposit collected — order created");
+      toast.success(isFlashSale ? "Flash deal secured! Deposit collected" : "Deposit collected — order created");
       navigate("/orders");
     } catch (err) {
       console.error("Wallet payment error:", err);
@@ -364,6 +501,18 @@ export default function Checkout() {
     if (!contactPhone) return toast.error("Enter contact phone");
     if (!deliveryAddress) return toast.error("Please enter a delivery address");
 
+    // For flash sales, check if still valid
+    if (isFlashSale && flashSaleEndsAt) {
+      const now = new Date();
+      const flashEndsAt = new Date(flashSaleEndsAt);
+      if (flashEndsAt <= now) {
+        toast.error("This flash sale has expired");
+        setIsFlashSale(false);
+        navigate("/flash-sales");
+        return;
+      }
+    }
+
     setBuying(true);
     toast.loading("Creating pending order...");
 
@@ -371,6 +520,13 @@ export default function Checkout() {
       if (fromCart) {
         // Multi-product checkout
         for (const product of productTotals) {
+          const metadata = { 
+            delivery_speed: deliverySpeed, 
+            fragile, 
+            from_cart: true,
+            is_flash_sale: false // Cart items are not flash sales
+          };
+
           const payload = {
             product_id: product.id,
             buyer_id: user.id,
@@ -389,7 +545,7 @@ export default function Checkout() {
             buyer_phone: contactPhone,
             buyer_location: deliveryAddress,
             delivery_location: deliveryAddress,
-            metadata: { delivery_speed: deliverySpeed, fragile, from_cart: true },
+            metadata: metadata,
           };
 
           const { error } = await supabase.from("orders").insert([payload]);
@@ -404,6 +560,14 @@ export default function Checkout() {
       } else {
         // Single product checkout
         const product = productTotals[0];
+        const metadata = { 
+          delivery_speed: deliverySpeed, 
+          fragile,
+          is_flash_sale: isFlashSale,
+          flash_sale_ends_at: isFlashSale ? flashSaleEndsAt : null,
+          original_price: isFlashSale ? originalPrice : null
+        };
+
         const payload = {
           product_id: product.id,
           buyer_id: user.id,
@@ -422,7 +586,7 @@ export default function Checkout() {
           buyer_phone: contactPhone,
           buyer_location: deliveryAddress,
           delivery_location: deliveryAddress,
-          metadata: { delivery_speed: deliverySpeed, fragile },
+          metadata: metadata,
         };
 
         const { data, error } = await supabase.from("orders").insert([payload]).select().single();
@@ -430,7 +594,7 @@ export default function Checkout() {
       }
 
       toast.dismiss();
-      toast.success("Pending order created — complete payment externally");
+      toast.success(isFlashSale ? "Flash deal secured! Complete payment externally" : "Pending order created — complete payment externally");
       navigate("/orders");
     } catch (err) {
       console.error("External order creation error:", err);
@@ -448,6 +612,7 @@ export default function Checkout() {
     if (!deliveryAddress) return toast.error("Please enter a delivery address");
     if (!hasInstallmentPlan) return toast.error("Installments not available");
     if (fromCart && products.length > 1) return toast.error("Installments only available for single products");
+    if (isFlashSale) return toast.error("Installments not available for flash sales");
 
     const product = productTotals[0];
     if (product.quantity < 1) return toast.error("Quantity must be at least 1");
@@ -497,13 +662,33 @@ export default function Checkout() {
     return 'Location';
   };
 
+  // Flash Sale Banner Component
+  const FlashSaleBanner = () => {
+    if (!isFlashSale) return null;
+
+    return (
+      <div className="flash-sale-banner">
+        <div className="flash-sale-content">
+          <FaBolt className="flash-sale-icon" />
+          <div className="flash-sale-text">
+            <strong>FLASH SALE ACTIVE</strong>
+            <span>Special price expires in: {flashSaleTimeLeft}</span>
+          </div>
+        </div>
+        <div className="flash-sale-note">
+          Complete checkout before time runs out to lock in this exclusive price
+        </div>
+      </div>
+    );
+  };
+
   if (loading) return <div className="loading">Loading…</div>;
   if (!products.length) return <div className="loading">No products found</div>;
 
   return (
     <div className="checkout-page">
       <div className="checkout-header">
-        <button className="back-button" onClick={() => navigate(-1)}>
+        <button className="back-button" onClick={handleBack}>
           <FaArrowLeft /> Back
         </button>
         <h1>
@@ -513,11 +698,14 @@ export default function Checkout() {
             </>
           ) : (
             <>
-              <FaBox /> Checkout
+              <FaBox /> Checkout {isFlashSale && "(Flash Sale)"}
             </>
           )}
         </h1>
       </div>
+
+      {/* Flash Sale Banner */}
+      <FlashSaleBanner />
 
       <div className="checkout-grid">
         <div className="left">
@@ -525,6 +713,11 @@ export default function Checkout() {
           <div className="products-section">
             <h3>
               {fromCart ? `Ordering from ${seller?.name}` : "Product Details"}
+              {isFlashSale && (
+                <span className="flash-badge">
+                  <FaBolt /> FLASH SALE
+                </span>
+              )}
             </h3>
             
             {productTotals.map((product, index) => (
@@ -540,15 +733,37 @@ export default function Checkout() {
                       Variant: {typeof product.variant === 'string' ? product.variant : JSON.stringify(product.variant)}
                     </div>
                   )}
-                  <div className="product-pricing">
-                    <span>KSH {product.unitPrice.toLocaleString()} × {product.quantity}</span>
-                    <strong>KSH {product.productPrice.toLocaleString()}</strong>
-                  </div>
+                  
+                  {/* Flash Sale Price Display */}
+                  {isFlashSale && (
+                    <div className="flash-price-display">
+                      <div className="original-price-line">
+                        <span className="original-price-label">Original:</span>
+                        <span className="original-price-value">KSH {product.originalPrice?.toLocaleString() || product.price.toLocaleString()}</span>
+                      </div>
+                      <div className="flash-price-line">
+                        <span className="flash-price-label">Flash Sale:</span>
+                        <span className="flash-price-value">KSH {product.unitPrice.toLocaleString()} × {product.quantity}</span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Regular Price Display (non-flash) */}
+                  {!isFlashSale && (
+                    <div className="product-pricing">
+                      <span>KSH {product.unitPrice.toLocaleString()} × {product.quantity}</span>
+                      <strong>KSH {product.productPrice.toLocaleString()}</strong>
+                    </div>
+                  )}
+                  
                   <div className="stock-info">
                     {product.stock_quantity > 0 ? (
                       <span className="in-stock">{product.stock_quantity} in stock</span>
                     ) : (
                       <span className="out-of-stock">Out of stock</span>
+                    )}
+                    {isFlashSale && product.stock_quantity <= 5 && product.stock_quantity > 0 && (
+                      <span className="low-stock-warning">Selling fast!</span>
                     )}
                   </div>
                 </div>
@@ -556,8 +771,8 @@ export default function Checkout() {
             ))}
           </div>
 
-          {/* Installment Section - Only for single product without cart */}
-          {hasInstallmentPlan && !fromCart && (
+          {/* Installment Section - Only for single product without cart and NOT flash sale */}
+          {hasInstallmentPlan && !fromCart && !isFlashSale && (
             <div className="installment-section" style={{ marginBottom: 16 }}>
               <h4 onClick={() => setShowInstallmentInfo((s) => !s)}>
                 Special Offer: Buy in Installments{" "}
@@ -571,6 +786,17 @@ export default function Checkout() {
                   </p>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Flash Sale Notice - If flash sale but installments disabled */}
+          {isFlashSale && products[0]?.installment_plan && (
+            <div className="flash-sale-notice" style={{ marginBottom: 16 }}>
+              <p>
+                <FaClock style={{ marginRight: '8px', color: '#FF6B35' }} />
+                <strong>Note:</strong> Installment plans are not available for flash sale items.
+                Complete purchase now to secure this limited-time offer.
+              </p>
             </div>
           )}
 
@@ -670,8 +896,8 @@ export default function Checkout() {
             </label>
           </div>
 
-          {/* Installment Payment - Only for single product */}
-          {hasInstallmentPlan && !fromCart && (
+          {/* Installment Payment - Only for single product, not flash sale */}
+          {hasInstallmentPlan && !fromCart && !isFlashSale && (
             <div className="installment-section" style={{ marginTop: 12 }}>
               <h4>Buy in Installments</h4>
               <div className="installment-details">
@@ -705,6 +931,16 @@ export default function Checkout() {
           <div className="payment-methods" style={{ marginTop: 16 }}>
             <h4>Payment</h4>
             <div className="price-breakdown">
+              {isFlashSale && (
+                <div className="flash-sale-savings">
+                  <span>Flash Sale Savings:</span>
+                  <strong style={{ color: '#10B981' }}>
+                    -KSH {productTotals[0]?.originalPrice 
+                      ? ((productTotals[0].originalPrice - productTotals[0].unitPrice) * productTotals[0].quantity).toLocaleString()
+                      : '0'}
+                  </strong>
+                </div>
+              )}
               <div>
                 <span>Product{products.length > 1 ? 's' : ''} total:</span>
                 <strong>KSH {totalProductPrice.toLocaleString()}</strong>
@@ -733,21 +969,43 @@ export default function Checkout() {
             </div>
 
             <div className="methods">
-              <button className="wallet" onClick={handlePayWithWallet} disabled={buying || !deliveryAddress}>
-                <FaWallet /> Pay deposit with Wallet
+              <button 
+                className="wallet" 
+                onClick={handlePayWithWallet} 
+                disabled={buying || !deliveryAddress}
+              >
+                <FaWallet /> 
+                {isFlashSale ? "Secure Flash Deal with Wallet" : "Pay deposit with Wallet"}
               </button>
 
-              <button className="mpesa" onClick={() => handlePayExternal("mpesa")} disabled={buying || !deliveryAddress}>
-                <FaMobileAlt /> Pay deposit via M-Pesa
+              <button 
+                className="mpesa" 
+                onClick={() => handlePayExternal("mpesa")} 
+                disabled={buying || !deliveryAddress}
+              >
+                <FaMobileAlt /> 
+                {isFlashSale ? "Secure Flash Deal via M-Pesa" : "Pay deposit via M-Pesa"}
               </button>
 
-              <button className="paypal" onClick={() => handlePayExternal("paypal")} disabled={buying || !deliveryAddress}>
-                <FaPaypal /> Pay via PayPal
+              <button 
+                className="paypal" 
+                onClick={() => handlePayExternal("paypal")} 
+                disabled={buying || !deliveryAddress}
+              >
+                <FaPaypal /> 
+                {isFlashSale ? "Secure Flash Deal via PayPal" : "Pay via PayPal"}
               </button>
             </div>
 
             <p className="muted">
-              Note: you pay the deposit now + delivery fee. Remaining amount is paid on delivery (cash or as seller agrees).
+              {isFlashSale ? (
+                <>
+                  <strong>⚠️ Flash Sale Notice:</strong> Complete payment within the time limit to secure this exclusive price. 
+                  The remaining balance is paid on delivery.
+                </>
+              ) : (
+                "Note: you pay the deposit now + delivery fee. Remaining amount is paid on delivery (cash or as seller agrees)."
+              )}
             </p>
           </div>
         </div>
@@ -763,6 +1021,16 @@ export default function Checkout() {
               </div>
             )}
             
+            {/* Flash Sale Indicator in Summary */}
+            {isFlashSale && (
+              <div className="flash-summary-alert">
+                <FaBolt /> Flash Sale Active
+                <div className="flash-timer-small">
+                  <FaClock /> {flashSaleTimeLeft}
+                </div>
+              </div>
+            )}
+            
             <div className="products-list">
               {productTotals.map((product, index) => (
                 <div key={index} className="summary-product">
@@ -770,7 +1038,17 @@ export default function Checkout() {
                   <div>
                     <div style={{ fontWeight: 600 }}>{product.name}</div>
                     <div>Qty: {product.quantity}</div>
-                    <div>KSH {product.productPrice.toLocaleString()}</div>
+                    {isFlashSale && product.originalPrice && (
+                      <div style={{ fontSize: '0.85em', color: '#888', textDecoration: 'line-through' }}>
+                        Was: KSH {(product.originalPrice * product.quantity).toLocaleString()}
+                      </div>
+                    )}
+                    <div style={{ 
+                      color: isFlashSale ? '#FF6B35' : 'inherit',
+                      fontWeight: isFlashSale ? 700 : 'normal'
+                    }}>
+                      KSH {product.productPrice.toLocaleString()}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -787,6 +1065,19 @@ export default function Checkout() {
               <div style={{ fontSize: '0.9em', color: '#666' }}>
                 Balance due: KSH {balanceDue.toFixed(2)}
               </div>
+              
+              {isFlashSale && (
+                <div style={{ 
+                  marginTop: 8, 
+                  padding: 8, 
+                  background: '#FFF5F0', 
+                  borderRadius: 6,
+                  fontSize: '0.85em',
+                  color: '#FF6B35'
+                }}>
+                  ⚡ Flash sale price locked in
+                </div>
+              )}
             </div>
           </div>
         </aside>

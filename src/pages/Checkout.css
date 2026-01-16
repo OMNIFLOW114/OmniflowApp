@@ -827,3 +827,281 @@ html.dark .loading {
     max-height: 120px;
   }
 }
+/* ===== FLASH SALE STYLES ===== */
+
+/* Flash Sale Banner */
+.flash-sale-banner {
+  background: linear-gradient(135deg, #fff5f0 0%, #fff9f7 100%);
+  border: 1px solid #ffe9e0;
+  border-left: 4px solid #FF6B35;
+  margin: 0 16px 16px 16px;
+  border-radius: 8px;
+  overflow: hidden;
+  animation: pulseBg 2s infinite;
+}
+
+.flash-sale-content {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  background: rgba(255, 107, 53, 0.05);
+}
+
+.flash-sale-icon {
+  color: #FF6B35;
+  font-size: 18px;
+  margin-right: 12px;
+  animation: pulse 1.5s infinite;
+}
+
+.flash-sale-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.flash-sale-text strong {
+  color: #FF6B35;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.flash-sale-text span {
+  color: #666;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.flash-sale-note {
+  padding: 8px 16px 12px 16px;
+  background: rgba(255, 107, 53, 0.02);
+  border-top: 1px dashed #ffe9e0;
+  color: #888;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+@keyframes pulseBg {
+  0%, 100% { 
+    background: linear-gradient(135deg, #fff5f0 0%, #fff9f7 100%); 
+  }
+  50% { 
+    background: linear-gradient(135deg, #fff9f7 0%, #fff5f0 100%); 
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { 
+    opacity: 1; 
+    transform: scale(1); 
+  }
+  50% { 
+    opacity: 0.7; 
+    transform: scale(1.1); 
+  }
+}
+
+/* Flash Badge in Product Section */
+.products-section h3 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.flash-badge {
+  background: #FF6B35;
+  color: white;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.flash-badge svg {
+  font-size: 10px;
+}
+
+/* Flash Price Display */
+.flash-price-display {
+  margin: 8px 0;
+}
+
+.original-price-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.original-price-label {
+  font-size: 13px;
+  color: #888;
+}
+
+.original-price-value {
+  font-size: 14px;
+  color: #888;
+  text-decoration: line-through;
+}
+
+.flash-price-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.flash-price-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #FF6B35;
+}
+
+.flash-price-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #FF6B35;
+}
+
+/* Low Stock Warning */
+.low-stock-warning {
+  background: rgba(255, 107, 53, 0.1);
+  color: #FF6B35;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: 8px;
+}
+
+/* Flash Sale Notice */
+.flash-sale-notice {
+  background: rgba(255, 107, 53, 0.05);
+  border: 1px solid rgba(255, 107, 53, 0.2);
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 14px;
+  color: #666;
+}
+
+.flash-sale-notice p {
+  margin: 0;
+  display: flex;
+  align-items: flex-start;
+}
+
+/* Flash Sale Savings in Price Breakdown */
+.flash-sale-savings {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px dashed #e0e0e0;
+  margin-bottom: 8px;
+}
+
+.flash-sale-savings span {
+  color: #666;
+  font-size: 14px;
+}
+
+/* Flash Summary Alert */
+.flash-summary-alert {
+  background: rgba(255, 107, 53, 0.1);
+  border: 1px solid rgba(255, 107, 53, 0.3);
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 600;
+  color: #FF6B35;
+}
+
+.flash-summary-alert svg {
+  margin-right: 6px;
+}
+
+.flash-timer-small {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  background: rgba(255, 107, 53, 0.2);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+  .flash-sale-banner {
+    background: linear-gradient(135deg, #1f140f 0%, #2a1a14 100%);
+    border: 1px solid #333;
+    border-left: 4px solid #FF6B35;
+  }
+  
+  .flash-sale-content {
+    background: rgba(255, 107, 53, 0.1);
+  }
+  
+  .flash-sale-text span {
+    color: #aaa;
+  }
+  
+  .flash-sale-note {
+    background: rgba(255, 107, 53, 0.05);
+    border-top: 1px dashed #333;
+    color: #888;
+  }
+  
+  .flash-sale-notice {
+    background: rgba(255, 107, 53, 0.1);
+    border: 1px solid rgba(255, 107, 53, 0.3);
+    color: #ccc;
+  }
+  
+  .flash-summary-alert {
+    background: rgba(255, 107, 53, 0.15);
+    border: 1px solid rgba(255, 107, 53, 0.4);
+  }
+  
+  .flash-timer-small {
+    background: rgba(255, 107, 53, 0.3);
+  }
+  
+  .flash-sale-savings {
+    border-bottom: 1px dashed #444;
+  }
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .flash-sale-banner {
+    margin: 0 12px 12px 12px;
+  }
+  
+  .flash-sale-content {
+    padding: 10px 12px;
+  }
+  
+  .flash-sale-note {
+    padding: 6px 12px 10px 12px;
+  }
+  
+  .flash-badge {
+    font-size: 11px;
+    padding: 3px 8px;
+  }
+  
+  .flash-price-display {
+    margin: 6px 0;
+  }
+  
+  .flash-price-value {
+    font-size: 16px;
+  }
+}
