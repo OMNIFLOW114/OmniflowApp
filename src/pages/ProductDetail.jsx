@@ -640,3 +640,4 @@ const handleSendMessage = async () => {
     </div>
   );
 }
+
