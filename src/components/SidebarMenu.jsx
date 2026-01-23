@@ -92,7 +92,7 @@ const SidebarMenu = ({ onClose, onLogout }) => {
     },
     { 
       icon: <FaWallet size={18} />, 
-      text: "OmniCash Wallet", 
+      text: "OmniPay", 
       link: "/wallet",
       requiresAuth: true,
       badge: "💎"

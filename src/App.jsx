@@ -38,7 +38,7 @@ import StudentEarningsPage from './pages/StudentEarningsPage';
 import TermsPage from "@/components/TermsPage";
 import FlashSalesPage from './components/FlashSalesPage';
 // Main Features
-import OmniCashWallet from "./pages/OmniCashWallet";
+import OmniPayWallet from "./pages/OmniPayWallet";
 import CurrencyConverter from "@/pages/CurrencyConverter";
 import AboutUs from '@/pages/AboutUs';
 
@@ -115,7 +115,7 @@ function AppRoutes() {
         <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         <Route path="/help" element={<ProtectedRoute><HelpCenter /></ProtectedRoute>} />
-        <Route path="/wallet" element={<ProtectedRoute><OmniCashWallet /></ProtectedRoute>} />
+        <Route path="/wallet" element={<ProtectedRoute><OmniPayWallet /></ProtectedRoute>} />
         <Route path="/convert-currency" element={<ProtectedRoute><CurrencyConverter /></ProtectedRoute>} />
         <Route path="/chat" element={<ChatScreen />} />
         {/* REMOVED: ProtectedRoute from /trade since it's now the root */}
