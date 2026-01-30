@@ -1683,6 +1683,90 @@ const OmniPayWallet = () => {
     return formatted;
   }, []);
   
+  // Fetch transactions
+  const fetchTransactions = useCallback(async () => {
+    if (!user) return;
+    
+    try {
+      let query = supabase
+        .from("wallet_transactions")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(50);
+        
+      if (searchQuery) {
+        query = query.or(`message.ilike.%${searchQuery}%,type.ilike.%${searchQuery}%,status.ilike.%${searchQuery}%`);
+      }
+      
+      const { data, error } = await query;
+      if (!error) {
+        setTransactions(data || []);
+      } else {
+        console.error("Fetch transactions error:", error);
+      }
+    } catch (err) {
+      console.error("Fetch transactions error:", err);
+    }
+  }, [user, searchQuery]);
+  
+  // Fetch wallet data
+  const fetchWalletData = useCallback(async () => {
+    if (!user) return;
+    
+    try {
+      // Fetch wallet balance
+      const { data: walletData, error: walletError } = await supabase
+        .from("wallets")
+        .select("balance, security_settings, last_transaction_at")
+        .eq("user_id", user.id)
+        .maybeSingle();
+        
+      if (walletError || !walletData) {
+        // Create wallet if doesn't exist
+        const { error: createError } = await supabase
+          .from("wallets")
+          .insert({
+            user_id: user.id,
+            balance: 0,
+            security_settings: securitySettings,
+            updated_at: new Date().toISOString(),
+            created_at: new Date().toISOString()
+          });
+       
+        if (createError) {
+          console.error("Create wallet error:", createError);
+          throw createError;
+        }
+       
+        setBalance(0);
+       
+        // Remove wallet from missing data if it was there
+        setMissingData(prev => prev.filter(item => item.type !== 'wallet'));
+      } else if (walletData) {
+        setBalance(walletData.balance || 0);
+        if (walletData.security_settings) {
+          setSecuritySettings(prev => ({
+            ...prev,
+            ...walletData.security_settings
+          }));
+        }
+       
+        // Remove wallet from missing data
+        setMissingData(prev => prev.filter(item => item.type !== 'wallet'));
+      }
+      
+      // Fetch transactions
+      await fetchTransactions();
+    } catch (err) {
+      console.error("Fetch wallet error:", err);
+      toast.error("Failed to load wallet data. Please try again.", { duration: 4000 });
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [user, securitySettings, fetchTransactions]);
+  
   // Fetch user on mount
   useEffect(() => {
     let mounted = true;
@@ -1732,6 +1816,63 @@ const OmniPayWallet = () => {
       if (skeletonTimeout) clearTimeout(skeletonTimeout);
     };
   }, []);
+  
+  // Real-time subscriptions for balance and transactions - MOVED AFTER fetchTransactions declaration
+  useEffect(() => {
+    if (!user) return;
+    
+    // Set up real-time balance updates
+    const walletChannel = supabase
+      .channel(`wallet_balance_${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'wallets',
+          filter: `user_id=eq.${user.id}`,
+        },
+        async (payload) => {
+          if (payload.new?.balance !== undefined) {
+            setBalance(payload.new.balance);
+          }
+        }
+      )
+      .subscribe();
+      
+    // Set up real-time transaction updates
+    const transactionsChannel = supabase
+      .channel(`wallet_transactions_${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'wallet_transactions',
+          filter: `user_id=eq.${user.id}`,
+        },
+        async () => {
+          await fetchTransactions();
+        }
+      )
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(walletChannel);
+      supabase.removeChannel(transactionsChannel);
+    };
+  }, [user, fetchTransactions]);
+  
+  // Fetch transactions when search query changes
+  useEffect(() => {
+    if (user) {
+      const timer = setTimeout(() => {
+        fetchTransactions();
+      }, 300);
+     
+      return () => clearTimeout(timer);
+    }
+  }, [searchQuery, user, fetchTransactions]);
   
   // Check if user has missing data
   const checkUserDataCompleteness = async (userId) => {
@@ -1911,138 +2052,6 @@ const OmniPayWallet = () => {
     }
   };
   
-  // Fetch wallet data
-  const fetchWalletData = useCallback(async () => {
-    if (!user) return;
-    
-    try {
-      // Fetch wallet balance
-      const { data: walletData, error: walletError } = await supabase
-        .from("wallets")
-        .select("balance, security_settings, last_transaction_at")
-        .eq("user_id", user.id)
-        .maybeSingle();
-        
-      if (walletError || !walletData) {
-        // Create wallet if doesn't exist
-        const { error: createError } = await supabase
-          .from("wallets")
-          .insert({
-            user_id: user.id,
-            balance: 0,
-            security_settings: securitySettings,
-            updated_at: new Date().toISOString(),
-            created_at: new Date().toISOString()
-          });
-       
-        if (createError) {
-          console.error("Create wallet error:", createError);
-          throw createError;
-        }
-       
-        setBalance(0);
-       
-        // Remove wallet from missing data if it was there
-        setMissingData(prev => prev.filter(item => item.type !== 'wallet'));
-      } else if (walletData) {
-        setBalance(walletData.balance || 0);
-        if (walletData.security_settings) {
-          setSecuritySettings(prev => ({
-            ...prev,
-            ...walletData.security_settings
-          }));
-        }
-       
-        // Remove wallet from missing data
-        setMissingData(prev => prev.filter(item => item.type !== 'wallet'));
-      }
-      
-      // Fetch transactions
-      await fetchTransactions();
-    } catch (err) {
-      console.error("Fetch wallet error:", err);
-      toast.error("Failed to load wallet data. Please try again.", { duration: 4000 });
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [user, securitySettings]);
-  
-  // Main useEffect for data fetching
-  useEffect(() => {
-    if (!user) return;
-    
-    // Set up real-time subscriptions
-    const transactionsChannel = supabase
-      .channel("wallet_transactions_updates")
-      .on("postgres_changes", {
-        event: "*",
-        schema: "public",
-        table: "wallet_transactions",
-        filter: `user_id=eq.${user.id}`,
-      }, () => {
-        fetchTransactions();
-      })
-      .subscribe();
-      
-    const walletChannel = supabase
-      .channel("wallet_updates")
-      .on("postgres_changes", {
-        event: "*",
-        schema: "public",
-        table: "wallets",
-        filter: `user_id=eq.${user.id}`,
-      }, (payload) => {
-        if (payload.new?.balance !== undefined) {
-          setBalance(payload.new.balance);
-        }
-      })
-      .subscribe();
-      
-    return () => {
-      supabase.removeChannel(transactionsChannel);
-      supabase.removeChannel(walletChannel);
-    };
-  }, [user]);
-  
-  // Fetch transactions
-  const fetchTransactions = useCallback(async () => {
-    if (!user) return;
-    
-    try {
-      let query = supabase
-        .from("wallet_transactions")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(50);
-        
-      if (searchQuery) {
-        query = query.or(`message.ilike.%${searchQuery}%,type.ilike.%${searchQuery}%,status.ilike.%${searchQuery}%`);
-      }
-      
-      const { data, error } = await query;
-      if (!error) {
-        setTransactions(data || []);
-      } else {
-        console.error("Fetch transactions error:", error);
-      }
-    } catch (err) {
-      console.error("Fetch transactions error:", err);
-    }
-  }, [user, searchQuery]);
-  
-  // Fetch transactions when search query changes
-  useEffect(() => {
-    if (user) {
-      const timer = setTimeout(() => {
-        fetchTransactions();
-      }, 300);
-     
-      return () => clearTimeout(timer);
-    }
-  }, [searchQuery, user, fetchTransactions]);
-  
   // Refresh all data
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -2050,7 +2059,7 @@ const OmniPayWallet = () => {
     toast.success("Wallet refreshed", { duration: 2000 });
   };
   
-  // FIXED: Enhanced PIN Verification - Compare with stored hash
+  // Enhanced PIN Verification - Compare with stored hash
   const verifyPin = async (pin) => {
     if (!user) return false;
     
@@ -2324,16 +2333,42 @@ const OmniPayWallet = () => {
   const creditAdminCommission = async (commission) => {
     if (!ADMIN_ID || commission <= 0) return;
     try {
-      await supabase.rpc("increment_wallet_balance", {
-        user_id: ADMIN_ID,
-        amount: commission,
-      });
+      // Get admin's current balance
+      const { data: adminWallet, error: adminError } = await supabase
+        .from("wallets")
+        .select("balance")
+        .eq("user_id", ADMIN_ID)
+        .maybeSingle();
+        
+      if (adminError) {
+        console.error("Error fetching admin wallet:", adminError);
+        return;
+      }
+      
+      const adminCurrentBalance = adminWallet?.balance || 0;
+      const adminNewBalance = +(adminCurrentBalance + commission).toFixed(2);
+      
+      // Update admin wallet
+      const { error: updateError } = await supabase
+        .from("wallets")
+        .upsert({
+          user_id: ADMIN_ID,
+          balance: adminNewBalance,
+          updated_at: new Date().toISOString(),
+          last_transaction_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id'
+        });
+        
+      if (updateError) {
+        console.error("Error updating admin wallet:", updateError);
+      }
     } catch (err) {
       console.error("Admin commission error:", err);
     }
   };
   
-  // Insert transaction - FIXED: Removed audit log to prevent 403 error
+  // Insert transaction
   const insertTransaction = async (txnData) => {
     if (!user) return;
    
@@ -2358,11 +2393,6 @@ const OmniPayWallet = () => {
       console.error("Insert transaction error:", err);
       throw err;
     }
-  };
-  
-  // Get client IP (simplified - no external API call)
-  const getClientIP = async () => {
-    return null; // Simplified for now to avoid errors
   };
   
   // Update missing user data
@@ -2495,7 +2525,7 @@ const OmniPayWallet = () => {
     setPinVerified(false);
   };
   
-  // Handle send money
+  // Handle send money - FIXED VERSION
   const handleSendMoney = async (recipientEmail, amount) => {
     setProcessing(true);
     
@@ -2503,31 +2533,79 @@ const OmniPayWallet = () => {
       const commission = +(amount * 0.014).toFixed(2);
       const net = +(amount - commission).toFixed(2);
       
-      // Find recipient user
+      // Check if sending to self
+      if (recipientEmail.toLowerCase() === user.email.toLowerCase()) {
+        throw new Error("Cannot send money to yourself.");
+      }
+      
+      // Check balance
+      if (amount > balance) {
+        throw new Error("Insufficient balance.");
+      }
+      
+      // Find recipient user - FIXED: Use ilike for case-insensitive search
       const { data: receiver, error: receiverErr } = await supabase
         .from("users")
         .select("id, email, name, full_name")
-        .eq("email", recipientEmail)
-        .single();
+        .or(`email.eq.${recipientEmail.toLowerCase()},email.ilike.%${recipientEmail}%`)
+        .maybeSingle();
         
-      if (receiverErr || !receiver?.id) {
+      if (receiverErr) {
+        console.error("Error finding recipient:", receiverErr);
+        throw new Error("Error finding user. Please try again.");
+      }
+      
+      if (!receiver?.id) {
         throw new Error("User not found. Please check the email address.");
       }
       
-      // Update recipient's balance
-      await supabase.rpc("increment_wallet_balance", {
-        user_id: receiver.id,
-        amount: net,
-      });
+      // Start transaction
+      const senderNewBalance = +(balance - amount).toFixed(2);
       
       // Update sender's balance
-      await updateBalance(amount, "subtract");
+      const { error: senderUpdateError } = await supabase
+        .from("wallets")
+        .update({ 
+          balance: senderNewBalance,
+          updated_at: new Date().toISOString(),
+          last_transaction_at: new Date().toISOString()
+        })
+        .eq("user_id", user.id);
+        
+      if (senderUpdateError) throw senderUpdateError;
+      
+      // Get receiver's current balance
+      const { data: receiverWallet } = await supabase
+        .from("wallets")
+        .select("balance")
+        .eq("user_id", receiver.id)
+        .maybeSingle();
+        
+      const receiverCurrentBalance = receiverWallet?.balance || 0;
+      const receiverFinalBalance = +(receiverCurrentBalance + net).toFixed(2);
+      
+      // Update receiver's balance
+      const { error: receiverUpdateError } = await supabase
+        .from("wallets")
+        .upsert({
+          user_id: receiver.id,
+          balance: receiverFinalBalance,
+          updated_at: new Date().toISOString(),
+          last_transaction_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id'
+        });
+        
+      if (receiverUpdateError) throw receiverUpdateError;
       
       // Credit admin commission
-      await creditAdminCommission(commission);
+      if (ADMIN_ID && commission > 0) {
+        await creditAdminCommission(commission);
+      }
       
       // Insert transaction for sender
-      await insertTransaction({
+      const senderTransaction = {
+        user_id: user.id,
         type: "send",
         gross_amount: amount,
         amount: net,
@@ -2535,41 +2613,84 @@ const OmniPayWallet = () => {
         receiver_id: receiver.id,
         receiver_email: recipientEmail,
         status: "Completed",
-        message: `You sent ${formatKSH(net)} to ${receiver.full_name || receiver.name || receiver.email}. Transaction fee: ${formatKSH(commission)}.`,
-      });
+        message: `Sent ${formatKSH(net)} to ${receiver.full_name || receiver.name || receiver.email}. Transaction fee: ${formatKSH(commission)}.`,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      
+      const { error: senderTxError } = await supabase
+        .from("wallet_transactions")
+        .insert(senderTransaction);
+        
+      if (senderTxError) {
+        console.error("Sender transaction error:", senderTxError);
+        throw senderTxError;
+      }
       
       // Insert transaction for receiver
-      await supabase
+      const receiverTransaction = {
+        user_id: receiver.id,
+        type: "receive",
+        amount: net,
+        gross_amount: net,
+        sender_id: user.id,
+        sender_email: user.email,
+        status: "Completed",
+        message: `Received ${formatKSH(net)} from ${user.email}.`,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      
+      const { error: receiverTxError } = await supabase
         .from("wallet_transactions")
-        .insert({
-          user_id: receiver.id,
-          type: "receive",
-          amount: net,
+        .insert(receiverTransaction);
+        
+      if (receiverTxError) console.error("Receiver transaction error:", receiverTxError);
+      
+      // Insert admin commission transaction
+      if (ADMIN_ID && commission > 0) {
+        const adminTransaction = {
+          user_id: ADMIN_ID,
+          type: "commission",
+          amount: commission,
           sender_id: user.id,
           sender_email: user.email,
+          receiver_id: receiver.id,
+          receiver_email: recipientEmail,
           status: "Completed",
-          message: `You received ${formatKSH(net)} from ${user.email}.`,
+          message: `Commission from ${user.email} to ${recipientEmail}`,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
-        });
+        };
+        
+        await supabase
+          .from("wallet_transactions")
+          .insert(adminTransaction);
+      }
+      
+      // Update local state
+      setBalance(senderNewBalance);
       
       toast.success(`Sent ${formatKSH(net)} to ${receiver.full_name || receiver.name || receiver.email}!`, { duration: 4000 });
       
-      // Refresh data
-      await fetchWalletData();
+      // Refresh transactions
+      await fetchTransactions();
       
     } catch (err) {
+      console.error("Send money error:", err);
       throw new Error(err.message || "Transaction failed. Please try again.");
     } finally {
       setProcessing(false);
     }
   };
   
-  // Handle withdraw money
+  // Handle withdraw money - FIXED VERSION
   const handleWithdrawMoney = async (amount, recipient) => {
     setProcessing(true);
     
     try {
+      const commission = +(amount * 0.014).toFixed(2);
+      const net = +(amount - commission).toFixed(2);
       const isEmail = recipient.includes("@");
       const isPhone = /^0[17]\d{8}$/.test(recipient);
       
@@ -2577,18 +2698,33 @@ const OmniPayWallet = () => {
         throw new Error("Please enter a valid email or M-Pesa phone number.");
       }
       
-      const commission = +(amount * 0.014).toFixed(2);
-      const net = +(amount - commission).toFixed(2);
+      if (amount > balance) {
+        throw new Error("Insufficient balance.");
+      }
+      
       const method = isEmail ? "PayPal" : "Mpesa";
+      const newBalance = +(balance - amount).toFixed(2);
       
       // Update sender's balance
-      await updateBalance(amount, "subtract");
+      const { error: updateError } = await supabase
+        .from("wallets")
+        .update({ 
+          balance: newBalance,
+          updated_at: new Date().toISOString(),
+          last_transaction_at: new Date().toISOString()
+        })
+        .eq("user_id", user.id);
+        
+      if (updateError) throw updateError;
       
       // Credit admin commission
-      await creditAdminCommission(commission);
+      if (ADMIN_ID && commission > 0) {
+        await creditAdminCommission(commission);
+      }
       
-      // Insert transaction
-      await insertTransaction({
+      // Insert withdrawal transaction
+      const withdrawalTransaction = {
+        user_id: user.id,
         type: "withdraw",
         gross_amount: amount,
         amount: net,
@@ -2597,52 +2733,89 @@ const OmniPayWallet = () => {
         phone: isPhone ? recipient : null,
         receiver_email: isEmail ? recipient : null,
         status: "Processing",
-        message: `Withdrawal of ${formatKSH(net)} to ${recipient} initiated. Transaction fee: ${formatKSH(commission)}.`,
-      });
+        message: `Withdrawal of ${formatKSH(net)} to ${recipient} via ${method}. Transaction fee: ${formatKSH(commission)}.`,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      
+      const { error: txError } = await supabase
+        .from("wallet_transactions")
+        .insert(withdrawalTransaction);
+        
+      if (txError) throw txError;
+      
+      // Update local state
+      setBalance(newBalance);
       
       toast.success(`Withdrawal of ${formatKSH(net)} initiated! It may take 1-2 business days.`, { duration: 5000 });
       
-      // Refresh data
-      await fetchWalletData();
+      // Refresh transactions
+      await fetchTransactions();
       
     } catch (err) {
+      console.error("Withdraw error:", err);
       throw new Error(err.message || "Withdrawal failed. Please try again.");
     } finally {
       setProcessing(false);
     }
   };
   
-  // Handle deposit via M-Pesa
+  // Handle deposit via M-Pesa - FIXED VERSION
   const handleDepositMoney = async (amount, phoneNumber) => {
     setProcessing(true);
     
     try {
-      // Update balance
-      await updateBalance(amount);
+      const newBalance = +(balance + amount).toFixed(2);
       
-      // Insert transaction
-      await insertTransaction({
+      // Update balance
+      const { error: updateError } = await supabase
+        .from("wallets")
+        .update({ 
+          balance: newBalance,
+          updated_at: new Date().toISOString(),
+          last_transaction_at: new Date().toISOString()
+        })
+        .eq("user_id", user.id);
+        
+      if (updateError) throw updateError;
+      
+      // Insert transaction - NO COMMISSION for deposits
+      const depositTransaction = {
+        user_id: user.id,
         type: "deposit",
-        amount,
+        amount: amount,
+        gross_amount: amount,
         payment_method: "Mpesa",
         phone: phoneNumber,
         status: "Completed",
-        message: `Deposit of ${formatKSH(amount)} via M-Pesa to ${phoneNumber} successful.`,
-      });
+        message: `Deposit of ${formatKSH(amount)} via M-Pesa from ${phoneNumber}.`,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
       
-      toast.success("Deposit successful! Check your phone for confirmation.", { duration: 4000 });
+      const { error: txError } = await supabase
+        .from("wallet_transactions")
+        .insert(depositTransaction);
+        
+      if (txError) throw txError;
       
-      // Refresh data
-      await fetchWalletData();
+      // Update local state
+      setBalance(newBalance);
+      
+      toast.success(`Deposited ${formatKSH(amount)} successfully!`, { duration: 4000 });
+      
+      // Refresh transactions
+      await fetchTransactions();
       
     } catch (err) {
+      console.error("Deposit error:", err);
       throw new Error(err.message || "Deposit failed. Please try again.");
     } finally {
       setProcessing(false);
     }
   };
   
-  // Quick action buttons configuration (simplified)
+  // Quick action buttons configuration
   const quickActions = useMemo(() => [
     { 
       id: "send", 
@@ -2669,7 +2842,10 @@ const OmniPayWallet = () => {
       id: "history", 
       icon: History, 
       label: "History", 
-      action: () => setShowAllTxns(true), 
+      action: () => {
+        setShowAllTxns(true);
+        toast.info("Showing all transactions", { duration: 2000 });
+      }, 
       color: "#722ed1" 
     },
   ], []);

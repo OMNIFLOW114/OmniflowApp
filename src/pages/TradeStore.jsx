@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/supabase";
@@ -21,6 +21,23 @@ import AdvancedFilterOverlay from "@/components/AdvancedFilterOverlay";
 import SidebarMenu from "@/components/SidebarMenu";
 
 import "./TradeStore.css";
+
+// Cache keys for localStorage
+const CACHE_KEYS = {
+  PRODUCTS: 'trade_store_products',
+  FILTERED: 'trade_store_filtered',
+  SEARCH: 'trade_store_search',
+  PAGE: 'trade_store_page',
+  ACTIVE_TAB: 'trade_store_active_tab',
+  HAS_MORE: 'trade_store_has_more',
+  BUYER_LOCATION: 'trade_store_buyer_location',
+  FILTERS: 'trade_store_filters',
+  CACHE_TIMESTAMP: 'trade_store_cache_timestamp',
+  SCROLL_POSITION: 'trade_store_scroll_position'
+};
+
+// Cache expiry time (5 minutes)
+const CACHE_EXPIRY = 5 * 60 * 1000;
 
 // UPDATED: Added "Lipa Mdogomdogo" as second tab after "All"
 const tabs = ["All", "Lipa Mdogomdogo", "Near You", "Flash Sale", "Electronics", "Fashion", "Home", "Gaming", "Trending", "Discounted", "Featured"];
@@ -161,7 +178,7 @@ const getDeliveryColor = (distance) => {
 };
 
 // ========== MAIN COMPONENTS ==========
-const ProductCard = ({ product, onClick, onAuthRequired, buyerLocation }) => {
+const ProductCard = memo(({ product, onClick, onAuthRequired, buyerLocation }) => {
   const { user } = useAuth();
 
   const distance = buyerLocation?.lat && product.store_lat
@@ -292,9 +309,11 @@ const ProductCard = ({ product, onClick, onAuthRequired, buyerLocation }) => {
       </div>
     </motion.div>
   );
-};
+});
 
-const PremiumStoreButton = ({ storeInfo, hasActiveSubscription, onStoreClick, onAuthRequired }) => {
+ProductCard.displayName = 'ProductCard';
+
+const PremiumStoreButton = memo(({ storeInfo, hasActiveSubscription, onStoreClick, onAuthRequired }) => {
   const { user } = useAuth();
   const isStoreOwner = storeInfo && storeInfo.is_active;
   const hasPremiumStore = storeInfo && hasActiveSubscription;
@@ -333,9 +352,11 @@ const PremiumStoreButton = ({ storeInfo, hasActiveSubscription, onStoreClick, on
       )}
     </motion.button>
   );
-};
+});
 
-const CreateStoreModal = ({ isOpen, onClose, storeInfo, hasActiveSubscription, onNavigate }) => {
+PremiumStoreButton.displayName = 'PremiumStoreButton';
+
+const CreateStoreModal = memo(({ isOpen, onClose, storeInfo, hasActiveSubscription, onNavigate }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -430,28 +451,98 @@ const CreateStoreModal = ({ isOpen, onClose, storeInfo, hasActiveSubscription, o
       </div>
     </ReactModal>
   );
+});
+
+CreateStoreModal.displayName = 'CreateStoreModal';
+
+// ========== CACHE UTILITY FUNCTIONS ==========
+const loadFromCache = (key, defaultValue = null) => {
+  try {
+    const cached = localStorage.getItem(key);
+    if (!cached) return defaultValue;
+    
+    const { data, timestamp } = JSON.parse(cached);
+    
+    // Check if cache is expired
+    if (Date.now() - timestamp > CACHE_EXPIRY) {
+      localStorage.removeItem(key);
+      return defaultValue;
+    }
+    
+    return data;
+  } catch (error) {
+    console.error(`Error loading from cache ${key}:`, error);
+    localStorage.removeItem(key);
+    return defaultValue;
+  }
 };
 
-const TradeStore = () => {
+const saveToCache = (key, data) => {
+  try {
+    const cacheData = {
+      data,
+      timestamp: Date.now()
+    };
+    localStorage.setItem(key, JSON.stringify(cacheData));
+  } catch (error) {
+    console.error(`Error saving to cache ${key}:`, error);
+  }
+};
+
+const clearHomepageCache = () => {
+  Object.values(CACHE_KEYS).forEach(key => {
+    if (key !== 'userLocation' && key !== 'locationPermission') {
+      localStorage.removeItem(key);
+    }
+  });
+};
+
+// ========== MAIN TRADESTORE COMPONENT ==========
+const TradeStore = memo(() => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [products, setProducts] = useState([]);
-  const [filtered, setFiltered] = useState([]);
-  const [search, setSearch] = useState("");
-  const [hasMore, setHasMore] = useState(true);
-  const [page, setPage] = useState(1);
-  const [activeTab, setActiveTab] = useState("All");
+  
+  // Refs for caching and persistence
+  const isMountedRef = useRef(false);
+  const scrollPositionRef = useRef(0);
+  const cacheDataRef = useRef({
+    isInitialized: false,
+    lastFetchTime: 0,
+    productCache: new Map()
+  });
+  
+  // Load initial state from cache
+  const [products, setProducts] = useState(() => 
+    loadFromCache(CACHE_KEYS.PRODUCTS, [])
+  );
+  const [filtered, setFiltered] = useState(() => 
+    loadFromCache(CACHE_KEYS.FILTERED, [])
+  );
+  const [search, setSearch] = useState(() => 
+    loadFromCache(CACHE_KEYS.SEARCH, "")
+  );
+  const [hasMore, setHasMore] = useState(() => 
+    loadFromCache(CACHE_KEYS.HAS_MORE, true)
+  );
+  const [page, setPage] = useState(() => 
+    loadFromCache(CACHE_KEYS.PAGE, 1)
+  );
+  const [activeTab, setActiveTab] = useState(() => 
+    loadFromCache(CACHE_KEYS.ACTIVE_TAB, "All")
+  );
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [hasInstallmentPlan, setHasInstallmentPlan] = useState(false);
-  const [filters, setFilters] = useState({
-    category: "", 
-    minPrice: "", 
-    maxPrice: "", 
-    minRating: 0, 
-    inStock: false, 
-    sortBy: "newest", 
-    quickFilter: ""
-  });
+  const [filters, setFilters] = useState(() => 
+    loadFromCache(CACHE_KEYS.FILTERS, {
+      category: "", 
+      minPrice: "", 
+      maxPrice: "", 
+      minRating: 0, 
+      inStock: false, 
+      sortBy: "newest", 
+      quickFilter: ""
+    })
+  );
   const [showFilterOverlay, setShowFilterOverlay] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [newAdminNotification, setNewAdminNotification] = useState(false);
@@ -460,26 +551,74 @@ const TradeStore = () => {
   const [storeInfo, setStoreInfo] = useState(null);
   const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
   const [showStoreModal, setShowStoreModal] = useState(false);
-  const [initialLoad, setInitialLoad] = useState(true);
-  const [buyerLocation, setBuyerLocation] = useState(null);
-  // NEW: Location permission state - simplified
+  const [initialLoad, setInitialLoad] = useState(() => 
+    loadFromCache(CACHE_KEYS.PRODUCTS, []).length === 0
+  );
+  const [buyerLocation, setBuyerLocation] = useState(() => 
+    loadFromCache(CACHE_KEYS.BUYER_LOCATION, null)
+  );
   const [hasRequestedLocation, setHasRequestedLocation] = useState(false);
   const [isLocationBlocked, setIsLocationBlocked] = useState(false);
-  const [isLocationLoading, setIsLocationLoading] = useState(true);
+  const [isLocationLoading, setIsLocationLoading] = useState(() => 
+    !loadFromCache('userLocation', null)
+  );
   
   const pageSize = 20;
 
   const toggleMenu = useCallback(() => setShowMenu(prev => !prev), []);
   const closeMenu = useCallback(() => setShowMenu(false), []);
 
-  const handleAuthRequired = () => {
+  const handleAuthRequired = useCallback(() => {
     toast.error("Please log in to continue");
     navigate("/auth");
-  };
+  }, [navigate]);
 
-  const handleSearchRedirect = () => {
+  const handleSearchRedirect = useCallback(() => {
     navigate("/search");
-  };
+  }, [navigate]);
+
+  // Save state to cache whenever it changes
+  useEffect(() => {
+    if (isMountedRef.current) {
+      saveToCache(CACHE_KEYS.PRODUCTS, products);
+      saveToCache(CACHE_KEYS.FILTERED, filtered);
+      saveToCache(CACHE_KEYS.SEARCH, search);
+      saveToCache(CACHE_KEYS.HAS_MORE, hasMore);
+      saveToCache(CACHE_KEYS.PAGE, page);
+      saveToCache(CACHE_KEYS.ACTIVE_TAB, activeTab);
+      saveToCache(CACHE_KEYS.FILTERS, filters);
+      if (buyerLocation) {
+        saveToCache(CACHE_KEYS.BUYER_LOCATION, buyerLocation);
+      }
+    }
+  }, [products, filtered, search, hasMore, page, activeTab, filters, buyerLocation]);
+
+  // Save scroll position before unmount
+  useEffect(() => {
+    const handleScroll = () => {
+      scrollPositionRef.current = window.scrollY;
+      saveToCache(CACHE_KEYS.SCROLL_POSITION, window.scrollY);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      // Save final scroll position
+      saveToCache(CACHE_KEYS.SCROLL_POSITION, scrollPositionRef.current);
+    };
+  }, []);
+
+  // Restore scroll position on mount
+  useEffect(() => {
+    const savedScrollPosition = loadFromCache(CACHE_KEYS.SCROLL_POSITION, 0);
+    if (savedScrollPosition > 0) {
+      requestAnimationFrame(() => {
+        window.scrollTo(0, savedScrollPosition);
+      });
+    }
+    isMountedRef.current = true;
+  }, []);
 
   // NEW: Request location permission immediately on component mount
   useEffect(() => {
@@ -552,8 +691,12 @@ const TradeStore = () => {
       }
     };
 
-    requestLocationPermission();
-  }, []);
+    if (!buyerLocation) {
+      requestLocationPermission();
+    } else {
+      setIsLocationLoading(false);
+    }
+  }, [buyerLocation]);
 
   useEffect(() => {
     if (!user?.id) {
@@ -739,13 +882,26 @@ const TradeStore = () => {
     };
   }, []);
 
-  const getImageUrl = (path) => {
+  const getImageUrl = useCallback((path) => {
     if (!path) return "/placeholder.jpg";
     if (path.startsWith("http")) return path;
     return supabase.storage.from("product-images").getPublicUrl(path).data.publicUrl;
-  };
+  }, []);
 
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async (forceRefresh = false) => {
+    // Check cache first if not forcing refresh
+    const cacheKey = `${CACHE_KEYS.PRODUCTS}_page_${page}_tab_${activeTab}`;
+    
+    if (!forceRefresh && cacheDataRef.current.productCache.has(cacheKey)) {
+      const cachedProducts = cacheDataRef.current.productCache.get(cacheKey);
+      setProducts(prev => {
+        const combined = [...prev, ...cachedProducts];
+        return Array.from(new Map(combined.map(p => [p.id, p])).values());
+      });
+      setPage(prev => prev + 1);
+      return;
+    }
+    
     const offset = (page - 1) * pageSize;
     
     const { data, error } = await supabase
@@ -797,6 +953,10 @@ const TradeStore = () => {
       tags: Array.isArray(p.tags) ? p.tags : (p.tags ? JSON.parse(p.tags) : [])
     }));
 
+    // Cache the fetched products
+    cacheDataRef.current.productCache.set(cacheKey, withImagesAndRatings);
+    cacheDataRef.current.lastFetchTime = Date.now();
+
     setProducts(prev => {
       const combined = [...prev, ...withImagesAndRatings];
       return Array.from(new Map(combined.map(p => [p.id, p])).values());
@@ -806,12 +966,17 @@ const TradeStore = () => {
     if (validProducts.length < pageSize) {
       setHasMore(false);
     }
-  };
+  }, [page, activeTab, getImageUrl]);
 
+  // Initial fetch only if no cached products
   useEffect(() => {
-    fetchProducts();
-  }, []);
+    if (products.length === 0 && !cacheDataRef.current.isInitialized) {
+      fetchProducts();
+      cacheDataRef.current.isInitialized = true;
+    }
+  }, [products.length, fetchProducts]);
 
+  // Filter products based on active tab and filters
   useEffect(() => {
     let result = [...products];
 
@@ -884,15 +1049,13 @@ const TradeStore = () => {
     // Apply tab filters
     switch (activeTab) {
       case "Lipa Mdogomdogo":
-        // NEW: Filter for installment products
         result = result.filter(p => p.lipa_polepole === true);
         break;
       case "Near You":
         if (buyerLocation) {
           result = result.filter(p => {
             const dist = calculateDistance(buyerLocation.lat, buyerLocation.lng, p.store_lat, p.store_lng);
-            // UPDATED: Changed from 100km to 200km
-            return dist < 110; // Within 200km
+            return dist < 110;
           });
         }
         break;
@@ -941,16 +1104,57 @@ const TradeStore = () => {
     setFiltered(result);
   }, [products, filters, activeTab, buyerLocation]);
 
-  const handleSearch = () => {
+  const handleSearch = useCallback(() => {
     navigate("/search", { state: { query: search } });
-  };
+  }, [navigate, search]);
+
+  // Handle pull-to-refresh
+  useEffect(() => {
+    let startY = 0;
+    let isRefreshing = false;
+
+    const handleTouchStart = (e) => {
+      startY = e.touches[0].clientY;
+    };
+
+    const handleTouchMove = (e) => {
+      if (window.scrollY === 0 && !isRefreshing) {
+        const currentY = e.touches[0].clientY;
+        const diff = currentY - startY;
+        
+        if (diff > 100) {
+          isRefreshing = true;
+          // Clear cache and refresh
+          cacheDataRef.current.productCache.clear();
+          clearHomepageCache();
+          
+          // Reset and fetch fresh
+          setProducts([]);
+          setPage(1);
+          setHasMore(true);
+          fetchProducts(true).finally(() => {
+            isRefreshing = false;
+            toast.success("Refreshed!");
+          });
+        }
+      }
+    };
+
+    document.addEventListener('touchstart', handleTouchStart);
+    document.addEventListener('touchmove', handleTouchMove);
+
+    return () => {
+      document.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('touchmove', handleTouchMove);
+    };
+  }, [fetchProducts]);
 
   // NEW: Show location loader if still loading location
   if (isLocationLoading) {
     return <LocationLoader />;
   }
 
-  if (initialLoad) {
+  if (initialLoad && products.length === 0) {
     return (
       <div className={`marketplace-wrapper ${isDarkMode ? "dark" : "light"}`}>
         <NavigationSkeleton />
@@ -1082,6 +1286,7 @@ const TradeStore = () => {
             <SidebarMenu
               onClose={closeMenu}
               onLogout={() => {
+                clearHomepageCache();
                 supabase.auth.signOut();
                 navigate("/auth");
               }}
@@ -1203,6 +1408,8 @@ const TradeStore = () => {
       )}
     </div>
   );
-};
+});
+
+TradeStore.displayName = 'TradeStore';
 
 export default TradeStore;
