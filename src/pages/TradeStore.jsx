@@ -33,7 +33,8 @@ const CACHE_KEYS = {
   BUYER_LOCATION: 'trade_store_buyer_location',
   FILTERS: 'trade_store_filters',
   CACHE_TIMESTAMP: 'trade_store_cache_timestamp',
-  SCROLL_POSITION: 'trade_store_scroll_position'
+  SCROLL_POSITION: 'trade_store_scroll_position',
+  LOCATION_FETCHED: 'trade_store_location_fetched'
 };
 
 // Cache expiry time (5 minutes)
@@ -118,14 +119,6 @@ const TabsSkeleton = () => (
     {tabs.map((_, index) => (
       <div key={index} className="skeleton-tab"></div>
     ))}
-  </div>
-);
-
-// ========== LOCATION LOADER COMPONENT ==========
-const LocationLoader = () => (
-  <div className="location-request-loader">
-    <div className="spinner"></div>
-    <p>Requesting location permission...</p>
   </div>
 );
 
@@ -508,7 +501,8 @@ const TradeStore = memo(() => {
   const cacheDataRef = useRef({
     isInitialized: false,
     lastFetchTime: 0,
-    productCache: new Map()
+    productCache: new Map(),
+    isFetchingLocation: false
   });
   
   // Load initial state from cache
@@ -559,9 +553,7 @@ const TradeStore = memo(() => {
   );
   const [hasRequestedLocation, setHasRequestedLocation] = useState(false);
   const [isLocationBlocked, setIsLocationBlocked] = useState(false);
-  const [isLocationLoading, setIsLocationLoading] = useState(() => 
-    !loadFromCache('userLocation', null)
-  );
+  // REMOVED: isLocationLoading state - we won't show loader anymore
   
   const pageSize = 20;
 
@@ -620,9 +612,16 @@ const TradeStore = memo(() => {
     isMountedRef.current = true;
   }, []);
 
-  // NEW: Request location permission immediately on component mount
+  // UPDATED: Background location fetching without showing loader
   useEffect(() => {
-    const requestLocationPermission = () => {
+    const fetchLocationInBackground = () => {
+      // Check if location was previously fetched
+      const locationFetched = localStorage.getItem(CACHE_KEYS.LOCATION_FETCHED);
+      if (locationFetched === 'true' && buyerLocation) {
+        setHasRequestedLocation(true);
+        return; // Already have location, skip fetching
+      }
+      
       // Check if location was previously granted
       const savedLocation = localStorage.getItem('userLocation');
       const savedPermission = localStorage.getItem('locationPermission');
@@ -633,7 +632,7 @@ const TradeStore = memo(() => {
           if (location.lat && location.lng) {
             setBuyerLocation(location);
             setHasRequestedLocation(true);
-            setIsLocationLoading(false);
+            localStorage.setItem(CACHE_KEYS.LOCATION_FETCHED, 'true');
             return;
           }
         } catch (error) {
@@ -641,7 +640,13 @@ const TradeStore = memo(() => {
         }
       }
       
-      // If no saved permission or location, request it
+      // If we're already fetching location, don't start another request
+      if (cacheDataRef.current.isFetchingLocation) return;
+      
+      // Set fetching flag
+      cacheDataRef.current.isFetchingLocation = true;
+      
+      // Fetch location in background without blocking UI
       if ("geolocation" in navigator) {
         navigator.geolocation.getCurrentPosition(
           // Success callback
@@ -656,46 +661,65 @@ const TradeStore = memo(() => {
             setBuyerLocation(location);
             setHasRequestedLocation(true);
             setIsLocationBlocked(false);
-            setIsLocationLoading(false);
             
             // Save to localStorage for future sessions
             localStorage.setItem('userLocation', JSON.stringify(location));
             localStorage.setItem('locationPermission', 'granted');
+            localStorage.setItem(CACHE_KEYS.LOCATION_FETCHED, 'true');
             
-            toast.success("Location enabled!");
+            // Show subtle success toast only if it's a new permission
+            if (!savedPermission) {
+              setTimeout(() => {
+                toast.success("Location enabled for nearby products!");
+              }, 1000);
+            }
+            
+            // Reset fetching flag
+            cacheDataRef.current.isFetchingLocation = false;
           },
-          // Error callback
+          // Error callback - silent failure
           (error) => {
             setHasRequestedLocation(true);
             setIsLocationBlocked(true);
-            setIsLocationLoading(false);
             
             // Don't save permission if denied
             localStorage.setItem('locationPermission', 'denied');
+            localStorage.setItem(CACHE_KEYS.LOCATION_FETCHED, 'true');
             
-            // Show a subtle toast for denial
-            toast.error("Location access denied");
+            // Reset fetching flag
+            cacheDataRef.current.isFetchingLocation = false;
+            
+            // Don't show error toast to avoid disrupting user experience
+            console.log("Location access not granted or error:", error.message);
           },
-          // Options
+          // Options - reduced timeout for faster failure
           {
-            enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 0 // Don't use cached location
+            enableHighAccuracy: false, // Set to false for faster response
+            timeout: 5000, // Reduced from 10000 to 5000ms
+            maximumAge: 300000 // Use cached location up to 5 minutes old
           }
         );
       } else {
         setHasRequestedLocation(true);
         setIsLocationBlocked(true);
-        setIsLocationLoading(false);
-        toast.error("Geolocation not supported");
+        localStorage.setItem(CACHE_KEYS.LOCATION_FETCHED, 'true');
+        cacheDataRef.current.isFetchingLocation = false;
       }
     };
 
+    // Only fetch if we don't have location and haven't fetched before
     if (!buyerLocation) {
-      requestLocationPermission();
+      // Start location fetch but don't wait for it
+      fetchLocationInBackground();
     } else {
-      setIsLocationLoading(false);
+      setHasRequestedLocation(true);
+      localStorage.setItem(CACHE_KEYS.LOCATION_FETCHED, 'true');
     }
+    
+    // Cleanup function
+    return () => {
+      cacheDataRef.current.isFetchingLocation = false;
+    };
   }, [buyerLocation]);
 
   useEffect(() => {
@@ -1149,10 +1173,7 @@ const TradeStore = memo(() => {
     };
   }, [fetchProducts]);
 
-  // NEW: Show location loader if still loading location
-  if (isLocationLoading) {
-    return <LocationLoader />;
-  }
+  // REMOVED: Location loader check - we'll always show the app immediately
 
   if (initialLoad && products.length === 0) {
     return (
@@ -1208,7 +1229,7 @@ const TradeStore = memo(() => {
               }}
               readOnly
             />
-            {/* NEW: Location indicator */}
+            {/* NEW: Location indicator - only show if we have location */}
             {buyerLocation && (
               <div className="location-indicator" title="Location enabled">
                 <FaMapMarkerAlt size={12} style={{ color: '#10b981' }} />
