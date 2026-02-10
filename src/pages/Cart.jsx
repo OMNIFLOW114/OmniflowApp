@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback, useRef, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/supabase";
 import { useAuth } from "@/context/AuthContext";
@@ -17,67 +17,198 @@ import {
 } from "react-icons/fa";
 import "./Cart.css";
 
-const Cart = () => {
+// Cache keys for localStorage
+const CART_CACHE_KEYS = {
+  ITEMS: 'cart_items',
+  CACHE_TIMESTAMP: 'cart_cache_timestamp',
+  LAST_UPDATED: 'cart_last_updated'
+};
+
+// Cache expiry time (10 minutes)
+const CART_CACHE_EXPIRY = 10 * 60 * 1000;
+
+// Cache utility functions
+const loadCartFromCache = (key, defaultValue = null) => {
+  try {
+    const cached = localStorage.getItem(key);
+    if (!cached) return defaultValue;
+    
+    const { data, timestamp } = JSON.parse(cached);
+    
+    // Check if cache is expired
+    if (Date.now() - timestamp > CART_CACHE_EXPIRY) {
+      localStorage.removeItem(key);
+      return defaultValue;
+    }
+    
+    return data;
+  } catch (error) {
+    console.error(`Error loading cart cache ${key}:`, error);
+    localStorage.removeItem(key);
+    return defaultValue;
+  }
+};
+
+const saveCartToCache = (key, data) => {
+  try {
+    const cacheData = {
+      data,
+      timestamp: Date.now()
+    };
+    localStorage.setItem(key, JSON.stringify(cacheData));
+  } catch (error) {
+    console.error(`Error saving cart cache ${key}:`, error);
+  }
+};
+
+const clearCartCache = () => {
+  Object.values(CART_CACHE_KEYS).forEach(key => {
+    localStorage.removeItem(key);
+  });
+};
+
+// Skeleton loading component
+const CartSkeleton = () => (
+  <div className="cart-container">
+    <div className="cart-header skeleton">
+      <div className="skeleton-nav"></div>
+      <div className="skeleton-title"></div>
+    </div>
+    <div className="cart-content">
+      {[...Array(3)].map((_, index) => (
+        <div key={index} className="cart-item skeleton">
+          <div className="skeleton-image"></div>
+          <div className="skeleton-content">
+            <div className="skeleton-line skeleton-title"></div>
+            <div className="skeleton-line skeleton-price"></div>
+            <div className="skeleton-line skeleton-actions"></div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+// Main component
+const Cart = memo(() => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [cartItems, setCartItems] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [cartItems, setCartItems] = useState(() => 
+    loadCartFromCache(CART_CACHE_KEYS.ITEMS, [])
+  );
+  const [loading, setLoading] = useState(() => 
+    loadCartFromCache(CART_CACHE_KEYS.ITEMS, []).length === 0
+  );
   const [updatingItems, setUpdatingItems] = useState(new Set());
+  
+  const isMountedRef = useRef(false);
+  const cacheDataRef = useRef({
+    isFetching: false,
+    lastFetchTime: 0,
+    syncInProgress: false
+  });
 
-  useEffect(() => {
-    const fetchCart = async () => {
-      if (!user?.id) {
-        setLoading(false);
+  const fetchCartItems = useCallback(async (forceRefresh = false) => {
+    // Skip if already fetching
+    if (cacheDataRef.current.isFetching || !user?.id) return;
+    
+    // Check cache first if not forcing refresh
+    if (!forceRefresh && cartItems.length > 0) {
+      setLoading(false);
+      return;
+    }
+    
+    // Don't fetch if cache is still fresh (less than 30 seconds old)
+    if (!forceRefresh && cacheDataRef.current.lastFetchTime > 0 && 
+        Date.now() - cacheDataRef.current.lastFetchTime < 30000) {
+      setLoading(false);
+      return;
+    }
+    
+    cacheDataRef.current.isFetching = true;
+    
+    try {
+      setLoading(true);
+      
+      const { data, error } = await supabase
+        .from("cart_items")
+        .select(`
+          id, 
+          product_id, 
+          quantity,
+          variant,
+          products (
+            id,
+            name,
+            price,
+            discount,
+            stock_quantity,
+            image_gallery,
+            image_url,
+            delivery_methods,
+            stores!inner (
+              id,
+              name,
+              is_active,
+              owner_id
+            )
+          )
+        `)
+        .eq("user_id", user.id)
+        .eq("products.stores.is_active", true);
+
+      if (error) {
+        console.error("Cart fetch error:", error);
+        toast.error("Failed to load cart.");
         return;
       }
 
-      try {
-        const { data, error } = await supabase
-          .from("cart_items")
-          .select(`
-            id, 
-            product_id, 
-            quantity,
-            variant,
-            products (
-              id,
-              name,
-              price,
-              discount,
-              stock_quantity,
-              image_gallery,
-              image_url,
-              delivery_methods,
-              stores!inner (
-                id,
-                name,
-                is_active,
-                owner_id
-              )
-            )
-          `)
-          .eq("user_id", user.id)
-          .eq("products.stores.is_active", true);
-
-        if (error) {
-          console.error("Cart fetch error:", error);
-          toast.error("Failed to load cart.");
-          return;
-        }
-
-        setCartItems(data || []);
-      } catch (error) {
-        console.error("Cart error:", error);
+      const items = data || [];
+      setCartItems(items);
+      saveCartToCache(CART_CACHE_KEYS.ITEMS, items);
+      cacheDataRef.current.lastFetchTime = Date.now();
+      
+    } catch (error) {
+      console.error("Cart error:", error);
+      // Keep cached data if fetch fails
+      if (cartItems.length === 0) {
         toast.error("Failed to load cart.");
-      } finally {
-        setLoading(false);
       }
-    };
+    } finally {
+      setLoading(false);
+      cacheDataRef.current.isFetching = false;
+    }
+  }, [user, cartItems.length]);
 
-    fetchCart();
-  }, [user]);
+  // Initial fetch only if no cached items
+  useEffect(() => {
+    if (cartItems.length === 0 && !cacheDataRef.current.isFetching) {
+      fetchCartItems();
+    } else {
+      setLoading(false);
+    }
+    isMountedRef.current = true;
+  }, [cartItems.length, fetchCartItems]);
 
-  const handleRemoveFromCart = async (cartId, productName) => {
+  // Save cart items to cache whenever they change
+  useEffect(() => {
+    if (isMountedRef.current && cartItems.length > 0) {
+      saveCartToCache(CART_CACHE_KEYS.ITEMS, cartItems);
+    }
+  }, [cartItems]);
+
+  // Background refresh every 2 minutes
+  useEffect(() => {
+    const refreshInterval = setInterval(() => {
+      if (!cacheDataRef.current.isFetching && user?.id) {
+        fetchCartItems(true);
+      }
+    }, 2 * 60 * 1000); // 2 minutes
+    
+    return () => clearInterval(refreshInterval);
+  }, [fetchCartItems, user]);
+
+  const handleRemoveFromCart = useCallback(async (cartId, productName) => {
     setUpdatingItems(prev => new Set(prev).add(cartId));
     
     try {
@@ -100,9 +231,9 @@ const Cart = () => {
         return newSet;
       });
     }
-  };
+  }, []);
 
-  const handleUpdateQuantity = async (cartId, productId, newQuantity, productName) => {
+  const handleUpdateQuantity = useCallback(async (cartId, productId, newQuantity, productName) => {
     if (newQuantity < 1) return;
     
     setUpdatingItems(prev => new Set(prev).add(cartId));
@@ -134,9 +265,9 @@ const Cart = () => {
         return newSet;
       });
     }
-  };
+  }, []);
 
-  const handleCheckout = async (storeId, storeName, storeItems) => {
+  const handleCheckout = useCallback(async (storeId, storeName, storeItems) => {
     console.log("🛒 Checkout clicked for store:", storeId, storeName);
     
     if (!user?.id) {
@@ -184,7 +315,6 @@ const Cart = () => {
       console.log("✅ Proceeding to checkout with items:", storeItems);
       toast.success(`Proceeding to checkout for ${storeName}`);
       
-      // FIXED: Use the EXACT same pattern as Product Detail page
       // Use the first product ID in the route to match your router setup
       const firstProductId = storeItems[0].products.id;
       
@@ -201,9 +331,9 @@ const Cart = () => {
       console.error("Checkout preparation error:", error);
       toast.error("Failed to prepare checkout");
     }
-  };
+  }, [user, navigate]);
 
-  const calculateItemTotal = (item) => {
+  const calculateItemTotal = useCallback((item) => {
     const product = item.products;
     if (!product) return 0;
     
@@ -213,8 +343,9 @@ const Cart = () => {
     const discountedPrice = price - (price * discount / 100);
     
     return discountedPrice * quantity;
-  };
+  }, []);
 
+  // Calculate totals
   const totalAmount = cartItems.reduce((acc, item) => acc + calculateItemTotal(item), 0);
   const totalItems = cartItems.reduce((acc, item) => acc + (item.quantity || 1), 0);
   const shippingCost = Math.max(0, 200 - totalAmount * 0.05);
@@ -242,29 +373,9 @@ const Cart = () => {
     storeData.finalAmount = storeData.totalAmount;
   });
 
-  // Skeleton loading component
-  const CartSkeleton = () => (
-    <div className="cart-container">
-      <div className="cart-header skeleton">
-        <div className="skeleton-nav"></div>
-        <div className="skeleton-title"></div>
-      </div>
-      <div className="cart-content">
-        {[...Array(3)].map((_, index) => (
-          <div key={index} className="cart-item skeleton">
-            <div className="skeleton-image"></div>
-            <div className="skeleton-content">
-              <div className="skeleton-line skeleton-title"></div>
-              <div className="skeleton-line skeleton-price"></div>
-              <div className="skeleton-line skeleton-actions"></div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-
-  if (loading) return <CartSkeleton />;
+  if (loading && cartItems.length === 0) {
+    return <CartSkeleton />;
+  }
 
   return (
     <div className="cart-container">
@@ -548,6 +659,8 @@ const Cart = () => {
       </div>
     </div>
   );
-};
+});
+
+Cart.displayName = 'Cart';
 
 export default Cart;

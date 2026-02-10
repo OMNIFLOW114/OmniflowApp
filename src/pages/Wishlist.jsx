@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback, useRef, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/supabase";
 import { useAuth } from "@/context/AuthContext";
@@ -7,45 +7,183 @@ import { toast } from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 import "./Wishlist.css";
 
-const Wishlist = () => {
+// Cache keys for localStorage
+const WISHLIST_CACHE_KEYS = {
+  ITEMS: 'wishlist_items',
+  CACHE_TIMESTAMP: 'wishlist_cache_timestamp',
+  LAST_UPDATED: 'wishlist_last_updated'
+};
+
+// Cache expiry time (15 minutes)
+const WISHLIST_CACHE_EXPIRY = 15 * 60 * 1000;
+
+// Cache utility functions
+const loadWishlistFromCache = (key, defaultValue = null) => {
+  try {
+    const cached = localStorage.getItem(key);
+    if (!cached) return defaultValue;
+    
+    const { data, timestamp } = JSON.parse(cached);
+    
+    // Check if cache is expired
+    if (Date.now() - timestamp > WISHLIST_CACHE_EXPIRY) {
+      localStorage.removeItem(key);
+      return defaultValue;
+    }
+    
+    return data;
+  } catch (error) {
+    console.error(`Error loading wishlist cache ${key}:`, error);
+    localStorage.removeItem(key);
+    return defaultValue;
+  }
+};
+
+const saveWishlistToCache = (key, data) => {
+  try {
+    const cacheData = {
+      data,
+      timestamp: Date.now()
+    };
+    localStorage.setItem(key, JSON.stringify(cacheData));
+  } catch (error) {
+    console.error(`Error saving wishlist cache ${key}:`, error);
+  }
+};
+
+const clearWishlistCache = () => {
+  Object.values(WISHLIST_CACHE_KEYS).forEach(key => {
+    localStorage.removeItem(key);
+  });
+};
+
+// Skeleton loading component
+const WishlistSkeleton = () => (
+  <div className="wishlist-container">
+    <div className="wishlist-header skeleton">
+      <div className="skeleton-title"></div>
+    </div>
+    <div className="wishlist-stats skeleton">
+      {[...Array(2)].map((_, index) => (
+        <div key={index} className="stat-card skeleton">
+          <div className="skeleton-line"></div>
+          <div className="skeleton-line short"></div>
+        </div>
+      ))}
+    </div>
+    <div className="wishlist-grid">
+      {[...Array(6)].map((_, index) => (
+        <div key={index} className="wishlist-card skeleton">
+          <div className="skeleton-image"></div>
+          <div className="skeleton-content">
+            <div className="skeleton-line skeleton-title"></div>
+            <div className="skeleton-line skeleton-price"></div>
+            <div className="skeleton-line skeleton-actions"></div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+// Main component
+const Wishlist = memo(() => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [wishlistItems, setWishlistItems] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [wishlistItems, setWishlistItems] = useState(() => 
+    loadWishlistFromCache(WISHLIST_CACHE_KEYS.ITEMS, [])
+  );
+  const [loading, setLoading] = useState(() => 
+    loadWishlistFromCache(WISHLIST_CACHE_KEYS.ITEMS, []).length === 0
+  );
   const [removingItems, setRemovingItems] = useState(new Set());
+  
+  const isMountedRef = useRef(false);
+  const cacheDataRef = useRef({
+    isFetching: false,
+    lastFetchTime: 0
+  });
 
-  useEffect(() => {
-    const fetchWishlist = async () => {
-      if (!user?.id) {
-        setLoading(false);
+  const fetchWishlistItems = useCallback(async (forceRefresh = false) => {
+    // Skip if already fetching or no user
+    if (cacheDataRef.current.isFetching || !user?.id) return;
+    
+    // Check cache first if not forcing refresh
+    if (!forceRefresh && wishlistItems.length > 0) {
+      setLoading(false);
+      return;
+    }
+    
+    // Don't fetch if cache is still fresh (less than 30 seconds old)
+    if (!forceRefresh && cacheDataRef.current.lastFetchTime > 0 && 
+        Date.now() - cacheDataRef.current.lastFetchTime < 30000) {
+      setLoading(false);
+      return;
+    }
+    
+    cacheDataRef.current.isFetching = true;
+    
+    try {
+      setLoading(true);
+      
+      const { data, error } = await supabase
+        .from("wishlist_items")
+        .select("id, product_id, created_at, products (*)")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Wishlist fetch error:", error);
+        toast.error("Failed to load wishlist.");
         return;
       }
 
-      try {
-        const { data, error } = await supabase
-          .from("wishlist_items")
-          .select("id, product_id, created_at, products (*)")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false });
-
-        if (error) {
-          toast.error("Failed to load wishlist.");
-          return;
-        }
-
-        setWishlistItems(data || []);
-      } catch (error) {
-        console.error("Wishlist error:", error);
+      const items = data || [];
+      setWishlistItems(items);
+      saveWishlistToCache(WISHLIST_CACHE_KEYS.ITEMS, items);
+      cacheDataRef.current.lastFetchTime = Date.now();
+      
+    } catch (error) {
+      console.error("Wishlist error:", error);
+      // Keep cached data if fetch fails
+      if (wishlistItems.length === 0) {
         toast.error("Failed to load wishlist.");
-      } finally {
-        setLoading(false);
       }
-    };
+    } finally {
+      setLoading(false);
+      cacheDataRef.current.isFetching = false;
+    }
+  }, [user, wishlistItems.length]);
 
-    fetchWishlist();
-  }, [user]);
+  // Initial fetch only if no cached items
+  useEffect(() => {
+    if (wishlistItems.length === 0 && !cacheDataRef.current.isFetching) {
+      fetchWishlistItems();
+    } else {
+      setLoading(false);
+    }
+    isMountedRef.current = true;
+  }, [wishlistItems.length, fetchWishlistItems]);
 
-  const handleRemoveFromWishlist = async (wishlistId, productName) => {
+  // Save wishlist items to cache whenever they change
+  useEffect(() => {
+    if (isMountedRef.current && wishlistItems.length > 0) {
+      saveWishlistToCache(WISHLIST_CACHE_KEYS.ITEMS, wishlistItems);
+    }
+  }, [wishlistItems]);
+
+  // Background refresh every 5 minutes
+  useEffect(() => {
+    const refreshInterval = setInterval(() => {
+      if (!cacheDataRef.current.isFetching && user?.id) {
+        fetchWishlistItems(true);
+      }
+    }, 5 * 60 * 1000); // 5 minutes
+    
+    return () => clearInterval(refreshInterval);
+  }, [fetchWishlistItems, user]);
+
+  const handleRemoveFromWishlist = useCallback(async (wishlistId, productName) => {
     setRemovingItems(prev => new Set(prev).add(wishlistId));
     
     try {
@@ -68,9 +206,14 @@ const Wishlist = () => {
         return newSet;
       });
     }
-  };
+  }, []);
 
-  const handleMoveToCart = async (item) => {
+  const handleMoveToCart = useCallback(async (item) => {
+    if (!user?.id) {
+      toast.error("Please login to add to cart");
+      return;
+    }
+
     const { error: insertError } = await supabase.from("cart_items").insert([
       {
         user_id: user.id,
@@ -86,45 +229,22 @@ const Wishlist = () => {
 
     await handleRemoveFromWishlist(item.id, item.products?.name);
     toast.success("Added to cart!");
-  };
+  }, [user, handleRemoveFromWishlist]);
 
-  const getPriceDrop = (product) => {
+  const getPriceDrop = useCallback((product) => {
     const originalPrice = Number(product.original_price) || Number(product.price) * 1.2;
     const currentPrice = Number(product.price);
     const dropPercentage = ((originalPrice - currentPrice) / originalPrice) * 100;
     return dropPercentage > 0 ? Math.round(dropPercentage) : 0;
-  };
+  }, []);
 
-  // Skeleton loading component
-  const WishlistSkeleton = () => (
-    <div className="wishlist-container">
-      <div className="wishlist-header skeleton">
-        <div className="skeleton-title"></div>
-      </div>
-      <div className="wishlist-stats skeleton">
-        {[...Array(2)].map((_, index) => (
-          <div key={index} className="stat-card skeleton">
-            <div className="skeleton-line"></div>
-            <div className="skeleton-line short"></div>
-          </div>
-        ))}
-      </div>
-      <div className="wishlist-grid">
-        {[...Array(6)].map((_, index) => (
-          <div key={index} className="wishlist-card skeleton">
-            <div className="skeleton-image"></div>
-            <div className="skeleton-content">
-              <div className="skeleton-line skeleton-title"></div>
-              <div className="skeleton-line skeleton-price"></div>
-              <div className="skeleton-line skeleton-actions"></div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+  // Calculate stats
+  const totalItems = wishlistItems.length;
+  const priceDropCount = wishlistItems.filter(item => getPriceDrop(item.products) > 0).length;
 
-  if (loading) return <WishlistSkeleton />;
+  if (loading && wishlistItems.length === 0) {
+    return <WishlistSkeleton />;
+  }
 
   return (
     <div className="wishlist-container">
@@ -138,7 +258,7 @@ const Wishlist = () => {
           <FaHeart className="heart-icon" />
           My Wishlist
           {wishlistItems.length > 0 && (
-            <span className="item-count">({wishlistItems.length})</span>
+            <span className="item-count">({totalItems})</span>
           )}
         </h1>
       </motion.div>
@@ -177,7 +297,7 @@ const Wishlist = () => {
                 <FaHeart />
               </div>
               <div className="stat-content">
-                <span className="stat-number">{wishlistItems.length}</span>
+                <span className="stat-number">{totalItems}</span>
                 <span className="stat-label">Items</span>
               </div>
             </motion.div>
@@ -193,7 +313,7 @@ const Wishlist = () => {
               </div>
               <div className="stat-content">
                 <span className="stat-number">
-                  {wishlistItems.filter(item => getPriceDrop(item.products) > 0).length}
+                  {priceDropCount}
                 </span>
                 <span className="stat-label">Price Drops</span>
               </div>
@@ -341,6 +461,8 @@ const Wishlist = () => {
       <div className="bottom-spacing"></div>
     </div>
   );
-};
+});
+
+Wishlist.displayName = 'Wishlist';
 
 export default Wishlist;
