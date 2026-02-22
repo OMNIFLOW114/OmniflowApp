@@ -1,4 +1,4 @@
-/* Auth.css - Premium Clean Design */
+/* Auth.css - Single Page Clean Design */
 
 * {
   margin: 0;
@@ -20,20 +20,16 @@ body {
   padding: 20px;
 }
 
-.auth-card {
-  background: white;
-  border-radius: 24px;
-  padding: 40px;
+.auth-content {
   width: 100%;
-  max-width: 440px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
-  animation: slideUp 0.4s ease;
+  max-width: 400px;
+  animation: fadeIn 0.4s ease;
 }
 
-@keyframes slideUp {
+@keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
@@ -57,72 +53,35 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16px;
+  gap: 12px;
 }
 
 .logo-image {
-  width: 56px;
-  height: 56px;
+  width: 48px;
+  height: 48px;
   object-fit: contain;
-  border-radius: 14px;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
-  transition: transform 0.3s ease;
-}
-
-.logo-image:hover {
-  transform: scale(1.05);
 }
 
 .brand-name {
-  font-size: 32px;
-  font-weight: 800;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  font-size: 28px;
+  font-weight: 700;
+  color: white;
   letter-spacing: -0.5px;
-}
-
-/* Dark mode support for logo */
-@media (prefers-color-scheme: dark) {
-  .logo-image {
-    filter: brightness(1.1);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-  }
-  
-  .logo-image:hover {
-    transform: scale(1.05);
-  }
-}
-
-/* Responsive logo */
-@media (max-width: 480px) {
-  .logo-image {
-    width: 48px;
-    height: 48px;
-    border-radius: 12px;
-  }
-  
-  .brand-name {
-    font-size: 28px;
-  }
-  
-  .logo {
-    gap: 12px;
-  }
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .auth-greeting {
-  font-size: 28px;
+  font-size: 32px;
   font-weight: 700;
-  color: #1a1a1a;
-  margin-bottom: 8px;
+  color: white;
+  margin-bottom: 12px;
   line-height: 1.2;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .auth-subheading {
-  font-size: 15px;
-  color: #666;
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.9);
   line-height: 1.5;
 }
 
@@ -130,7 +89,7 @@ body {
 .auth-form {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
   margin-bottom: 24px;
 }
 
@@ -142,34 +101,36 @@ body {
 
 .form-group label {
   font-size: 14px;
-  font-weight: 600;
-  color: #374151;
+  font-weight: 500;
+  color: white;
+  opacity: 0.9;
 }
 
 .form-group input {
-  padding: 12px 16px;
-  border: 1.5px solid #e5e7eb;
+  padding: 14px 16px;
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
   border-radius: 12px;
   font-size: 15px;
   transition: all 0.2s;
-  background: #f9fafb;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  backdrop-filter: blur(5px);
+}
+
+.form-group input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .form-group input:hover {
-  border-color: #9ca3af;
-  background: white;
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .form-group input:focus {
   outline: none;
-  border-color: #667eea;
-  background: white;
-  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
-}
-
-.form-group input::placeholder {
-  color: #9ca3af;
-  font-size: 14px;
+  border-color: white;
+  background: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.1);
 }
 
 /* Password field */
@@ -182,17 +143,19 @@ body {
 .forgot-link {
   background: none;
   border: none;
-  color: #667eea;
+  color: white;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   padding: 4px 8px;
   border-radius: 6px;
   transition: all 0.2s;
+  opacity: 0.8;
 }
 
 .forgot-link:hover {
-  background: rgba(102, 126, 234, 0.1);
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .password-wrapper {
@@ -211,7 +174,7 @@ body {
   transform: translateY(-50%);
   background: none;
   border: none;
-  color: #9ca3af;
+  color: rgba(255, 255, 255, 0.6);
   cursor: pointer;
   padding: 4px;
   display: flex;
@@ -222,8 +185,8 @@ body {
 }
 
 .password-toggle:hover {
-  color: #667eea;
-  background: rgba(102, 126, 234, 0.1);
+  color: white;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 /* Terms checkbox */
@@ -238,20 +201,20 @@ body {
   width: 18px;
   height: 18px;
   margin-top: 2px;
-  accent-color: #667eea;
+  accent-color: white;
   cursor: pointer;
 }
 
 .terms-checkbox label {
   font-size: 14px;
-  color: #4b5563;
+  color: rgba(255, 255, 255, 0.9);
   line-height: 1.5;
 }
 
 .terms-link {
   background: none;
   border: none;
-  color: #667eea;
+  color: white;
   font-weight: 600;
   font-size: 14px;
   cursor: pointer;
@@ -265,8 +228,8 @@ body {
 
 /* Buttons */
 .auth-button {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: white;
+  color: #667eea;
   border: none;
   padding: 14px;
   border-radius: 12px;
@@ -280,28 +243,12 @@ body {
   gap: 8px;
   width: 100%;
   margin-top: 8px;
-  position: relative;
-  overflow: hidden;
-}
-
-.auth-button::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-  transition: left 0.5s ease;
-}
-
-.auth-button:hover::before {
-  left: 100%;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .auth-button:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 10px 25px -5px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
 }
 
 .auth-button:active:not(:disabled) {
@@ -318,7 +265,7 @@ body {
   display: flex;
   align-items: center;
   text-align: center;
-  color: #9ca3af;
+  color: rgba(255, 255, 255, 0.6);
   font-size: 13px;
   margin: 24px 0;
 }
@@ -328,7 +275,7 @@ body {
   content: '';
   flex: 1;
   height: 1px;
-  background: #e5e7eb;
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .divider span {
@@ -343,21 +290,21 @@ body {
   gap: 12px;
   width: 100%;
   padding: 12px;
-  background: white;
-  border: 1.5px solid #e5e7eb;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
   border-radius: 12px;
   font-size: 15px;
   font-weight: 500;
-  color: #374151;
+  color: white;
   cursor: pointer;
   transition: all 0.2s;
+  backdrop-filter: blur(5px);
 }
 
 .google-btn:hover:not(:disabled) {
-  background: #f9fafb;
-  border-color: #d1d5db;
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
 .google-btn:active:not(:disabled) {
@@ -374,13 +321,13 @@ body {
   text-align: center;
   margin-top: 24px;
   font-size: 14px;
-  color: #6b7280;
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .toggle-mode {
   background: none;
   border: none;
-  color: #667eea;
+  color: white;
   font-weight: 600;
   cursor: pointer;
   padding: 4px 8px;
@@ -391,14 +338,14 @@ body {
 }
 
 .toggle-mode:hover {
-  background: rgba(102, 126, 234, 0.1);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 /* Back to login */
 .back-to-login {
   background: none;
   border: none;
-  color: #667eea;
+  color: white;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -410,17 +357,19 @@ body {
   gap: 4px;
   border-radius: 8px;
   transition: all 0.2s;
+  opacity: 0.8;
 }
 
 .back-to-login:hover {
-  background: rgba(102, 126, 234, 0.1);
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.1);
   transform: translateX(-4px);
 }
 
 /* Error messages */
 .error-text {
   font-size: 12px;
-  color: #ef4444;
+  color: #ffb3b3;
   margin-top: 2px;
   display: flex;
   align-items: center;
@@ -433,47 +382,50 @@ body {
 }
 
 .env-error {
-  background: #fef2f2;
-  border: 1px solid #fee2e2;
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.3);
   border-radius: 12px;
   padding: 16px;
   margin-bottom: 24px;
-  color: #b91c1c;
+  color: #ffb3b3;
   font-size: 14px;
+  backdrop-filter: blur(5px);
 }
 
 .success-message {
-  background: #f0fdf4;
-  border: 1px solid #dcfce7;
+  background: rgba(16, 185, 129, 0.2);
+  border: 1px solid rgba(16, 185, 129, 0.3);
   border-radius: 12px;
   padding: 12px 16px;
   margin-bottom: 24px;
-  color: #166534;
+  color: #a7f3d0;
   font-size: 14px;
   display: flex;
   align-items: center;
   gap: 10px;
+  backdrop-filter: blur(5px);
 }
 
 /* Error container */
 .error-container {
-  background: white;
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 24px;
   padding: 32px;
   max-width: 400px;
   margin: 20px;
   text-align: center;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .error-container h2 {
-  color: #ef4444;
+  color: white;
   margin-bottom: 12px;
   font-size: 20px;
 }
 
 .error-container p {
-  color: #4b5563;
+  color: rgba(255, 255, 255, 0.9);
   margin-bottom: 24px;
   line-height: 1.6;
 }
@@ -494,20 +446,29 @@ body {
     padding: 16px;
   }
 
-  .auth-card {
-    padding: 24px;
+  .auth-content {
+    max-width: 100%;
   }
 
   .auth-greeting {
-    font-size: 24px;
+    font-size: 28px;
   }
 
   .auth-subheading {
-    font-size: 14px;
+    font-size: 15px;
+  }
+
+  .logo-image {
+    width: 40px;
+    height: 40px;
+  }
+
+  .brand-name {
+    font-size: 24px;
   }
 
   .form-group input {
-    padding: 10px 14px;
+    padding: 12px 14px;
   }
 
   .auth-button {
@@ -516,72 +477,5 @@ body {
 
   .google-btn {
     padding: 10px;
-  }
-}
-
-/* Dark mode support */
-@media (prefers-color-scheme: dark) {
-  body {
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-  }
-
-  .auth-card {
-    background: #1e1e2f;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  }
-
-  .auth-greeting {
-    color: #fff;
-  }
-
-  .auth-subheading {
-    color: #a0a0b0;
-  }
-
-  .form-group label {
-    color: #e0e0e0;
-  }
-
-  .form-group input {
-    background: #2a2a3a;
-    border-color: #3a3a4a;
-    color: #fff;
-  }
-
-  .form-group input:hover,
-  .form-group input:focus {
-    background: #2d2d3d;
-  }
-
-  .form-group input::placeholder {
-    color: #6b6b7b;
-  }
-
-  .divider {
-    color: #6b6b7b;
-  }
-
-  .divider::before,
-  .divider::after {
-    background: #3a3a4a;
-  }
-
-  .google-btn {
-    background: #2a2a3a;
-    border-color: #3a3a4a;
-    color: #fff;
-  }
-
-  .google-btn:hover:not(:disabled) {
-    background: #2d2d3d;
-    border-color: #4a4a5a;
-  }
-
-  .auth-footer {
-    color: #a0a0b0;
-  }
-
-  .terms-checkbox label {
-    color: #a0a0b0;
   }
 }

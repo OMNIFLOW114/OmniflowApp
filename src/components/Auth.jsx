@@ -804,7 +804,7 @@ export default function Auth() {
           }}
         />
 
-        <div className="auth-card">
+        <div className="auth-content">
           <div className="auth-header">
             <div className="brand">
               <div className="logo">
