@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, Component } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -596,36 +595,23 @@ export default function Auth() {
     switch (mode) {
       case "signup":
         return (
-          <form onSubmit={handleSignup} className="auth-form" aria-labelledby="signup-title">
+          <form onSubmit={handleSignup} className="auth-form">
             <div className="form-group">
-              <label htmlFor="name">Full Name *</label>
+              <label htmlFor="name">Full name</label>
               <input
                 id="name"
                 name="name"
+                type="text"
                 placeholder="Enter your full name"
                 onChange={handleChange}
                 value={formData.name}
                 required
-                aria-invalid={!!errors.name}
-                aria-describedby={errors.name ? "name-error" : undefined}
               />
-              {errors.name && <span id="name-error" className="error-text">{errors.name}</span>}
+              {errors.name && <span className="error-text">{errors.name}</span>}
             </div>
+
             <div className="form-group">
-              <label htmlFor="phone">Phone Number</label>
-              <input
-                id="phone"
-                name="phone"
-                placeholder="+2547..."
-                onChange={handleChange}
-                value={formData.phone}
-                aria-invalid={!!errors.phone}
-                aria-describedby={errors.phone ? "phone-error" : undefined}
-              />
-              {errors.phone && <span id="phone-error" className="error-text">{errors.phone}</span>}
-            </div>
-            <div className="form-group">
-              <label htmlFor="email">Email *</label>
+              <label htmlFor="email">Email</label>
               <input
                 id="email"
                 name="email"
@@ -634,75 +620,73 @@ export default function Auth() {
                 onChange={handleChange}
                 value={formData.email}
                 required
-                aria-invalid={!!errors.email}
-                aria-describedby={errors.email ? "email-error" : undefined}
               />
-              {errors.email && <span id="email-error" className="error-text">{errors.email}</span>}
+              {errors.email && <span className="error-text">{errors.email}</span>}
             </div>
+
             <div className="form-group">
-              <label htmlFor="password">Password *</label>
+              <label htmlFor="phone">Phone (optional)</label>
+              <input
+                id="phone"
+                name="phone"
+                type="tel"
+                placeholder="+254 700 000000"
+                onChange={handleChange}
+                value={formData.phone}
+              />
+              {errors.phone && <span className="error-text">{errors.phone}</span>}
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="password">Password</label>
               <div className="password-wrapper">
                 <input
                   id="password"
                   name="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="Create a strong password"
+                  placeholder="Create a password"
                   onChange={handleChange}
                   value={formData.password}
                   required
-                  aria-invalid={!!errors.password}
-                  aria-describedby={errors.password ? "password-error" : undefined}
                 />
                 <button
                   type="button"
                   className="password-toggle"
                   onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? "Hide password" : "Show password"}
                 >
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
-              {errors.password && <span id="password-error" className="error-text">{errors.password}</span>}
-              <div className="password-hint">
-                Password must contain uppercase, lowercase, number, and be at least 8 characters
-              </div>
+              {errors.password && <span className="error-text">{errors.password}</span>}
             </div>
-            
-            <div className="terms-acceptance">
-              <label className="terms-checkbox">
-                <input
-                  type="checkbox"
-                  checked={acceptedTerms}
-                  onChange={(e) => setAcceptedTerms(e.target.checked)}
-                  className="checkbox-input"
-                />
-                <span className="checkmark"></span>
-                I agree to the{" "}
-                <button
-                  type="button"
-                  className="terms-link"
-                  onClick={() => navigate('/terms')}
-                >
-                  Terms & Conditions
-                </button>
+
+            <div className="terms-checkbox">
+              <input
+                type="checkbox"
+                id="terms"
+                checked={acceptedTerms}
+                onChange={(e) => setAcceptedTerms(e.target.checked)}
+              />
+              <label htmlFor="terms">
+                I agree to the <button type="button" className="terms-link" onClick={() => navigate('/terms')}>Terms of Service</button> and <button type="button" className="terms-link" onClick={() => navigate('/privacy')}>Privacy Policy</button>
               </label>
             </div>
 
-            <Button
+            <button
               type="submit"
               className="auth-button"
-              disabled={loading || Object.values(errors).some((e) => e) || envError || !acceptedTerms}
+              disabled={loading || envError || !acceptedTerms}
             >
-              {loading ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
-              {loading ? "Creating Account..." : "Create Account"}
-            </Button>
+              {loading ? <Loader2 className="animate-spin" size={18} /> : "Create account"}
+            </button>
           </form>
         );
+
       case "login":
         return (
-          <form onSubmit={handleLogin} className="auth-form" aria-labelledby="login-title">
+          <form onSubmit={handleLogin} className="auth-form">
             <div className="form-group">
-              <label htmlFor="email">Email *</label>
+              <label htmlFor="email">Email</label>
               <input
                 id="email"
                 name="email"
@@ -711,13 +695,21 @@ export default function Auth() {
                 onChange={handleChange}
                 value={formData.email}
                 required
-                aria-invalid={!!errors.email}
-                aria-describedby={errors.email ? "email-error" : undefined}
               />
-              {errors.email && <span id="email-error" className="error-text">{errors.email}</span>}
+              {errors.email && <span className="error-text">{errors.email}</span>}
             </div>
+
             <div className="form-group">
-              <label htmlFor="password">Password *</label>
+              <div className="password-header">
+                <label htmlFor="password">Password</label>
+                <button
+                  type="button"
+                  onClick={() => setMode("forgot")}
+                  className="forgot-link"
+                >
+                  Forgot password?
+                </button>
+              </div>
               <div className="password-wrapper">
                 <input
                   id="password"
@@ -727,76 +719,63 @@ export default function Auth() {
                   onChange={handleChange}
                   value={formData.password}
                   required
-                  aria-invalid={!!errors.password}
-                  aria-describedby={errors.password ? "password-error" : undefined}
                 />
                 <button
                   type="button"
                   className="password-toggle"
                   onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? "Hide password" : "Show password"}
                 >
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
-              {errors.password && <span id="password-error" className="error-text">{errors.password}</span>}
+              {errors.password && <span className="error-text">{errors.password}</span>}
             </div>
-            <div className="auth-links">
-              <button
-                type="button"
-                onClick={() => setMode("forgot")}
-                className="link-btn"
-                aria-label="Forgot password"
-              >
-                Forgot password?
-              </button>
-            </div>
-            <Button
+
+            <button
               type="submit"
               className="auth-button"
-              disabled={loading || Object.values(errors).some((e) => e) || envError}
+              disabled={loading || envError}
             >
-              {loading ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
-              {loading ? "Signing In..." : "Sign In"}
-            </Button>
+              {loading ? <Loader2 className="animate-spin" size={18} /> : "Sign in"}
+            </button>
           </form>
         );
+
       case "forgot":
         return (
-          <form onSubmit={handleForgotPassword} className="auth-form" aria-labelledby="forgot-title">
+          <form onSubmit={handleForgotPassword} className="auth-form">
             <div className="form-group">
-              <label htmlFor="email">Email *</label>
+              <label htmlFor="email">Email</label>
               <input
                 id="email"
                 name="email"
                 type="email"
-                placeholder="Enter your email address"
+                placeholder="Enter your email"
                 onChange={handleChange}
                 value={formData.email}
                 required
-                aria-invalid={!!errors.email}
-                aria-describedby={errors.email ? "email-error" : undefined}
               />
-              {errors.email && <span id="email-error" className="error-text">{errors.email}</span>}
+              {errors.email && <span className="error-text">{errors.email}</span>}
             </div>
-            <Button
+
+            <button
               type="submit"
               className="auth-button"
-              disabled={loading || Object.values(errors).some((e) => e) || envError}
+              disabled={loading || envError}
             >
-              {loading ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
-              {loading ? "Sending Reset Link..." : "Send Reset Link"}
-            </Button>
+              {loading ? <Loader2 className="animate-spin" size={18} /> : "Send reset link"}
+            </button>
+
             <button
               type="button"
-              className="link-btn back-link"
               onClick={() => setMode("login")}
-              aria-label="Back to login"
+              className="back-to-login"
             >
-              Back to login
+              ← Back to sign in
             </button>
           </form>
         );
+
       default:
         return null;
     }
@@ -809,86 +788,91 @@ export default function Auth() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3 }}
-        role="main"
       >
         <Toaster 
-          position="top-center" 
-          toastOptions={{ 
-            duration: 5000,
+          position="top-center"
+          toastOptions={{
+            duration: 4000,
             style: {
-              background: '#363636',
-              color: '#fff',
+              background: '#fff',
+              color: '#363636',
+              boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+              borderRadius: '12px',
+              padding: '12px 16px',
+              fontSize: '14px',
             },
-          }} 
+          }}
         />
-        <div className="auth-form-container glass-card">
+
+        <div className="auth-card">
+          <div className="auth-header">
+            <div className="brand">
+              <div className="logo">
+                <img 
+                  src="/icons/logo.png" 
+                  alt="Omniflow Logo" 
+                  className="logo-image"
+                />
+                <span className="brand-name">Omniflow</span>
+              </div>
+            </div>
+
+            <h1 className="auth-greeting">
+              {mode === "signup" ? "Create an account" : mode === "forgot" ? "Reset password" : "Welcome back"}
+            </h1>
+            <p className="auth-subheading">
+              {mode === "signup" 
+                ? "Sign up to start shopping" 
+                : mode === "forgot"
+                ? "Enter your email to reset your password"
+                : "Sign in to continue to Omniflow"}
+            </p>
+          </div>
+
           {envError && (
-            <div className="env-error-message">
+            <div className="env-error">
               <p>{envError}</p>
-              <p>Please update your .env file and reload the page.</p>
             </div>
           )}
+
           {successMessage && (
             <div className="success-message">
-              {successMessage}
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                <circle cx="9" cy="9" r="9" fill="#10B981" fillOpacity="0.1" />
+                <path d="M5 9L7.5 11.5L13 6" stroke="#10B981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <span>{successMessage}</span>
             </div>
           )}
-          <h2
-            className="auth-title"
-            id={
-              mode === "signup"
-                ? "signup-title"
-                : mode === "forgot"
-                ? "forgot-title"
-                : "login-title"
-            }
-          >
-            {mode === "signup"
-              ? "Create an Account"
-              : mode === "forgot"
-              ? "Reset Your Password"
-              : "Welcome to Omniflow App"}
-          </h2>
+
           {renderForm()}
+
           {(mode === "login" || mode === "signup") && (
             <>
-              <div className="auth-divider">
-                <span>or</span>
+              <div className="divider">
+                <span>or continue with</span>
               </div>
+
               <button
                 onClick={handleGoogle}
-                className="google-signin-btn"
+                className="google-btn"
                 disabled={loading || envError}
-                aria-label="Sign in with Google"
               >
-                <svg className="google-icon" viewBox="0 0 24 24" width="20" height="20">
-                  <path
-                    fill="#4285F4"
-                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                  />
-                  <path
-                    fill="#34A853"
-                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                  />
-                  <path
-                    fill="#FBBC05"
-                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                  />
-                  <path
-                    fill="#EA4335"
-                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.60 3.3-4.53 6.16-4.53z"
-                  />
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <path d="M18.171 10.1709C18.171 9.58002 18.1165 8.99002 18.0065 8.41504H10.222V11.7551H14.659C14.4815 12.7101 13.933 13.5551 13.1345 14.1151V16.0651H15.747C17.281 14.6251 18.171 12.5501 18.171 10.1709Z" fill="#4285F4"/>
+                  <path d="M10.222 18.5C12.385 18.5 14.1945 17.765 15.747 16.065L13.1345 14.115C12.295 14.68 11.3065 15.005 10.222 15.005C8.135 15.005 6.3705 13.595 5.7285 11.695H3.035V13.705C4.576 16.75 7.7 18.5 10.222 18.5Z" fill="#34A853"/>
+                  <path d="M5.7285 11.695C5.3935 10.705 5.3935 9.635 5.7285 8.645V6.635H3.035C1.8965 8.895 1.8965 11.445 3.035 13.705L5.7285 11.695Z" fill="#FBBC04"/>
+                  <path d="M10.222 5.335C11.3735 5.315 12.485 5.74 13.3205 6.53L15.801 4.045C14.1185 2.47 11.7425 1.57 10.222 1.575C7.7 1.575 4.576 3.325 3.035 6.365L5.7285 8.375C6.3705 6.475 8.135 5.065 10.222 5.065V5.335Z" fill="#EA4335"/>
                 </svg>
                 Continue with Google
               </button>
-              <div className="toggle-form-text">
+
+              <div className="auth-footer">
                 <p>
-                  {mode === "signup" ? "Already have an account?" : "Don't have an account?"}{" "}
+                  {mode === "signup" ? "Already have an account?" : "Don't have an account?"}
                   <button
-                    type="button"
                     onClick={() => setMode(mode === "signup" ? "login" : "signup")}
-                    className="toggle-btn"
-                    aria-label={mode === "signup" ? "Switch to sign in" : "Switch to sign up"}
+                    className="toggle-mode"
                   >
                     {mode === "signup" ? "Sign in" : "Sign up"}
                   </button>

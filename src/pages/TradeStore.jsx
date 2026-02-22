@@ -34,7 +34,8 @@ const CACHE_KEYS = {
   FILTERS: 'trade_store_filters',
   CACHE_TIMESTAMP: 'trade_store_cache_timestamp',
   SCROLL_POSITION: 'trade_store_scroll_position',
-  LOCATION_FETCHED: 'trade_store_location_fetched'
+  LOCATION_FETCHED: 'trade_store_location_fetched',
+  INITIAL_LOAD_DONE: 'trade_store_initial_load_done'
 };
 
 // Cache expiry time (5 minutes)
@@ -498,11 +499,14 @@ const TradeStore = memo(() => {
   // Refs for caching and persistence
   const isMountedRef = useRef(false);
   const scrollPositionRef = useRef(0);
+  const isRefreshingRef = useRef(false);
+  const initialLoadDoneRef = useRef(loadFromCache(CACHE_KEYS.INITIAL_LOAD_DONE, false));
   const cacheDataRef = useRef({
-    isInitialized: false,
+    isInitialized: initialLoadDoneRef.current,
     lastFetchTime: 0,
     productCache: new Map(),
-    isFetchingLocation: false
+    isFetchingLocation: false,
+    hasInitialFetch: false
   });
   
   // Load initial state from cache
@@ -545,15 +549,13 @@ const TradeStore = memo(() => {
   const [storeInfo, setStoreInfo] = useState(null);
   const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
   const [showStoreModal, setShowStoreModal] = useState(false);
-  const [initialLoad, setInitialLoad] = useState(() => 
-    loadFromCache(CACHE_KEYS.PRODUCTS, []).length === 0
-  );
+  const [initialLoad, setInitialLoad] = useState(!initialLoadDoneRef.current);
   const [buyerLocation, setBuyerLocation] = useState(() => 
     loadFromCache(CACHE_KEYS.BUYER_LOCATION, null)
   );
   const [hasRequestedLocation, setHasRequestedLocation] = useState(false);
   const [isLocationBlocked, setIsLocationBlocked] = useState(false);
-  // REMOVED: isLocationLoading state - we won't show loader anymore
+  const [isNavigatingBack, setIsNavigatingBack] = useState(false);
   
   const pageSize = 20;
 
@@ -579,6 +581,7 @@ const TradeStore = memo(() => {
       saveToCache(CACHE_KEYS.PAGE, page);
       saveToCache(CACHE_KEYS.ACTIVE_TAB, activeTab);
       saveToCache(CACHE_KEYS.FILTERS, filters);
+      saveToCache(CACHE_KEYS.INITIAL_LOAD_DONE, true);
       if (buyerLocation) {
         saveToCache(CACHE_KEYS.BUYER_LOCATION, buyerLocation);
       }
@@ -601,16 +604,37 @@ const TradeStore = memo(() => {
     };
   }, []);
 
+  // Handle navigation back - exit app behavior
+  useEffect(() => {
+    const handlePopState = (event) => {
+      // Check if we're on the home page and trying to go back
+      if (window.location.pathname === '/') {
+        setIsNavigatingBack(true);
+        // Small delay to show exit message
+        setTimeout(() => {
+          // Close the app/window or redirect to external page
+          window.location.href = 'about:blank';
+        }, 100);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
+
   // Restore scroll position on mount
   useEffect(() => {
     const savedScrollPosition = loadFromCache(CACHE_KEYS.SCROLL_POSITION, 0);
-    if (savedScrollPosition > 0) {
+    if (savedScrollPosition > 0 && !isNavigatingBack) {
       requestAnimationFrame(() => {
         window.scrollTo(0, savedScrollPosition);
       });
     }
     isMountedRef.current = true;
-  }, []);
+  }, [isNavigatingBack]);
 
   // UPDATED: Background location fetching without showing loader
   useEffect(() => {
@@ -708,7 +732,7 @@ const TradeStore = memo(() => {
     };
 
     // Only fetch if we don't have location and haven't fetched before
-    if (!buyerLocation) {
+    if (!buyerLocation && !isNavigatingBack) {
       // Start location fetch but don't wait for it
       fetchLocationInBackground();
     } else {
@@ -720,7 +744,7 @@ const TradeStore = memo(() => {
     return () => {
       cacheDataRef.current.isFetchingLocation = false;
     };
-  }, [buyerLocation]);
+  }, [buyerLocation, isNavigatingBack]);
 
   useEffect(() => {
     if (!user?.id) {
@@ -913,6 +937,9 @@ const TradeStore = memo(() => {
   }, []);
 
   const fetchProducts = useCallback(async (forceRefresh = false) => {
+    // Don't fetch if already refreshing
+    if (isRefreshingRef.current) return;
+    
     // Check cache first if not forcing refresh
     const cacheKey = `${CACHE_KEYS.PRODUCTS}_page_${page}_tab_${activeTab}`;
     
@@ -926,79 +953,87 @@ const TradeStore = memo(() => {
       return;
     }
     
+    isRefreshingRef.current = true;
     const offset = (page - 1) * pageSize;
     
-    const { data, error } = await supabase
-      .from("products")
-      .select(`
-        id, name, description, price, discount, stock_quantity,
-        category, tags, image_gallery, created_at, views,
-        is_featured, is_rare_drop, is_flash_sale, is_trending,
-        lipa_polepole, installment_plan,
-        store_id,
-        stores!inner (
-          id, 
-          is_active,
-          location_lat,
-          location_lng
-        )
-      `)
-      .eq("visibility", "public")
-      .eq("status", "active")
-      .eq("stores.is_active", true)
-      .not("stores.location_lat", "is", null)
-      .order("created_at", { ascending: false })
-      .range(offset, offset + pageSize - 1);
+    try {
+      const { data, error } = await supabase
+        .from("products")
+        .select(`
+          id, name, description, price, discount, stock_quantity,
+          category, tags, image_gallery, created_at, views,
+          is_featured, is_rare_drop, is_flash_sale, is_trending,
+          lipa_polepole, installment_plan,
+          store_id,
+          stores!inner (
+            id, 
+            is_active,
+            location_lat,
+            location_lng
+          )
+        `)
+        .eq("visibility", "public")
+        .eq("status", "active")
+        .eq("stores.is_active", true)
+        .not("stores.location_lat", "is", null)
+        .order("created_at", { ascending: false })
+        .range(offset, offset + pageSize - 1);
 
-    if (error) {
-      console.error("Failed to load products:", error);
-      toast.error("Failed to load products");
-      return;
+      if (error) {
+        console.error("Failed to load products:", error);
+        toast.error("Failed to load products");
+        return;
+      }
+
+      const validProducts = data?.filter(p => p.stores?.is_active) || [];
+
+      const productIds = validProducts.map(p => p.id);
+      const { data: ratingsData } = await supabase
+        .from("product_ratings")
+        .select("product_id, avg_rating, rating_count")
+        .in("product_id", productIds);
+
+      const ratingsAvgMap = new Map(ratingsData?.map(r => [r.product_id, r.avg_rating]) || []);
+      const ratingsCountMap = new Map(ratingsData?.map(r => [r.product_id, r.rating_count]) || []);
+
+      const withImagesAndRatings = validProducts.map(p => ({
+        ...p,
+        imageUrl: getImageUrl(p.image_gallery?.[0]),
+        average_rating: ratingsAvgMap.get(p.id) || 0,
+        rating_count: ratingsCountMap.get(p.id) || 0,
+        store_lat: p.stores?.location_lat,
+        store_lng: p.stores?.location_lng,
+        tags: Array.isArray(p.tags) ? p.tags : (p.tags ? JSON.parse(p.tags) : [])
+      }));
+
+      // Cache the fetched products
+      cacheDataRef.current.productCache.set(cacheKey, withImagesAndRatings);
+      cacheDataRef.current.lastFetchTime = Date.now();
+
+      setProducts(prev => {
+        const combined = [...prev, ...withImagesAndRatings];
+        return Array.from(new Map(combined.map(p => [p.id, p])).values());
+      });
+      
+      if (validProducts.length < pageSize) {
+        setHasMore(false);
+      }
+    } finally {
+      isRefreshingRef.current = false;
     }
+  }, [page, activeTab, getImageUrl, pageSize]);
 
-    const validProducts = data?.filter(p => p.stores?.is_active) || [];
-
-    const productIds = validProducts.map(p => p.id);
-    const { data: ratingsData } = await supabase
-      .from("product_ratings")
-      .select("product_id, avg_rating, rating_count")
-      .in("product_id", productIds);
-
-    const ratingsAvgMap = new Map(ratingsData?.map(r => [r.product_id, r.avg_rating]) || []);
-    const ratingsCountMap = new Map(ratingsData?.map(r => [r.product_id, r.rating_count]) || []);
-
-    const withImagesAndRatings = validProducts.map(p => ({
-      ...p,
-      imageUrl: getImageUrl(p.image_gallery?.[0]),
-      average_rating: ratingsAvgMap.get(p.id) || 0,
-      rating_count: ratingsCountMap.get(p.id) || 0,
-      store_lat: p.stores?.location_lat,
-      store_lng: p.stores?.location_lng,
-      tags: Array.isArray(p.tags) ? p.tags : (p.tags ? JSON.parse(p.tags) : [])
-    }));
-
-    // Cache the fetched products
-    cacheDataRef.current.productCache.set(cacheKey, withImagesAndRatings);
-    cacheDataRef.current.lastFetchTime = Date.now();
-
-    setProducts(prev => {
-      const combined = [...prev, ...withImagesAndRatings];
-      return Array.from(new Map(combined.map(p => [p.id, p])).values());
-    });
-    setPage(prev => prev + 1);
-    
-    if (validProducts.length < pageSize) {
-      setHasMore(false);
-    }
-  }, [page, activeTab, getImageUrl]);
-
-  // Initial fetch only if no cached products
+  // Initial fetch only if no cached products and not navigating back
   useEffect(() => {
-    if (products.length === 0 && !cacheDataRef.current.isInitialized) {
+    if (products.length === 0 && !cacheDataRef.current.hasInitialFetch && !isNavigatingBack) {
+      cacheDataRef.current.hasInitialFetch = true;
       fetchProducts();
       cacheDataRef.current.isInitialized = true;
+      initialLoadDoneRef.current = true;
+    } else if (products.length > 0) {
+      setInitialLoad(false);
     }
-  }, [products.length, fetchProducts]);
+  }, [products.length, fetchProducts, isNavigatingBack]);
 
   // Filter products based on active tab and filters
   useEffect(() => {
@@ -1132,48 +1167,156 @@ const TradeStore = memo(() => {
     navigate("/search", { state: { query: search } });
   }, [navigate, search]);
 
-  // Handle pull-to-refresh
+  // Handle pull-to-refresh - FIXED: Only refresh products once when scrolled to top
   useEffect(() => {
-    let startY = 0;
-    let isRefreshing = false;
+    let touchStartY = 0;
+    let touchStartTime = 0;
+    let isPullToRefresh = false;
 
     const handleTouchStart = (e) => {
-      startY = e.touches[0].clientY;
+      // Only enable at the very top of the page
+      if (window.scrollY === 0) {
+        touchStartY = e.touches[0].clientY;
+        touchStartTime = Date.now();
+      }
     };
 
     const handleTouchMove = (e) => {
-      if (window.scrollY === 0 && !isRefreshing) {
+      // Check if we're at the top and pulling down
+      if (window.scrollY === 0 && !isRefreshingRef.current && !isPullToRefresh) {
         const currentY = e.touches[0].clientY;
-        const diff = currentY - startY;
+        const pullDistance = currentY - touchStartY;
         
-        if (diff > 100) {
-          isRefreshing = true;
-          // Clear cache and refresh
-          cacheDataRef.current.productCache.clear();
-          clearHomepageCache();
+        // Only trigger if pulled down more than 100px
+        if (pullDistance > 100) {
+          isPullToRefresh = true;
           
-          // Reset and fetch fresh
-          setProducts([]);
-          setPage(1);
-          setHasMore(true);
-          fetchProducts(true).finally(() => {
-            isRefreshing = false;
-            toast.success("Refreshed!");
-          });
+          // Show visual indicator (optional)
+          const indicator = document.createElement('div');
+          indicator.className = 'pull-to-refresh-indicator';
+          indicator.textContent = 'Refreshing...';
+          document.body.prepend(indicator);
+          
+          setTimeout(() => indicator.remove(), 2000);
         }
       }
     };
 
+    const handleTouchEnd = (e) => {
+      if (isPullToRefresh && !isRefreshingRef.current) {
+        const touchEndTime = Date.now();
+        const touchDuration = touchEndTime - touchStartTime;
+        
+        // Only refresh if pull was deliberate (more than 100ms)
+        if (touchDuration > 100) {
+          // FIXED: Only refresh products once without causing disappearance
+          refreshProducts();
+        }
+      }
+      isPullToRefresh = false;
+    };
+
     document.addEventListener('touchstart', handleTouchStart);
     document.addEventListener('touchmove', handleTouchMove);
+    document.addEventListener('touchend', handleTouchEnd);
 
     return () => {
       document.removeEventListener('touchstart', handleTouchStart);
       document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [fetchProducts]);
+  }, []);
 
-  // REMOVED: Location loader check - we'll always show the app immediately
+  // FIXED: Refresh function that preserves existing products and only updates
+  const refreshProducts = useCallback(async () => {
+    if (isRefreshingRef.current) return;
+    
+    isRefreshingRef.current = true;
+    
+    try {
+      // Show loading toast
+      const toastId = toast.loading('Refreshing products...');
+      
+      // Clear only the product cache, keep existing products
+      cacheDataRef.current.productCache.clear();
+      
+      // Fetch only first page of fresh products
+      const { data, error } = await supabase
+        .from("products")
+        .select(`
+          id, name, description, price, discount, stock_quantity,
+          category, tags, image_gallery, created_at, views,
+          is_featured, is_rare_drop, is_flash_sale, is_trending,
+          lipa_polepole, installment_plan,
+          store_id,
+          stores!inner (
+            id, 
+            is_active,
+            location_lat,
+            location_lng
+          )
+        `)
+        .eq("visibility", "public")
+        .eq("status", "active")
+        .eq("stores.is_active", true)
+        .not("stores.location_lat", "is", null)
+        .order("created_at", { ascending: false })
+        .range(0, pageSize - 1);
+
+      if (error) {
+        console.error("Failed to refresh products:", error);
+        toast.error("Failed to refresh products", { id: toastId });
+        return;
+      }
+
+      const validProducts = data?.filter(p => p.stores?.is_active) || [];
+
+      const productIds = validProducts.map(p => p.id);
+      const { data: ratingsData } = await supabase
+        .from("product_ratings")
+        .select("product_id, avg_rating, rating_count")
+        .in("product_id", productIds);
+
+      const ratingsAvgMap = new Map(ratingsData?.map(r => [r.product_id, r.avg_rating]) || []);
+      const ratingsCountMap = new Map(ratingsData?.map(r => [r.product_id, r.rating_count]) || []);
+
+      const withImagesAndRatings = validProducts.map(p => ({
+        ...p,
+        imageUrl: getImageUrl(p.image_gallery?.[0]),
+        average_rating: ratingsAvgMap.get(p.id) || 0,
+        rating_count: ratingsCountMap.get(p.id) || 0,
+        store_lat: p.stores?.location_lat,
+        store_lng: p.stores?.location_lng,
+        tags: Array.isArray(p.tags) ? p.tags : (p.tags ? JSON.parse(p.tags) : [])
+      }));
+
+      // FIXED: Merge new products with existing ones, preserving all products
+      setProducts(prev => {
+        const existingProducts = prev.filter(p => 
+          !withImagesAndRatings.some(newP => newP.id === p.id)
+        );
+        return [...withImagesAndRatings, ...existingProducts];
+      });
+      
+      toast.success('Products refreshed!', { id: toastId });
+      
+    } catch (error) {
+      console.error("Error refreshing products:", error);
+      toast.error("Failed to refresh products");
+    } finally {
+      isRefreshingRef.current = false;
+    }
+  }, [getImageUrl, pageSize]);
+
+  // Handle back button - exit app
+  if (isNavigatingBack) {
+    return (
+      <div className="exit-app-message">
+        <h2>Exiting OmniMarket...</h2>
+        <p>Thank you for shopping with us!</p>
+      </div>
+    );
+  }
 
   if (initialLoad && products.length === 0) {
     return (
