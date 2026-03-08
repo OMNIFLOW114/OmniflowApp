@@ -668,7 +668,7 @@ export default function Auth() {
                 onChange={(e) => setAcceptedTerms(e.target.checked)}
               />
               <label htmlFor="terms">
-                I agree to the <button type="button" className="terms-link" onClick={() => navigate('/terms')}>Terms of Service</button> and <button type="button" className="terms-link" onClick={() => navigate('/privacy')}>Privacy Policy</button>
+                I agree to the <button type="button" className="terms-link" onClick={() => navigate('/terms')}>Terms</button> and <button type="button" className="terms-link" onClick={() => navigate('/privacy')}>Privacy Policy</button>
               </label>
             </div>
 
@@ -796,7 +796,7 @@ export default function Auth() {
             style: {
               background: '#fff',
               color: '#363636',
-              boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
               borderRadius: '12px',
               padding: '12px 16px',
               fontSize: '14px',
@@ -804,28 +804,26 @@ export default function Auth() {
           }}
         />
 
-        <div className="auth-content">
+        <div className="auth-card">
           <div className="auth-header">
             <div className="brand">
-              <div className="logo">
-                <img 
-                  src="/icons/logo.png" 
-                  alt="Omniflow Logo" 
-                  className="logo-image"
-                />
-                <span className="brand-name">Omniflow</span>
-              </div>
+              <img 
+                src="/icons/logo.png" 
+                alt="Omniflow Logo" 
+                className="logo"
+              />
+              <span className="brand-name">Omniflow</span>
             </div>
 
-            <h1 className="auth-greeting">
-              {mode === "signup" ? "Create an account" : mode === "forgot" ? "Reset password" : "Welcome back"}
+            <h1 className="auth-title">
+              {mode === "signup" ? "Create account" : mode === "forgot" ? "Reset password" : "Welcome back"}
             </h1>
-            <p className="auth-subheading">
+            <p className="auth-subtitle">
               {mode === "signup" 
-                ? "Sign up to start shopping" 
+                ? "Sign up to get started" 
                 : mode === "forgot"
                 ? "Enter your email to reset your password"
-                : "Sign in to continue to Omniflow"}
+                : "Sign in to your account"}
             </p>
           </div>
 
@@ -850,7 +848,7 @@ export default function Auth() {
           {(mode === "login" || mode === "signup") && (
             <>
               <div className="divider">
-                <span>or continue with</span>
+                <span>or</span>
               </div>
 
               <button

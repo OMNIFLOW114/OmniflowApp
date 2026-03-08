@@ -14,7 +14,11 @@ import {
   FiLoader,
   FiMapPin,
   FiTruck,
+  FiUsers,
+  FiSettings,
+  FiInfo, // Added missing import
 } from "react-icons/fi";
+import { FaMotorcycle, FaStore } from "react-icons/fa";
 import "./CreateStore.css";
 
 const Spinner = ({ size = 24 }) => (
@@ -48,7 +52,13 @@ const CreateStore = () => {
     businessType: "",
     businessDocument: null,
     ownerIdCard: null,
-    has_own_delivery: false,
+    delivery_type: "omniflow-managed", // 'self-delivery' or 'omniflow-managed'
+    // For self-delivery sellers
+    has_delivery_fleet: false,
+    delivery_fleet_size: 0,
+    delivery_coverage_radius: 50, // Default 50km radius
+    delivery_base_fee: 100, // Default base fee
+    delivery_rate_per_km: 15, // Default rate
   });
 
   const [detectingLocation, setDetectingLocation] = useState(false);
@@ -116,7 +126,7 @@ const CreateStore = () => {
     if (user) detectLocation();
   }, [user]);
 
-  // Check existing store request
+  // Check existing store request - FIXED 406 error
   useEffect(() => {
     const fetchExistingRequest = async () => {
       if (!user?.id) return;
@@ -127,10 +137,18 @@ const CreateStore = () => {
           .select("status")
           .eq("user_id", user.id)
           .order("created_at", { ascending: false })
-          .limit(1)
-          .single();
-        if (error && error.code !== "PGRST116") console.warn(error);
-        setRequestStatus(data ? data.status : null);
+          .limit(1);
+        
+        // Handle both array response and single response
+        if (error) {
+          if (error.code !== "PGRST116") {
+            console.warn(error);
+          }
+        } else {
+          // Check if data exists and has length
+          const requestData = data && data.length > 0 ? data[0] : null;
+          setRequestStatus(requestData ? requestData.status : null);
+        }
       } catch (err) {
         console.error(err);
       } finally {
@@ -199,6 +217,14 @@ const CreateStore = () => {
     }));
   };
 
+  const handleNumberChange = (e) => {
+    const { name, value } = e.target;
+    setStoreData(prev => ({
+      ...prev,
+      [name]: parseFloat(value) || 0,
+    }));
+  };
+
   const handleFileChange = (e) => {
     const { name, files } = e.target;
     if (!files?.length) {
@@ -226,12 +252,20 @@ const CreateStore = () => {
     e.preventDefault();
     if (!user?.id) return toast.error("Login required");
 
-    const required = ["name", "contactEmail", "contactPhone", "location", "kraPin", "registrationNumber", "businessType"];
+    const required = ["name", "contactEmail", "contactPhone", "location", "kraPin", "registrationNumber", "businessType", "delivery_type"];
     for (const field of required) {
       if (!storeData[field]) {
         toast.error("All required fields must be filled");
-        if (["name", "contactEmail", "contactPhone", "location"].includes(field)) setStep(1);
+        if (["name", "contactEmail", "contactPhone", "location", "delivery_type"].includes(field)) setStep(1);
         else setStep(2);
+        return;
+      }
+    }
+
+    // Additional validation for self-delivery
+    if (storeData.delivery_type === 'self-delivery') {
+      if (storeData.delivery_fleet_size < 1) {
+        toast.error("Please specify your delivery fleet size");
         return;
       }
     }
@@ -255,13 +289,28 @@ const CreateStore = () => {
         // GUARANTEED NON-NULL COORDINATES
         location_lat: parseFloat(storeData.location_lat?.toFixed(8)) || -1.2921,
         location_lng: parseFloat(storeData.location_lng?.toFixed(8)) || 36.8219,
-        has_own_delivery: storeData.has_own_delivery,
+        delivery_type: storeData.delivery_type,
+        // Self-delivery specific fields
+        has_delivery_fleet: storeData.delivery_type === 'self-delivery' ? storeData.has_delivery_fleet : false,
+        delivery_fleet_size: storeData.delivery_type === 'self-delivery' ? storeData.delivery_fleet_size : 0,
+        delivery_coverage_radius: storeData.delivery_type === 'self-delivery' ? storeData.delivery_coverage_radius : 50,
+        delivery_base_fee: storeData.delivery_type === 'self-delivery' ? storeData.delivery_base_fee : 100,
+        delivery_rate_per_km: storeData.delivery_type === 'self-delivery' ? storeData.delivery_rate_per_km : 15,
         kra_pin: storeData.kraPin.trim(),
         registration_number: storeData.registrationNumber.trim(),
         business_type: storeData.businessType,
         business_document: businessDocPath,
         owner_id_card: idCardPath,
         status: "pending",
+        metadata: {
+          submitted_at: new Date().toISOString(),
+          delivery_preferences: storeData.delivery_type === 'self-delivery' ? {
+            fleet_size: storeData.delivery_fleet_size,
+            coverage_radius: storeData.delivery_coverage_radius,
+            base_fee: storeData.delivery_base_fee,
+            rate_per_km: storeData.delivery_rate_per_km
+          } : null
+        }
       };
 
       const { error } = await supabase.from("store_requests").insert(payload);
@@ -471,42 +520,171 @@ const CreateStore = () => {
               </div>
             </div>
 
-            <div className="cs-delivery-preference">
-              <label className="cs-label">
+            {/* DELIVERY TYPE SELECTION */}
+            <div className="cs-delivery-section">
+              <label className="cs-label cs-section-label">
                 <FiTruck style={{ marginRight: 8 }} />
-                Delivery Preference *
+                Delivery Type *
               </label>
-              <div className="cs-radio-group">
-                <label className="cs-radio-label">
+              
+              <div className="cs-delivery-cards">
+                <label 
+                  className={`cs-delivery-card ${storeData.delivery_type === 'self-delivery' ? 'selected' : ''}`}
+                  onClick={() => setStoreData(prev => ({ ...prev, delivery_type: 'self-delivery' }))}
+                >
                   <input
                     type="radio"
-                    name="has_own_delivery"
-                    checked={storeData.has_own_delivery === true}
-                    onChange={() => setStoreData(prev => ({ ...prev, has_own_delivery: true }))}
-                    required
+                    name="delivery_type"
+                    value="self-delivery"
+                    checked={storeData.delivery_type === 'self-delivery'}
+                    onChange={() => {}}
+                    style={{ display: 'none' }}
                   />
-                  I have my own delivery means (free for buyers)
+                  <FaStore className="cs-card-icon" />
+                  <h4>Self-Delivery</h4>
+                  <p className="cs-card-desc">I have my own delivery fleet</p>
+                  <div className="cs-card-features">
+                    <span>✅ Keep 95% of delivery fees</span>
+                    <span>📦 Full control over delivery</span>
+                    <span>📍 Set your own rates</span>
+                  </div>
                 </label>
-                <label className="cs-radio-label">
+
+                <label 
+                  className={`cs-delivery-card ${storeData.delivery_type === 'omniflow-managed' ? 'selected' : ''}`}
+                  onClick={() => setStoreData(prev => ({ ...prev, delivery_type: 'omniflow-managed' }))}
+                >
                   <input
                     type="radio"
-                    name="has_own_delivery"
-                    checked={storeData.has_own_delivery === false}
-                    onChange={() => setStoreData(prev => ({ ...prev, has_own_delivery: false }))}
-                    required
+                    name="delivery_type"
+                    value="omniflow-managed"
+                    checked={storeData.delivery_type === 'omniflow-managed'}
+                    onChange={() => {}}
+                    style={{ display: 'none' }}
                   />
-                  Use Omniflow delivery (fee applies)
+                  <FaMotorcycle className="cs-card-icon" />
+                  <h4>Omniflow Managed</h4>
+                  <p className="cs-card-desc">We handle delivery for you</p>
+                  <div className="cs-card-features">
+                    <span>✅ Keep 90% of delivery fees</span>
+                    <span>📦 Professional riders</span>
+                    <span>📍 Nationwide coverage</span>
+                  </div>
                 </label>
               </div>
             </div>
+
+            {/* SELF-DELIVERY DETAILS - Only shown when self-delivery is selected */}
+            {storeData.delivery_type === 'self-delivery' && (
+              <div className="cs-self-delivery-details">
+                <h4 className="cs-subsection-title">Delivery Fleet Details</h4>
+                
+                <div className="cs-grid-2">
+                  <div>
+                    <label className="cs-label">Fleet Size *</label>
+                    <input
+                      className="cs-input"
+                      type="number"
+                      name="delivery_fleet_size"
+                      value={storeData.delivery_fleet_size}
+                      onChange={handleNumberChange}
+                      min="1"
+                      required
+                      placeholder="Number of riders"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="cs-label">Coverage Radius (km) *</label>
+                    <input
+                      className="cs-input"
+                      type="number"
+                      name="delivery_coverage_radius"
+                      value={storeData.delivery_coverage_radius}
+                      onChange={handleNumberChange}
+                      min="1"
+                      max="500"
+                      required
+                      placeholder="e.g. 50"
+                    />
+                  </div>
+                </div>
+
+                <div className="cs-grid-2">
+                  <div>
+                    <label className="cs-label">Base Delivery Fee (Ksh) *</label>
+                    <input
+                      className="cs-input"
+                      type="number"
+                      name="delivery_base_fee"
+                      value={storeData.delivery_base_fee}
+                      onChange={handleNumberChange}
+                      min="0"
+                      step="10"
+                      required
+                      placeholder="e.g. 100"
+                    />
+                    <small className="cs-hint">Fixed pickup cost</small>
+                  </div>
+
+                  <div>
+                    <label className="cs-label">Rate per KM (Ksh) *</label>
+                    <input
+                      className="cs-input"
+                      type="number"
+                      name="delivery_rate_per_km"
+                      value={storeData.delivery_rate_per_km}
+                      onChange={handleNumberChange}
+                      min="0"
+                      step="1"
+                      required
+                      placeholder="e.g. 15"
+                    />
+                    <small className="cs-hint">Cost per kilometer traveled</small>
+                  </div>
+                </div>
+
+                <div className="cs-info-box">
+                  <FiInfo />
+                  <span>
+                    Your delivery fees will be calculated as: Base Fee + (Distance × Rate per KM)
+                    <br />
+                    <strong>Example:</strong> 5km delivery = Ksh {storeData.delivery_base_fee} + (5 × {storeData.delivery_rate_per_km}) = Ksh {storeData.delivery_base_fee + (5 * storeData.delivery_rate_per_km)}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* OMNIFLOW MANAGED INFO */}
+            {storeData.delivery_type === 'omniflow-managed' && (
+              <div className="cs-omniflow-info">
+                <div className="cs-info-box cs-info-blue">
+                  <FiInfo />
+                  <div>
+                    <strong>Omniflow Managed Delivery Benefits:</strong>
+                    <ul style={{ marginTop: '8px', marginLeft: '20px' }}>
+                      <li>Professional, vetted riders</li>
+                      <li>Real-time tracking for customers</li>
+                      <li>Insurance coverage for all deliveries</li>
+                      <li>Nationwide coverage across Kenya</li>
+                      <li>You keep 90% of delivery fees</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="cs-step-buttons">
               <button
                 type="button"
                 className="cs-btn cs-btn-primary"
                 onClick={() => {
-                  if (!storeData.name || !storeData.contactEmail || !storeData.contactPhone || !storeData.location) {
+                  if (!storeData.name || !storeData.contactEmail || !storeData.contactPhone || !storeData.location || !storeData.delivery_type) {
                     toast.error("Please fill required fields before continuing.");
+                    return;
+                  }
+                  if (storeData.delivery_type === 'self-delivery' && storeData.delivery_fleet_size < 1) {
+                    toast.error("Please specify your fleet size for self-delivery");
                     return;
                   }
                   setStep(2);
@@ -591,6 +769,37 @@ const CreateStore = () => {
                 </div>
                 <small className="cs-file-hint">PDF or image, max 10MB</small>
               </div>
+            </div>
+
+            {/* Summary of delivery choice */}
+            <div className="cs-delivery-summary">
+              <h4>Delivery Summary</h4>
+              <div className="cs-summary-row">
+                <span>Delivery Type:</span>
+                <strong>
+                  {storeData.delivery_type === 'self-delivery' ? 'Self-Delivery' : 'Omniflow Managed'}
+                </strong>
+              </div>
+              {storeData.delivery_type === 'self-delivery' && (
+                <>
+                  <div className="cs-summary-row">
+                    <span>Fleet Size:</span>
+                    <strong>{storeData.delivery_fleet_size} riders</strong>
+                  </div>
+                  <div className="cs-summary-row">
+                    <span>Coverage Radius:</span>
+                    <strong>{storeData.delivery_coverage_radius} km</strong>
+                  </div>
+                  <div className="cs-summary-row">
+                    <span>Base Fee:</span>
+                    <strong>Ksh {storeData.delivery_base_fee}</strong>
+                  </div>
+                  <div className="cs-summary-row">
+                    <span>Rate per KM:</span>
+                    <strong>Ksh {storeData.delivery_rate_per_km}</strong>
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="cs-step-buttons">

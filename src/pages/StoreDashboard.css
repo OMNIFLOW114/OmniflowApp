@@ -1452,7 +1452,7 @@ html.dark .dashboard-glass .metric-label {
   color: green;
 }
 
-/* 3. PREMIUM ORDER CARDS */
+/* 3. PREMIUM ORDER CARDS WITH STATUS UPDATE BUTTONS */
 .dashboard-glass .premium-order-card {
   background: linear-gradient(135deg, var(--light-card), rgba(37, 99, 235, 0.03));
   border: 1px solid var(--light-border);
@@ -1518,6 +1518,12 @@ html.dark .dashboard-glass .premium-order-id-label {
   font-family: 'Courier New', monospace;
 }
 
+.dashboard-glass .premium-order-status-container {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
 .dashboard-glass .premium-order-status {
   padding: 0.6rem 1.2rem;
   border-radius: 12px;
@@ -1529,6 +1535,13 @@ html.dark .dashboard-glass .premium-order-id-label {
   position: relative;
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dashboard-glass .premium-order-status svg {
+  font-size: 0.9rem;
 }
 
 .dashboard-glass .premium-order-status::before {
@@ -1726,10 +1739,17 @@ html.dark .dashboard-glass .premium-info-value {
   font-size: 1.1rem;
 }
 
+/* Status Update Buttons */
 .dashboard-glass .premium-order-actions {
   display: flex;
+  flex-direction: column;
   gap: 1rem;
   margin-top: 1.5rem;
+}
+
+.dashboard-glass .status-update-buttons {
+  display: flex;
+  gap: 1rem;
   justify-content: flex-end;
 }
 
@@ -1771,22 +1791,80 @@ html.dark .dashboard-glass .premium-info-value {
   box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3);
 }
 
-.dashboard-glass .premium-status-btn.update {
-  background: linear-gradient(135deg, var(--accent), #1d4ed8);
-  color: rgb(26, 219, 20);
+.dashboard-glass .premium-status-btn.previous {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
 }
 
-.dashboard-glass .premium-status-btn.update:hover {
-  background: linear-gradient(135deg, #1d4ed8, var(--accent));
+.dashboard-glass .premium-status-btn.next {
+  background: linear-gradient(135deg, var(--accent), #1d4ed8);
+  color: white;
 }
 
 .dashboard-glass .premium-status-btn.completed {
   background: linear-gradient(135deg, #10b981, #059669);
-  color: rgb(142, 11, 250);
+  color: white;
+  cursor: default;
 }
 
-.dashboard-glass .premium-status-btn.completed:hover {
-  background: linear-gradient(135deg, #059669, #10b981);
+.dashboard-glass .premium-status-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Quick Status Buttons for Mobile */
+.dashboard-glass .quick-status-buttons {
+  display: none;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.3rem;
+  margin: 0.5rem 0;
+}
+
+.dashboard-glass .quick-status-btn {
+  padding: 0.5rem 0.25rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.dashboard-glass .quick-status-btn.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.dashboard-glass .quick-status-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.dashboard-glass .quick-status-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Delivery Confirmation Info */
+.dashboard-glass .delivery-confirmation-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #10b981;
 }
 
 /* Lipa Products */
@@ -2852,13 +2930,17 @@ html.dark .dashboard-glass .dashboard-footer {
     grid-template-columns: repeat(2, 1fr);
   }
   
-  .dashboard-glass .premium-order-actions {
+  .dashboard-glass .status-update-buttons {
     flex-direction: column;
   }
   
   .dashboard-glass .premium-status-btn {
     width: 100%;
     justify-content: center;
+  }
+  
+  .dashboard-glass .quick-status-buttons {
+    display: grid;
   }
 }
 
@@ -3079,6 +3161,15 @@ html.dark .dashboard-glass .dashboard-footer {
   .dashboard-glass .delete-btn {
     width: 100%;
     justify-content: center;
+  }
+  
+  .dashboard-glass .quick-status-buttons {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  
+  .dashboard-glass .quick-status-buttons .quick-status-btn:nth-child(4),
+  .dashboard-glass .quick-status-buttons .quick-status-btn:nth-child(5) {
+    grid-column: span 1;
   }
 }
 

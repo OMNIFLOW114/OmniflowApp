@@ -9,7 +9,7 @@ import {
   FaFire, FaExclamationTriangle,
   FaUserCircle, FaEnvelope, FaShoppingCart, FaHeart,
   FaCrown, FaGem, FaEye, FaMapMarkerAlt,
-  FaGamepad, FaMoneyBillWave
+  FaGamepad, FaMoneyBillWave, FaLocationArrow
 } from "react-icons/fa";
 import InfiniteScroll from "react-infinite-scroll-component";
 import ReactModal from "react-modal";
@@ -123,10 +123,10 @@ const TabsSkeleton = () => (
   </div>
 );
 
-// ========== DISTANCE CALCULATION (pure JS) ==========
+// ========== FIXED DISTANCE CALCULATION WITH REAL-TIME UPDATES ==========
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
   if (!lat1 || !lon1 || !lat2 || !lon2) return Infinity;
-  const R = 6371;
+  const R = 6371; // Earth's radius in km
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
   const a =
@@ -139,29 +139,27 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
 
 const formatDistance = (km) => {
   if (km === Infinity) return "";
-  if (km < 1) return `${(km * 1000).toFixed(0)} m`;
-  if (km < 10) return `${km.toFixed(1)} km`;
-  return `${Math.round(km)} km`;
+  if (km < 1) return `${(km * 1000).toFixed(0)}m`;
+  if (km < 10) return `${km.toFixed(1)}km`;
+  return `${Math.round(km)}km`;
 };
 
-// ========== UPDATED: Delivery Time Calculation ==========
+// ========== UPDATED: Delivery Time Calculation based on distance ==========
 const getDeliveryTime = (distance) => {
-  if (distance === Infinity) return "Standard Delivery";
+  if (distance === Infinity) return "Standard";
   
-  // UPDATED: New distance thresholds
   if (distance <= 100) {
-    return "Same Day Delivery";
+    return "Same Day";
   } else if (distance > 100 && distance <= 220) {
-    return "Next Day Delivery";
+    return "Next Day";
   } else {
-    return "3 Days Delivery";
+    return "3 Days";
   }
 };
 
 const getDeliveryColor = (distance) => {
   if (distance === Infinity) return "#94a3b8";
   
-  // UPDATED: New distance thresholds with colors
   if (distance <= 100) {
     return "#10b981"; // Green for same day
   } else if (distance > 100 && distance <= 220) {
@@ -175,11 +173,12 @@ const getDeliveryColor = (distance) => {
 const ProductCard = memo(({ product, onClick, onAuthRequired, buyerLocation }) => {
   const { user } = useAuth();
 
+  // FIXED: Recalculate distance whenever buyerLocation changes
   const distance = buyerLocation?.lat && product.store_lat
     ? calculateDistance(buyerLocation.lat, buyerLocation.lng, product.store_lat, product.store_lng)
     : Infinity;
 
-  // UPDATED: Get delivery time based on new thresholds
+  // FIXED: Get delivery time based on current distance
   const deliveryTime = getDeliveryTime(distance);
   const deliveryColor = getDeliveryColor(distance);
 
@@ -187,7 +186,7 @@ const ProductCard = memo(({ product, onClick, onAuthRequired, buyerLocation }) =
     if (product.is_flash_sale) return <span className="badge flash"><FaBolt /> Flash</span>;
     if (product.is_trending) return <span className="badge trending"><FaFire /> Trending</span>;
     if (product.is_featured) return <span className="badge featured">Featured</span>;
-    if (product.lipa_polepole) return <span className="badge installment"><FaMoneyBillWave /> Lipa Mdogo</span>;
+    if (product.lipa_polepole) return <span className="badge installment"><FaMoneyBillWave /> Lipa</span>;
     return null;
   };
 
@@ -220,7 +219,7 @@ const ProductCard = memo(({ product, onClick, onAuthRequired, buyerLocation }) =
     <motion.div
       className="product-card"
       onClick={onClick}
-      whileHover={{ y: -2, scale: 1.02 }}
+      whileHover={{ y: -2 }}
       transition={{ type: "spring", stiffness: 300 }}
     >
       <div className="product-img-wrapper">
@@ -252,52 +251,41 @@ const ProductCard = memo(({ product, onClick, onAuthRequired, buyerLocation }) =
 
       <div className="product-card-content">
         <h3>{product.name}</h3>
-        <div className="stars">
-          {[...Array(5)].map((_, i) => (
-            <FaStar 
-              key={i} 
-              className={i < Math.round(averageRating) ? "star-filled" : "star-empty"} 
-            />
-          ))}
-          <span className="rating-text">({averageRating.toFixed(1)})</span>
+        
+        {/* FIXED: Compact price display */}
+        <div className="compact-price">
+          {hasDiscount ? (
+            <>
+              <span className="price-new">KSH {Number(discountedPrice).toLocaleString("en-KE")}</span>
+              <span className="price-old">KSH {Number(product.price).toLocaleString("en-KE")}</span>
+            </>
+          ) : (
+            <span className="price-new">KSH {Number(product.price).toLocaleString("en-KE")}</span>
+          )}
         </div>
 
-        <div className="price-container">
-          <div className="price-main-row">
-            {hasDiscount && (
-              <span className="price-old">
-                KSH {Number(product.price).toLocaleString("en-KE")}
-              </span>
-            )}
-            {hasDiscount && (
-              <span className="discount">-{product.discount}%</span>
-            )}
+        {/* FIXED: Rating and stock in one line */}
+        <div className="compact-meta">
+          <div className="stars">
+            {[...Array(5)].map((_, i) => (
+              <FaStar 
+                key={i} 
+                className={i < Math.round(averageRating) ? "star-filled" : "star-empty"} 
+              />
+            ))}
           </div>
-          <span className="price-new">
-            KSH {Number(hasDiscount ? discountedPrice : product.price).toLocaleString("en-KE")}
-          </span>
+          <span className="stock-indicator">{product.stock_quantity > 0 ? 'In Stock' : 'Out'}</span>
         </div>
 
-        <div className="product-info">
-          <div className="info-row category-row">
-            <span><FaTags /> {product.category || "Uncategorized"}</span>
-          </div>
-          <div className="info-row stock-row">
-            <span>Stock: {product.stock_quantity}</span>
-          </div>
-        </div>
-
-        <div className="seller-row">
-          <FaMapMarkerAlt style={{ 
-            color: deliveryColor,
-            marginRight: 6 
-          }} />
+        {/* FIXED: Distance and delivery in one line */}
+        <div className="compact-distance" style={{ color: deliveryColor }}>
+          <FaMapMarkerAlt size={10} />
           {distance !== Infinity ? (
-            <span style={{ color: deliveryColor, fontWeight: "600" }}>
+            <span>
               {formatDistance(distance)} · {deliveryTime}
             </span>
           ) : (
-            <span>Verified Seller</span>
+            <span>Location unavailable</span>
           )}
         </div>
       </div>
@@ -333,11 +321,11 @@ const PremiumStoreButton = memo(({ storeInfo, hasActiveSubscription, onStoreClic
       title={isStoreOwner ? "Manage Your Store" : "Become a Seller"}
     >
       {hasPremiumStore ? (
-        <FaCrown size={18} className="premium-icon" />
+        <FaCrown size={16} className="premium-icon" />
       ) : isStoreOwner ? (
-        <FaGem size={18} className="premium-icon" />
+        <FaGem size={16} className="premium-icon" />
       ) : (
-        <FaStore size={18} />
+        <FaStore size={16} />
       )}
       {isStoreOwner && (
         <span className="premium-badge">
@@ -550,12 +538,21 @@ const TradeStore = memo(() => {
   const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
   const [showStoreModal, setShowStoreModal] = useState(false);
   const [initialLoad, setInitialLoad] = useState(!initialLoadDoneRef.current);
-  const [buyerLocation, setBuyerLocation] = useState(() => 
-    loadFromCache(CACHE_KEYS.BUYER_LOCATION, null)
-  );
+  
+  // FIXED: Always get fresh location on component mount and when user moves
+  const [buyerLocation, setBuyerLocation] = useState(() => {
+    const cached = loadFromCache(CACHE_KEYS.BUYER_LOCATION, null);
+    // Only use cached location if it's less than 1 hour old
+    if (cached && cached.timestamp && (Date.now() - cached.timestamp < 60 * 60 * 1000)) {
+      return cached;
+    }
+    return null;
+  });
+  
   const [hasRequestedLocation, setHasRequestedLocation] = useState(false);
   const [isLocationBlocked, setIsLocationBlocked] = useState(false);
   const [isNavigatingBack, setIsNavigatingBack] = useState(false);
+  const [isLocationLoading, setIsLocationLoading] = useState(false);
   
   const pageSize = 20;
 
@@ -583,7 +580,11 @@ const TradeStore = memo(() => {
       saveToCache(CACHE_KEYS.FILTERS, filters);
       saveToCache(CACHE_KEYS.INITIAL_LOAD_DONE, true);
       if (buyerLocation) {
-        saveToCache(CACHE_KEYS.BUYER_LOCATION, buyerLocation);
+        // Add timestamp to location cache
+        saveToCache(CACHE_KEYS.BUYER_LOCATION, {
+          ...buyerLocation,
+          timestamp: Date.now()
+        });
       }
     }
   }, [products, filtered, search, hasMore, page, activeTab, filters, buyerLocation]);
@@ -599,7 +600,6 @@ const TradeStore = memo(() => {
     
     return () => {
       window.removeEventListener('scroll', handleScroll);
-      // Save final scroll position
       saveToCache(CACHE_KEYS.SCROLL_POSITION, scrollPositionRef.current);
     };
   }, []);
@@ -607,12 +607,9 @@ const TradeStore = memo(() => {
   // Handle navigation back - exit app behavior
   useEffect(() => {
     const handlePopState = (event) => {
-      // Check if we're on the home page and trying to go back
       if (window.location.pathname === '/') {
         setIsNavigatingBack(true);
-        // Small delay to show exit message
         setTimeout(() => {
-          // Close the app/window or redirect to external page
           window.location.href = 'about:blank';
         }, 100);
       }
@@ -636,115 +633,120 @@ const TradeStore = memo(() => {
     isMountedRef.current = true;
   }, [isNavigatingBack]);
 
-  // UPDATED: Background location fetching without showing loader
-  useEffect(() => {
-    const fetchLocationInBackground = () => {
-      // Check if location was previously fetched
-      const locationFetched = localStorage.getItem(CACHE_KEYS.LOCATION_FETCHED);
-      if (locationFetched === 'true' && buyerLocation) {
-        setHasRequestedLocation(true);
-        return; // Already have location, skip fetching
-      }
-      
-      // Check if location was previously granted
-      const savedLocation = localStorage.getItem('userLocation');
-      const savedPermission = localStorage.getItem('locationPermission');
-      
-      if (savedPermission === 'granted' && savedLocation) {
-        try {
-          const location = JSON.parse(savedLocation);
-          if (location.lat && location.lng) {
-            setBuyerLocation(location);
-            setHasRequestedLocation(true);
-            localStorage.setItem(CACHE_KEYS.LOCATION_FETCHED, 'true');
-            return;
-          }
-        } catch (error) {
-          console.error("Error parsing saved location:", error);
-        }
-      }
-      
-      // If we're already fetching location, don't start another request
-      if (cacheDataRef.current.isFetchingLocation) return;
-      
-      // Set fetching flag
-      cacheDataRef.current.isFetchingLocation = true;
-      
-      // Fetch location in background without blocking UI
-      if ("geolocation" in navigator) {
-        navigator.geolocation.getCurrentPosition(
-          // Success callback
-          (position) => {
-            const location = {
-              lat: position.coords.latitude,
-              lng: position.coords.longitude,
-              accuracy: position.coords.accuracy,
-              timestamp: position.timestamp
-            };
-            
-            setBuyerLocation(location);
-            setHasRequestedLocation(true);
-            setIsLocationBlocked(false);
-            
-            // Save to localStorage for future sessions
-            localStorage.setItem('userLocation', JSON.stringify(location));
-            localStorage.setItem('locationPermission', 'granted');
-            localStorage.setItem(CACHE_KEYS.LOCATION_FETCHED, 'true');
-            
-            // Show subtle success toast only if it's a new permission
-            if (!savedPermission) {
-              setTimeout(() => {
-                toast.success("Location enabled for nearby products!");
-              }, 1000);
-            }
-            
-            // Reset fetching flag
-            cacheDataRef.current.isFetchingLocation = false;
-          },
-          // Error callback - silent failure
-          (error) => {
-            setHasRequestedLocation(true);
-            setIsLocationBlocked(true);
-            
-            // Don't save permission if denied
-            localStorage.setItem('locationPermission', 'denied');
-            localStorage.setItem(CACHE_KEYS.LOCATION_FETCHED, 'true');
-            
-            // Reset fetching flag
-            cacheDataRef.current.isFetchingLocation = false;
-            
-            // Don't show error toast to avoid disrupting user experience
-            console.log("Location access not granted or error:", error.message);
-          },
-          // Options - reduced timeout for faster failure
-          {
-            enableHighAccuracy: false, // Set to false for faster response
-            timeout: 5000, // Reduced from 10000 to 5000ms
-            maximumAge: 300000 // Use cached location up to 5 minutes old
-          }
-        );
-      } else {
-        setHasRequestedLocation(true);
-        setIsLocationBlocked(true);
-        localStorage.setItem(CACHE_KEYS.LOCATION_FETCHED, 'true');
-        cacheDataRef.current.isFetchingLocation = false;
-      }
-    };
-
-    // Only fetch if we don't have location and haven't fetched before
-    if (!buyerLocation && !isNavigatingBack) {
-      // Start location fetch but don't wait for it
-      fetchLocationInBackground();
-    } else {
+  // FIXED: Enhanced location fetching with real-time updates
+  const fetchUserLocation = useCallback(async (forceRefresh = false) => {
+    if (isLocationLoading || !navigator.geolocation) {
+      setIsLocationBlocked(true);
       setHasRequestedLocation(true);
-      localStorage.setItem(CACHE_KEYS.LOCATION_FETCHED, 'true');
+      return;
+    }
+
+    setIsLocationLoading(true);
+
+    try {
+      const position = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: forceRefresh ? 0 : 300000 // 5 minutes cache if not forcing refresh
+        });
+      });
+
+      const location = {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+        accuracy: position.coords.accuracy,
+        timestamp: Date.now()
+      };
+      
+      setBuyerLocation(location);
+      setHasRequestedLocation(true);
+      setIsLocationBlocked(false);
+      
+      // Save to localStorage
+      localStorage.setItem('userLocation', JSON.stringify(location));
+      localStorage.setItem('locationPermission', 'granted');
+      
+      // Show success toast only on manual refresh
+      if (forceRefresh) {
+        toast.success("Location updated! Showing nearby products.", {
+          icon: '📍',
+          duration: 3000
+        });
+      }
+      
+    } catch (error) {
+      console.log("Location error:", error.message);
+      setHasRequestedLocation(true);
+      setIsLocationBlocked(true);
+      localStorage.setItem('locationPermission', 'denied');
+      
+      if (forceRefresh) {
+        toast.error("Unable to get your location. Please enable location services.");
+      }
+    } finally {
+      setIsLocationLoading(false);
+    }
+  }, [isLocationLoading]);
+
+  // Initial location fetch
+  useEffect(() => {
+    if (!buyerLocation && !hasRequestedLocation && !isNavigatingBack) {
+      fetchUserLocation(false);
+    } else if (buyerLocation) {
+      setHasRequestedLocation(true);
+    }
+  }, [buyerLocation, hasRequestedLocation, fetchUserLocation, isNavigatingBack]);
+
+  // FIXED: Watch for location changes (when user is moving)
+  useEffect(() => {
+    let watchId = null;
+    
+    if (navigator.geolocation && buyerLocation) {
+      // Start watching position for significant changes
+      watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          const newLocation = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+            timestamp: Date.now()
+          };
+          
+          // Only update if moved more than 500 meters
+          if (buyerLocation) {
+            const distance = calculateDistance(
+              buyerLocation.lat, buyerLocation.lng,
+              newLocation.lat, newLocation.lng
+            );
+            
+            if (distance > 0.5) { // 500 meters threshold
+              setBuyerLocation(newLocation);
+              // Show subtle notification
+              toast.success("Location updated based on your movement", {
+                icon: '📍',
+                duration: 2000
+              });
+            }
+          }
+        },
+        (error) => {
+          console.log("Location watch error:", error.message);
+        },
+        {
+          enableHighAccuracy: true,
+          maximumAge: 30000,
+          timeout: 27000
+        }
+      );
     }
     
-    // Cleanup function
     return () => {
-      cacheDataRef.current.isFetchingLocation = false;
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+      }
     };
-  }, [buyerLocation, isNavigatingBack]);
+  }, [buyerLocation]);
 
   useEffect(() => {
     if (!user?.id) {
@@ -937,10 +939,8 @@ const TradeStore = memo(() => {
   }, []);
 
   const fetchProducts = useCallback(async (forceRefresh = false) => {
-    // Don't fetch if already refreshing
     if (isRefreshingRef.current) return;
     
-    // Check cache first if not forcing refresh
     const cacheKey = `${CACHE_KEYS.PRODUCTS}_page_${page}_tab_${activeTab}`;
     
     if (!forceRefresh && cacheDataRef.current.productCache.has(cacheKey)) {
@@ -1006,7 +1006,6 @@ const TradeStore = memo(() => {
         tags: Array.isArray(p.tags) ? p.tags : (p.tags ? JSON.parse(p.tags) : [])
       }));
 
-      // Cache the fetched products
       cacheDataRef.current.productCache.set(cacheKey, withImagesAndRatings);
       cacheDataRef.current.lastFetchTime = Date.now();
 
@@ -1023,7 +1022,7 @@ const TradeStore = memo(() => {
     }
   }, [page, activeTab, getImageUrl, pageSize]);
 
-  // Initial fetch only if no cached products and not navigating back
+  // Initial fetch
   useEffect(() => {
     if (products.length === 0 && !cacheDataRef.current.hasInitialFetch && !isNavigatingBack) {
       cacheDataRef.current.hasInitialFetch = true;
@@ -1035,7 +1034,7 @@ const TradeStore = memo(() => {
     }
   }, [products.length, fetchProducts, isNavigatingBack]);
 
-  // Filter products based on active tab and filters
+  // FIXED: Filter and sort products based on current location
   useEffect(() => {
     let result = [...products];
 
@@ -1167,14 +1166,13 @@ const TradeStore = memo(() => {
     navigate("/search", { state: { query: search } });
   }, [navigate, search]);
 
-  // Handle pull-to-refresh - FIXED: Only refresh products once when scrolled to top
+  // Handle pull-to-refresh
   useEffect(() => {
     let touchStartY = 0;
     let touchStartTime = 0;
     let isPullToRefresh = false;
 
     const handleTouchStart = (e) => {
-      // Only enable at the very top of the page
       if (window.scrollY === 0) {
         touchStartY = e.touches[0].clientY;
         touchStartTime = Date.now();
@@ -1182,16 +1180,13 @@ const TradeStore = memo(() => {
     };
 
     const handleTouchMove = (e) => {
-      // Check if we're at the top and pulling down
       if (window.scrollY === 0 && !isRefreshingRef.current && !isPullToRefresh) {
         const currentY = e.touches[0].clientY;
         const pullDistance = currentY - touchStartY;
         
-        // Only trigger if pulled down more than 100px
         if (pullDistance > 100) {
           isPullToRefresh = true;
           
-          // Show visual indicator (optional)
           const indicator = document.createElement('div');
           indicator.className = 'pull-to-refresh-indicator';
           indicator.textContent = 'Refreshing...';
@@ -1207,9 +1202,7 @@ const TradeStore = memo(() => {
         const touchEndTime = Date.now();
         const touchDuration = touchEndTime - touchStartTime;
         
-        // Only refresh if pull was deliberate (more than 100ms)
         if (touchDuration > 100) {
-          // FIXED: Only refresh products once without causing disappearance
           refreshProducts();
         }
       }
@@ -1227,20 +1220,16 @@ const TradeStore = memo(() => {
     };
   }, []);
 
-  // FIXED: Refresh function that preserves existing products and only updates
   const refreshProducts = useCallback(async () => {
     if (isRefreshingRef.current) return;
     
     isRefreshingRef.current = true;
     
     try {
-      // Show loading toast
       const toastId = toast.loading('Refreshing products...');
       
-      // Clear only the product cache, keep existing products
       cacheDataRef.current.productCache.clear();
       
-      // Fetch only first page of fresh products
       const { data, error } = await supabase
         .from("products")
         .select(`
@@ -1290,7 +1279,6 @@ const TradeStore = memo(() => {
         tags: Array.isArray(p.tags) ? p.tags : (p.tags ? JSON.parse(p.tags) : [])
       }));
 
-      // FIXED: Merge new products with existing ones, preserving all products
       setProducts(prev => {
         const existingProducts = prev.filter(p => 
           !withImagesAndRatings.some(newP => newP.id === p.id)
@@ -1308,7 +1296,11 @@ const TradeStore = memo(() => {
     }
   }, [getImageUrl, pageSize]);
 
-  // Handle back button - exit app
+  // Handle manual location refresh
+  const handleRefreshLocation = useCallback(() => {
+    fetchUserLocation(true);
+  }, [fetchUserLocation]);
+
   if (isNavigatingBack) {
     return (
       <div className="exit-app-message">
@@ -1342,7 +1334,7 @@ const TradeStore = memo(() => {
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
         >
-          <FaUserCircle size={22} />
+          <FaUserCircle size={20} />
           {newAdminNotification && <span className="dot top-left-dot" />}
         </motion.button>
 
@@ -1355,7 +1347,7 @@ const TradeStore = memo(() => {
             onClick={handleSearchRedirect}
             style={{ cursor: "pointer" }}
           >
-            <FaSearch size={14} />
+            <FaSearch size={12} />
             <input
               type="text"
               placeholder="Search products..."
@@ -1372,11 +1364,20 @@ const TradeStore = memo(() => {
               }}
               readOnly
             />
-            {/* NEW: Location indicator - only show if we have location */}
+            {/* FIXED: Location indicator with refresh button */}
             {buyerLocation && (
-              <div className="location-indicator" title="Location enabled">
-                <FaMapMarkerAlt size={12} style={{ color: '#10b981' }} />
-              </div>
+              <motion.button 
+                className="location-refresh-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRefreshLocation();
+                }}
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                title="Refresh location"
+              >
+                <FaLocationArrow size={10} style={{ color: '#10b981' }} />
+              </motion.button>
             )}
           </motion.div>
         </div>
@@ -1407,7 +1408,7 @@ const TradeStore = memo(() => {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
-            <FaEnvelope size={16} />
+            <FaEnvelope size={14} />
             {unreadMessagesCount > 0 && (
               <span className="notification-badge compact">
                 {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
@@ -1428,7 +1429,7 @@ const TradeStore = memo(() => {
             whileTap={{ scale: 0.95 }}
             title="My Orders"
           >
-            <FaEye size={16} />
+            <FaEye size={14} />
             {newOrdersCount > 0 && (
               <span className="notification-badge compact">
                 {newOrdersCount > 99 ? '99+' : newOrdersCount}
@@ -1469,7 +1470,7 @@ const TradeStore = memo(() => {
         onNavigate={navigate}
       />
 
-      {/* Simple tagline section above promoted carousel */}
+      {/* Simple tagline section */}
       <div className="marketplace-tagline">
         <p className="tagline-text">Kenya's #1 Marketplace — Discover Amazing Deals!</p>
       </div>
@@ -1479,15 +1480,7 @@ const TradeStore = memo(() => {
         <PromotedCarousel />
       </div>
 
-     {/* Only show FlashDeals and FeaturedHighlights when NOT on Home tab */}
-{activeTab !== "Home" && (
-  <>
-    <FlashDeals limit={6} showViewMore={true} />
-    <FeaturedHighlights />
-  </>
-)}
-
-      {/* PERMANENT TABS - Just below top nav like Kilimall */}
+      {/* PERMANENT TABS */}
       <div className="tab-bar-permanent-wrapper">
         <motion.div 
           className="tab-bar-scrollable permanent"
@@ -1503,17 +1496,25 @@ const TradeStore = memo(() => {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
-              {tab === "Near You" && buyerLocation && <FaMapMarkerAlt style={{ marginRight: 4 }} />}
-              {tab === "Gaming" && <FaGamepad style={{ marginRight: 4 }} />}
-              {tab === "Lipa Mdogomdogo" && <FaMoneyBillWave style={{ marginRight: 4 }} />}
+              {tab === "Near You" && buyerLocation && <FaMapMarkerAlt style={{ marginRight: 2 }} size={10} />}
+              {tab === "Gaming" && <FaGamepad style={{ marginRight: 2 }} size={10} />}
+              {tab === "Lipa Mdogomdogo" && <FaMoneyBillWave style={{ marginRight: 2 }} size={10} />}
               {tab}
             </motion.button>
           ))}
         </motion.div>
       </div>
 
-      {/* Content that comes after tabs */}
+      {/* Content below tabs */}
       <div className="content-below-tabs">
+        {/* FlashDeals and FeaturedHighlights */}
+        {activeTab !== "Home" && (
+          <>
+            <FlashDeals limit={4} showViewMore={true} />
+            <FeaturedHighlights />
+          </>
+        )}
+
         {/* Home Tab - Show HomeTabSections only */}
         {activeTab === "Home" ? (
           <div className="home-sections-wrapper">

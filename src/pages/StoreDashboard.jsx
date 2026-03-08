@@ -5,7 +5,8 @@ import {
   FaUser, FaMapMarkerAlt, FaMoneyBillAlt, FaMoneyBillWave, FaArrowLeft, FaArrowRight,
   FaChartLine, FaCreditCard, FaMoneyCheckAlt, FaShoppingBag, FaDollarSign,
   FaStore, FaUsers, FaStar, FaBell, FaShoppingCart, FaTimes, FaBars,
-  FaWallet, FaReceipt, FaDownload, FaFilter, FaEdit, FaFire, FaCheck
+  FaWallet, FaReceipt, FaDownload, FaFilter, FaEdit, FaFire, FaCheck,
+  FaTruck, FaShippingFast, FaHourglassHalf, FaCheckCircle, FaCheckDouble
 } from 'react-icons/fa';
 import { useDropzone } from 'react-dropzone';
 import { supabase } from '../lib/supabaseClient';
@@ -46,6 +47,7 @@ const StoreDashboard = () => {
   const [flashSaleDuration, setFlashSaleDuration] = useState(24);
   const [flashSaleDiscount, setFlashSaleDiscount] = useState(10);
   const [loadingFlashSale, setLoadingFlashSale] = useState(false);
+  const [updatingOrderId, setUpdatingOrderId] = useState(null);
   
   const [dashboardStats, setDashboardStats] = useState({
     totalEarnings: 0,
@@ -90,6 +92,25 @@ const StoreDashboard = () => {
   const [loadingPost, setLoadingPost] = useState(false);
   const [uploadProgress, setUploadProgress] = useState([]);
 
+  // Order status flow
+  const statusFlow = [
+    { value: 'pending', label: 'Pending', icon: <FaHourglassHalf />, color: '#f59e0b' },
+    { value: 'processing', label: 'Processing', icon: <FaBox />, color: '#3b82f6' },
+    { value: 'shipped', label: 'Shipped', icon: <FaShippingFast />, color: '#8b5cf6' },
+    { value: 'out for delivery', label: 'Out for Delivery', icon: <FaTruck />, color: '#ec4899' },
+    { value: 'delivered', label: 'Delivered', icon: <FaCheckCircle />, color: '#10b981' }
+  ];
+
+  const getNextStatus = (current) => {
+    const index = statusFlow.findIndex(s => s.value === current?.toLowerCase());
+    return index >= 0 && index < statusFlow.length - 1 ? statusFlow[index + 1] : null;
+  };
+
+  const getPreviousStatus = (current) => {
+    const index = statusFlow.findIndex(s => s.value === current?.toLowerCase());
+    return index > 0 ? statusFlow[index - 1] : null;
+  };
+
   const handleMarkForInstallment = (product) => {
     setInstallmentModalProduct(product);
   };
@@ -129,12 +150,6 @@ const StoreDashboard = () => {
     } finally {
       setLoadingFlashSale(false);
     }
-  };
-
-  const getNextStatus = (current) => {
-    const flow = ["pending", "processing", "shipped", "out for delivery", "delivered"];
-    const index = flow.indexOf(current?.toLowerCase());
-    return index >= 0 && index < flow.length - 1 ? flow[index + 1] : null;
   };
 
   const fetchDashboardData = async () => {
@@ -283,24 +298,43 @@ const StoreDashboard = () => {
     }
   };
 
+  // ===== ORDER STATUS UPDATE FUNCTION =====
   const updateOrderStatus = async (orderId, newStatus) => {
+    setUpdatingOrderId(orderId);
     try {
       const { error } = await supabase
         .from('orders')
-        .update({ status: newStatus })
+        .update({ 
+          status: newStatus,
+          updated_at: new Date().toISOString()
+        })
         .eq('id', orderId);
 
-      if (!error) {
-        setOrders((prev) =>
-          prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
-        );
-        toast.success(`Order marked as ${newStatus}`);
-      } else {
-        throw error;
-      }
+      if (error) throw error;
+
+      // Update local state
+      setOrders((prev) =>
+        prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
+      );
+
+      // Show success message with appropriate icon
+      const statusInfo = statusFlow.find(s => s.value === newStatus);
+      toast.success(
+        <div>
+          <strong>Order status updated!</strong>
+          <br />
+          <small>Order is now {statusInfo?.label || newStatus}</small>
+        </div>
+      );
+
+      // Refresh dashboard data
+      fetchDashboardData();
+
     } catch (error) {
-      toast.error('Failed to update status.');
+      toast.error('Failed to update order status');
       console.error('Update status error:', error);
+    } finally {
+      setUpdatingOrderId(null);
     }
   };
 
@@ -424,7 +458,7 @@ const StoreDashboard = () => {
       try {
         const { data, error } = await supabase
           .from('orders')
-          .select('*, buyer:buyer_id(name, phone), product:product_id(name, price)')
+          .select('*, buyer:buyer_id(name, phone), product:product_id(name, price, image_gallery)')
           .eq('store_id', store.id)
           .order('created_at', { ascending: false });
 
@@ -883,6 +917,8 @@ const StoreDashboard = () => {
           setNewOrderNotification(true);
           toast.info('New order received!');
           fetchDashboardData();
+          // Refresh orders list
+          setOrders(prev => [payload.new, ...prev]);
         }
       )
       .subscribe();
@@ -1763,6 +1799,8 @@ const StoreDashboard = () => {
                 <div className="orders-grid">
                   {orders.map(order => {
                     const nextStatus = getNextStatus(order.status);
+                    const prevStatus = getPreviousStatus(order.status);
+                    const currentStatusInfo = statusFlow.find(s => s.value === order.status?.toLowerCase());
                     const orderTotal = order.total_price || 0;
                     const deliveryFee = order.delivery_fee || 0;
                     const productPrice = orderTotal - deliveryFee;
@@ -1785,9 +1823,18 @@ const StoreDashboard = () => {
                             </span>
                           </div>
                           
-                          <span className={`premium-order-status status-${order.status?.replace(/\s+/g, '-').toLowerCase()}`}>
-                            {order.status}
-                          </span>
+                          <div className="premium-order-status-container">
+                            <span 
+                              className="premium-order-status"
+                              style={{ 
+                                backgroundColor: currentStatusInfo ? `${currentStatusInfo.color}15` : '#f59e0b15',
+                                color: currentStatusInfo?.color || '#f59e0b'
+                              }}
+                            >
+                              {currentStatusInfo?.icon || <FaHourglassHalf />}
+                              {order.status}
+                            </span>
+                          </div>
                         </div>
                         
                         <div className="premium-order-body">
@@ -1864,14 +1911,12 @@ const StoreDashboard = () => {
                                   </div>
                                 )}
                                 
-                                {order.shipping_address && (
-                                  <div className="premium-info-item">
-                                    <span className="premium-info-label">Address</span>
-                                    <span className="premium-info-value">
-                                      {order.shipping_address}
-                                    </span>
-                                  </div>
-                                )}
+                                <div className="premium-info-item">
+                                  <span className="premium-info-label">Delivery Location</span>
+                                  <span className="premium-info-value">
+                                    {order.delivery_location || 'N/A'}
+                                  </span>
+                                </div>
                               </div>
                             </div>
                             
@@ -1881,16 +1926,16 @@ const StoreDashboard = () => {
                               </h5>
                               <div className="premium-info-grid">
                                 <div className="premium-info-item">
-                                  <span className="premium-info-label">Product Total</span>
+                                  <span className="premium-info-label">Deposit Paid</span>
                                   <span className="premium-info-value">
-                                    Ksh {formatPrice(productPrice)}
+                                    Ksh {formatPrice(order.deposit_amount || 0)}
                                   </span>
                                 </div>
                                 
                                 <div className="premium-info-item">
-                                  <span className="premium-info-label">Delivery Fee</span>
+                                  <span className="premium-info-label">Balance Due</span>
                                   <span className="premium-info-value">
-                                    Ksh {formatPrice(deliveryFee)}
+                                    Ksh {formatPrice(order.balance_due || 0)}
                                   </span>
                                 </div>
                                 
@@ -1906,19 +1951,66 @@ const StoreDashboard = () => {
                         </div>
                         
                         <div className="premium-order-actions">
-                          {nextStatus && (
-                            <button
-                              className="premium-status-btn update"
-                              onClick={() => updateOrderStatus(order.id, nextStatus)}
-                            >
-                              <FaClipboardCheck /> Mark as {nextStatus}
-                            </button>
-                          )}
+                          <div className="status-update-buttons">
+                            {prevStatus && (
+                              <button
+                                className="premium-status-btn previous"
+                                onClick={() => updateOrderStatus(order.id, prevStatus.value)}
+                                disabled={updatingOrderId === order.id}
+                              >
+                                {prevStatus.icon} Back to {prevStatus.label}
+                              </button>
+                            )}
+                            
+                            {nextStatus ? (
+                              <button
+                                className="premium-status-btn next"
+                                onClick={() => updateOrderStatus(order.id, nextStatus.value)}
+                                disabled={updatingOrderId === order.id}
+                              >
+                                {nextStatus.icon} Mark as {nextStatus.label}
+                                {updatingOrderId === order.id && (
+                                  <span className="loading-spinner-small"></span>
+                                )}
+                              </button>
+                            ) : (
+                              order.status?.toLowerCase() === 'delivered' && (
+                                <button className="premium-status-btn completed" disabled>
+                                  <FaCheck /> Order Delivered
+                                </button>
+                              )
+                            )}
+                          </div>
                           
+                          {/* Quick status buttons for mobile */}
+                          <div className="quick-status-buttons">
+                            {statusFlow.map(status => (
+                              <button
+                                key={status.value}
+                                className={`quick-status-btn ${order.status === status.value ? 'active' : ''}`}
+                                onClick={() => updateOrderStatus(order.id, status.value)}
+                                disabled={updatingOrderId === order.id}
+                                style={{ 
+                                  backgroundColor: order.status === status.value ? status.color : 'transparent',
+                                  color: order.status === status.value ? 'white' : status.color,
+                                  borderColor: status.color
+                                }}
+                              >
+                                {status.icon}
+                              </button>
+                            ))}
+                          </div>
+                          
+                          {/* Delivery confirmation info */}
                           {order.status?.toLowerCase() === 'delivered' && (
-                            <button className="premium-status-btn completed">
-                              <FaCheck /> Order Completed
-                            </button>
+                            <div className="delivery-confirmation-info">
+                              <FaCheckCircle color="#10b981" />
+                              <span>
+                                {order.delivered 
+                                  ? 'Buyer confirmed delivery' 
+                                  : 'Awaiting buyer confirmation'}
+                              </span>
+                            </div>
                           )}
                         </div>
                       </div>
