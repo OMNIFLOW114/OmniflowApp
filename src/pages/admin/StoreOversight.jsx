@@ -18,7 +18,10 @@ import {
   FiDownload,
   FiChevronLeft,
   FiChevronRight,
-  FiRefreshCw
+  FiRefreshCw,
+  FiTruck,
+  FiUsers,
+  FiDollarSign
 } from 'react-icons/fi';
 import { FaStore, FaCheck, FaTimes, FaCrown, FaBan } from 'react-icons/fa';
 import { toast } from 'react-hot-toast';
@@ -144,20 +147,127 @@ const StoreOversight = () => {
     setActionLoading(`approve-${request.id}`);
     
     try {
+      // Log the entire request object to see what data we're getting
+      console.log("================ STORE APPROVAL DEBUG ================");
+      console.log("Full request object:", request);
+      console.log("Location data:", {
+        location_lat: request.location_lat,
+        location_lng: request.location_lng,
+        location_lat_type: typeof request.location_lat,
+        location_lng_type: typeof request.location_lng,
+        location_text: request.location
+      });
+      console.log("Delivery data:", {
+        delivery_type: request.delivery_type,
+        has_delivery_fleet: request.has_delivery_fleet,
+        delivery_fleet_size: request.delivery_fleet_size,
+        delivery_coverage_radius: request.delivery_coverage_radius,
+        delivery_base_fee: request.delivery_base_fee,
+        delivery_rate_per_km: request.delivery_rate_per_km
+      });
+
+      // Ensure coordinates are properly formatted as numbers
+      const latValue = request.location_lat ? parseFloat(request.location_lat) : null;
+      const lngValue = request.location_lng ? parseFloat(request.location_lng) : null;
+
+      // Validate that coordinates exist
+      if (!latValue || !lngValue) {
+        console.warn("Warning: Location coordinates are missing or invalid!");
+        // Still proceed but show warning
+        toast((t) => (
+          <div>
+            <strong>⚠️ Missing Coordinates</strong>
+            <p style={{ fontSize: '0.9rem', marginTop: '4px' }}>
+              This request has no location coordinates. The store will be created without them.
+            </p>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+              <button 
+                onClick={() => {
+                  toast.dismiss(t.id);
+                  proceedWithApproval(request, latValue, lngValue);
+                }}
+                style={{ background: '#f59e0b', color: 'white', border: 'none', padding: '4px 12px', borderRadius: '4px', cursor: 'pointer' }}
+              >
+                Proceed Anyway
+              </button>
+              <button 
+                onClick={() => {
+                  toast.dismiss(t.id);
+                  setActionLoading(null);
+                }}
+                style={{ background: '#6b7280', color: 'white', border: 'none', padding: '4px 12px', borderRadius: '4px', cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ), { duration: 10000 });
+        return;
+      }
+
+      await proceedWithApproval(request, latValue, lngValue);
+      
+    } catch (error) {
+      console.error('Store approval failed:', error);
+      toast.error(`Failed to approve store request: ${error.message}`);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const proceedWithApproval = async (request, latValue, lngValue) => {
+    try {
+      // Create the payload with ALL fields, ensuring proper data types
       const payload = {
+        // Core fields
         owner_id: request.user_id,
-        name: request.name,
+        name: request.name || '',
         description: request.description || '',
         contact_email: request.contact_email || '',
         contact_phone: request.contact_phone || '',
         location: request.location || '',
+        
+        // CRITICAL: Location coordinates - ensure they're numbers
+        location_lat: latValue,
+        location_lng: lngValue,
+        
+        // Delivery fields - ensure proper boolean/number conversion
+        delivery_type: request.delivery_type || 'omniflow-managed',
+        has_delivery_fleet: request.has_delivery_fleet === true, // Ensure boolean
+        delivery_fleet_size: parseInt(request.delivery_fleet_size) || 0,
+        delivery_coverage_radius: parseInt(request.delivery_coverage_radius) || 50,
+        delivery_base_fee: parseFloat(request.delivery_base_fee) || 100,
+        delivery_rate_per_km: parseFloat(request.delivery_rate_per_km) || 15,
+        
+        // Document fields
         business_document: request.business_document || '',
         owner_id_card: request.owner_id_card || '',
+        
+        // Status fields
         is_active: true,
         is_verified: true,
         verified_by: adminUserUUID,
-        verified_at: new Date().toISOString()
+        verified_at: new Date().toISOString(),
+        
+        // Default values for required fields
+        theme: 'default',
+        dashboard_theme: 'default',
+        same_day_cutoff_time: '14:00:00',
+        county: request.county || 'Nairobi',
+        
+        // Initialize other fields
+        seller_score: 0,
+        total_orders: 0,
+        successful_orders: 0
       };
+
+      // Log the final payload before insertion
+      console.log("Final payload to stores table:", JSON.stringify(payload, null, 2));
+
+      // Validate critical fields
+      if (!payload.owner_id) {
+        throw new Error("Missing owner_id");
+      }
 
       const { data: newStore, error: insertError } = await supabase
         .from('stores')
@@ -165,8 +275,14 @@ const StoreOversight = () => {
         .select()
         .single();
 
-      if (insertError) throw insertError;
+      if (insertError) {
+        console.error("Insert error details:", insertError);
+        throw insertError;
+      }
 
+      console.log("Store created successfully:", newStore);
+
+      // Delete the request
       const { error: deleteError } = await supabase
         .from('store_requests')
         .delete()
@@ -174,9 +290,11 @@ const StoreOversight = () => {
 
       if (deleteError) throw deleteError;
 
+      // Update state
       setStores(prev => [...prev, newStore]);
       setRequests(prev => prev.filter(r => r.id !== request.id));
 
+      // Send notification
       await supabase.from('notifications').insert({
         user_id: request.user_id,
         title: 'Store Approved',
@@ -186,12 +304,11 @@ const StoreOversight = () => {
         color: 'success',
       });
 
-      toast.success('Store request approved successfully');
+      const coordinateStatus = latValue && lngValue ? 'with coordinates' : 'without coordinates';
+      toast.success(`Store request approved successfully ${coordinateStatus}`);
     } catch (error) {
       console.error('Store approval failed:', error);
-      toast.error('Failed to approve store request');
-    } finally {
-      setActionLoading(null);
+      throw error;
     }
   };
 
@@ -358,6 +475,141 @@ const StoreOversight = () => {
     </motion.button>
   );
 
+  // Enhanced RequestCard component with better data display
+  const RequestCard = ({ request, index }) => {
+    // Log the request data for debugging
+    console.log(`Request ${request.id} data:`, {
+      location_lat: request.location_lat,
+      location_lng: request.location_lng,
+      delivery_type: request.delivery_type,
+      has_delivery_fleet: request.has_delivery_fleet,
+      delivery_fleet_size: request.delivery_fleet_size
+    });
+
+    return (
+      <motion.div
+        className="request-card"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: index * 0.1 }}
+        whileHover={{ y: -2, transition: { duration: 0.2 } }}
+      >
+        <div className="request-header">
+          <div className="store-avatar">
+            <FiBriefcase />
+          </div>
+          <div className="request-info">
+            <h3>{request.name}</h3>
+            <p>Owner: {request.user_id}</p>
+          </div>
+          <div className="request-status pending">
+            <FiAlertCircle />
+            Pending Review
+          </div>
+        </div>
+
+        <div className="request-details">
+          <div className="detail-item">
+            <FiMapPin className="detail-icon" />
+            <span>{request.location || 'No location specified'}</span>
+          </div>
+          
+          {/* Show coordinates if available */}
+          {request.location_lat && request.location_lng ? (
+            <div className="detail-item coordinates" style={{ color: '#10b981' }}>
+              <FiMapPin className="detail-icon" />
+              <span>📍 {parseFloat(request.location_lat).toFixed(6)}, {parseFloat(request.location_lng).toFixed(6)}</span>
+            </div>
+          ) : (
+            <div className="detail-item coordinates" style={{ color: '#ef4444' }}>
+              <FiMapPin className="detail-icon" />
+              <span>⚠️ No coordinates set</span>
+            </div>
+          )}
+
+          {/* Show delivery type */}
+          <div className="detail-item">
+            <FiTruck className="detail-icon" />
+            <span>Delivery: {request.delivery_type === 'self-delivery' ? 'Self-Delivery' : 'Omniflow Managed'}</span>
+          </div>
+
+          {/* Show fleet info for self-delivery */}
+          {request.delivery_type === 'self-delivery' && (
+            <>
+              <div className="detail-item">
+                <FiUsers className="detail-icon" />
+                <span>Fleet Size: {request.delivery_fleet_size || 0} riders</span>
+              </div>
+              <div className="detail-item">
+                <FiMapPin className="detail-icon" />
+                <span>Radius: {request.delivery_coverage_radius || 50} km</span>
+              </div>
+              <div className="detail-item">
+                <FiDollarSign className="detail-icon" />
+                <span>Base: Ksh {request.delivery_base_fee || 100} | Rate: Ksh {request.delivery_rate_per_km || 15}/km</span>
+              </div>
+            </>
+          )}
+
+          <div className="detail-item">
+            <FiUser className="detail-icon" />
+            <span>{request.business_type || 'No type specified'}</span>
+          </div>
+
+          {(request.business_document || request.owner_id_card) && (
+            <div className="document-links">
+              {request.business_document && (
+                <DocumentButton
+                  documentData={request.business_document}
+                  label="Business Document"
+                  type="business"
+                />
+              )}
+              {request.owner_id_card && (
+                <DocumentButton
+                  documentData={request.owner_id_card}
+                  label="ID Document"
+                  type="id"
+                />
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="request-actions">
+          <motion.button
+            className="approve-btn"
+            onClick={() => approveStoreRequest(request)}
+            disabled={actionLoading === `approve-${request.id}`}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            {actionLoading === `approve-${request.id}` ? (
+              <FiRefreshCw className="loading-spinner-small" />
+            ) : (
+              <FiCheckCircle />
+            )}
+            {actionLoading === `approve-${request.id}` ? 'Approving...' : 'Approve'}
+          </motion.button>
+          <motion.button
+            className="reject-btn"
+            onClick={() => rejectStoreRequest(request)}
+            disabled={actionLoading === `reject-${request.id}`}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            {actionLoading === `reject-${request.id}` ? (
+              <FiRefreshCw className="loading-spinner-small" />
+            ) : (
+              <FiXCircle />
+            )}
+            {actionLoading === `reject-${request.id}` ? 'Rejecting...' : 'Reject'}
+          </motion.button>
+        </div>
+      </motion.div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="store-oversight-loading">
@@ -478,88 +730,7 @@ const StoreOversight = () => {
             ) : (
               <div className="requests-grid">
                 {requests.map((request, index) => (
-                  <motion.div
-                    key={request.id}
-                    className="request-card"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: index * 0.1 }}
-                    whileHover={{ y: -2, transition: { duration: 0.2 } }}
-                  >
-                    <div className="request-header">
-                      <div className="store-avatar">
-                        <FiBriefcase />
-                      </div>
-                      <div className="request-info">
-                        <h3>{request.name}</h3>
-                        <p>Owner: {request.user_id}</p>
-                      </div>
-                      <div className="request-status pending">
-                        <FiAlertCircle />
-                        Pending Review
-                      </div>
-                    </div>
-
-                    <div className="request-details">
-                      <div className="detail-item">
-                        <FiMapPin className="detail-icon" />
-                        <span>{request.location || 'No location specified'}</span>
-                      </div>
-                      <div className="detail-item">
-                        <FiUser className="detail-icon" />
-                        <span>{request.business_type || 'No type specified'}</span>
-                      </div>
-                      {(request.business_document || request.owner_id_card) && (
-                        <div className="document-links">
-                          {request.business_document && (
-                            <DocumentButton
-                              documentData={request.business_document}
-                              label="Business Document"
-                              type="business"
-                            />
-                          )}
-                          {request.owner_id_card && (
-                            <DocumentButton
-                              documentData={request.owner_id_card}
-                              label="ID Document"
-                              type="id"
-                            />
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="request-actions">
-                      <motion.button
-                        className="approve-btn"
-                        onClick={() => approveStoreRequest(request)}
-                        disabled={actionLoading === `approve-${request.id}`}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                      >
-                        {actionLoading === `approve-${request.id}` ? (
-                          <FiRefreshCw className="loading-spinner-small" />
-                        ) : (
-                          <FiCheckCircle />
-                        )}
-                        {actionLoading === `approve-${request.id}` ? 'Approving...' : 'Approve'}
-                      </motion.button>
-                      <motion.button
-                        className="reject-btn"
-                        onClick={() => rejectStoreRequest(request)}
-                        disabled={actionLoading === `reject-${request.id}`}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                      >
-                        {actionLoading === `reject-${request.id}` ? (
-                          <FiRefreshCw className="loading-spinner-small" />
-                        ) : (
-                          <FiXCircle />
-                        )}
-                        {actionLoading === `reject-${request.id}` ? 'Rejecting...' : 'Reject'}
-                      </motion.button>
-                    </div>
-                  </motion.div>
+                  <RequestCard key={request.id} request={request} index={index} />
                 ))}
               </div>
             )}
@@ -620,6 +791,22 @@ const StoreOversight = () => {
                           <div className="detail-item">
                             <FiMapPin className="detail-icon" />
                             <span>{store.location || 'No location'}</span>
+                          </div>
+                          {/* Show coordinates if available */}
+                          {store.location_lat && store.location_lng ? (
+                            <div className="detail-item coordinates" style={{ color: '#10b981' }}>
+                              <FiMapPin className="detail-icon" />
+                              <span>📍 {store.location_lat.toFixed(6)}, {store.location_lng.toFixed(6)}</span>
+                            </div>
+                          ) : (
+                            <div className="detail-item coordinates" style={{ color: '#ef4444' }}>
+                              <FiMapPin className="detail-icon" />
+                              <span>⚠️ No coordinates</span>
+                            </div>
+                          )}
+                          <div className="detail-item">
+                            <FiTruck className="detail-icon" />
+                            <span>Delivery: {store.delivery_type === 'self-delivery' ? 'Self-Delivery' : 'Omniflow Managed'}</span>
                           </div>
                           <div className="detail-item">
                             <FiMail className="detail-icon" />
@@ -789,6 +976,24 @@ const StoreOversight = () => {
                 </div>
 
                 <div className="store-detail-section">
+                  <h4>Location Information</h4>
+                  <div className="detail-grid">
+                    <div className="detail-item">
+                      <strong>Location Text:</strong>
+                      <span>{selectedStore.location || 'No location'}</span>
+                    </div>
+                    <div className="detail-item">
+                      <strong>Latitude:</strong>
+                      <span>{selectedStore.location_lat?.toFixed(6) || 'Not set'}</span>
+                    </div>
+                    <div className="detail-item">
+                      <strong>Longitude:</strong>
+                      <span>{selectedStore.location_lng?.toFixed(6) || 'Not set'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="store-detail-section">
                   <h4>Contact Information</h4>
                   <div className="detail-grid">
                     <div className="detail-item">
@@ -799,10 +1004,40 @@ const StoreOversight = () => {
                       <strong>Phone:</strong>
                       <span>{selectedStore.contact_phone || 'No phone'}</span>
                     </div>
+                  </div>
+                </div>
+
+                <div className="store-detail-section">
+                  <h4>Delivery Information</h4>
+                  <div className="detail-grid">
                     <div className="detail-item">
-                      <strong>Location:</strong>
-                      <span>{selectedStore.location || 'No location'}</span>
+                      <strong>Delivery Type:</strong>
+                      <span>{selectedStore.delivery_type || 'omniflow-managed'}</span>
                     </div>
+                    <div className="detail-item">
+                      <strong>Has Delivery Fleet:</strong>
+                      <span>{selectedStore.has_delivery_fleet ? 'Yes' : 'No'}</span>
+                    </div>
+                    {selectedStore.has_delivery_fleet && (
+                      <>
+                        <div className="detail-item">
+                          <strong>Fleet Size:</strong>
+                          <span>{selectedStore.delivery_fleet_size}</span>
+                        </div>
+                        <div className="detail-item">
+                          <strong>Coverage Radius:</strong>
+                          <span>{selectedStore.delivery_coverage_radius} km</span>
+                        </div>
+                        <div className="detail-item">
+                          <strong>Base Fee:</strong>
+                          <span>Ksh {selectedStore.delivery_base_fee}</span>
+                        </div>
+                        <div className="detail-item">
+                          <strong>Rate per KM:</strong>
+                          <span>Ksh {selectedStore.delivery_rate_per_km}</span>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
 

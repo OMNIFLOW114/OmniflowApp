@@ -11,12 +11,9 @@ import {
   FiCheckCircle,
   FiClock,
   FiXCircle,
-  FiLoader,
   FiMapPin,
   FiTruck,
-  FiUsers,
-  FiSettings,
-  FiInfo, // Added missing import
+  FiInfo,
 } from "react-icons/fi";
 import { FaMotorcycle, FaStore } from "react-icons/fa";
 import "./CreateStore.css";
@@ -38,6 +35,8 @@ const CreateStore = () => {
   const [submitting, setSubmitting] = useState(false);
   const [isEligible, setIsEligible] = useState(null);
   const [totalStores, setTotalStores] = useState(0);
+  const [detectingLocation, setDetectingLocation] = useState(false);
+  const [debugInfo, setDebugInfo] = useState(null);
 
   const [storeData, setStoreData] = useState({
     name: "",
@@ -52,81 +51,89 @@ const CreateStore = () => {
     businessType: "",
     businessDocument: null,
     ownerIdCard: null,
-    delivery_type: "omniflow-managed", // 'self-delivery' or 'omniflow-managed'
-    // For self-delivery sellers
+    delivery_type: "omniflow-managed",
+    // For self-delivery sellers - ensure these have proper defaults
     has_delivery_fleet: false,
     delivery_fleet_size: 0,
-    delivery_coverage_radius: 50, // Default 50km radius
-    delivery_base_fee: 100, // Default base fee
-    delivery_rate_per_km: 15, // Default rate
+    delivery_coverage_radius: 50,
+    delivery_base_fee: 100,
+    delivery_rate_per_km: 15,
   });
 
-  const [detectingLocation, setDetectingLocation] = useState(false);
-
-  // FINAL GPS DETECTION — GUARANTEED TO SAVE COORDINATES
+  // Enhanced GPS detection with better error handling
   useEffect(() => {
     const detectLocation = async () => {
+      if (!user) return;
+      
       setDetectingLocation(true);
-
-      let lat = -1.2921;  // Default fallback: Nairobi CBD
+      
+      // Default fallback: Nairobi CBD
+      let lat = -1.2921;
       let lng = 36.8219;
       let city = "Nairobi";
+      let locationSource = "fallback";
 
       try {
-        let position;
-
-        if (window.Capacitor?.isNative) {
-          const { Geolocation } = await import("@capacitor/geolocation");
-          position = await Geolocation.getCurrentPosition({
-            enableHighAccuracy: true,
-            timeout: 15000,
-          });
-        } else {
-          position = await new Promise((resolve, reject) => {
+        // Try to get precise location
+        if (navigator.geolocation) {
+          const position = await new Promise((resolve, reject) => {
             navigator.geolocation.getCurrentPosition(resolve, reject, {
               enableHighAccuracy: true,
-              timeout: 15000,
+              timeout: 10000,
+              maximumAge: 0
             });
           });
+
+          lat = position.coords.latitude;
+          lng = position.coords.longitude;
+          locationSource = "gps";
+          
+          // Try to get city name from coordinates
+          try {
+            const response = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10&addressdetails=1`,
+              { headers: { 'User-Agent': 'Omniflow-App' } }
+            );
+            const data = await response.json();
+            
+            city = data.address?.city ||
+                   data.address?.town ||
+                   data.address?.village ||
+                   data.address?.county ||
+                   "Nairobi";
+          } catch (geoError) {
+            console.log("Could not reverse geocode:", geoError);
+          }
         }
-
-        lat = parseFloat(position.coords.latitude.toFixed(8));
-        lng = parseFloat(position.coords.longitude.toFixed(8));
-
-        const response = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10&addressdetails=1`
-        );
-        const data = await response.json();
-
-        city =
-          data.address?.city ||
-          data.address?.town ||
-          data.address?.village ||
-          data.address?.county ||
-          data.address?.state ||
-          "Kenya";
-
-        toast.success(`Location detected: ${city}`);
       } catch (err) {
-        console.log("GPS unavailable — using Nairobi fallback");
-        toast.info("Location not detected — using Nairobi (editable)");
+        console.log("GPS error, using fallback:", err);
       } finally {
-        // FORCE SAVE COORDINATES — NO MATTER WHAT
+        // Ensure coordinates are numbers with proper precision
+        const finalLat = parseFloat(lat.toFixed(8));
+        const finalLng = parseFloat(lng.toFixed(8));
+        
+        console.log(`Location detected (${locationSource}):`, { 
+          lat: finalLat, 
+          lng: finalLng, 
+          city,
+          source: locationSource 
+        });
+
         setStoreData(prev => ({
           ...prev,
           location: city,
-          location_lat: lat,
-          location_lng: lng,
+          location_lat: finalLat,
+          location_lng: finalLng,
         }));
 
         setDetectingLocation(false);
       }
     };
 
-    if (user) detectLocation();
+    detectLocation();
   }, [user]);
 
-  // Check existing store request - FIXED 406 error
+  // Check existing store request
   useEffect(() => {
     const fetchExistingRequest = async () => {
       if (!user?.id) return;
@@ -139,15 +146,10 @@ const CreateStore = () => {
           .order("created_at", { ascending: false })
           .limit(1);
         
-        // Handle both array response and single response
-        if (error) {
-          if (error.code !== "PGRST116") {
-            console.warn(error);
-          }
-        } else {
-          // Check if data exists and has length
-          const requestData = data && data.length > 0 ? data[0] : null;
-          setRequestStatus(requestData ? requestData.status : null);
+        if (error && error.code !== "PGRST116") {
+          console.warn(error);
+        } else if (data && data.length > 0) {
+          setRequestStatus(data[0].status);
         }
       } catch (err) {
         console.error(err);
@@ -186,29 +188,6 @@ const CreateStore = () => {
     }
   }, [user, requestStatus]);
 
-  // Verify Stripe subscription
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const sessionId = params.get("session_id");
-    if (sessionId && user) {
-      async function verifySession() {
-        try {
-          const { data, error } = await supabase.functions.invoke("verify-checkout-session", {
-            body: { session_id: sessionId },
-          });
-          if (error) throw error;
-          if (data.subscription?.status === "active") {
-            toast.success("Subscription successful!");
-            setIsEligible(true);
-          }
-        } catch (err) {
-          toast.error("Verification failed.");
-        }
-      }
-      verifySession();
-    }
-  }, [location, user]);
-
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     setStoreData(prev => ({
@@ -221,7 +200,7 @@ const CreateStore = () => {
     const { name, value } = e.target;
     setStoreData(prev => ({
       ...prev,
-      [name]: parseFloat(value) || 0,
+      [name]: value === '' ? 0 : parseFloat(value),
     }));
   };
 
@@ -248,79 +227,162 @@ const CreateStore = () => {
     return path;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!user?.id) return toast.error("Login required");
-
+  const validateForm = () => {
+    // Check required fields
     const required = ["name", "contactEmail", "contactPhone", "location", "kraPin", "registrationNumber", "businessType", "delivery_type"];
     for (const field of required) {
       if (!storeData[field]) {
-        toast.error("All required fields must be filled");
-        if (["name", "contactEmail", "contactPhone", "location", "delivery_type"].includes(field)) setStep(1);
-        else setStep(2);
-        return;
+        toast.error(`Please fill all required fields`);
+        return false;
       }
     }
 
-    // Additional validation for self-delivery
+    // Validate coordinates
+    if (!storeData.location_lat || !storeData.location_lng) {
+      toast.error("Location coordinates are required. Please wait for GPS detection.");
+      return false;
+    }
+
+    // Validate self-delivery fields
     if (storeData.delivery_type === 'self-delivery') {
       if (storeData.delivery_fleet_size < 1) {
         toast.error("Please specify your delivery fleet size");
-        return;
+        return false;
       }
     }
 
+    return true;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!user?.id) {
+      toast.error("Login required");
+      return;
+    }
+
+    if (!validateForm()) {
+      return;
+    }
+
     setSubmitting(true);
+    setDebugInfo(null);
 
     try {
+      // Upload files if present
       let businessDocPath = null;
       let idCardPath = null;
 
-      if (storeData.businessDocument) businessDocPath = await uploadFile(storeData.businessDocument, "business-documents");
-      if (storeData.ownerIdCard) idCardPath = await uploadFile(storeData.ownerIdCard, "id-cards");
+      if (storeData.businessDocument) {
+        businessDocPath = await uploadFile(storeData.businessDocument, "business-documents");
+      }
+      if (storeData.ownerIdCard) {
+        idCardPath = await uploadFile(storeData.ownerIdCard, "id-cards");
+      }
 
+      // CRITICAL: Ensure all values are properly typed and formatted
+      const latValue = parseFloat(storeData.location_lat);
+      const lngValue = parseFloat(storeData.location_lng);
+      const isSelfDelivery = storeData.delivery_type === 'self-delivery';
+
+      // Prepare payload with explicit type conversion
       const payload = {
+        // Core fields
         user_id: user.id,
         name: storeData.name.trim(),
         description: storeData.description?.trim() || null,
         contact_email: storeData.contactEmail.trim(),
         contact_phone: storeData.contactPhone.trim(),
         location: storeData.location.trim(),
-        // GUARANTEED NON-NULL COORDINATES
-        location_lat: parseFloat(storeData.location_lat?.toFixed(8)) || -1.2921,
-        location_lng: parseFloat(storeData.location_lng?.toFixed(8)) || 36.8219,
+        
+        // Location coordinates - ensure numbers
+        location_lat: latValue,
+        location_lng: lngValue,
+        
+        // Delivery fields - ensure correct types
         delivery_type: storeData.delivery_type,
-        // Self-delivery specific fields
-        has_delivery_fleet: storeData.delivery_type === 'self-delivery' ? storeData.has_delivery_fleet : false,
-        delivery_fleet_size: storeData.delivery_type === 'self-delivery' ? storeData.delivery_fleet_size : 0,
-        delivery_coverage_radius: storeData.delivery_type === 'self-delivery' ? storeData.delivery_coverage_radius : 50,
-        delivery_base_fee: storeData.delivery_type === 'self-delivery' ? storeData.delivery_base_fee : 100,
-        delivery_rate_per_km: storeData.delivery_type === 'self-delivery' ? storeData.delivery_rate_per_km : 15,
+        has_delivery_fleet: isSelfDelivery, // Boolean - critical!
+        delivery_fleet_size: isSelfDelivery ? parseInt(storeData.delivery_fleet_size) : 0,
+        delivery_coverage_radius: isSelfDelivery ? parseInt(storeData.delivery_coverage_radius) : 50,
+        delivery_base_fee: isSelfDelivery ? parseFloat(storeData.delivery_base_fee) : 100,
+        delivery_rate_per_km: isSelfDelivery ? parseFloat(storeData.delivery_rate_per_km) : 15,
+        
+        // Business fields
         kra_pin: storeData.kraPin.trim(),
         registration_number: storeData.registrationNumber.trim(),
         business_type: storeData.businessType,
         business_document: businessDocPath,
         owner_id_card: idCardPath,
         status: "pending",
+        
+        // Metadata for debugging
         metadata: {
           submitted_at: new Date().toISOString(),
-          delivery_preferences: storeData.delivery_type === 'self-delivery' ? {
-            fleet_size: storeData.delivery_fleet_size,
-            coverage_radius: storeData.delivery_coverage_radius,
-            base_fee: storeData.delivery_base_fee,
-            rate_per_km: storeData.delivery_rate_per_km
-          } : null
+          user_agent: navigator.userAgent,
+          form_data: {
+            location_source: storeData.location,
+            self_delivery: isSelfDelivery,
+            fleet_size: storeData.delivery_fleet_size
+          }
         }
       };
 
-      const { error } = await supabase.from("store_requests").insert(payload);
-      if (error) throw error;
+      // Log the complete payload for debugging
+      console.log("=== SUBMITTING STORE REQUEST ===");
+      console.log("Payload:", JSON.stringify(payload, null, 2));
+      console.log("Coordinate values:", { lat: latValue, lng: lngValue, latType: typeof latValue, lngType: typeof lngValue });
+      console.log("Delivery fields:", {
+        has_delivery_fleet: payload.has_delivery_fleet,
+        type: typeof payload.has_delivery_fleet,
+        fleet_size: payload.delivery_fleet_size,
+        delivery_type: payload.delivery_type
+      });
 
-      toast.success("Store request submitted! We'll review it soon.");
+      setDebugInfo(payload);
+
+      // Insert into database
+      const { data, error } = await supabase
+        .from("store_requests")
+        .insert(payload)
+        .select();
+
+      if (error) {
+        console.error("Database error:", error);
+        throw error;
+      }
+
+      console.log("Database response:", data);
+
+      // Verify the inserted data
+      if (data && data[0]) {
+        console.log("=== VERIFICATION ===");
+        console.log("Inserted data:", data[0]);
+        console.log("Location lat inserted:", data[0].location_lat);
+        console.log("Location lng inserted:", data[0].location_lng);
+        console.log("Has delivery fleet inserted:", data[0].has_delivery_fleet);
+        console.log("Fleet size inserted:", data[0].delivery_fleet_size);
+      }
+
+      toast.success("Store request submitted successfully!");
       setRequestStatus("pending");
+      
+      // Redirect after 3 seconds
+      setTimeout(() => {
+        navigate("/dashboard");
+      }, 3000);
+      
     } catch (err) {
-      console.error("Submit error:", err);
-      toast.error("Submission failed. Please try again.");
+      console.error("Submission error:", err);
+      toast.error(`Submission failed: ${err.message}`);
+      
+      // Log detailed error for debugging
+      setDebugInfo({
+        error: err.message,
+        details: err.details,
+        hint: err.hint,
+        code: err.code
+      });
     } finally {
       setSubmitting(false);
     }
@@ -328,6 +390,7 @@ const CreateStore = () => {
 
   const fileLabel = (file) => (file ? file.name : "No file selected");
 
+  // Status screens
   if (loading) {
     return (
       <div className={`create-store-page ${darkMode ? "dark" : "light"}`}>
@@ -353,9 +416,6 @@ const CreateStore = () => {
           <div className="cs-status-actions">
             <button className="cs-btn cs-btn-muted" onClick={() => navigate("/")}>
               Return Home
-            </button>
-            <button className="cs-btn" onClick={() => toast("Check again later for updates.")}>
-              Refresh Status
             </button>
           </div>
         </div>
@@ -421,8 +481,7 @@ const CreateStore = () => {
         <div className="cs-container cs-center cs-card-status">
           <h3 className="cs-status-title">Premium Subscription Required</h3>
           <p className="cs-status-desc">
-            We have reached {totalStores} stores. The free creation offer for the first 1000 stores has ended. 
-            To create a store, subscribe to our premium plan.
+            We have reached {totalStores} stores. To create a store, subscribe to our premium plan.
           </p>
           <div className="cs-status-actions">
             <button className="cs-btn cs-btn-primary" onClick={() => navigate("/store/premium")}>
@@ -471,6 +530,26 @@ const CreateStore = () => {
               <small style={{ color: "var(--text-secondary)", marginTop: 4 }}>
                 Auto-detected for accurate delivery. You can edit if needed.
               </small>
+              
+              {/* Show coordinates for verification */}
+              {storeData.location_lat && storeData.location_lng && (
+                <div style={{ 
+                  marginTop: 8, 
+                  padding: 8, 
+                  background: darkMode ? '#2a2a2a' : '#f5f5f5',
+                  borderRadius: 6,
+                  fontSize: '0.85rem'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>📍 Latitude:</span>
+                    <strong>{storeData.location_lat.toFixed(6)}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+                    <span>📍 Longitude:</span>
+                    <strong>{storeData.location_lng.toFixed(6)}</strong>
+                  </div>
+                </div>
+              )}
             </div>
 
             <label className="cs-label">Store Name *</label>
@@ -530,7 +609,13 @@ const CreateStore = () => {
               <div className="cs-delivery-cards">
                 <label 
                   className={`cs-delivery-card ${storeData.delivery_type === 'self-delivery' ? 'selected' : ''}`}
-                  onClick={() => setStoreData(prev => ({ ...prev, delivery_type: 'self-delivery' }))}
+                  onClick={() => {
+                    setStoreData(prev => ({ 
+                      ...prev, 
+                      delivery_type: 'self-delivery',
+                      has_delivery_fleet: true // Auto-set when self-delivery selected
+                    }));
+                  }}
                 >
                   <input
                     type="radio"
@@ -552,7 +637,13 @@ const CreateStore = () => {
 
                 <label 
                   className={`cs-delivery-card ${storeData.delivery_type === 'omniflow-managed' ? 'selected' : ''}`}
-                  onClick={() => setStoreData(prev => ({ ...prev, delivery_type: 'omniflow-managed' }))}
+                  onClick={() => {
+                    setStoreData(prev => ({ 
+                      ...prev, 
+                      delivery_type: 'omniflow-managed',
+                      has_delivery_fleet: false // Auto-set when omniflow selected
+                    }));
+                  }}
                 >
                   <input
                     type="radio"
@@ -574,7 +665,7 @@ const CreateStore = () => {
               </div>
             </div>
 
-            {/* SELF-DELIVERY DETAILS - Only shown when self-delivery is selected */}
+            {/* SELF-DELIVERY DETAILS */}
             {storeData.delivery_type === 'self-delivery' && (
               <div className="cs-self-delivery-details">
                 <h4 className="cs-subsection-title">Delivery Fleet Details</h4>
@@ -771,7 +862,7 @@ const CreateStore = () => {
               </div>
             </div>
 
-            {/* Summary of delivery choice */}
+            {/* Summary Section */}
             <div className="cs-delivery-summary">
               <h4>Delivery Summary</h4>
               <div className="cs-summary-row">
@@ -802,6 +893,22 @@ const CreateStore = () => {
               )}
             </div>
 
+            <div className="cs-location-summary">
+              <h4>Location Details</h4>
+              <div className="cs-summary-row">
+                <span>Location:</span>
+                <strong>{storeData.location}</strong>
+              </div>
+              <div className="cs-summary-row">
+                <span>Latitude:</span>
+                <strong>{storeData.location_lat?.toFixed(6) || 'Not set'}</strong>
+              </div>
+              <div className="cs-summary-row">
+                <span>Longitude:</span>
+                <strong>{storeData.location_lng?.toFixed(6) || 'Not set'}</strong>
+              </div>
+            </div>
+
             <div className="cs-step-buttons">
               <button
                 type="button"
@@ -825,15 +932,31 @@ const CreateStore = () => {
                       <Spinner size={18} /> Submitting...
                     </>
                   ) : (
-                    <>
-                      Submit for Approval
-                    </>
+                    "Submit for Approval"
                   )}
                 </button>
               </div>
             </div>
           </div>
         </form>
+
+        {/* Debug Panel - Only visible in development */}
+        {process.env.NODE_ENV === 'development' && debugInfo && (
+          <div style={{
+            marginTop: 20,
+            padding: 15,
+            background: '#1a1a1a',
+            color: '#00ff00',
+            borderRadius: 8,
+            fontFamily: 'monospace',
+            fontSize: 12,
+            maxHeight: 300,
+            overflow: 'auto'
+          }}>
+            <h4 style={{ color: '#fff', marginBottom: 10 }}>Debug Info:</h4>
+            <pre>{JSON.stringify(debugInfo, null, 2)}</pre>
+          </div>
+        )}
       </div>
 
       {submitting && (

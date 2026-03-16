@@ -51,6 +51,7 @@ import Checkout from "@/pages/Checkout";
 import Premium from './pages/Premium';
 import SearchPage from "./pages/SearchPage"; 
 import ChatScreen from './pages/ChatScreen';
+import StoreDashboardV2 from './pages/StoreDashboardV2';
 // Student
 import StudentDashboard from "./pages/StudentDashboard";
 
@@ -120,6 +121,7 @@ function AppRoutes() {
         <Route path="/chat" element={<ChatScreen />} />
         {/* REMOVED: ProtectedRoute from /trade since it's now the root */}
         <Route path="/trade" element={<TradeStore />} />
+        <Route path="/seller/dashboard" element={<StoreDashboardV2 />} />
         <Route path="/flash-sales" element={<FlashSalesPage />} />
         <Route path="/store/create" element={<ProtectedRoute><CreateStore /></ProtectedRoute>} />
         <Route path="/dashboard/store/:storeId" element={<ProtectedRoute><StoreDashboard /></ProtectedRoute>} />

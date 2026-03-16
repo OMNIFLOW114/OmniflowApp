@@ -1388,7 +1388,7 @@ const TradeStore = memo(() => {
             hasActiveSubscription={hasActiveSubscription}
             onStoreClick={() => {
               if (storeInfo && storeInfo.is_active) {
-                navigate(`/dashboard/store/${storeInfo.id}`);
+                navigate(`/seller/dashboard`);
               } else {
                 setShowStoreModal(true);
               }
