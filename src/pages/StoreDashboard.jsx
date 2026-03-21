@@ -6,7 +6,8 @@ import {
   FaChartLine, FaCreditCard, FaMoneyCheckAlt, FaShoppingBag, FaDollarSign,
   FaStore, FaUsers, FaStar, FaBell, FaShoppingCart, FaTimes, FaBars,
   FaWallet, FaReceipt, FaDownload, FaFilter, FaEdit, FaFire, FaCheck,
-  FaTruck, FaShippingFast, FaHourglassHalf, FaCheckCircle, FaCheckDouble
+  FaTruck, FaShippingFast, FaHourglassHalf, FaCheckCircle, FaCheckDouble,
+  FaUndo
 } from 'react-icons/fa';
 import { useDropzone } from 'react-dropzone';
 import { supabase } from '../lib/supabaseClient';
@@ -94,23 +95,33 @@ const StoreDashboard = () => {
   const [confirmingDeleteId, setConfirmingDeleteId] = useState(null);
   const [editModalProduct, setEditModalProduct] = useState(null);
 
-  // Order status flow
+  // Order status flow - complete list with all statuses
   const statusFlow = [
-    { value: 'pending',          label: 'Pending',          icon: <FaHourglassHalf />, color: '#F59E0B' },
-    { value: 'processing',       label: 'Processing',       icon: <FaBox />,           color: '#3B82F6' },
-    { value: 'shipped',          label: 'Shipped',          icon: <FaShippingFast />,  color: '#8B5CF6' },
-    { value: 'out for delivery', label: 'Out for Delivery', icon: <FaTruck />,         color: '#EC4899' },
-    { value: 'delivered',        label: 'Delivered',        icon: <FaCheckCircle />,   color: '#10B981' }
+    { value: 'pending', label: 'Pending', icon: <FaHourglassHalf />, color: '#F59E0B', nextStatus: 'processing' },
+    { value: 'processing', label: 'Processing', icon: <FaBox />, color: '#3B82F6', nextStatus: 'shipped' },
+    { value: 'shipped', label: 'Shipped', icon: <FaShippingFast />, color: '#8B5CF6', nextStatus: 'out for delivery' },
+    { value: 'out for delivery', label: 'Out for Delivery', icon: <FaTruck />, color: '#EC4899', nextStatus: 'delivered' },
+    { value: 'delivered', label: 'Delivered', icon: <FaCheckCircle />, color: '#10B981', nextStatus: null }
   ];
 
+  const getCurrentStatusIndex = (status) => {
+    return statusFlow.findIndex(s => s.value === status?.toLowerCase());
+  };
+
   const getNextStatus = (current) => {
-    const index = statusFlow.findIndex(s => s.value === current?.toLowerCase());
-    return index >= 0 && index < statusFlow.length - 1 ? statusFlow[index + 1] : null;
+    const index = getCurrentStatusIndex(current);
+    if (index >= 0 && index < statusFlow.length - 1) {
+      return statusFlow[index + 1];
+    }
+    return null;
   };
 
   const getPreviousStatus = (current) => {
-    const index = statusFlow.findIndex(s => s.value === current?.toLowerCase());
-    return index > 0 ? statusFlow[index - 1] : null;
+    const index = getCurrentStatusIndex(current);
+    if (index > 0) {
+      return statusFlow[index - 1];
+    }
+    return null;
   };
 
   const handleMarkForInstallment = (product) => { setInstallmentModalProduct(product); };
@@ -325,9 +336,16 @@ const StoreDashboard = () => {
           .from('orders')
           .select('*, buyer:buyer_id(name, phone), product:product_id(name, price, image_gallery)')
           .eq('store_id', store.id).order('created_at', { ascending: false });
-        if (error) { toast.error("Failed to load orders."); }
-        else { setOrders(data); }
-      } catch (error) { toast.error("Failed to load orders."); }
+        if (error) { 
+          console.error('Error fetching orders:', error);
+          toast.error("Failed to load orders."); 
+        } else { 
+          setOrders(data); 
+        }
+      } catch (error) { 
+        console.error('Error fetching orders:', error);
+        toast.error("Failed to load orders."); 
+      }
     };
     fetchOrders();
   }, [store]);
@@ -589,6 +607,10 @@ const StoreDashboard = () => {
           toast.info('New order received!');
           fetchDashboardData();
           setOrders(prev => [payload.new, ...prev]);
+        })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders', filter: `store_id=eq.${store.id}` },
+        (payload) => {
+          setOrders(prev => prev.map(o => o.id === payload.new.id ? { ...o, ...payload.new } : o));
         })
       .subscribe();
     return () => supabase.removeChannel(orderChannel);
@@ -1086,7 +1108,7 @@ const StoreDashboard = () => {
           )}
 
           {/* ════════════════════════════════
-              ORDERS
+              ORDERS - FIXED VERSION
           ════════════════════════════════ */}
           {section === 'orders' && (
             <motion.section key="orders" className="glass-section" variants={sectionVariants} initial="initial" animate="animate" exit="exit">
@@ -1096,11 +1118,6 @@ const StoreDashboard = () => {
                   {newOrderNotification && (
                     <div className="new-order-badge"><span className="badge-dot" />New Orders</div>
                   )}
-                </div>
-                <div className="order-filters">
-                  <button className="filter-btn active"><FaFilter />All ({orders.length})</button>
-                  <button className="filter-btn"><FaClipboardCheck />Pending</button>
-                  <button className="filter-btn"><FaBoxOpen />Processing</button>
                 </div>
               </div>
 
@@ -1116,10 +1133,8 @@ const StoreDashboard = () => {
                     const nextStatus = getNextStatus(order.status);
                     const prevStatus = getPreviousStatus(order.status);
                     const currentStatusInfo = statusFlow.find(s => s.value === order.status?.toLowerCase());
-                    const orderTotal  = order.total_price || 0;
-                    const deliveryFee = order.delivery_fee || 0;
-                    const productPrice= orderTotal - deliveryFee;
-
+                    const currentIndex = getCurrentStatusIndex(order.status);
+                    
                     return (
                       <div key={order.id} className="premium-order-card">
                         {/* Header */}
@@ -1137,7 +1152,7 @@ const StoreDashboard = () => {
                               color: currentStatusInfo?.color || '#f59e0b'
                             }}>
                               {currentStatusInfo?.icon || <FaHourglassHalf />}
-                              {order.status}
+                              {order.status || 'Pending'}
                             </span>
                           </div>
                         </div>
@@ -1145,21 +1160,24 @@ const StoreDashboard = () => {
                         {/* Body */}
                         <div className="premium-order-body">
                           <div className="premium-product-section">
-                            <h4 className="premium-product-name"><FaBoxOpen size={14} />{order.product?.name||'Unknown Product'}</h4>
+                            <h4 className="premium-product-name"><FaBoxOpen size={14} />{order.product?.name || 'Unknown Product'}</h4>
                             <div className="premium-product-details">
-                              {[
-                                { label:'Quantity',  value: `${order.quantity}x`, cls:'quantity' },
-                                { label:'Unit Price', value:`Ksh ${formatPrice(productPrice/(order.quantity||1))}`, cls:'price' },
-                                { label:'Subtotal',   value:`Ksh ${formatPrice(productPrice)}`, cls:'price' },
-                                { label:'Delivery',   value:`Ksh ${formatPrice(deliveryFee)}`, cls:'' },
-                                { label:'Payment',    value: order.payment_method||'Wallet', cls:'' },
-                                { label:'Order Type', value: order.is_installment?'Installment':'Standard', cls:'' }
-                              ].map((d,i) => (
-                                <div className="premium-detail-item" key={i}>
-                                  <span className="premium-detail-label">{d.label}</span>
-                                  <span className={`premium-detail-value${d.cls?' '+d.cls:''}`}>{d.value}</span>
-                                </div>
-                              ))}
+                              <div className="premium-detail-item">
+                                <span className="premium-detail-label">Quantity</span>
+                                <span className="premium-detail-value quantity">{order.quantity || 1}x</span>
+                              </div>
+                              <div className="premium-detail-item">
+                                <span className="premium-detail-label">Deposit Paid</span>
+                                <span className="premium-detail-value price">Ksh {formatPrice(order.deposit_amount || 0)}</span>
+                              </div>
+                              <div className="premium-detail-item">
+                                <span className="premium-detail-label">Balance Due</span>
+                                <span className="premium-detail-value price">Ksh {formatPrice(order.balance_due || 0)}</span>
+                              </div>
+                              <div className="premium-detail-item">
+                                <span className="premium-detail-label">Delivery Fee</span>
+                                <span className="premium-detail-value">Ksh {formatPrice(order.delivery_fee || 0)}</span>
+                              </div>
                             </div>
                           </div>
 
@@ -1169,7 +1187,7 @@ const StoreDashboard = () => {
                               <div className="premium-info-grid">
                                 <div className="premium-info-item">
                                   <span className="premium-info-label">Name</span>
-                                  <span className="premium-info-value">{order.buyer?.name||'Anonymous'}</span>
+                                  <span className="premium-info-value">{order.buyer?.name || 'Anonymous'}</span>
                                 </div>
                                 {order.buyer?.phone && (
                                   <div className="premium-info-item">
@@ -1178,62 +1196,77 @@ const StoreDashboard = () => {
                                   </div>
                                 )}
                                 <div className="premium-info-item">
+                                  <span className="premium-info-label">Delivery</span>
+                                  <span className="premium-info-value">{order.delivery_method === 'door' ? 'Door Delivery' : 'Pickup'}</span>
+                                </div>
+                                <div className="premium-info-item">
                                   <span className="premium-info-label">Location</span>
-                                  <span className="premium-info-value">{order.delivery_location||'N/A'}</span>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="premium-payment-info">
-                              <h5 className="premium-section-title"><FaMoneyBillAlt size={12} />Payment</h5>
-                              <div className="premium-info-grid">
-                                <div className="premium-info-item">
-                                  <span className="premium-info-label">Deposit Paid</span>
-                                  <span className="premium-info-value">Ksh {formatPrice(order.deposit_amount||0)}</span>
-                                </div>
-                                <div className="premium-info-item">
-                                  <span className="premium-info-label">Balance Due</span>
-                                  <span className="premium-info-value">Ksh {formatPrice(order.balance_due||0)}</span>
-                                </div>
-                                <div className="premium-info-item premium-total-row">
-                                  <span className="premium-info-label">Total</span>
-                                  <span className="premium-info-value">Ksh {formatPrice(orderTotal)}</span>
+                                  <span className="premium-info-value">{order.delivery_location?.substring(0, 30) || 'N/A'}</span>
                                 </div>
                               </div>
                             </div>
                           </div>
                         </div>
 
-                        {/* Actions */}
+                        {/* Status Progress Bar */}
+                        <div className="order-status-progress">
+                          {statusFlow.map((status, idx) => (
+                            <div key={status.value} className="progress-step-wrapper">
+                              <div 
+                                className={`progress-step ${idx <= currentIndex ? 'completed' : ''} ${order.status === status.value ? 'active' : ''}`}
+                                onClick={() => idx > currentIndex && updateOrderStatus(order.id, status.value)}
+                                style={{ cursor: idx > currentIndex ? 'pointer' : 'default' }}
+                              >
+                                <div className="step-icon-small">{status.icon}</div>
+                                <span className="step-label-small">{status.label}</span>
+                              </div>
+                              {idx < statusFlow.length - 1 && (
+                                <div className={`progress-line ${idx < currentIndex ? 'completed' : ''}`} />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Action Buttons */}
                         <div className="premium-order-actions">
                           <div className="status-update-buttons">
                             {prevStatus && (
-                              <button className="premium-status-btn previous" onClick={()=>updateOrderStatus(order.id,prevStatus.value)} disabled={updatingOrderId===order.id}>
-                                {prevStatus.icon} Back to {prevStatus.label}
+                              <button 
+                                className="premium-status-btn previous" 
+                                onClick={() => updateOrderStatus(order.id, prevStatus.value)} 
+                                disabled={updatingOrderId === order.id}
+                              >
+                                <FaUndo /> Back to {prevStatus.label}
                               </button>
                             )}
-                            {nextStatus ? (
-                              <button className="premium-status-btn next" onClick={()=>updateOrderStatus(order.id,nextStatus.value)} disabled={updatingOrderId===order.id}>
+                            {nextStatus && (
+                              <button 
+                                className="premium-status-btn next" 
+                                onClick={() => updateOrderStatus(order.id, nextStatus.value)} 
+                                disabled={updatingOrderId === order.id}
+                              >
                                 {nextStatus.icon} Mark as {nextStatus.label}
-                                {updatingOrderId===order.id && <span className="loading-spinner-small" />}
+                                {updatingOrderId === order.id && <span className="loading-spinner-small" />}
                               </button>
-                            ) : (
-                              order.status?.toLowerCase()==='delivered' && (
-                                <button className="premium-status-btn completed" disabled><FaCheck />Order Delivered</button>
-                              )
+                            )}
+                            {!nextStatus && order.status?.toLowerCase() === 'delivered' && (
+                              <button className="premium-status-btn completed" disabled>
+                                <FaCheckCircle /> Order Completed
+                              </button>
                             )}
                           </div>
 
+                          {/* Quick Status Buttons */}
                           <div className="quick-status-buttons">
                             {statusFlow.map(status => (
                               <button
                                 key={status.value}
-                                className={`quick-status-btn${order.status===status.value?' active':''}`}
-                                onClick={()=>updateOrderStatus(order.id,status.value)}
-                                disabled={updatingOrderId===order.id}
+                                className={`quick-status-btn${order.status === status.value ? ' active' : ''}`}
+                                onClick={() => updateOrderStatus(order.id, status.value)}
+                                disabled={updatingOrderId === order.id}
                                 style={{
-                                  background: order.status===status.value ? status.color : 'transparent',
-                                  color:       order.status===status.value ? '#fff' : status.color,
+                                  background: order.status === status.value ? status.color : 'transparent',
+                                  color: order.status === status.value ? '#fff' : status.color,
                                   borderColor: status.color
                                 }}
                                 title={status.label}
@@ -1243,9 +1276,9 @@ const StoreDashboard = () => {
                             ))}
                           </div>
 
-                          {order.status?.toLowerCase()==='delivered' && (
+                          {order.status?.toLowerCase() === 'delivered' && (
                             <div className="delivery-confirmation-info">
-                              <FaCheckCircle color="var(--c-green)" />
+                              <FaCheckCircle color="#10B981" />
                               <span>{order.delivered ? 'Buyer confirmed delivery' : 'Awaiting buyer confirmation'}</span>
                             </div>
                           )}

@@ -43,6 +43,10 @@ const BottomNavbar = () => {
     "/orders",
     "/messages",
     "/chat",
+    "/store-dashboard",
+    "/seller",  
+    "/seller/*",
+    "/store-dashboard/*",
     "/search"
   ];
 

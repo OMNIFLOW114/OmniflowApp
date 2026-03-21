@@ -1,3 +1,4 @@
+// Cart.jsx - Jumia Style Cart Page (Kenyan Money Format)
 import React, { useEffect, useState, useCallback, useRef, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/supabase";
@@ -9,13 +10,28 @@ import {
   FaShoppingCart,
   FaPlus,
   FaMinus,
-  FaArrowLeft,
-  FaLock,
-  FaShippingFast,
-  FaShieldAlt,
-  FaStore
+  FaStore,
+  FaChevronRight,
+  FaCreditCard,
+  FaHeart,
+  FaTag,
+  FaTruck,
+  FaClock,
+  FaPercent
 } from "react-icons/fa";
 import "./Cart.css";
+
+// Kenyan Money Formatter
+const formatKenyanMoney = (amount) => {
+  if (amount === undefined || amount === null) return "0.00";
+  const num = Number(amount);
+  if (isNaN(num)) return "0.00";
+  // Format: 1,234,567.89
+  return num.toLocaleString('en-KE', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+};
 
 // Cache keys for localStorage
 const CART_CACHE_KEYS = {
@@ -35,7 +51,6 @@ const loadCartFromCache = (key, defaultValue = null) => {
     
     const { data, timestamp } = JSON.parse(cached);
     
-    // Check if cache is expired
     if (Date.now() - timestamp > CART_CACHE_EXPIRY) {
       localStorage.removeItem(key);
       return defaultValue;
@@ -61,30 +76,28 @@ const saveCartToCache = (key, data) => {
   }
 };
 
-const clearCartCache = () => {
-  Object.values(CART_CACHE_KEYS).forEach(key => {
-    localStorage.removeItem(key);
-  });
-};
-
 // Skeleton loading component
 const CartSkeleton = () => (
-  <div className="cart-container">
-    <div className="cart-header skeleton">
-      <div className="skeleton-nav"></div>
-      <div className="skeleton-title"></div>
-    </div>
-    <div className="cart-content">
-      {[...Array(3)].map((_, index) => (
-        <div key={index} className="cart-item skeleton">
-          <div className="skeleton-image"></div>
-          <div className="skeleton-content">
-            <div className="skeleton-line skeleton-title"></div>
-            <div className="skeleton-line skeleton-price"></div>
-            <div className="skeleton-line skeleton-actions"></div>
+  <div className="cart-page">
+    <div className="cart-container">
+      <div className="skeleton-header">
+        <div className="skeleton-title"></div>
+        <div className="skeleton-subtitle"></div>
+      </div>
+      <div className="skeleton-store">
+        <div className="skeleton-store-header"></div>
+        {[...Array(2)].map((_, i) => (
+          <div key={i} className="skeleton-item">
+            <div className="skeleton-image"></div>
+            <div className="skeleton-info">
+              <div className="skeleton-line"></div>
+              <div className="skeleton-line short"></div>
+              <div className="skeleton-line price"></div>
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+        <div className="skeleton-footer"></div>
+      </div>
     </div>
   </div>
 );
@@ -100,6 +113,7 @@ const Cart = memo(() => {
     loadCartFromCache(CART_CACHE_KEYS.ITEMS, []).length === 0
   );
   const [updatingItems, setUpdatingItems] = useState(new Set());
+  const [selectedItems, setSelectedItems] = useState(new Set());
   
   const isMountedRef = useRef(false);
   const cacheDataRef = useRef({
@@ -109,16 +123,13 @@ const Cart = memo(() => {
   });
 
   const fetchCartItems = useCallback(async (forceRefresh = false) => {
-    // Skip if already fetching
     if (cacheDataRef.current.isFetching || !user?.id) return;
     
-    // Check cache first if not forcing refresh
     if (!forceRefresh && cartItems.length > 0) {
       setLoading(false);
       return;
     }
     
-    // Don't fetch if cache is still fresh (less than 30 seconds old)
     if (!forceRefresh && cacheDataRef.current.lastFetchTime > 0 && 
         Date.now() - cacheDataRef.current.lastFetchTime < 30000) {
       setLoading(false);
@@ -170,7 +181,6 @@ const Cart = memo(() => {
       
     } catch (error) {
       console.error("Cart error:", error);
-      // Keep cached data if fetch fails
       if (cartItems.length === 0) {
         toast.error("Failed to load cart.");
       }
@@ -180,7 +190,7 @@ const Cart = memo(() => {
     }
   }, [user, cartItems.length]);
 
-  // Initial fetch only if no cached items
+  // Initial fetch
   useEffect(() => {
     if (cartItems.length === 0 && !cacheDataRef.current.isFetching) {
       fetchCartItems();
@@ -190,20 +200,20 @@ const Cart = memo(() => {
     isMountedRef.current = true;
   }, [cartItems.length, fetchCartItems]);
 
-  // Save cart items to cache whenever they change
+  // Save cart items to cache
   useEffect(() => {
     if (isMountedRef.current && cartItems.length > 0) {
       saveCartToCache(CART_CACHE_KEYS.ITEMS, cartItems);
     }
   }, [cartItems]);
 
-  // Background refresh every 2 minutes
+  // Background refresh
   useEffect(() => {
     const refreshInterval = setInterval(() => {
       if (!cacheDataRef.current.isFetching && user?.id) {
         fetchCartItems(true);
       }
-    }, 2 * 60 * 1000); // 2 minutes
+    }, 2 * 60 * 1000);
     
     return () => clearInterval(refreshInterval);
   }, [fetchCartItems, user]);
@@ -252,9 +262,6 @@ const Cart = memo(() => {
         )
       );
       
-      if (newQuantity === 0) {
-        toast.success(`${productName} removed from cart`);
-      }
     } catch (error) {
       console.error("Update quantity error:", error);
       toast.error("Failed to update quantity");
@@ -268,8 +275,6 @@ const Cart = memo(() => {
   }, []);
 
   const handleCheckout = useCallback(async (storeId, storeName, storeItems) => {
-    console.log("🛒 Checkout clicked for store:", storeId, storeName);
-    
     if (!user?.id) {
       toast.error("Please login to proceed to checkout");
       return;
@@ -280,7 +285,6 @@ const Cart = memo(() => {
       return;
     }
 
-    // Check stock availability for all items in this store
     const outOfStockItems = storeItems.filter(item => 
       item.products.stock_quantity < item.quantity
     );
@@ -291,14 +295,12 @@ const Cart = memo(() => {
       return;
     }
 
-    // Check if store is active
     const store = storeItems[0].products.stores;
     if (!store.is_active) {
       toast.error("This store is currently inactive");
       return;
     }
 
-    // Get seller info for the store
     try {
       const { data: sellerData, error: sellerError } = await supabase
         .from("stores")
@@ -312,10 +314,8 @@ const Cart = memo(() => {
         return;
       }
 
-      console.log("✅ Proceeding to checkout with items:", storeItems);
       toast.success(`Proceeding to checkout for ${storeName}`);
       
-      // Use the first product ID in the route to match your router setup
       const firstProductId = storeItems[0].products.id;
       
       navigate(`/checkout/${firstProductId}`, { 
@@ -348,7 +348,6 @@ const Cart = memo(() => {
   // Calculate totals
   const totalAmount = cartItems.reduce((acc, item) => acc + calculateItemTotal(item), 0);
   const totalItems = cartItems.reduce((acc, item) => acc + (item.quantity || 1), 0);
-  const shippingCost = Math.max(0, 200 - totalAmount * 0.05);
 
   // Group items by store
   const itemsByStore = cartItems.reduce((acc, item) => {
@@ -369,293 +368,264 @@ const Cart = memo(() => {
     const storeData = itemsByStore[storeKey];
     storeData.totalAmount = storeData.items.reduce((acc, item) => acc + calculateItemTotal(item), 0);
     storeData.totalItems = storeData.items.reduce((acc, item) => acc + item.quantity, 0);
-    storeData.shippingCost = Math.max(0, 200 - storeData.totalAmount * 0.05);
     storeData.finalAmount = storeData.totalAmount;
   });
+
+  // Calculate total savings
+  const totalSavings = cartItems.reduce((acc, item) => {
+    const price = Number(item.products.price) || 0;
+    const discount = Number(item.products.discount) || 0;
+    const discountedPrice = price - (price * discount / 100);
+    return acc + ((price - discountedPrice) * item.quantity);
+  }, 0);
 
   if (loading && cartItems.length === 0) {
     return <CartSkeleton />;
   }
 
   return (
-    <div className="cart-container">
-      {/* Header */}
-      <motion.div 
-        className="cart-header"
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        <button 
-          className="back-button"
-          onClick={() => navigate("/")}
-        >
-          <FaArrowLeft /> Continue Shopping
-        </button>
-        
-        <div className="cart-title-section">
-          <h1>
-            <FaShoppingCart className="cart-icon" />
-            My Shopping Cart
-          </h1>
-          <p className="cart-subtitle">{totalItems} item{totalItems !== 1 ? 's' : ''} in your cart</p>
+    <div className="cart-page">
+      <div className="cart-container">
+        {/* Header */}
+        <div className="cart-header">
+          <div className="cart-header-left">
+            <h1>Shopping Cart</h1>
+            <span className="cart-item-count">{totalItems} {totalItems === 1 ? 'item' : 'items'}</span>
+          </div>
         </div>
-      </motion.div>
 
-      <div className="cart-layout">
-        {/* Main Cart Content */}
-        <div className="cart-content">
-          {cartItems.length === 0 ? (
-            <motion.div 
-              className="empty-cart"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5 }}
-            >
-              <div className="empty-cart-icon">
-                <FaShoppingCart />
+        <div className="cart-layout">
+          {/* Main Cart Content */}
+          <div className="cart-content">
+            {cartItems.length === 0 ? (
+              <div className="empty-cart">
+                <div className="empty-cart-icon">
+                  <FaShoppingCart />
+                </div>
+                <h2>Your cart is empty</h2>
+                <p>Browse our amazing products and add some items to your cart</p>
+                <button className="btn-primary btn-large" onClick={() => navigate("/")}>
+                  Start Shopping
+                </button>
               </div>
-              <h2>Your cart is empty</h2>
-              <p>Browse our amazing products and add some items to your cart</p>
-              <motion.button 
-                className="shop-now-btn"
-                onClick={() => navigate("/")}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                Start Shopping
-              </motion.button>
-            </motion.div>
-          ) : (
-            <AnimatePresence>
-              {Object.entries(itemsByStore).map(([storeKey, storeData]) => {
-                const { store, items, totalAmount, totalItems, shippingCost, finalAmount } = storeData;
-                
-                return (
-                  <motion.div 
-                    key={storeKey}
-                    className="store-section"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.4 }}
-                  >
-                    <div className="store-header">
-                      <FaStore className="store-icon" />
-                      <h3>{store.name}</h3>
-                      <span className="store-item-count">{totalItems} item{totalItems !== 1 ? 's' : ''}</span>
-                    </div>
-                    
-                    <div className="store-items">
-                      {items.map((item) => {
-                        const product = item.products;
-                        const isUpdating = updatingItems.has(item.id);
-                        
-                        if (!product) return null;
-
-                        const price = Number(product.price) || 0;
-                        const discount = Number(product.discount) || 0;
-                        const discountedPrice = price - (price * discount / 100);
-                        const itemTotal = calculateItemTotal(item);
-                        const imageUrl = product.image_gallery?.[0] || product.image_url || "/placeholder.jpg";
-
-                        return (
-                          <motion.div
-                            key={item.id}
-                            className="cart-item"
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: 20 }}
-                            transition={{ duration: 0.3 }}
-                            layout
-                          >
-                            <div className="item-image" onClick={() => navigate(`/product/${product.id}`)}>
-                              <img src={imageUrl} alt={product.name} />
-                              {discount > 0 && (
-                                <span className="discount-badge">-{discount}%</span>
-                              )}
-                            </div>
-
-                            <div className="item-details">
-                              <h4 onClick={() => navigate(`/product/${product.id}`)}>
-                                {product.name}
-                              </h4>
-                              
-                              {item.variant && (
-                                <div className="variant-info">
-                                  <span>Variant: {typeof item.variant === 'string' ? item.variant : JSON.stringify(item.variant)}</span>
-                                </div>
-                              )}
-                              
-                              <div className="price-info">
-                                <span className="current-price">
-                                  KSH {discountedPrice.toLocaleString()}
-                                </span>
-                                {discount > 0 && (
-                                  <span className="original-price">
-                                    KSH {price.toLocaleString()}
-                                  </span>
-                                )}
-                              </div>
-
-                              <div className="stock-info">
-                                {product.stock_quantity > 0 ? (
-                                  <span className="in-stock">In Stock ({product.stock_quantity} available)</span>
-                                ) : (
-                                  <span className="out-of-stock">Out of Stock</span>
-                                )}
-                              </div>
-                            </div>
-
-                            <div className="item-controls">
-                              <div className="quantity-controls">
-                                <motion.button
-                                  className="quantity-btn"
-                                  onClick={() => handleUpdateQuantity(
-                                    item.id, 
-                                    product.id, 
-                                    item.quantity - 1, 
-                                    product.name
-                                  )}
-                                  disabled={isUpdating || item.quantity <= 1}
-                                  whileHover={{ scale: 1.1 }}
-                                  whileTap={{ scale: 0.9 }}
-                                >
-                                  <FaMinus />
-                                </motion.button>
-                                
-                                <span className="quantity-display">
-                                  {isUpdating ? "..." : item.quantity}
-                                </span>
-                                
-                                <motion.button
-                                  className="quantity-btn"
-                                  onClick={() => handleUpdateQuantity(
-                                    item.id, 
-                                    product.id, 
-                                    item.quantity + 1, 
-                                    product.name
-                                  )}
-                                  disabled={isUpdating || item.quantity >= product.stock_quantity}
-                                  whileHover={{ scale: 1.1 }}
-                                  whileTap={{ scale: 0.9 }}
-                                >
-                                  <FaPlus />
-                                </motion.button>
-                              </div>
-
-                              <div className="item-total">
-                                KSH {itemTotal.toLocaleString()}
-                              </div>
-
-                              <motion.button
-                                className="remove-btn"
-                                onClick={() => handleRemoveFromCart(item.id, product.name)}
-                                disabled={isUpdating}
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                              >
-                                <FaTrash />
-                                {isUpdating ? "..." : "Remove"}
-                              </motion.button>
-                            </div>
-                          </motion.div>
-                        );
-                      })}
-                    </div>
-
-                    {/* Store-wise Checkout Button */}
-                    <div className="store-checkout-section">
-                      <div className="store-summary">
-                        <div className="store-total">
-                          <span>Store Total: KSH {finalAmount.toLocaleString()}</span>
-                          <span className="shipping-info">
-                            Shipping: KSH {shippingCost.toLocaleString()}
-                          </span>
+            ) : (
+              <AnimatePresence>
+                {Object.entries(itemsByStore).map(([storeKey, storeData]) => {
+                  const { store, items, totalAmount, totalItems, finalAmount } = storeData;
+                  
+                  return (
+                    <motion.div 
+                      key={storeKey}
+                      className="store-section"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.4 }}
+                    >
+                      {/* Store Header */}
+                      <div className="store-header">
+                        <FaStore className="store-icon" />
+                        <div className="store-info">
+                          <h3>{store.name}</h3>
+                          <span className="store-badge">Seller</span>
                         </div>
-                        <motion.button
-                          className="store-checkout-btn"
+                        <span className="store-item-badge">{totalItems} {totalItems === 1 ? 'item' : 'items'}</span>
+                      </div>
+                      
+                      {/* Items List */}
+                      <div className="store-items">
+                        {items.map((item) => {
+                          const product = item.products;
+                          const isUpdating = updatingItems.has(item.id);
+                          
+                          if (!product) return null;
+
+                          const price = Number(product.price) || 0;
+                          const discount = Number(product.discount) || 0;
+                          const discountedPrice = price - (price * discount / 100);
+                          const itemTotal = calculateItemTotal(item);
+                          const imageUrl = product.image_gallery?.[0] || product.image_url || "/placeholder.jpg";
+
+                          return (
+                            <motion.div
+                              key={item.id}
+                              className="cart-item"
+                              initial={{ opacity: 0, x: -20 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              exit={{ opacity: 0, x: 20 }}
+                              transition={{ duration: 0.3 }}
+                              layout
+                            >
+                              {/* Checkbox */}
+                              <div className="item-select">
+                                <input type="checkbox" className="item-checkbox" />
+                              </div>
+                              
+                              {/* Product Image */}
+                              <div className="item-image" onClick={() => navigate(`/product/${product.id}`)}>
+                                <img src={imageUrl} alt={product.name} loading="lazy" />
+                                {discount > 0 && (
+                                  <div className="discount-badge">
+                                    <FaPercent /> {discount}% OFF
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Product Details */}
+                              <div className="item-details">
+                                <h4 onClick={() => navigate(`/product/${product.id}`)}>
+                                  {product.name}
+                                </h4>
+                                
+                                {item.variant && (
+                                  <div className="variant-info">
+                                    {typeof item.variant === 'string' ? item.variant : JSON.stringify(item.variant)}
+                                  </div>
+                                )}
+                                
+                                <div className="price-section">
+                                  <div className="current-price">
+                                    KES {formatKenyanMoney(discountedPrice)}
+                                  </div>
+                                  {discount > 0 && (
+                                    <>
+                                      <div className="original-price">
+                                        KES {formatKenyanMoney(price)}
+                                      </div>
+                                      <div className="saved-price">
+                                        Save KES {formatKenyanMoney(price - discountedPrice)}
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+
+                                {/* Stock Status */}
+                                <div className="stock-status">
+                                  {product.stock_quantity > 10 ? (
+                                    <span className="in-stock">✓ In Stock</span>
+                                  ) : product.stock_quantity > 0 ? (
+                                    <span className="low-stock">⚠️ Only {product.stock_quantity} left</span>
+                                  ) : (
+                                    <span className="out-of-stock">✗ Out of Stock</span>
+                                  )}
+                                </div>
+
+                                {/* Delivery Info */}
+                                <div className="delivery-info">
+                                  <FaTruck className="delivery-icon" />
+                                  <span>Delivery in 2-5 days</span>
+                                  <FaClock className="delivery-icon clock" />
+                                  <span>Free shipping</span>
+                                </div>
+                              </div>
+
+                              {/* Quantity and Actions */}
+                              <div className="item-actions">
+                                <div className="quantity-control">
+                                  <button
+                                    className="qty-btn"
+                                    onClick={() => handleUpdateQuantity(
+                                      item.id, 
+                                      product.id, 
+                                      item.quantity - 1, 
+                                      product.name
+                                    )}
+                                    disabled={isUpdating || item.quantity <= 1}
+                                  >
+                                    <FaMinus />
+                                  </button>
+                                  <span className="qty-value">
+                                    {isUpdating ? "..." : item.quantity}
+                                  </span>
+                                  <button
+                                    className="qty-btn"
+                                    onClick={() => handleUpdateQuantity(
+                                      item.id, 
+                                      product.id, 
+                                      item.quantity + 1, 
+                                      product.name
+                                    )}
+                                    disabled={isUpdating || item.quantity >= product.stock_quantity}
+                                  >
+                                    <FaPlus />
+                                  </button>
+                                </div>
+
+                                <div className="item-total">
+                                  <span className="total-label">Total:</span>
+                                  <span className="total-value">KES {formatKenyanMoney(itemTotal)}</span>
+                                </div>
+
+                                <div className="item-actions-buttons">
+                                  <button
+                                    className="wishlist-btn"
+                                    onClick={() => toast.success("Added to wishlist")}
+                                  >
+                                    <FaHeart />
+                                    Save for later
+                                  </button>
+                                  <button
+                                    className="remove-btn"
+                                    onClick={() => handleRemoveFromCart(item.id, product.name)}
+                                    disabled={isUpdating}
+                                  >
+                                    <FaTrash />
+                                    Remove
+                                  </button>
+                                </div>
+                              </div>
+                            </motion.div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Store Footer */}
+                      <div className="store-footer">
+                        <div className="store-total">
+                          <span>Subtotal ({totalItems} items):</span>
+                          <span className="store-total-amount">KES {formatKenyanMoney(finalAmount)}</span>
+                        </div>
+                        <button
+                          className="checkout-btn"
                           onClick={() => handleCheckout(store.id, store.name, items)}
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
                           disabled={items.some(item => item.products.stock_quantity < item.quantity)}
                         >
-                          <FaLock className="lock-icon" />
-                          Checkout {store.name}
-                          <span className="checkout-store-total">
-                            KSH {((finalAmount * 1.16) + shippingCost).toLocaleString()}
-                          </span>
-                        </motion.button>
+                          <FaCreditCard />
+                          Checkout from {store.name}
+                          <FaChevronRight />
+                        </button>
                       </div>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+            )}
+          </div>
+
+          {/* Horizontal Order Summary - Kenyan Style */}
+          {cartItems.length > 0 && (
+            <div className="order-summary-horizontal">
+              <div className="summary-horizontal-card">
+                <div className="summary-horizontal-item">
+                  <span className="summary-label">Subtotal</span>
+                  <span className="summary-value">KES {formatKenyanMoney(totalAmount)}</span>
+                </div>
+                
+                {totalSavings > 0 && (
+                  <div className="summary-horizontal-item savings">
+                    <span className="summary-label">You save</span>
+                    <span className="summary-value savings-value">- KES {formatKenyanMoney(totalSavings)}</span>
+                  </div>
+                )}
+                
+                <div className="summary-horizontal-item total">
+                  <span className="summary-label">Total to pay</span>
+                  <span className="summary-value total-value">KES {formatKenyanMoney(totalAmount)}</span>
+                </div>
+              </div>
+            </div>
           )}
         </div>
-
-        {/* Global Order Summary */}
-        {cartItems.length > 0 && (
-          <motion.div 
-            className="order-summary"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-          >
-            <div className="summary-card">
-              <h3>Cart Summary</h3>
-              
-              <div className="summary-details">
-                <div className="summary-row">
-                  <span>Total Items</span>
-                  <span>{totalItems}</span>
-                </div>
-                
-                <div className="summary-row">
-                  <span>Stores</span>
-                  <span>{Object.keys(itemsByStore).length}</span>
-                </div>
-                
-                <div className="summary-row">
-                  <span>Subtotal</span>
-                  <span>KSH {totalAmount.toLocaleString()}</span>
-                </div>
-                
-                <div className="summary-row">
-                  <span>Shipping</span>
-                  <span>KSH {shippingCost.toLocaleString()}</span>
-                </div>
-                
-                <div className="summary-divider"></div>
-                
-                <div className="summary-row total">
-                  <span>Estimated Total</span>
-                  <span>KSH {((totalAmount * 1.16) + shippingCost).toLocaleString()}</span>
-                </div>
-              </div>
-
-              <div className="security-features">
-                <div className="security-item">
-                  <FaLock className="security-icon" />
-                  <span>Secure checkout</span>
-                </div>
-                <div className="security-item">
-                  <FaShippingFast className="security-icon" />
-                  <span>Store-wise delivery</span>
-                </div>
-                <div className="security-item">
-                  <FaShieldAlt className="security-icon" />
-                  <span>Buyer protection</span>
-                </div>
-              </div>
-
-              <p className="secure-notice">
-                🔒 Checkout per store for optimal delivery experience
-              </p>
-            </div>
-          </motion.div>
-        )}
       </div>
     </div>
   );

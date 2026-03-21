@@ -2,38 +2,63 @@ import React, { useEffect, useState, useCallback, useRef, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/supabase";
 import { useAuth } from "@/context/AuthContext";
-import { FaHeart, FaTrash, FaShoppingCart, FaEye, FaTag, FaFire, FaArrowDown } from "react-icons/fa";
+import { 
+  FaHeart, FaTrash, FaShoppingCart, FaTag, 
+  FaStar, FaStarHalfAlt, FaRegStar, FaStore
+} from "react-icons/fa";
 import { toast } from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 import "./Wishlist.css";
 
-// Cache keys for localStorage
-const WISHLIST_CACHE_KEYS = {
-  ITEMS: 'wishlist_items',
-  CACHE_TIMESTAMP: 'wishlist_cache_timestamp',
-  LAST_UPDATED: 'wishlist_last_updated'
+// Kenyan Money Formatter
+const formatKenyanMoney = (amount) => {
+  if (amount === undefined || amount === null) return "0";
+  const num = Number(amount);
+  if (isNaN(num)) return "0";
+  return num.toLocaleString('en-KE', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  });
 };
 
-// Cache expiry time (15 minutes)
+// Gold Rating Stars
+const RatingStars = ({ rating }) => {
+  const fullStars = Math.floor(rating);
+  const hasHalfStar = rating % 1 >= 0.5;
+  const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
+
+  return (
+    <div className="rating-stars">
+      {[...Array(fullStars)].map((_, i) => (
+        <FaStar key={`full-${i}`} className="star gold-filled" />
+      ))}
+      {hasHalfStar && <FaStarHalfAlt className="star gold-half" />}
+      {[...Array(emptyStars)].map((_, i) => (
+        <FaRegStar key={`empty-${i}`} className="star gold-empty" />
+      ))}
+    </div>
+  );
+};
+
+// Cache keys
+const WISHLIST_CACHE_KEYS = {
+  ITEMS: 'wishlist_items_final_v3',
+  CACHE_TIMESTAMP: 'wishlist_cache_timestamp_final_v3'
+};
+
 const WISHLIST_CACHE_EXPIRY = 15 * 60 * 1000;
 
-// Cache utility functions
 const loadWishlistFromCache = (key, defaultValue = null) => {
   try {
     const cached = localStorage.getItem(key);
     if (!cached) return defaultValue;
-    
     const { data, timestamp } = JSON.parse(cached);
-    
-    // Check if cache is expired
     if (Date.now() - timestamp > WISHLIST_CACHE_EXPIRY) {
       localStorage.removeItem(key);
       return defaultValue;
     }
-    
     return data;
   } catch (error) {
-    console.error(`Error loading wishlist cache ${key}:`, error);
     localStorage.removeItem(key);
     return defaultValue;
   }
@@ -41,80 +66,67 @@ const loadWishlistFromCache = (key, defaultValue = null) => {
 
 const saveWishlistToCache = (key, data) => {
   try {
-    const cacheData = {
-      data,
-      timestamp: Date.now()
-    };
-    localStorage.setItem(key, JSON.stringify(cacheData));
+    localStorage.setItem(key, JSON.stringify({ data, timestamp: Date.now() }));
   } catch (error) {
-    console.error(`Error saving wishlist cache ${key}:`, error);
+    console.error("Cache error:", error);
   }
 };
 
+// Clear wishlist cache completely
 const clearWishlistCache = () => {
-  Object.values(WISHLIST_CACHE_KEYS).forEach(key => {
-    localStorage.removeItem(key);
-  });
+  localStorage.removeItem(WISHLIST_CACHE_KEYS.ITEMS);
+  localStorage.removeItem(WISHLIST_CACHE_KEYS.CACHE_TIMESTAMP);
 };
 
-// Skeleton loading component
+// Skeleton Loading - Matches Exact Card Layout
 const WishlistSkeleton = () => (
-  <div className="wishlist-container">
-    <div className="wishlist-header skeleton">
-      <div className="skeleton-title"></div>
-    </div>
-    <div className="wishlist-stats skeleton">
-      {[...Array(2)].map((_, index) => (
-        <div key={index} className="stat-card skeleton">
-          <div className="skeleton-line"></div>
-          <div className="skeleton-line short"></div>
+  <div className="wishlist-page">
+    <div className="wishlist-container">
+      <div className="wishlist-header-skeleton">
+        <div className="skeleton-title"></div>
+        <div className="skeleton-stats">
+          <div className="skeleton-stat"></div>
+          <div className="skeleton-stat"></div>
         </div>
-      ))}
-    </div>
-    <div className="wishlist-grid">
-      {[...Array(6)].map((_, index) => (
-        <div key={index} className="wishlist-card skeleton">
-          <div className="skeleton-image"></div>
-          <div className="skeleton-content">
-            <div className="skeleton-line skeleton-title"></div>
-            <div className="skeleton-line skeleton-price"></div>
-            <div className="skeleton-line skeleton-actions"></div>
+      </div>
+      <div className="wishlist-grid-skeleton">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="skeleton-card">
+            <div className="skeleton-image"></div>
+            <div className="skeleton-info">
+              <div className="skeleton-store"></div>
+              <div className="skeleton-title-line"></div>
+              <div className="skeleton-rating"></div>
+              <div className="skeleton-price"></div>
+              <div className="skeleton-actions"></div>
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   </div>
 );
 
-// Main component
 const Wishlist = memo(() => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [wishlistItems, setWishlistItems] = useState(() => 
     loadWishlistFromCache(WISHLIST_CACHE_KEYS.ITEMS, [])
   );
-  const [loading, setLoading] = useState(() => 
-    loadWishlistFromCache(WISHLIST_CACHE_KEYS.ITEMS, []).length === 0
-  );
+  const [loading, setLoading] = useState(true);
   const [removingItems, setRemovingItems] = useState(new Set());
   
   const isMountedRef = useRef(false);
-  const cacheDataRef = useRef({
-    isFetching: false,
-    lastFetchTime: 0
-  });
+  const cacheDataRef = useRef({ isFetching: false, lastFetchTime: 0 });
 
   const fetchWishlistItems = useCallback(async (forceRefresh = false) => {
-    // Skip if already fetching or no user
     if (cacheDataRef.current.isFetching || !user?.id) return;
     
-    // Check cache first if not forcing refresh
     if (!forceRefresh && wishlistItems.length > 0) {
       setLoading(false);
       return;
     }
     
-    // Don't fetch if cache is still fresh (less than 30 seconds old)
     if (!forceRefresh && cacheDataRef.current.lastFetchTime > 0 && 
         Date.now() - cacheDataRef.current.lastFetchTime < 30000) {
       setLoading(false);
@@ -122,32 +134,121 @@ const Wishlist = memo(() => {
     }
     
     cacheDataRef.current.isFetching = true;
+    setLoading(true);
     
     try {
-      setLoading(true);
-      
-      const { data, error } = await supabase
+      // Fetch wishlist items directly from database (source of truth)
+      const { data: wishlistData, error: wishlistError } = await supabase
         .from("wishlist_items")
-        .select("id, product_id, created_at, products (*)")
+        .select(`
+          id, 
+          product_id, 
+          created_at
+        `)
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
-      if (error) {
-        console.error("Wishlist fetch error:", error);
-        toast.error("Failed to load wishlist.");
+      if (wishlistError) throw wishlistError;
+
+      if (!wishlistData || wishlistData.length === 0) {
+        setWishlistItems([]);
+        // Clear cache when wishlist is empty
+        clearWishlistCache();
+        setLoading(false);
+        cacheDataRef.current.isFetching = false;
         return;
       }
 
-      const items = data || [];
-      setWishlistItems(items);
-      saveWishlistToCache(WISHLIST_CACHE_KEYS.ITEMS, items);
+      const productIds = wishlistData.map(item => item.product_id).filter(Boolean);
+      
+      // Fetch products with their stores
+      const { data: productsData, error: productsError } = await supabase
+        .from("products")
+        .select(`
+          id,
+          name,
+          price,
+          discount,
+          stock_quantity,
+          image_gallery,
+          image_url,
+          store_id,
+          stores (
+            id,
+            name
+          )
+        `)
+        .in("id", productIds);
+
+      if (productsError) throw productsError;
+
+      // Fetch ratings from ratings table
+      let ratingsMap = new Map();
+      if (productIds.length > 0) {
+        const { data: ratingsData, error: ratingsError } = await supabase
+          .from("ratings")
+          .select("product_id, rating")
+          .in("product_id", productIds);
+        
+        if (!ratingsError && ratingsData) {
+          const ratingAggregate = new Map();
+          ratingsData.forEach(r => {
+            if (!ratingAggregate.has(r.product_id)) {
+              ratingAggregate.set(r.product_id, { total: 0, count: 0 });
+            }
+            const current = ratingAggregate.get(r.product_id);
+            current.total += r.rating;
+            current.count += 1;
+            ratingAggregate.set(r.product_id, current);
+          });
+          
+          ratingAggregate.forEach((value, productId) => {
+            ratingsMap.set(productId, value.total / value.count);
+          });
+        }
+      }
+      
+      // Fetch review counts
+      let reviewCountMap = new Map();
+      if (productIds.length > 0) {
+        const { data: reviewCounts, error: reviewError } = await supabase
+          .from("ratings")
+          .select("product_id")
+          .in("product_id", productIds);
+        
+        if (!reviewError && reviewCounts) {
+          const countMap = new Map();
+          reviewCounts.forEach(r => {
+            countMap.set(r.product_id, (countMap.get(r.product_id) || 0) + 1);
+          });
+          reviewCountMap = countMap;
+        }
+      }
+      
+      // Combine data
+      const combinedItems = wishlistData.map(wishlistItem => {
+        const product = productsData?.find(p => p.id === wishlistItem.product_id);
+        return {
+          id: wishlistItem.id,
+          product_id: wishlistItem.product_id,
+          created_at: wishlistItem.created_at,
+          products: product ? {
+            ...product,
+            avg_rating: ratingsMap.get(wishlistItem.product_id) || 0,
+            review_count: reviewCountMap.get(wishlistItem.product_id) || 0,
+            stores: product.stores || { name: "Store" }
+          } : null
+        };
+      }).filter(item => item.products !== null);
+      
+      setWishlistItems(combinedItems);
+      saveWishlistToCache(WISHLIST_CACHE_KEYS.ITEMS, combinedItems);
       cacheDataRef.current.lastFetchTime = Date.now();
       
     } catch (error) {
       console.error("Wishlist error:", error);
-      // Keep cached data if fetch fails
       if (wishlistItems.length === 0) {
-        toast.error("Failed to load wishlist.");
+        toast.error("Failed to load wishlist");
       }
     } finally {
       setLoading(false);
@@ -155,50 +256,44 @@ const Wishlist = memo(() => {
     }
   }, [user, wishlistItems.length]);
 
-  // Initial fetch only if no cached items
   useEffect(() => {
-    if (wishlistItems.length === 0 && !cacheDataRef.current.isFetching) {
-      fetchWishlistItems();
-    } else {
-      setLoading(false);
-    }
+    fetchWishlistItems();
     isMountedRef.current = true;
-  }, [wishlistItems.length, fetchWishlistItems]);
+    return () => { isMountedRef.current = false; };
+  }, [fetchWishlistItems]);
 
-  // Save wishlist items to cache whenever they change
   useEffect(() => {
     if (isMountedRef.current && wishlistItems.length > 0) {
       saveWishlistToCache(WISHLIST_CACHE_KEYS.ITEMS, wishlistItems);
     }
   }, [wishlistItems]);
 
-  // Background refresh every 5 minutes
-  useEffect(() => {
-    const refreshInterval = setInterval(() => {
-      if (!cacheDataRef.current.isFetching && user?.id) {
-        fetchWishlistItems(true);
-      }
-    }, 5 * 60 * 1000); // 5 minutes
-    
-    return () => clearInterval(refreshInterval);
-  }, [fetchWishlistItems, user]);
-
+  // Handle permanent deletion from database and cache
   const handleRemoveFromWishlist = useCallback(async (wishlistId, productName) => {
     setRemovingItems(prev => new Set(prev).add(wishlistId));
     
     try {
+      // Delete from database - PERMANENT DELETION
       const { error } = await supabase
         .from("wishlist_items")
         .delete()
         .eq("id", wishlistId);
-
+      
       if (error) throw error;
 
-      setWishlistItems((prev) => prev.filter((item) => item.id !== wishlistId));
-      toast.success(`${productName || 'Item'} removed from wishlist.`);
+      // Update state immediately
+      setWishlistItems(prev => {
+        const newItems = prev.filter(item => item.id !== wishlistId);
+        // Update cache with new items
+        saveWishlistToCache(WISHLIST_CACHE_KEYS.ITEMS, newItems);
+        return newItems;
+      });
+      
+      toast.success(`${productName || 'Item'} permanently removed from wishlist`);
+      
     } catch (error) {
       console.error("Remove error:", error);
-      toast.error("Failed to remove item.");
+      toast.error("Failed to remove item");
     } finally {
       setRemovingItems(prev => {
         const newSet = new Set(prev);
@@ -214,239 +309,207 @@ const Wishlist = memo(() => {
       return;
     }
 
-    const { error: insertError } = await supabase.from("cart_items").insert([
-      {
-        user_id: user.id,
-        product_id: item.product_id,
-        quantity: 1,
-      },
-    ]);
+    try {
+      // Check if already in cart
+      const { data: existingCart } = await supabase
+        .from("cart_items")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("product_id", item.product_id)
+        .maybeSingle();
 
-    if (insertError) {
-      toast.error("Already in cart or failed.");
-      return;
+      if (existingCart) {
+        toast.error("Already in cart");
+        return;
+      }
+
+      // Add to cart
+      const { error: insertError } = await supabase
+        .from("cart_items")
+        .insert({
+          user_id: user.id,
+          product_id: item.product_id,
+          quantity: 1
+        });
+
+      if (insertError) throw insertError;
+
+      // Remove from wishlist (permanent)
+      const { error: deleteError } = await supabase
+        .from("wishlist_items")
+        .delete()
+        .eq("id", item.id);
+
+      if (deleteError) throw deleteError;
+
+      // Update state and cache
+      setWishlistItems(prev => {
+        const newItems = prev.filter(i => i.id !== item.id);
+        saveWishlistToCache(WISHLIST_CACHE_KEYS.ITEMS, newItems);
+        return newItems;
+      });
+      
+      toast.success(`Added to cart!`);
+      
+    } catch (error) {
+      console.error("Move to cart error:", error);
+      toast.error("Failed to add to cart");
     }
+  }, [user]);
 
-    await handleRemoveFromWishlist(item.id, item.products?.name);
-    toast.success("Added to cart!");
-  }, [user, handleRemoveFromWishlist]);
+  // Real-time subscription for wishlist changes
+  useEffect(() => {
+    if (!user?.id) return;
 
-  const getPriceDrop = useCallback((product) => {
-    const originalPrice = Number(product.original_price) || Number(product.price) * 1.2;
-    const currentPrice = Number(product.price);
-    const dropPercentage = ((originalPrice - currentPrice) / originalPrice) * 100;
-    return dropPercentage > 0 ? Math.round(dropPercentage) : 0;
-  }, []);
+    const subscription = supabase
+      .channel('wishlist-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'wishlist_items',
+          filter: `user_id=eq.${user.id}`
+        },
+        () => {
+          // Refetch to ensure data is in sync
+          fetchWishlistItems(true);
+        }
+      )
+      .subscribe();
 
-  // Calculate stats
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [user, fetchWishlistItems]);
+
   const totalItems = wishlistItems.length;
-  const priceDropCount = wishlistItems.filter(item => getPriceDrop(item.products) > 0).length;
+  const totalValue = wishlistItems.reduce((acc, item) => {
+    if (!item.products) return acc;
+    const price = Number(item.products.price) || 0;
+    const discount = Number(item.products.discount) || 0;
+    const finalPrice = price * (1 - discount / 100);
+    return acc + finalPrice;
+  }, 0);
 
   if (loading && wishlistItems.length === 0) {
     return <WishlistSkeleton />;
   }
 
   return (
-    <div className="wishlist-container">
-      <motion.div 
-        className="wishlist-header"
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        <h1>
-          <FaHeart className="heart-icon" />
-          My Wishlist
-          {wishlistItems.length > 0 && (
-            <span className="item-count">({totalItems})</span>
-          )}
-        </h1>
-      </motion.div>
-
-      {wishlistItems.length === 0 ? (
-        <motion.div 
-          className="empty-wishlist"
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5 }}
-        >
-          <div className="empty-heart">
-            <FaHeart />
+    <div className="wishlist-page">
+      <div className="wishlist-container">
+        {/* Header */}
+        <div className="wishlist-header">
+          <div className="header-left">
+            <FaHeart className="header-icon" />
+            <h1>Wishlist</h1>
+            <span className="count-badge">{totalItems} items</span>
           </div>
-          <h2>No items in wishlist</h2>
-          <p className="empty-subtitle">Add products you love to see them here</p>
-          <motion.button 
-            className="browse-products-btn"
-            onClick={() => navigate("/products")}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            Discover Products
-          </motion.button>
-        </motion.div>
-      ) : (
-        <>
-          <div className="wishlist-stats">
-            <motion.div 
-              className="stat-card"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.1 }}
-            >
-              <div className="stat-icon">
-                <FaHeart />
-              </div>
-              <div className="stat-content">
-                <span className="stat-number">{totalItems}</span>
-                <span className="stat-label">Items</span>
-              </div>
-            </motion.div>
-            
-            <motion.div 
-              className="stat-card price-drop-card"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.2 }}
-            >
-              <div className="stat-icon">
-                <FaArrowDown />
-              </div>
-              <div className="stat-content">
-                <span className="stat-number">
-                  {priceDropCount}
-                </span>
-                <span className="stat-label">Price Drops</span>
-              </div>
-            </motion.div>
+          <div className="header-right">
+            <div className="value-card">
+              <span className="value-label">Total Value</span>
+              <span className="value-amount">KES {formatKenyanMoney(totalValue)}</span>
+            </div>
           </div>
+        </div>
 
-          <div className="section-title">
-            <h3>Your Saved Items</h3>
-            <p className="section-subtitle">Ready to purchase when you are</p>
+        {wishlistItems.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-icon">
+              <FaHeart />
+            </div>
+            <h2>Your wishlist is empty</h2>
+            <p>Add items you love to see them here</p>
+            <button className="shop-now" onClick={() => navigate("/")}>
+              Start Shopping
+            </button>
           </div>
-
+        ) : (
           <div className="wishlist-grid">
             <AnimatePresence>
               {wishlistItems.map((item, index) => {
                 const product = item.products;
+                const isRemoving = removingItems.has(item.id);
                 if (!product) return null;
 
-                const priceDrop = getPriceDrop(product);
-                const isOnSale = product.discount > 0;
-                const isRemoving = removingItems.has(item.id);
-                const isPopular = product.popularity_score > 80;
-                const isBestSeller = product.bestseller || false;
+                const price = Number(product.price) || 0;
+                const discount = Number(product.discount) || 0;
+                const finalPrice = price * (1 - discount / 100);
+                const imageUrl = product.image_gallery?.[0] || product.image_url || "/placeholder.jpg";
+                const rating = product.avg_rating || 0;
+                const reviewCount = product.review_count || 0;
+                const store = product.stores;
 
                 return (
                   <motion.div
                     key={item.id}
-                    className="wishlist-card"
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95, x: 100 }}
-                    transition={{ duration: 0.25, delay: index * 0.03 }}
+                    className="wishlist-item"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.25, delay: index * 0.05 }}
                     layout
                   >
-                    <div className="card-badges">
-                      {isOnSale && (
-                        <span className="sale-badge">
-                          <FaTag /> {product.discount}% OFF
-                        </span>
-                      )}
-                      {priceDrop > 0 && (
-                        <span className="price-drop-badge">
-                          <FaArrowDown /> {priceDrop}% OFF
-                        </span>
-                      )}
-                      {isBestSeller && (
-                        <span className="bestseller-badge">
-                          <FaFire /> Best Seller
-                        </span>
-                      )}
+                    {/* Discount Badge */}
+                    {discount > 0 && (
+                      <div className="discount-circle">
+                        <FaTag />
+                        <span>{discount}%</span>
+                      </div>
+                    )}
+
+                    {/* Product Image - Bigger and Full */}
+                    <div className="item-image" onClick={() => navigate(`/product/${product.id}`)}>
+                      <img src={imageUrl} alt={product.name} />
                     </div>
 
-                    <motion.div 
-                      className="wishlist-image"
-                      whileHover={{ scale: 1.02 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <img
-                        src={product.image_gallery?.[0] || product.image_url || "/placeholder.jpg"}
-                        alt={product.name}
-                        onClick={() => navigate(`/product/${product.id}`)}
-                      />
-                    </motion.div>
-                    
-                    <div className="wishlist-info">
-                      <h4 onClick={() => navigate(`/product/${product.id}`)}>
+                    {/* Product Info */}
+                    <div className="item-info">
+                      {/* Store Name */}
+                      <div className="store-row">
+                        <FaStore className="store-icon" />
+                        <span className="store-name">{store?.name || "Store"}</span>
+                      </div>
+
+                      {/* Product Name */}
+                      <h3 onClick={() => navigate(`/product/${product.id}`)}>
                         {product.name}
-                      </h4>
-                      
-                      <div className="price-section">
-                        <div className="price-row">
-                          <p className="current-price">
-                            KSH {Number(product.price).toLocaleString()}
-                          </p>
-                          {isOnSale && (
-                            <p className="original-price">
-                              KSH {Number(product.original_price || product.price * 1.2).toLocaleString()}
-                            </p>
-                          )}
-                        </div>
-                        {priceDrop > 0 && (
-                          <p className="price-drop-text">
-                            <FaArrowDown /> Price dropped {priceDrop}%
-                          </p>
+                      </h3>
+
+                      {/* Rating with Gold Stars */}
+                      <div className="rating-row">
+                        <RatingStars rating={rating} />
+                        <span className="rating-value">{rating.toFixed(1)}</span>
+                        <span className="review-count">({reviewCount})</span>
+                      </div>
+
+                      {/* Price Section */}
+                      <div className="price-row">
+                        <span className="current-price">KES {formatKenyanMoney(finalPrice)}</span>
+                        {discount > 0 && (
+                          <span className="original-price">KES {formatKenyanMoney(price)}</span>
                         )}
                       </div>
 
-                      <div className="product-urgency">
-                        {isPopular && (
-                          <span className="popular-tag">
-                            <FaFire /> Popular Now
-                          </span>
-                        )}
-                        {product.stock_quantity < 10 && product.stock_quantity > 0 && (
-                          <span className="low-stock-tag">
-                            Only {product.stock_quantity} left
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="wishlist-actions">
-                        <motion.button 
-                          className="cart-btn"
+                      {/* Action Buttons */}
+                      <div className="action-row">
+                        <button
+                          className="add-cart-btn"
                           onClick={() => handleMoveToCart(item)}
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
                           disabled={isRemoving}
                         >
-                          <FaShoppingCart /> Buy Now
-                        </motion.button>
+                          <FaShoppingCart />
+                          <span>Add to Cart</span>
+                        </button>
                         
-                        <div className="action-icons">
-                          <motion.button
-                            className="icon-btn view-btn"
-                            onClick={() => navigate(`/product/${product.id}`)}
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.95 }}
-                            disabled={isRemoving}
-                            title="View Details"
-                          >
-                            <FaEye />
-                          </motion.button>
-
-                          <motion.button
-                            className="icon-btn remove-btn"
-                            onClick={() => handleRemoveFromWishlist(item.id, product.name)}
-                            disabled={isRemoving}
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.95 }}
-                            title="Remove from Wishlist"
-                          >
-                            <FaTrash />
-                          </motion.button>
-                        </div>
+                        <button
+                          className="remove-btn"
+                          onClick={() => handleRemoveFromWishlist(item.id, product.name)}
+                          disabled={isRemoving}
+                        >
+                          <FaTrash />
+                        </button>
                       </div>
                     </div>
                   </motion.div>
@@ -454,15 +517,13 @@ const Wishlist = memo(() => {
               })}
             </AnimatePresence>
           </div>
-        </>
-      )}
-      
-      {/* Bottom spacing for bottom navigation */}
-      <div className="bottom-spacing"></div>
+        )}
+        
+        <div className="bottom-space"></div>
+      </div>
     </div>
   );
 });
 
 Wishlist.displayName = 'Wishlist';
-
 export default Wishlist;

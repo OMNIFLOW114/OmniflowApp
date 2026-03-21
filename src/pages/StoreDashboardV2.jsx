@@ -9,7 +9,8 @@ import {
   FaTruck, FaShippingFast, FaHourglassHalf, FaCheckCircle, FaExclamationTriangle,
   FaInfoCircle, FaCamera, FaImage, FaTrash, FaPlus, FaSave, FaUndo,
   FaSun, FaMoon, FaSearch, FaCog, FaSignOutAlt, FaCopy, FaShare,
-  FaEye, FaEyeSlash
+  FaEye, FaEyeSlash, FaArrowUp, FaArrowDown, FaHistory, FaMoneyBillWaveAlt,
+  FaPercentage, FaTable, FaChartPie, FaPlusCircle
 } from 'react-icons/fa';
 import { useDropzone } from 'react-dropzone';
 import { supabase } from '../lib/supabaseClient';
@@ -36,13 +37,29 @@ const APP_CATEGORIES = [
   { id: 'other', label: 'Other', icon: '📦' }
 ];
 
+// Commission rates by category
+const COMMISSION_RATES = [
+  { category: 'electronics', rate: 5, minRate: 3, maxRate: 8, description: 'Electronics & Gadgets' },
+  { category: 'fashion', rate: 8, minRate: 5, maxRate: 12, description: 'Clothing & Accessories' },
+  { category: 'home-living', rate: 7, minRate: 4, maxRate: 10, description: 'Home & Living' },
+  { category: 'beauty-health', rate: 6, minRate: 4, maxRate: 9, description: 'Beauty & Health' },
+  { category: 'sports-outdoors', rate: 6, minRate: 4, maxRate: 9, description: 'Sports & Outdoors' },
+  { category: 'automotive', rate: 5, minRate: 3, maxRate: 8, description: 'Automotive' },
+  { category: 'books-media', rate: 4, minRate: 2, maxRate: 6, description: 'Books & Media' },
+  { category: 'toys-kids', rate: 6, minRate: 4, maxRate: 9, description: 'Toys & Kids' },
+  { category: 'food-beverages', rate: 7, minRate: 5, maxRate: 10, description: 'Food & Beverages' },
+  { category: 'pet-supplies', rate: 5, minRate: 3, maxRate: 8, description: 'Pet Supplies' },
+  { category: 'office-supplies', rate: 4, minRate: 2, maxRate: 6, description: 'Office Supplies' },
+  { category: 'other', rate: 9, minRate: 7, maxRate: 12, description: 'Other Products' }
+];
+
 // Status flow
 const STATUS_FLOW = [
-  { value: 'pending', label: 'Pending', icon: <FaHourglassHalf />, color: '#F59E0B', step: 1 },
-  { value: 'processing', label: 'Processing', icon: <FaBox />, color: '#3B82F6', step: 2 },
-  { value: 'shipped', label: 'Shipped', icon: <FaShippingFast />, color: '#8B5CF6', step: 3 },
-  { value: 'out for delivery', label: 'Out for Delivery', icon: <FaTruck />, color: '#EC4899', step: 4 },
-  { value: 'delivered', label: 'Delivered', icon: <FaCheckCircle />, color: '#10B981', step: 5 }
+  { value: 'pending', label: 'Pending', icon: <FaHourglassHalf />, color: '#F59E0B', step: 1, nextStatus: 'processing', prevStatus: null },
+  { value: 'processing', label: 'Processing', icon: <FaBox />, color: '#3B82F6', step: 2, nextStatus: 'shipped', prevStatus: 'pending' },
+  { value: 'shipped', label: 'Shipped', icon: <FaShippingFast />, color: '#8B5CF6', step: 3, nextStatus: 'out for delivery', prevStatus: 'processing' },
+  { value: 'out for delivery', label: 'Out for Delivery', icon: <FaTruck />, color: '#EC4899', step: 4, nextStatus: 'delivered', prevStatus: 'shipped' },
+  { value: 'delivered', label: 'Delivered', icon: <FaCheckCircle />, color: '#10B981', step: 5, nextStatus: null, prevStatus: 'out for delivery' }
 ];
 
 const StoreDashboardV2 = () => {
@@ -80,9 +97,14 @@ const StoreDashboardV2 = () => {
   });
   const [searchTerm, setSearchTerm] = useState('');
   const [showSettings, setShowSettings] = useState(false);
-  const [showShareModal, setShowShareModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showOrderDetails, setShowOrderDetails] = useState(false);
+  
+  // Payout states
+  const [sellerPayouts, setSellerPayouts] = useState([]);
+  const [totalPayouts, setTotalPayouts] = useState(0);
+  const [pendingPayoutsList, setPendingPayoutsList] = useState([]);
+  const [completedPayoutsList, setCompletedPayoutsList] = useState([]);
   
   const [dashboardStats, setDashboardStats] = useState({
     totalEarnings: 0,
@@ -146,48 +168,25 @@ const StoreDashboardV2 = () => {
     }
   }, [darkMode]);
 
-  // Check camera permission
-  useEffect(() => {
-    const checkCameraPermission = async () => {
-      if (navigator.permissions && navigator.permissions.query) {
-        try {
-          const result = await navigator.permissions.query({ name: 'camera' });
-          setCameraPermission(result.state);
-          
-          result.addEventListener('change', () => {
-            setCameraPermission(result.state);
-          });
-        } catch (error) {
-          console.log('Camera permission check not supported');
-        }
-      }
-    };
-    
-    checkCameraPermission();
-  }, []);
+  // Get status info
+  const getStatusInfo = (status) => {
+    return STATUS_FLOW.find(s => s.value === status?.toLowerCase()) || STATUS_FLOW[0];
+  };
 
-  const requestCameraPermission = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      stream.getTracks().forEach(track => track.stop());
-      setCameraPermission('granted');
-      toast.success('Camera access granted');
-      return true;
-    } catch (error) {
-      setCameraPermission('denied');
-      toast.error('Camera access denied');
-      return false;
+  const getNextStatus = (currentStatus) => {
+    const current = getStatusInfo(currentStatus);
+    if (current.nextStatus) {
+      return STATUS_FLOW.find(s => s.value === current.nextStatus);
     }
+    return null;
   };
 
-  const getNextStatus = (current) => {
-    const index = STATUS_FLOW.findIndex(s => s.value === current?.toLowerCase());
-    return index >= 0 && index < STATUS_FLOW.length - 1 ? STATUS_FLOW[index + 1] : null;
-  };
-
-  const getPreviousStatus = (current) => {
-    const index = STATUS_FLOW.findIndex(s => s.value === current?.toLowerCase());
-    return index > 0 ? STATUS_FLOW[index - 1] : null;
+  const getPreviousStatus = (currentStatus) => {
+    const current = getStatusInfo(currentStatus);
+    if (current.prevStatus) {
+      return STATUS_FLOW.find(s => s.value === current.prevStatus);
+    }
+    return null;
   };
 
   const handleMarkForInstallment = (product) => { setInstallmentModalProduct(product); };
@@ -220,21 +219,74 @@ const StoreDashboardV2 = () => {
     }
   };
 
+  const fetchSellerPayouts = async () => {
+    if (!store || !user) return;
+    try {
+      const { data: completedOrders, error: ordersError } = await supabase
+        .from('orders')
+        .select('*, product:product_id(name, price, category)')
+        .eq('store_id', store.id)
+        .eq('escrow_released', true)
+        .order('updated_at', { ascending: false });
+      
+      if (ordersError) throw ordersError;
+      
+      const payouts = (completedOrders || []).map(order => ({
+        id: order.id,
+        orderId: order.id.slice(0, 8).toUpperCase(),
+        productName: order.product?.name || 'Unknown Product',
+        amount: order.price_paid || order.total_price || 0,
+        commissionAmount: order.commission_amount || 0,
+        netAmount: (order.price_paid || order.total_price || 0) - (order.commission_amount || 0),
+        status: 'completed',
+        date: order.updated_at,
+        paymentMethod: order.payment_method || 'Wallet',
+        reference: `PAY-${order.id.slice(0, 8)}`
+      }));
+      
+      setSellerPayouts(payouts);
+      setTotalPayouts(payouts.reduce((sum, p) => sum + p.netAmount, 0));
+      
+      const { data: pendingOrders } = await supabase
+        .from('orders')
+        .select('*, product:product_id(name, price, category)')
+        .eq('store_id', store.id)
+        .eq('status', 'delivered')
+        .eq('escrow_released', false)
+        .order('created_at', { ascending: false });
+      
+      const pending = (pendingOrders || []).map(order => ({
+        id: order.id,
+        orderId: order.id.slice(0, 8).toUpperCase(),
+        productName: order.product?.name || 'Unknown Product',
+        amount: order.price_paid || order.total_price || 0,
+        commissionAmount: order.commission_amount || 0,
+        netAmount: (order.price_paid || order.total_price || 0) - (order.commission_amount || 0),
+        status: 'pending',
+        date: order.created_at,
+        paymentMethod: order.payment_method || 'Wallet',
+        reference: `PND-${order.id.slice(0, 8)}`
+      }));
+      
+      setPendingPayoutsList(pending);
+      const completed = payouts.slice(0, 20);
+      setCompletedPayoutsList(completed);
+      
+    } catch (error) {
+      console.error('Error fetching seller payouts:', error);
+    }
+  };
+
   const fetchDashboardData = async () => {
     if (!store || !user) return;
     setLoadingEarnings(true);
     try {
-      // FIXED: Remove non-existent columns
-      const { data: storeData, error: storeError } = await supabase
+      const { data: storeData } = await supabase
         .from('stores')
         .select('seller_score, total_orders, successful_orders')
         .eq('owner_id', user.id)
         .maybeSingle();
 
-      if (storeError && storeError.code !== 'PGRST116') {
-        console.error('Store fetch error:', storeError);
-      }
-      
       if (storeData) {
         setStorePerformance({
           sellerScore: storeData.seller_score || 0,
@@ -244,15 +296,11 @@ const StoreDashboardV2 = () => {
         });
       }
 
-      const { data: ordersData, error: ordersError } = await supabase
+      const { data: ordersData } = await supabase
         .from('orders')
-        .select('total_price, status, created_at, escrow_released, price_paid, delivery_fee')
+        .select('total_price, status, created_at, escrow_released, price_paid, delivery_fee, commission_amount')
         .eq('store_id', store.id);
       
-      if (ordersError) {
-        console.error('Orders fetch error:', ordersError);
-      }
-
       const hasNewOrders = ordersData?.some(order => {
         const diffHours = Math.abs(new Date() - new Date(order.created_at)) / (1000 * 60 * 60);
         return diffHours < 24;
@@ -267,9 +315,9 @@ const StoreDashboardV2 = () => {
       const totalRevenue = ordersData?.reduce((sum, o) => sum + (o.total_price || 0), 0) || 0;
       const totalEarnings = ordersData?.reduce((sum, o) => sum + (o.price_paid || 0), 0) || 0;
       const pendingPayouts = ordersData?.filter(o => !o.escrow_released && ['delivered', 'completed'].includes(o.status?.toLowerCase()))
-        .reduce((sum, o) => sum + (o.price_paid || 0), 0) || 0;
+        .reduce((sum, o) => sum + ((o.price_paid || 0) - (o.commission_amount || 0)), 0) || 0;
       const completedPayouts = ordersData?.filter(o => o.escrow_released)
-        .reduce((sum, o) => sum + (o.price_paid || 0), 0) || 0;
+        .reduce((sum, o) => sum + ((o.price_paid || 0) - (o.commission_amount || 0)), 0) || 0;
       
       const now = new Date();
       const thisMonthEarnings = ordersData?.filter(o => {
@@ -306,15 +354,10 @@ const StoreDashboardV2 = () => {
 
       const totalViews = productsData?.reduce((sum, p) => sum + (p.views || 0), 0) || 0;
 
-      // FIXED: Remove read filter if column doesn't exist
-      const { data: messagesData, error: messagesError } = await supabase
+      const { data: messagesData } = await supabase
         .from('store_messages')
         .select('id')
         .eq('store_id', store.id);
-      
-      if (messagesError) {
-        console.error('Messages fetch error:', messagesError);
-      }
       
       const unreadMessages = messagesData?.length || 0;
 
@@ -333,20 +376,16 @@ const StoreDashboardV2 = () => {
       if (unreadMessages > 0) incomplete.push({ type: 'messages', count: unreadMessages, message: `${unreadMessages} unread messages` });
       setIncompleteItems(incomplete);
 
-      const { data: paymentData, error: paymentError } = await supabase
+      const { data: paymentData } = await supabase
         .from('wallet_transactions')
         .select('*')
         .eq('seller_id', user.id)
         .order('created_at', { ascending: false })
         .limit(10);
       
-      if (paymentError) {
-        console.error('Payment fetch error:', paymentError);
-      }
-      
       setNewPaymentNotification(paymentData && paymentData.length > 0);
 
-      if (!paymentError && paymentData) {
+      if (paymentData) {
         setPaymentHistory(paymentData.map(p => ({
           id: p.id, amount: p.amount, created_at: p.created_at, status: p.status,
           payment_method: p.payment_method || 'Wallet',
@@ -354,6 +393,9 @@ const StoreDashboardV2 = () => {
           type: p.type, description: p.description
         })));
       }
+      
+      await fetchSellerPayouts();
+      
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
@@ -365,13 +407,21 @@ const StoreDashboardV2 = () => {
     setUpdatingOrderId(orderId);
     try {
       const { error } = await supabase.from('orders')
-        .update({ status: newStatus, updated_at: new Date().toISOString() }).eq('id', orderId);
+        .update({ 
+          status: newStatus, 
+          updated_at: new Date().toISOString(),
+          delivered: newStatus === 'delivered' ? true : false
+        })
+        .eq('id', orderId);
+      
       if (error) throw error;
+      
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
       const statusInfo = STATUS_FLOW.find(s => s.value === newStatus);
-      toast.success(`Order is now ${statusInfo?.label || newStatus}`);
+      toast.success(`Order #${orderId.slice(0, 8)} is now ${statusInfo?.label || newStatus}`);
       fetchDashboardData();
     } catch (error) {
+      console.error('Update status error:', error);
       toast.error('Failed to update order status');
     } finally {
       setUpdatingOrderId(null);
@@ -404,7 +454,7 @@ const StoreDashboardV2 = () => {
       try {
         const { data, error } = await supabase
           .from('orders')
-          .select('*, buyer:buyer_id(name, phone, email), product:product_id(name, price, image_gallery)')
+          .select('*, buyer:buyer_id(name, phone, email), product:product_id(name, price, image_gallery, category)')
           .eq('store_id', store.id)
           .order('created_at', { ascending: false });
         if (error) { console.error("Failed to load orders:", error); }
@@ -419,11 +469,11 @@ const StoreDashboardV2 = () => {
     { id: 'products', label: 'Products', icon: <FaBox />, notification: dashboardStats.incompleteProducts > 0 },
     { id: 'orders', label: 'Orders', icon: <FaClipboardCheck />, notification: dashboardStats.pendingOrders > 0 },
     { id: 'earnings', label: 'Earnings', icon: <FaChartLine />, notification: false },
-    { id: 'payments', label: 'Payments', icon: <FaCreditCard />, notification: newPaymentNotification },
+    { id: 'payments', label: 'Payments', icon: <FaCreditCard />, notification: newPaymentNotification || pendingPayoutsList.length > 0 },
+    { id: 'commission', label: 'Commission', icon: <FaPercentage />, notification: false },
     { id: 'lipa-products', label: 'Lipa Products', icon: <FaShoppingBag />, notification: false },
     { id: 'installments', label: 'Lipa Orders', icon: <FaMoneyBillWave />, notification: false },
     { id: 'chat', label: 'Support', icon: <FaCommentDots />, notification: dashboardStats.unreadMessages > 0 },
-    { id: 'analytics', label: 'Analytics', icon: <FaChartLine />, notification: false },
   ];
 
   const fetchProducts = async () => {
@@ -441,12 +491,20 @@ const StoreDashboardV2 = () => {
     finally { setLoadingProducts(false); }
   };
 
+  const handleAddInstallment = () => {
+    setInstallments([...installments, { percent: '', due_in_days: '' }]);
+  };
+
+  const removeInstallment = (index) => {
+    setInstallments(installments.filter((_, i) => i !== index));
+  };
+
   useEffect(() => {
     if (lipaPolepole && installments.length > 0) {
       const totalPercent = parseFloat(initialDeposit || 0) +
         installments.reduce((acc, i) => acc + parseFloat(i.percent || 0), 0);
-      if (Math.abs(totalPercent - 100) > 0.01) {
-        toast.warn(`Total must be exactly 100%`);
+      if (Math.abs(totalPercent - 100) > 0.01 && totalPercent > 0) {
+        toast.warn(`Total percentage is ${totalPercent.toFixed(1)}%, must be exactly 100%`);
       }
     }
   }, [initialDeposit, installments]);
@@ -511,8 +569,17 @@ const StoreDashboardV2 = () => {
     }
     
     if (cameraPermission !== 'granted') {
-      const granted = await requestCameraPermission();
-      if (!granted) return;
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        stream.getTracks().forEach(track => track.stop());
+        setCameraPermission('granted');
+        toast.success('Camera access granted');
+        return true;
+      } catch (error) {
+        setCameraPermission('denied');
+        toast.error('Camera access denied');
+        return false;
+      }
     }
 
     try {
@@ -576,6 +643,8 @@ const StoreDashboardV2 = () => {
         return; 
       }
 
+      const categoryCommission = COMMISSION_RATES.find(c => c.category === newProduct.category)?.rate || 9;
+
       const newProductData = {
         name: newProduct.name,
         price: parseFloat(newProduct.price),
@@ -593,7 +662,7 @@ const StoreDashboardV2 = () => {
         free_delivery_threshold: parseFloat(newProduct.free_delivery_threshold) || 5000,
         delivery_notes: newProduct.delivery_notes,
         usage_guide: newProduct.usage_guide,
-        commission_rate: parseFloat(newProduct.commission_rate) || 0.05,
+        commission_rate: categoryCommission / 100,
         owner_id: user.id,
         store_id: store.id,
         image_gallery: imageUrls,
@@ -742,6 +811,37 @@ const StoreDashboardV2 = () => {
     toast.success('Link copied to clipboard!');
   };
 
+  const renderOrderProgress = (currentStatus) => {
+    const currentStep = STATUS_FLOW.find(s => s.value === currentStatus?.toLowerCase())?.step || 1;
+    
+    return (
+      <div className="v2-order-progress">
+        {STATUS_FLOW.map((step, idx) => (
+          <React.Fragment key={step.value}>
+            <div className={`v2-progress-step ${step.step <= currentStep ? 'v2-progress-completed' : ''} ${step.value === currentStatus?.toLowerCase() ? 'v2-progress-active' : ''}`}>
+              <div className="v2-progress-icon">{step.icon}</div>
+              <span className="v2-progress-label">{step.label}</span>
+            </div>
+            {idx < STATUS_FLOW.length - 1 && (
+              <div className={`v2-progress-line ${step.step < currentStep ? 'v2-progress-line-completed' : ''}`} />
+            )}
+          </React.Fragment>
+        ))}
+      </div>
+    );
+  };
+
+  // Skeleton Loader Component
+  const SkeletonCard = () => (
+    <div className="v2-skeleton-card">
+      <div className="v2-skeleton-icon"></div>
+      <div className="v2-skeleton-content">
+        <div className="v2-skeleton-title"></div>
+        <div className="v2-skeleton-value"></div>
+      </div>
+    </div>
+  );
+
   return (
     <div className={`v2-dashboard ${darkMode ? 'v2-dark' : ''}`}>
       {/* Mobile Header */}
@@ -775,7 +875,7 @@ const StoreDashboardV2 = () => {
           <FaStore className="v2-logo" />
           <div>
             <h2>Seller Hub</h2>
-            <p className="v2-store-status">{store?.is_active ? '🟢 Active' : '🔴 Inactive'}</p>
+            <p className="v2-store-status">{store?.is_active ? 'Active' : 'Inactive'}</p>
           </div>
         </div>
         
@@ -891,79 +991,38 @@ const StoreDashboardV2 = () => {
                 </div>
               </div>
               
-              {/* FIXED: Mobile-friendly 2-column stats grid */}
               <div className="v2-stats-grid">
-                <motion.div 
-                  className="v2-stat-card v2-stat-blue"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
+                <div className="v2-stat-card v2-stat-blue">
                   <div className="v2-stat-icon"><FaBox /></div>
                   <div className="v2-stat-content">
                     <h3>Total Products</h3>
                     <p className="v2-stat-value">{products.length}</p>
                   </div>
-                </motion.div>
+                </div>
 
-                <motion.div 
-                  className="v2-stat-card v2-stat-green"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
+                <div className="v2-stat-card v2-stat-green">
                   <div className="v2-stat-icon"><FaClipboardCheck /></div>
                   <div className="v2-stat-content">
                     <h3>Total Orders</h3>
                     <p className="v2-stat-value">{dashboardStats.totalOrders}</p>
                   </div>
-                </motion.div>
+                </div>
 
-                <motion.div 
-                  className="v2-stat-card v2-stat-purple"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
+                <div className="v2-stat-card v2-stat-purple">
                   <div className="v2-stat-icon"><FaMoneyCheckAlt /></div>
                   <div className="v2-stat-content">
                     <h3>Total Earnings</h3>
                     <p className="v2-stat-value">Ksh {dashboardStats.totalEarnings.toLocaleString()}</p>
                   </div>
-                </motion.div>
+                </div>
 
-                <motion.div 
-                  className="v2-stat-card v2-stat-orange"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <div className="v2-stat-icon"><FaEye /></div>
-                  <div className="v2-stat-content">
-                    <h3>Total Views</h3>
-                    <p className="v2-stat-value">{dashboardStats.totalViews.toLocaleString()}</p>
-                  </div>
-                </motion.div>
-
-                <motion.div 
-                  className="v2-stat-card v2-stat-yellow"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <div className="v2-stat-icon"><FaStar /></div>
-                  <div className="v2-stat-content">
-                    <h3>Seller Score</h3>
-                    <p className="v2-stat-value">{storePerformance.sellerScore.toFixed(1)}</p>
-                  </div>
-                </motion.div>
-
-                <motion.div 
-                  className="v2-stat-card v2-stat-red"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
+                <div className="v2-stat-card v2-stat-orange">
                   <div className="v2-stat-icon"><FaWallet /></div>
                   <div className="v2-stat-content">
-                    <h3>Wallet</h3>
+                    <h3>Wallet Balance</h3>
                     <p className="v2-stat-value">Ksh {dashboardStats.walletBalance.toLocaleString()}</p>
                   </div>
-                </motion.div>
+                </div>
               </div>
 
               <div className="v2-overview-grid">
@@ -982,18 +1041,13 @@ const StoreDashboardV2 = () => {
                   ) : (
                     <div className="v2-product-grid">
                       {products.slice(0, 4).map(p => (
-                        <motion.div 
-                          key={p.id} 
-                          className="v2-product-card"
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                        >
+                        <div key={p.id} className="v2-product-card">
                           <img src={p.image_gallery?.[0] || '/placeholder.jpg'} alt={p.name} />
                           <div className="v2-product-card-info">
                             <h4>{p.name}</h4>
                             <p className="v2-price">Ksh {formatPrice(p.price)}</p>
                           </div>
-                        </motion.div>
+                        </div>
                       ))}
                     </div>
                   )}
@@ -1010,9 +1064,6 @@ const StoreDashboardV2 = () => {
                   <button className="v2-quick-btn" onClick={() => setSection('earnings')}>
                     <FaChartLine /> Check Earnings
                   </button>
-                  <button className="v2-quick-btn" onClick={() => setSection('analytics')}>
-                    <FaChartLine /> View Analytics
-                  </button>
                   <button className="v2-quick-btn" onClick={() => setSection('chat')}>
                     <FaCommentDots /> Support Chat
                   </button>
@@ -1021,7 +1072,7 @@ const StoreDashboardV2 = () => {
             </motion.div>
           )}
 
-          {/* Products Section */}
+          {/* Products Section with Lipa Polepole */}
           {section === 'products' && (
             <motion.div
               key="products"
@@ -1068,6 +1119,7 @@ const StoreDashboardV2 = () => {
                         value={newProduct.category}
                         onChange={e => setNewProduct({...newProduct, category: e.target.value})}
                         required
+                        className="v2-category-select"
                       >
                         <option value="">Select category</option>
                         {APP_CATEGORIES.map(cat => (
@@ -1121,59 +1173,23 @@ const StoreDashboardV2 = () => {
                     />
                   </div>
 
-                  <div className="v2-form-row">
-                    <div className="v2-form-group">
-                      <label>Warranty</label>
-                      <select
-                        value={newProduct.warranty}
-                        onChange={e => setNewProduct({...newProduct, warranty: e.target.value})}
-                      >
-                        <option value="">Select warranty</option>
-                        <option value="No warranty">No warranty</option>
-                        <option value="1 month">1 month</option>
-                        <option value="3 months">3 months</option>
-                        <option value="6 months">6 months</option>
-                        <option value="1 year">1 year</option>
-                        <option value="2 years">2 years</option>
-                      </select>
-                    </div>
-                    <div className="v2-form-group">
-                      <label>Return Policy</label>
-                      <select
-                        value={newProduct.return_policy}
-                        onChange={e => setNewProduct({...newProduct, return_policy: e.target.value})}
-                      >
-                        <option value="">Select return policy</option>
-                        <option value="No returns">No returns</option>
-                        <option value="7 days">7 days</option>
-                        <option value="14 days">14 days</option>
-                        <option value="30 days">30 days</option>
-                      </select>
-                    </div>
-                  </div>
-
                   {/* Lipa Polepole Toggle */}
-                  <div className="v2-toggle-group">
-                    <label className="v2-toggle">
+                  <div className="v2-lipa-toggle-section">
+                    <label className="v2-toggle-label">
                       <input
                         type="checkbox"
                         checked={lipaPolepole}
-                        onChange={e => setLipaPolepole(e.target.checked)}
+                        onChange={(e) => setLipaPolepole(e.target.checked)}
                       />
-                      <span className="v2-toggle-slider"></span>
-                      <span className="v2-toggle-label">Enable Lipa Polepole (Installment Payments)</span>
+                      <span className="v2-toggle-slider-small"></span>
+                      <span className="v2-toggle-text">Enable Lipa Polepole (Installment Payments)</span>
                     </label>
                   </div>
 
                   {/* Installment Configuration */}
                   {lipaPolepole && (
-                    <motion.div 
-                      className="v2-installment-config"
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                    >
-                      <h4>Installment Plan</h4>
+                    <div className="v2-installment-config">
+                      <h4>Installment Plan Setup</h4>
                       <div className="v2-form-group">
                         <label>Initial Deposit (%)</label>
                         <input
@@ -1182,7 +1198,9 @@ const StoreDashboardV2 = () => {
                           max="99"
                           value={initialDeposit}
                           onChange={e => setInitialDeposit(e.target.value)}
+                          placeholder="e.g., 30"
                         />
+                        <small>Percentage to pay upfront</small>
                       </div>
 
                       <div className="v2-installments-list">
@@ -1214,8 +1232,8 @@ const StoreDashboardV2 = () => {
                             />
                             <button
                               type="button"
-                              className="v2-remove-btn"
-                              onClick={() => setInstallments(installments.filter((_, i) => i !== index))}
+                              className="v2-remove-installment"
+                              onClick={() => removeInstallment(index)}
                             >
                               <FaTimes />
                             </button>
@@ -1223,13 +1241,17 @@ const StoreDashboardV2 = () => {
                         ))}
                         <button
                           type="button"
-                          className="v2-add-btn"
-                          onClick={() => setInstallments([...installments, { percent: '', due_in_days: '' }])}
+                          className="v2-add-installment"
+                          onClick={handleAddInstallment}
                         >
-                          <FaPlus /> Add Installment
+                          <FaPlusCircle /> Add Installment
                         </button>
                       </div>
-                    </motion.div>
+                      <div className="v2-installment-note">
+                        <FaInfoCircle />
+                        <small>Total of initial deposit + all installments must equal 100%</small>
+                      </div>
+                    </div>
                   )}
 
                   {/* Image Upload */}
@@ -1241,7 +1263,7 @@ const StoreDashboardV2 = () => {
                         className={`v2-dropzone ${isDragActive ? 'v2-dropzone-active' : ''}`}
                       >
                         <input {...getInputProps()} />
-                        <FaUpload size={32} />
+                        <FaUpload size={24} />
                         <p>Drag & drop or click to upload</p>
                         <small>PNG, JPG, WEBP up to 5MB</small>
                       </div>
@@ -1294,14 +1316,6 @@ const StoreDashboardV2 = () => {
               <div className="v2-products-list">
                 <div className="v2-list-header">
                   <h3>Your Products ({filteredProducts.length})</h3>
-                  <div className="v2-list-actions">
-                    <select className="v2-filter-select">
-                      <option value="all">All Products</option>
-                      <option value="low-stock">Low Stock</option>
-                      <option value="out-of-stock">Out of Stock</option>
-                      <option value="discounted">Discounted</option>
-                    </select>
-                  </div>
                 </div>
 
                 {loadingProducts ? (
@@ -1310,24 +1324,15 @@ const StoreDashboardV2 = () => {
                   <div className="v2-empty-state">
                     <FaBox size={48} />
                     <p>No products found</p>
-                    {searchTerm && <p>Try adjusting your search</p>}
                   </div>
                 ) : (
                   <div className="v2-products-grid">
                     {filteredProducts.map(p => {
                       const images = p.image_gallery?.length ? p.image_gallery : ['/placeholder.jpg'];
                       const currentIndex = currentImageIndices[p.id] || 0;
-                      const isLowStock = p.stock_quantity < 10;
-                      const isOutOfStock = p.stock_quantity === 0;
 
                       return (
-                        <motion.div 
-                          key={p.id} 
-                          className={`v2-product-item ${isLowStock ? 'v2-low-stock' : ''} ${isOutOfStock ? 'v2-out-of-stock' : ''}`}
-                          whileHover={{ y: -4 }}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                        >
+                        <div key={p.id} className="v2-product-item">
                           <div className="v2-product-item-image">
                             <img src={images[currentIndex]} alt={p.name} />
                             {images.length > 1 && (
@@ -1350,41 +1355,23 @@ const StoreDashboardV2 = () => {
                             <div className="v2-product-badges">
                               {p.lipa_polepole && <span className="v2-badge v2-badge-lipa">Lipa</span>}
                               {p.discount > 0 && <span className="v2-badge v2-badge-discount">-{p.discount}%</span>}
-                              {isLowStock && !isOutOfStock && <span className="v2-badge v2-badge-warning">Low Stock</span>}
-                              {isOutOfStock && <span className="v2-badge v2-badge-danger">Out of Stock</span>}
                             </div>
                           </div>
 
                           <div className="v2-product-item-info">
                             <h4>{p.name}</h4>
-                            <div className="v2-product-price-section">
-                              {p.discount > 0 ? (
-                                <>
-                                  <p className="v2-price-discounted">Ksh {formatPrice(p.price * (1 - p.discount / 100))}</p>
-                                  <p className="v2-price-original">Ksh {formatPrice(p.price)}</p>
-                                </>
-                              ) : (
-                                <p className="v2-price">Ksh {formatPrice(p.price)}</p>
-                              )}
-                            </div>
-                            <div className="v2-product-meta">
-                              <span className="v2-stock">Stock: {p.stock_quantity}</span>
-                              <span className="v2-views">{p.views || 0} views</span>
-                            </div>
+                            <p className="v2-price">Ksh {formatPrice(p.price)}</p>
                           </div>
 
                           <div className="v2-product-item-actions">
                             <button onClick={() => handleEditClick(p)}>
                               <FaEdit /> Edit
                             </button>
-                            <button onClick={() => handleFlashSaleRequest(p)}>
-                              <FaFire /> Flash
-                            </button>
                             <button onClick={() => confirmDelete(p.id)}>
                               <FaTrash /> Delete
                             </button>
                           </div>
-                        </motion.div>
+                        </div>
                       );
                     })}
                   </div>
@@ -1414,28 +1401,23 @@ const StoreDashboardV2 = () => {
               ) : (
                 <div className="v2-orders-grid">
                   {filteredOrders.map(order => {
+                    const currentStatus = getStatusInfo(order.status);
                     const nextStatus = getNextStatus(order.status);
                     const prevStatus = getPreviousStatus(order.status);
-                    const statusColor = getStatusColor(order.status);
-                    const orderTotal = order.total_price || 0;
-                    const deliveryFee = order.delivery_fee || 0;
-                    const productPrice = orderTotal - deliveryFee;
-
+                    const statusColor = currentStatus?.color || '#6b7280';
+                    
                     return (
-                      <motion.div 
-                        key={order.id} 
-                        className="v2-order-card"
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        whileHover={{ y: -2 }}
-                      >
+                      <div key={order.id} className="v2-order-card">
                         <div className="v2-order-header">
                           <div className="v2-order-id">
                             <span className="v2-order-id-label">Order #</span>
                             <span className="v2-order-id-value">{order.id.slice(0, 8).toUpperCase()}</span>
                           </div>
+                          <div className="v2-order-date">
+                            {new Date(order.created_at).toLocaleDateString()}
+                          </div>
                           <div className="v2-order-status" style={{ backgroundColor: `${statusColor}20`, color: statusColor }}>
-                            {STATUS_FLOW.find(s => s.value === order.status?.toLowerCase())?.icon}
+                            {currentStatus?.icon}
                             <span>{order.status}</span>
                           </div>
                         </div>
@@ -1449,21 +1431,22 @@ const StoreDashboardV2 = () => {
                             <div>
                               <h4>{order.product?.name || 'Unknown Product'}</h4>
                               <p>Quantity: {order.quantity || 1}</p>
+                              <p className="v2-product-category">{order.product?.category || 'Uncategorized'}</p>
                             </div>
                           </div>
 
-                          <div className="v2-order-details">
-                            <div className="v2-order-detail">
-                              <span>Product Price:</span>
-                              <span>Ksh {formatPrice(productPrice)}</span>
+                          <div className="v2-order-pricing">
+                            <div className="v2-price-row">
+                              <span>Product Total:</span>
+                              <span>Ksh {formatPrice(order.total_price - (order.delivery_fee || 0))}</span>
                             </div>
-                            <div className="v2-order-detail">
+                            <div className="v2-price-row">
                               <span>Delivery Fee:</span>
-                              <span>Ksh {formatPrice(deliveryFee)}</span>
+                              <span>Ksh {formatPrice(order.delivery_fee || 0)}</span>
                             </div>
-                            <div className="v2-order-detail v2-order-total">
+                            <div className="v2-price-row v2-price-total">
                               <span>Total:</span>
-                              <span>Ksh {formatPrice(orderTotal)}</span>
+                              <span>Ksh {formatPrice(order.total_price)}</span>
                             </div>
                           </div>
 
@@ -1476,9 +1459,38 @@ const StoreDashboardV2 = () => {
                           </div>
                         </div>
 
+                        <div className="v2-order-progress-container">
+                          {renderOrderProgress(order.status)}
+                        </div>
+
                         <div className="v2-order-actions">
+                          {prevStatus && (
+                            <button 
+                              className="v2-order-action-btn v2-order-action-prev"
+                              onClick={() => updateOrderStatus(order.id, prevStatus.value)}
+                              disabled={updatingOrderId === order.id}
+                            >
+                              <FaArrowUp /> Back to {prevStatus.label}
+                            </button>
+                          )}
+                          
+                          {nextStatus ? (
+                            <button 
+                              className="v2-order-action-btn v2-order-action-next"
+                              onClick={() => updateOrderStatus(order.id, nextStatus.value)}
+                              disabled={updatingOrderId === order.id}
+                            >
+                              <FaArrowDown /> Mark as {nextStatus.label}
+                              {updatingOrderId === order.id && <div className="v2-spinner-small" />}
+                            </button>
+                          ) : (
+                            <button className="v2-order-action-btn v2-order-action-success" disabled>
+                              <FaCheck /> Order Completed
+                            </button>
+                          )}
+
                           <button 
-                            className="v2-order-action-btn"
+                            className="v2-order-action-btn v2-order-action-details"
                             onClick={() => {
                               setSelectedOrder(order);
                               setShowOrderDetails(true);
@@ -1486,33 +1498,8 @@ const StoreDashboardV2 = () => {
                           >
                             <FaEye /> View Details
                           </button>
-                          
-                          {prevStatus && (
-                            <button 
-                              className="v2-order-action-btn"
-                              onClick={() => updateOrderStatus(order.id, prevStatus.value)}
-                              disabled={updatingOrderId === order.id}
-                            >
-                              {prevStatus.icon} Back to {prevStatus.label}
-                            </button>
-                          )}
-                          
-                          {nextStatus ? (
-                            <button 
-                              className="v2-order-action-btn v2-order-action-primary"
-                              onClick={() => updateOrderStatus(order.id, nextStatus.value)}
-                              disabled={updatingOrderId === order.id}
-                            >
-                              {nextStatus.icon} Mark as {nextStatus.label}
-                              {updatingOrderId === order.id && <div className="v2-spinner-small" />}
-                            </button>
-                          ) : (
-                            <button className="v2-order-action-btn v2-order-action-success" disabled>
-                              <FaCheck /> Completed
-                            </button>
-                          )}
                         </div>
-                      </motion.div>
+                      </div>
                     );
                   })}
                 </div>
@@ -1520,7 +1507,7 @@ const StoreDashboardV2 = () => {
             </motion.div>
           )}
 
-          {/* Earnings Section */}
+          {/* EARNINGS SECTION - Mobile Responsive */}
           {section === 'earnings' && (
             <motion.div
               key="earnings"
@@ -1533,69 +1520,69 @@ const StoreDashboardV2 = () => {
               <h2 className="v2-section-title">Earnings Overview</h2>
               
               {loadingEarnings ? (
-                <div className="v2-loading">Loading earnings...</div>
+                <div className="v2-skeleton-grid">
+                  {[1,2,3,4,5,6].map(i => <SkeletonCard key={i} />)}
+                </div>
               ) : (
                 <>
+                  {/* 2-COLUMN EARNINGS GRID */}
                   <div className="v2-earnings-grid">
-                    <motion.div 
-                      className="v2-earnings-card v2-earnings-total"
-                      whileHover={{ scale: 1.02 }}
-                    >
-                      <FaMoneyCheckAlt />
-                      <div>
+                    <div className="v2-earnings-card v2-earnings-total">
+                      <div className="v2-earnings-icon"><FaMoneyCheckAlt /></div>
+                      <div className="v2-earnings-info">
                         <h4>Total Earnings</h4>
                         <p className="v2-earnings-amount">Ksh {dashboardStats.totalEarnings.toLocaleString()}</p>
                       </div>
-                    </motion.div>
+                    </div>
 
-                    <motion.div 
-                      className="v2-earnings-card v2-earnings-pending"
-                      whileHover={{ scale: 1.02 }}
-                    >
-                      <FaCreditCard />
-                      <div>
-                        <h4>Pending Payouts</h4>
-                        <p className="v2-earnings-amount">Ksh {dashboardStats.pendingPayouts.toLocaleString()}</p>
-                      </div>
-                    </motion.div>
-
-                    <motion.div 
-                      className="v2-earnings-card v2-earnings-completed"
-                      whileHover={{ scale: 1.02 }}
-                    >
-                      <FaMoneyBillWave />
-                      <div>
-                        <h4>Completed Payouts</h4>
-                        <p className="v2-earnings-amount">Ksh {dashboardStats.completedPayouts.toLocaleString()}</p>
-                      </div>
-                    </motion.div>
-
-                    <motion.div 
-                      className="v2-earnings-card v2-earnings-wallet"
-                      whileHover={{ scale: 1.02 }}
-                    >
-                      <FaWallet />
-                      <div>
+                    <div className="v2-earnings-card v2-earnings-wallet">
+                      <div className="v2-earnings-icon"><FaWallet /></div>
+                      <div className="v2-earnings-info">
                         <h4>Wallet Balance</h4>
                         <p className="v2-earnings-amount">Ksh {dashboardStats.walletBalance.toLocaleString()}</p>
                       </div>
-                    </motion.div>
+                    </div>
+
+                    <div className="v2-earnings-card v2-earnings-pending">
+                      <div className="v2-earnings-icon"><FaCreditCard /></div>
+                      <div className="v2-earnings-info">
+                        <h4>Pending Payouts</h4>
+                        <p className="v2-earnings-amount">Ksh {dashboardStats.pendingPayouts.toLocaleString()}</p>
+                      </div>
+                    </div>
+
+                    <div className="v2-earnings-card v2-earnings-completed">
+                      <div className="v2-earnings-icon"><FaCheckCircle /></div>
+                      <div className="v2-earnings-info">
+                        <h4>Completed Payouts</h4>
+                        <p className="v2-earnings-amount">Ksh {dashboardStats.completedPayouts.toLocaleString()}</p>
+                      </div>
+                    </div>
+
+                    <div className="v2-earnings-card v2-earnings-month">
+                      <div className="v2-earnings-icon"><FaChartLine /></div>
+                      <div className="v2-earnings-info">
+                        <h4>This Month</h4>
+                        <p className="v2-earnings-amount">Ksh {dashboardStats.thisMonthEarnings.toLocaleString()}</p>
+                      </div>
+                    </div>
+
+                    <div className="v2-earnings-card v2-earnings-lipa">
+                      <div className="v2-earnings-icon"><FaMoneyBillWave /></div>
+                      <div className="v2-earnings-info">
+                        <h4>Lipa Polepole</h4>
+                        <p className="v2-earnings-amount">Ksh {dashboardStats.lipaPolepoleEarnings.toLocaleString()}</p>
+                      </div>
+                    </div>
                   </div>
 
+                  {/* Performance Metrics */}
                   <div className="v2-performance-section">
                     <h3>Performance Metrics</h3>
                     <div className="v2-performance-metrics">
                       <div className="v2-metric">
                         <span className="v2-metric-label">Total Revenue</span>
                         <span className="v2-metric-value">Ksh {dashboardStats.totalRevenue.toLocaleString()}</span>
-                      </div>
-                      <div className="v2-metric">
-                        <span className="v2-metric-label">This Month</span>
-                        <span className="v2-metric-value">Ksh {dashboardStats.thisMonthEarnings.toLocaleString()}</span>
-                      </div>
-                      <div className="v2-metric">
-                        <span className="v2-metric-label">Lipa Polepole</span>
-                        <span className="v2-metric-value">Ksh {dashboardStats.lipaPolepoleEarnings.toLocaleString()}</span>
                       </div>
                       <div className="v2-metric">
                         <span className="v2-metric-label">Success Rate</span>
@@ -1605,30 +1592,152 @@ const StoreDashboardV2 = () => {
                             : 0}%
                         </span>
                       </div>
+                      <div className="v2-metric">
+                        <span className="v2-metric-label">Total Orders</span>
+                        <span className="v2-metric-value">{dashboardStats.totalOrders}</span>
+                      </div>
+                      <div className="v2-metric">
+                        <span className="v2-metric-label">Conversion Rate</span>
+                        <span className="v2-metric-value">{dashboardStats.conversionRate}%</span>
+                      </div>
                     </div>
                   </div>
 
+                  {/* Recent Transactions Table - Responsive */}
                   {paymentHistory.length > 0 && (
-                    <div className="v2-payment-history">
+                    <div className="v2-recent-transactions">
                       <h3>Recent Transactions</h3>
-                      <div className="v2-payment-list">
-                        {paymentHistory.map(payment => (
-                          <div key={payment.id} className="v2-payment-item">
-                            <div className="v2-payment-info">
-                              <span className="v2-payment-date">
-                                {new Date(payment.created_at).toLocaleDateString()}
-                              </span>
-                              <span className={`v2-payment-type v2-payment-${payment.type}`}>
-                                {payment.type}
-                              </span>
+                      <div className="v2-transactions-table-wrapper">
+                        <table className="v2-transactions-table">
+                          <thead>
+                            <tr>
+                              <th>Date</th>
+                              <th>Reference</th>
+                              <th>Type</th>
+                              <th>Amount</th>
+                              <th>Receipt</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {paymentHistory.map(payment => (
+                              <tr key={payment.id}>
+                                <td data-label="Date">{new Date(payment.created_at).toLocaleDateString()}</td>
+                                <td data-label="Reference" className="v2-ref">{payment.reference_id}</td>
+                                <td data-label="Type">
+                                  <span className={`v2-transaction-type v2-type-${payment.type}`}>
+                                    {payment.type}
+                                  </span>
+                                </td>
+                                <td data-label="Amount" className="v2-amount">Ksh {payment.amount.toLocaleString()}</td>
+                                <td data-label="Receipt">
+                                  <button 
+                                    className="v2-receipt-btn-small"
+                                    onClick={() => generateReceipt(payment)}
+                                  >
+                                    <FaReceipt />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </motion.div>
+          )}
+
+          {/* PAYMENTS SECTION */}
+          {section === 'payments' && (
+            <motion.div
+              key="payments"
+              className="v2-section"
+              variants={sectionVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+            >
+              <h2 className="v2-section-title">Seller Payouts</h2>
+              
+              {loadingEarnings ? (
+                <div className="v2-skeleton-grid">
+                  <SkeletonCard />
+                  <SkeletonCard />
+                </div>
+              ) : (
+                <>
+                  <div className="v2-payout-summary-grid">
+                    <div className="v2-payout-card v2-payout-total">
+                      <div className="v2-payout-icon"><FaMoneyBillWaveAlt /></div>
+                      <div className="v2-payout-info">
+                        <h4>Total Payouts Received</h4>
+                        <p className="v2-payout-amount">Ksh {totalPayouts.toLocaleString()}</p>
+                      </div>
+                    </div>
+
+                    <div className="v2-payout-card v2-payout-pending">
+                      <div className="v2-payout-icon"><FaHourglassHalf /></div>
+                      <div className="v2-payout-info">
+                        <h4>Pending Payouts</h4>
+                        <p className="v2-payout-amount">Ksh {dashboardStats.pendingPayouts.toLocaleString()}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {pendingPayoutsList.length > 0 && (
+                    <div className="v2-pending-payouts">
+                      <h3><FaClock /> Pending Payouts ({pendingPayoutsList.length})</h3>
+                      <div className="v2-payout-list">
+                        {pendingPayoutsList.map(payout => (
+                          <div key={payout.id} className="v2-payout-item pending">
+                            <div className="v2-payout-details">
+                              <span className="v2-payout-order">Order #{payout.orderId}</span>
+                              <span className="v2-payout-product">{payout.productName}</span>
                             </div>
-                            <div className="v2-payment-amount">
-                              Ksh {payment.amount.toLocaleString()}
+                            <div className="v2-payout-net-amount">
+                              <span>Net Amount:</span>
+                              <span className="v2-net-amount">Ksh {payout.netAmount.toLocaleString()}</span>
+                            </div>
+                            <div className="v2-payout-status">
+                              <span className="status-badge status-pending">Pending</span>
+                              <small>{new Date(payout.date).toLocaleDateString()}</small>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {completedPayoutsList.length > 0 && (
+                    <div className="v2-completed-payouts">
+                      <h3><FaHistory /> Payout History ({completedPayoutsList.length})</h3>
+                      <div className="v2-payout-list">
+                        {completedPayoutsList.map(payout => (
+                          <div key={payout.id} className="v2-payout-item completed">
+                            <div className="v2-payout-details">
+                              <span className="v2-payout-order">Order #{payout.orderId}</span>
+                              <span className="v2-payout-product">{payout.productName}</span>
+                            </div>
+                            <div className="v2-payout-net-amount">
+                              <span>Amount:</span>
+                              <span className="v2-net-amount">Ksh {payout.netAmount.toLocaleString()}</span>
+                            </div>
+                            <div className="v2-payout-status">
+                              <span className="status-badge status-completed">Paid</span>
+                              <small>{new Date(payout.date).toLocaleDateString()}</small>
                             </div>
                             <button 
-                              className="v2-receipt-btn"
-                              onClick={() => generateReceipt(payment)}
-                              title="Generate Receipt"
+                              className="v2-receipt-btn-small"
+                              onClick={() => generateReceipt({
+                                reference_id: payout.reference,
+                                amount: payout.netAmount,
+                                created_at: payout.date,
+                                status: 'completed',
+                                type: 'sale',
+                                description: `Payout for order ${payout.orderId}`
+                              })}
                             >
                               <FaReceipt />
                             </button>
@@ -1637,8 +1746,177 @@ const StoreDashboardV2 = () => {
                       </div>
                     </div>
                   )}
+
+                  {pendingPayoutsList.length === 0 && completedPayoutsList.length === 0 && (
+                    <div className="v2-empty-state">
+                      <FaMoneyBillWaveAlt size={48} />
+                      <p>No payouts yet</p>
+                      <small>When orders are completed, payouts will appear here</small>
+                    </div>
+                  )}
+
+                  <div className="v2-payout-info-section">
+                    <h4>How Payouts Work</h4>
+                    <div className="v2-info-grid">
+                      <div className="v2-info-step">
+                        <span className="v2-step-num">1</span>
+                        <div>
+                          <strong>Order Completed</strong>
+                          <p>Customer confirms delivery with OTP</p>
+                        </div>
+                      </div>
+                      <div className="v2-info-step">
+                        <span className="v2-step-num">2</span>
+                        <div>
+                          <strong>Remaining Balance Paid</strong>
+                          <p>Customer pays the 75% balance</p>
+                        </div>
+                      </div>
+                      <div className="v2-info-step">
+                        <span className="v2-step-num">3</span>
+                        <div>
+                          <strong>Commission Deducted</strong>
+                          <p>Platform fee based on category</p>
+                        </div>
+                      </div>
+                      <div className="v2-info-step">
+                        <span className="v2-step-num">4</span>
+                        <div>
+                          <strong>Escrow Released</strong>
+                          <p>Net amount sent to your wallet</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </>
               )}
+            </motion.div>
+          )}
+
+          {/* COMMISSION SECTION - Mobile Responsive */}
+          {section === 'commission' && (
+            <motion.div
+              key="commission"
+              className="v2-section"
+              variants={sectionVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+            >
+              <h2 className="v2-section-title">Commission Rates</h2>
+              
+              <div className="v2-commission-info">
+                <div className="v2-commission-header">
+                  <FaPercentage />
+                  <p>Platform fees are calculated based on product category. These rates apply to the total order amount including delivery fee.</p>
+                </div>
+                
+                <div className="v2-commission-table-wrapper">
+                  <table className="v2-commission-table">
+                    <thead>
+                      <tr>
+                        <th>Category</th>
+                        <th>Rate</th>
+                        <th>Range</th>
+                        <th>Description</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {COMMISSION_RATES.map(rate => (
+                        <tr key={rate.category}>
+                          <td data-label="Category" className="v2-category-cell">
+                            <span className="v2-category-name">{rate.category}</span>
+                          </td>
+                          <td data-label="Rate" className="v2-rate-cell">
+                            <span className="v2-commission-rate">{rate.rate}%</span>
+                          </td>
+                          <td data-label="Range" className="v2-range-cell">
+                            {rate.minRate}% - {rate.maxRate}%
+                          </td>
+                          <td data-label="Description" className="v2-desc-cell">{rate.description}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="v2-commission-note">
+                  <FaInfoCircle />
+                  <div>
+                    <strong>How commissions work:</strong>
+                    <p>When a customer completes payment for an order, the commission is automatically deducted from the total amount. The remaining balance is released to your wallet after order completion.</p>
+                    <p className="v2-example">Example: For a Ksh 1,000 product in Electronics (5% commission), Ksh 50 goes to platform fee, and you receive Ksh 950.</p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Lipa Products Section */}
+          {section === 'lipa-products' && (
+            <motion.div
+              key="lipa-products"
+              className="v2-section"
+              variants={sectionVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+            >
+              <h2 className="v2-section-title">Lipa Polepole Products</h2>
+              
+              {lipaPolepoleProducts.length === 0 ? (
+                <div className="v2-empty-state">
+                  <FaShoppingBag size={48} />
+                  <p>No Lipa Polepole products</p>
+                  <small>Enable "Lipa Polepole" when creating a product to see it here</small>
+                </div>
+              ) : (
+                <div className="v2-products-grid">
+                  {lipaPolepoleProducts.map(p => (
+                    <div key={p.id} className="v2-product-item">
+                      <div className="v2-product-item-image">
+                        <img src={p.image_gallery?.[0] || '/placeholder.jpg'} alt={p.name} />
+                        <div className="v2-product-badges">
+                          <span className="v2-badge v2-badge-lipa">Lipa Polepole</span>
+                        </div>
+                      </div>
+                      <div className="v2-product-item-info">
+                        <h4>{p.name}</h4>
+                        <p className="v2-price">Ksh {formatPrice(p.price)}</p>
+                        {p.installment_plan && (
+                          <div className="v2-installment-info">
+                            <small>Initial: {p.installment_plan.initial_percent}%</small>
+                            <small>{p.installment_plan.installments?.length} installments</small>
+                          </div>
+                        )}
+                      </div>
+                      <div className="v2-product-item-actions">
+                        <button onClick={() => handleEditClick(p)}>
+                          <FaEdit /> Edit
+                        </button>
+                        <button onClick={() => confirmDelete(p.id)}>
+                          <FaTrash /> Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* Installments Section */}
+          {section === 'installments' && (
+            <motion.div
+              key="installments"
+              className="v2-section"
+              variants={sectionVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+            >
+              <h2 className="v2-section-title">Lipa Polepole Orders</h2>
+              <InstallmentOrdersTab sellerId={user?.id} />
             </motion.div>
           )}
 
@@ -1668,20 +1946,14 @@ const StoreDashboardV2 = () => {
                     messages.map((msg, i) => {
                       const isSeller = msg.sender_role === 'seller';
                       return (
-                        <motion.div
-                          key={i}
-                          className={`v2-chat-message ${isSeller ? 'v2-chat-seller' : 'v2-chat-support'}`}
-                          initial={{ opacity: 0, x: isSeller ? 20 : -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: i * 0.05 }}
-                        >
+                        <div key={i} className={`v2-chat-message ${isSeller ? 'v2-chat-seller' : 'v2-chat-support'}`}>
                           <div className="v2-chat-message-content">
                             <p>{msg.content}</p>
                             <span className="v2-chat-time">
                               {new Date(msg.created_at).toLocaleTimeString()}
                             </span>
                           </div>
-                        </motion.div>
+                        </div>
                       );
                     })
                   )}
@@ -1725,7 +1997,7 @@ const StoreDashboardV2 = () => {
               exit={{ scale: 0.9, y: 20 }}
             >
               <div className="v2-modal-header">
-                <h2>Welcome to Seller Hub! 🎉</h2>
+                <h2>Welcome to Seller Hub!</h2>
                 <button className="v2-modal-close" onClick={() => setShowTutorial(false)}>
                   <FaTimes />
                 </button>
@@ -1749,14 +2021,14 @@ const StoreDashboardV2 = () => {
                   <span className="v2-step-number">3</span>
                   <div>
                     <h4>Manage Orders</h4>
-                    <p>Update order status and track deliveries</p>
+                    <p>Update order status as you process and ship orders</p>
                   </div>
                 </div>
                 <div className="v2-tutorial-step">
                   <span className="v2-step-number">4</span>
                   <div>
-                    <h4>Get Support</h4>
-                    <p>Use the support chat for assistance</p>
+                    <h4>Get Paid</h4>
+                    <p>Track payouts from completed orders</p>
                   </div>
                 </div>
               </div>
@@ -1994,7 +2266,7 @@ const StoreDashboardV2 = () => {
                   <h4>Product Details</h4>
                   <p><strong>Product:</strong> {selectedOrder.product?.name}</p>
                   <p><strong>Quantity:</strong> {selectedOrder.quantity || 1}</p>
-                  <p><strong>Unit Price:</strong> Ksh {formatPrice((selectedOrder.total_price - (selectedOrder.delivery_fee || 0)) / (selectedOrder.quantity || 1))}</p>
+                  <p><strong>Category:</strong> {selectedOrder.product?.category || 'N/A'}</p>
                 </div>
 
                 <div className="v2-detail-group">

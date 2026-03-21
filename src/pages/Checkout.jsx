@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useRef } from "react";
+import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { supabase } from "@/supabase";
 import { useAuth } from "@/context/AuthContext";
@@ -14,24 +14,14 @@ import {
   FaBolt,
   FaClock,
   FaTruck,
-  FaMotorcycle
+  FaMotorcycle,
+  FaMapMarkerAlt,
+  FaBuilding
 } from "react-icons/fa";
 import "./Checkout.css";
 
 // Get Mapbox token from environment variables
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
-
-// Delivery constants
-const DELIVERY = {
-  BASE_FEE: 50,
-  ZONES: {
-    ZONE1: { max: 10, rate: 15 },
-    ZONE2: { max: 50, rate: 10 },
-    ZONE3: { max: Infinity, rate: 7 }
-  },
-  MAX_RADIUS_KM: 100,
-  FREE_DELIVERY_THRESHOLD: 5000
-};
 
 export default function Checkout() {
   const { id: productId } = useParams();
@@ -41,6 +31,7 @@ export default function Checkout() {
 
   const [products, setProducts] = useState([]);
   const [seller, setSeller] = useState(null);
+  const [storeDeliverySettings, setStoreDeliverySettings] = useState(null);
   const [loading, setLoading] = useState(true);
   const [deliveryDistance, setDeliveryDistance] = useState(null);
   const [deliveryCalculating, setDeliveryCalculating] = useState(false);
@@ -59,6 +50,7 @@ export default function Checkout() {
   const [contactPhone, setContactPhone] = useState(user?.phone || "");
   const [quantity, setQuantity] = useState(1);
   const [buying, setBuying] = useState(false);
+  const [pickupStation, setPickupStation] = useState("");
 
   // Mapbox address state
   const [deliveryAddress, setDeliveryAddress] = useState("");
@@ -75,7 +67,6 @@ export default function Checkout() {
 
   // Check if coming from cart or flash sale
   const fromCart = location.state?.fromCart;
-  const storeId = location.state?.storeId;
   const fromFlashSale = location.state?.fromFlashSale;
 
   // Admin constants
@@ -94,31 +85,48 @@ export default function Checkout() {
     })}`;
   };
 
-  // Helper function to determine weight class if not set
-  const determineWeightClass = (product) => {
-    if (product.weight_class) return product.weight_class;
-    
-    const category = (product.category || '').toLowerCase();
-    
-    if (category.includes('electronics') || 
-        category.includes('phone') || 
-        category.includes('fashion') || 
-        category.includes('apparel') || 
-        category.includes('book') ||
-        category.includes('jewelry')) {
-      return 'Small';
+  // Helper function to update wallet balance
+  const updateWalletBalance = async (userId, amount, operation) => {
+    try {
+      const { data: wallet, error: fetchError } = await supabase
+        .from("wallets")
+        .select("balance")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (fetchError) throw fetchError;
+
+      let currentBalance = 0;
+      if (wallet) {
+        currentBalance = wallet.balance || 0;
+      }
+
+      const newBalance = operation === 'subtract' 
+        ? currentBalance - amount 
+        : currentBalance + amount;
+
+      if (operation === 'subtract' && newBalance < 0) {
+        throw new Error("Insufficient balance");
+      }
+
+      const { error: updateError } = await supabase
+        .from("wallets")
+        .update({ 
+          balance: newBalance,
+          updated_at: new Date().toISOString()
+        })
+        .eq("user_id", userId);
+
+      if (updateError) throw updateError;
+
+      return newBalance;
+    } catch (error) {
+      console.error("Error updating wallet:", error);
+      throw error;
     }
-    
-    if (category.includes('furniture') || 
-        category.includes('appliance') || 
-        (category.includes('home') && category.includes('large'))) {
-      return 'Heavy';
-    }
-    
-    return 'Medium';
   };
 
-  // Calculate product totals
+  // Calculate product totals FIRST
   const productTotals = useMemo(() => {
     return products.map(product => {
       let unitPrice;
@@ -134,15 +142,12 @@ export default function Checkout() {
       const productPrice = +(unitPrice * product.quantity).toFixed(2);
       const depositProduct = +(productPrice * depositPercent).toFixed(2);
       
-      const weightClass = determineWeightClass(product);
-      
       return {
         ...product,
         unitPrice,
         productPrice,
         depositProduct,
         originalPrice: product.original_price || product.price,
-        weightClass
       };
     });
   }, [products]);
@@ -157,51 +162,69 @@ export default function Checkout() {
     [productTotals]
   );
 
-  // Calculate delivery fee using the dynamic zone-based formula
-  const calculateZoneDeliveryFee = (distance) => {
-    if (!distance) return 0;
+  // Calculate delivery fee based on store's delivery settings
+  const calculateDeliveryFeeFromStore = useCallback((distance, storeSettings) => {
+    if (!distance || distance <= 0) return 0;
+    if (!storeSettings) return 0;
     
-    let rate;
-    let zone;
+    console.log("Calculating delivery fee with store settings:", storeSettings);
     
-    if (distance <= DELIVERY.ZONES.ZONE1.max) {
-      rate = DELIVERY.ZONES.ZONE1.rate;
-      zone = 'zone1';
-    } else if (distance <= DELIVERY.ZONES.ZONE2.max) {
-      rate = DELIVERY.ZONES.ZONE2.rate;
-      zone = 'zone2';
-    } else {
-      rate = DELIVERY.ZONES.ZONE3.rate;
-      zone = 'zone3';
+    // For self-delivery stores, use their rates
+    if (storeSettings.delivery_type === 'self-delivery') {
+      const baseFee = Number(storeSettings.delivery_base_fee) || 100;
+      const ratePerKm = Number(storeSettings.delivery_rate_per_km) || 15;
+      const totalFee = baseFee + (distance * ratePerKm);
+      
+      console.log(`Self-delivery fee: base=${baseFee}, rate=${ratePerKm}, distance=${distance}, total=${totalFee}`);
+      
+      return Math.round(totalFee);
     }
     
-    const totalFee = DELIVERY.BASE_FEE + (distance * rate);
-    return {
-      fee: Math.round(totalFee),
-      rate,
-      zone,
-      baseFee: DELIVERY.BASE_FEE
+    // For Omniflow managed delivery, use zone-based rates
+    const DELIVERY_RATES = {
+      BASE_FEE: 50,
+      ZONES: [
+        { maxDistance: 10, ratePerKm: 15 },   // Zone 1: up to 10km
+        { maxDistance: 50, ratePerKm: 10 },   // Zone 2: up to 50km
+        { maxDistance: Infinity, ratePerKm: 7 } // Zone 3: beyond 50km
+      ]
     };
-  };
+    
+    let zoneRate = DELIVERY_RATES.ZONES[2].ratePerKm;
+    if (distance <= DELIVERY_RATES.ZONES[0].maxDistance) {
+      zoneRate = DELIVERY_RATES.ZONES[0].ratePerKm;
+    } else if (distance <= DELIVERY_RATES.ZONES[1].maxDistance) {
+      zoneRate = DELIVERY_RATES.ZONES[1].ratePerKm;
+    }
+    
+    const totalFee = DELIVERY_RATES.BASE_FEE + (distance * zoneRate);
+    
+    console.log(`Omniflow delivery fee: distance=${distance}, rate=${zoneRate}, total=${totalFee}`);
+    
+    return Math.round(totalFee);
+  }, []);
 
   // Delivery fee calculation
-  const deliveryFeeData = useMemo(() => {
-    if (!deliveryDistance) return { fee: 0, rate: 0, zone: null, baseFee: DELIVERY.BASE_FEE };
-    if (deliveryMethod !== "door") return { fee: 0, rate: 0, zone: null, baseFee: DELIVERY.BASE_FEE };
-    
-    return calculateZoneDeliveryFee(deliveryDistance);
-  }, [deliveryDistance, deliveryMethod]);
+  const deliveryFee = useMemo(() => {
+    if (!deliveryDistance || deliveryMethod !== "door") return 0;
+    return calculateDeliveryFeeFromStore(deliveryDistance, storeDeliverySettings);
+  }, [deliveryDistance, deliveryMethod, storeDeliverySettings, calculateDeliveryFeeFromStore]);
 
-  const deliveryFee = deliveryFeeData.fee;
-
-  const depositTotal = useMemo(() => +(totalDeposit + (deliveryMethod === "door" ? deliveryFee : 0)).toFixed(2), [totalDeposit, deliveryFee, deliveryMethod]);
-  const balanceDue = useMemo(() => +(totalProductPrice - totalDeposit).toFixed(2), [totalProductPrice, totalDeposit]);
-  const totalOrder = useMemo(() => +(totalProductPrice + (deliveryMethod === "door" ? deliveryFee : 0)).toFixed(2), [totalProductPrice, deliveryFee, deliveryMethod]);
-
-  // Check free delivery eligibility
+  // Check free delivery eligibility (for Omniflow managed only)
+  const FREE_DELIVERY_THRESHOLD = 5000;
   const isFreeDelivery = useMemo(() => {
-    return totalProductPrice >= DELIVERY.FREE_DELIVERY_THRESHOLD;
-  }, [totalProductPrice]);
+    // Self-delivery stores don't offer free delivery
+    if (storeDeliverySettings?.delivery_type === 'self-delivery') return false;
+    return totalProductPrice >= FREE_DELIVERY_THRESHOLD;
+  }, [totalProductPrice, storeDeliverySettings]);
+
+  const finalDeliveryFee = useMemo(() => {
+    return isFreeDelivery ? 0 : deliveryFee;
+  }, [isFreeDelivery, deliveryFee]);
+
+  const depositTotal = useMemo(() => +(totalDeposit + (deliveryMethod === "door" ? finalDeliveryFee : 0)).toFixed(2), [totalDeposit, finalDeliveryFee, deliveryMethod]);
+  const balanceDue = useMemo(() => +(totalProductPrice - totalDeposit).toFixed(2), [totalProductPrice, totalDeposit]);
+  const totalOrder = useMemo(() => +(totalProductPrice + (deliveryMethod === "door" ? finalDeliveryFee : 0)).toFixed(2), [totalProductPrice, finalDeliveryFee, deliveryMethod]);
 
   // Flash sale timer effect
   useEffect(() => {
@@ -230,32 +253,8 @@ export default function Checkout() {
     return () => clearInterval(timer);
   }, [isFlashSale, flashSaleEndsAt]);
 
-  // Calculate distance when address is selected
-  useEffect(() => {
-    async function updateDistance() {
-      if (!deliveryAddress || !seller?.location_coords || fromCart || deliveryMethod !== "door") return;
-      
-      const distance = await calculateDistance(seller.location_coords, deliveryAddress);
-      setDeliveryDistance(distance);
-      
-      if (distance) {
-        const feeData = calculateZoneDeliveryFee(distance);
-        
-        setDeliveryBreakdown({
-          distance: distance.toFixed(1),
-          zone: feeData.zone,
-          rate: feeData.rate,
-          baseFee: feeData.baseFee,
-          total: feeData.fee
-        });
-      }
-    }
-    
-    updateDistance();
-  }, [deliveryAddress, seller, deliveryMethod]);
-
   // Calculate distance using Mapbox
-  const calculateDistance = async (fromCoords, toAddress) => {
+  const calculateDistance = useCallback(async (fromCoords, toAddress) => {
     if (!fromCoords || !toAddress) return null;
     
     setDeliveryCalculating(true);
@@ -283,9 +282,36 @@ export default function Checkout() {
       
       const distanceKm = routeData.routes[0].distance / 1000;
       
-      if (distanceKm > DELIVERY.MAX_RADIUS_KM) {
-        toast.error(`Delivery address is beyond our ${DELIVERY.MAX_RADIUS_KM}km service radius`);
-        return null;
+      // Update delivery breakdown for display
+      if (storeDeliverySettings?.delivery_type === 'self-delivery') {
+        const baseFee = Number(storeDeliverySettings.delivery_base_fee) || 100;
+        const ratePerKm = Number(storeDeliverySettings.delivery_rate_per_km) || 15;
+        setDeliveryBreakdown({
+          distance: distanceKm.toFixed(1),
+          type: 'self-delivery',
+          baseFee: baseFee,
+          ratePerKm: ratePerKm,
+          total: Math.round(baseFee + (distanceKm * ratePerKm))
+        });
+      } else {
+        const DELIVERY_RATES = { BASE_FEE: 50, ZONES: [{ maxDistance: 10, ratePerKm: 15 }, { maxDistance: 50, ratePerKm: 10 }, { maxDistance: Infinity, ratePerKm: 7 }] };
+        let rate = DELIVERY_RATES.ZONES[2].ratePerKm;
+        let zone = 'zone3';
+        if (distanceKm <= DELIVERY_RATES.ZONES[0].maxDistance) {
+          rate = DELIVERY_RATES.ZONES[0].ratePerKm;
+          zone = 'zone1';
+        } else if (distanceKm <= DELIVERY_RATES.ZONES[1].maxDistance) {
+          rate = DELIVERY_RATES.ZONES[1].ratePerKm;
+          zone = 'zone2';
+        }
+        setDeliveryBreakdown({
+          distance: distanceKm.toFixed(1),
+          type: 'omniflow-managed',
+          zone: zone,
+          rate: rate,
+          baseFee: DELIVERY_RATES.BASE_FEE,
+          total: Math.round(DELIVERY_RATES.BASE_FEE + (distanceKm * rate))
+        });
       }
       
       return distanceKm;
@@ -295,7 +321,27 @@ export default function Checkout() {
     } finally {
       setDeliveryCalculating(false);
     }
-  };
+  }, [storeDeliverySettings]);
+
+  // Calculate distance when address is selected
+  useEffect(() => {
+    async function updateDistance() {
+      if (!deliveryAddress || !seller?.location_coords || fromCart || deliveryMethod !== "door") return;
+      
+      const distance = await calculateDistance(seller.location_coords, deliveryAddress);
+      setDeliveryDistance(distance);
+      
+      if (distance) {
+        const maxRadius = storeDeliverySettings?.delivery_coverage_radius || 100;
+        if (distance > maxRadius) {
+          toast.error(`Delivery address is beyond the seller's ${maxRadius}km service radius`);
+          setDeliveryDistance(null);
+        }
+      }
+    }
+    
+    updateDistance();
+  }, [deliveryAddress, seller, deliveryMethod, storeDeliverySettings, calculateDistance, fromCart]);
 
   // Mapbox address search
   const searchAddresses = async (query) => {
@@ -380,17 +426,11 @@ export default function Checkout() {
     };
   }, []);
 
+  // Load checkout data
   useEffect(() => {
     async function load() {
       setLoading(true);
       try {
-        console.log("🔄 Checkout loading...", { 
-          productId, 
-          fromCart, 
-          fromFlashSale,
-          locationState: location.state 
-        });
-
         if (!user?.id) {
           toast.error("Please login to proceed to checkout");
           navigate("/login");
@@ -399,11 +439,9 @@ export default function Checkout() {
 
         // Flash Sale Flow
         if (fromFlashSale && location.state?.product) {
-          console.log("⚡ Flash sale checkout flow activated");
-          
           const flashProduct = location.state.product;
           const flashPrice = location.state.flashPrice;
-          const originalPrice = location.state.originalPrice;
+          const originalPriceVal = location.state.originalPrice;
           
           const now = new Date();
           const flashEndsAt = new Date(flashProduct.flash_sale_ends_at);
@@ -415,12 +453,12 @@ export default function Checkout() {
 
           setIsFlashSale(true);
           setFlashSaleEndsAt(flashProduct.flash_sale_ends_at);
-          setOriginalPrice(originalPrice);
+          setOriginalPrice(originalPriceVal);
 
           const productWithFlashPrice = {
             ...flashProduct,
             price: flashPrice,
-            original_price: originalPrice,
+            original_price: originalPriceVal,
             discount: flashProduct.discount || 0,
             is_flash_sale: true,
             quantity: 1
@@ -428,31 +466,46 @@ export default function Checkout() {
 
           setProducts([productWithFlashPrice]);
 
-          // Fetch seller info with location coordinates and delivery type
-          const { data: s, error: sellerError } = await supabase
+          // Fetch store delivery settings from stores table
+          const { data: store, error: storeError } = await supabase
             .from("stores")
-            .select("id, name, contact_phone, location, location_lat, location_lng, owner_id, delivery_type")
+            .select("id, name, contact_phone, location, location_lat, location_lng, owner_id, delivery_type, has_delivery_fleet, delivery_fleet_size, delivery_coverage_radius, delivery_base_fee, delivery_rate_per_km, county")
             .eq("owner_id", flashProduct.owner_id)
             .maybeSingle();
 
-          if (sellerError) {
-            console.error("Error fetching seller:", sellerError);
+          if (storeError) {
+            console.error("Error fetching store:", storeError);
           }
           
-          if (s) {
+          if (store) {
+            console.log("Store delivery settings loaded:", {
+              delivery_type: store.delivery_type,
+              delivery_base_fee: store.delivery_base_fee,
+              delivery_rate_per_km: store.delivery_rate_per_km,
+              delivery_coverage_radius: store.delivery_coverage_radius
+            });
+            
             setSeller({
-              ...s,
-              location_coords: s.location_lat && s.location_lng ? 
-                [s.location_lng, s.location_lat] : null
+              ...store,
+              location_coords: store.location_lat && store.location_lng ? 
+                [store.location_lng, store.location_lat] : null
+            });
+            setStoreDeliverySettings({
+              delivery_type: store.delivery_type,
+              has_delivery_fleet: store.has_delivery_fleet,
+              delivery_fleet_size: store.delivery_fleet_size,
+              delivery_coverage_radius: store.delivery_coverage_radius,
+              delivery_base_fee: store.delivery_base_fee,
+              delivery_rate_per_km: store.delivery_rate_per_km,
+              county: store.county
             });
           }
 
           const dm = flashProduct.delivery_methods || {};
-          const offersPickup = dm && (dm.pickup === "Yes" || dm.pickup === true || (typeof dm.pickup === "string" && dm.pickup.trim() !== "") || typeof dm.pickup === "object");
-          const offersDoor = dm && (dm.door === "Yes" || dm.door === true || (typeof dm.door === "string" && dm.door.trim() !== "") || typeof dm.door === "object");
+          const offersPickup = dm?.pickup === "Yes" || dm?.pickup === true;
+          const offersDoor = dm?.door === "Yes" || dm?.door === true;
           setDeliveryMethod(offersDoor ? "door" : offersPickup ? "pickup" : "");
 
-          console.log("✅ Flash sale checkout loaded successfully");
           setLoading(false);
           return;
         }
@@ -460,8 +513,6 @@ export default function Checkout() {
         // Cart Flow
         if (fromCart && location.state?.cartItems) {
           const cartItems = location.state.cartItems;
-          console.log("🛒 Cart checkout items:", cartItems);
-          
           setProducts(cartItems.map(item => ({
             ...item.products,
             cartItemId: item.id,
@@ -471,13 +522,29 @@ export default function Checkout() {
 
           if (location.state.seller) {
             setSeller(location.state.seller);
+            
+            // Fetch store delivery settings from stores table
+            const { data: storeSettings, error: storeError } = await supabase
+              .from("stores")
+              .select("delivery_type, has_delivery_fleet, delivery_fleet_size, delivery_coverage_radius, delivery_base_fee, delivery_rate_per_km, county")
+              .eq("owner_id", location.state.seller.owner_id)
+              .maybeSingle();
+              
+            if (storeError) {
+              console.error("Error fetching store settings:", storeError);
+            }
+            
+            if (storeSettings) {
+              console.log("Store delivery settings loaded:", storeSettings);
+              setStoreDeliverySettings(storeSettings);
+            }
           }
 
           const firstItem = cartItems[0];
           if (firstItem) {
             const dm = firstItem.products.delivery_methods || {};
-            const offersPickup = dm && (dm.pickup === "Yes" || dm.pickup === true || (typeof dm.pickup === "string" && dm.pickup.trim() !== "") || typeof dm.pickup === "object");
-            const offersDoor = dm && (dm.door === "Yes" || dm.door === true || (typeof dm.door === "string" && dm.door.trim() !== "") || typeof dm.door === "object");
+            const offersPickup = dm?.pickup === "Yes" || dm?.pickup === true;
+            const offersDoor = dm?.door === "Yes" || dm?.door === true;
             setDeliveryMethod(offersDoor ? "door" : offersPickup ? "pickup" : "");
           }
         } else {
@@ -487,52 +554,57 @@ export default function Checkout() {
           if (!p) {
             const { data, error } = await supabase
               .from("products")
-              .select(`
-                *,
-                delivery_methods,
-                image_gallery,
-                discount,
-                installment_plan,
-                variants,
-                variant_options,
-                price,
-                description,
-                store_id,
-                metadata
-              `)
+              .select(`*, delivery_methods, image_gallery, discount, installment_plan, variants, variant_options, price, description, store_id, metadata`)
               .eq("id", productId)
               .single();
-
             if (error) throw error;
             p = data;
           }
 
           setProducts([{ ...p, quantity: 1 }]);
 
-          // Fetch seller info with location coordinates and delivery type
-          const { data: s } = await supabase
+          // Fetch store delivery settings from stores table
+          const { data: store, error: storeError } = await supabase
             .from("stores")
-            .select("id, name, contact_phone, location, location_lat, location_lng, owner_id, delivery_type")
+            .select("id, name, contact_phone, location, location_lat, location_lng, owner_id, delivery_type, has_delivery_fleet, delivery_fleet_size, delivery_coverage_radius, delivery_base_fee, delivery_rate_per_km, county")
             .eq("owner_id", p.owner_id)
             .maybeSingle();
           
-          if (s) {
+          if (storeError) {
+            console.error("Error fetching store:", storeError);
+          }
+          
+          if (store) {
+            console.log("Store delivery settings loaded:", {
+              delivery_type: store.delivery_type,
+              delivery_base_fee: store.delivery_base_fee,
+              delivery_rate_per_km: store.delivery_rate_per_km,
+              delivery_coverage_radius: store.delivery_coverage_radius
+            });
+            
             setSeller({
-              ...s,
-              location_coords: s.location_lat && s.location_lng ? 
-                [s.location_lng, s.location_lat] : null
+              ...store,
+              location_coords: store.location_lat && store.location_lng ? 
+                [store.location_lng, store.location_lat] : null
+            });
+            setStoreDeliverySettings({
+              delivery_type: store.delivery_type,
+              has_delivery_fleet: store.has_delivery_fleet,
+              delivery_fleet_size: store.delivery_fleet_size,
+              delivery_coverage_radius: store.delivery_coverage_radius,
+              delivery_base_fee: store.delivery_base_fee,
+              delivery_rate_per_km: store.delivery_rate_per_km,
+              county: store.county
             });
           }
 
           const dm = p.delivery_methods || {};
-          const offersPickup = dm && (dm.pickup === "Yes" || dm.pickup === true || (typeof dm.pickup === "string" && dm.pickup.trim() !== "") || typeof dm.pickup === "object");
-          const offersDoor = dm && (dm.door === "Yes" || dm.door === true || (typeof dm.door === "string" && dm.door.trim() !== "") || typeof dm.door === "object");
+          const offersPickup = dm?.pickup === "Yes" || dm?.pickup === true;
+          const offersDoor = dm?.door === "Yes" || dm?.door === true;
           setDeliveryMethod(offersDoor ? "door" : offersPickup ? "pickup" : "");
         }
-
-        console.log("✅ Checkout loaded successfully");
       } catch (err) {
-        console.error("❌ Checkout load error:", err);
+        console.error("Checkout load error:", err);
         toast.error("Failed to load checkout");
         navigate(isFlashSale ? "/flash-sales" : "/cart");
       } finally {
@@ -542,16 +614,15 @@ export default function Checkout() {
     load();
   }, [productId, location.state, user, fromCart, fromFlashSale, navigate, isFlashSale]);
 
-  // ===== FIXED PAYMENT HANDLER WITH ESCROW =====
+  // Payment handler
   async function handlePayWithWallet() {
     if (!user?.id) return toast.error("Login required");
     if (!deliveryMethod) return toast.error("Choose a delivery option");
     if (!contactPhone) return toast.error("Enter contact phone");
-    if (!deliveryAddress && deliveryMethod === "door") return toast.error("Please enter a delivery address");
+    if (deliveryMethod === "door" && !deliveryAddress) return toast.error("Please enter a delivery address");
+    if (deliveryMethod === "pickup" && !pickupStation) return toast.error("Please enter pickup station address");
 
-    const outOfStock = products.some(product => 
-      product.stock_quantity < product.quantity
-    );
+    const outOfStock = products.some(product => product.stock_quantity < product.quantity);
     if (outOfStock) return toast.error("Some items are out of stock");
 
     if (isFlashSale && flashSaleEndsAt) {
@@ -569,19 +640,35 @@ export default function Checkout() {
     const loadingToast = toast.loading("Processing payment...");
 
     try {
+      // Check user balance
+      const { data: userWallet } = await supabase
+        .from("wallets")
+        .select("balance")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      const userBalance = userWallet?.balance || 0;
+      const totalDueNow = depositTotal;
+      
+      if (userBalance < totalDueNow) {
+        toast.dismiss(loadingToast);
+        toast.error(`Insufficient balance. You need ${formatKSH(totalDueNow)} but have ${formatKSH(userBalance)}`);
+        setBuying(false);
+        return;
+      }
+
+      const deliveryLocation = deliveryMethod === "door" ? deliveryAddress : pickupStation;
+
       if (fromCart) {
-        // Multi-product checkout from cart
         let createdOrders = [];
         
         for (const product of productTotals) {
-          // First calculate commission
-          const { data: commissionData, error: commissionError } = await supabase
+          // Calculate commission
+          const { data: commissionData } = await supabase
             .rpc('calculate_order_commission', {
               p_product_id: product.id,
               p_total_amount: product.productPrice
             });
-
-          if (commissionError) throw commissionError;
 
           const commission = commissionData?.[0] || {
             commission_rate: 0.09,
@@ -590,7 +677,7 @@ export default function Checkout() {
             admin_id: ADMIN_ID
           };
 
-          // Create order
+          // Create order with deposit_paid status
           const { data: orderData, error: orderError } = await supabase
             .from("orders")
             .insert({
@@ -603,28 +690,28 @@ export default function Checkout() {
               total_price: product.productPrice,
               store_id: product.store_id || null,
               delivery_method: deliveryMethod,
-              delivery_location: deliveryAddress,
+              delivery_location: deliveryLocation,
               buyer_phone: contactPhone,
               payment_method: "wallet",
               deposit_amount: product.depositProduct,
               deposit_paid: true,
               balance_due: product.productPrice - product.depositProduct,
-              delivery_fee: deliveryMethod === "door" ? deliveryFee : 0,
+              delivery_fee: deliveryMethod === "door" ? (finalDeliveryFee / products.length) : 0,
               delivery_distance: deliveryDistance,
-              delivery_zone: deliveryBreakdown?.zone,
-              delivery_base_fee: deliveryBreakdown?.baseFee,
-              delivery_rate_per_km: deliveryBreakdown?.rate,
+              delivery_base_fee: storeDeliverySettings?.delivery_base_fee,
+              delivery_rate_per_km: storeDeliverySettings?.delivery_rate_per_km,
               commission_rate: commission.commission_rate,
               commission_amount: commission.commission_amount,
               status: "deposit_paid",
               delivery_otp: Math.floor(100000 + Math.random() * 900000).toString(),
+              delivered: false,
+              escrow_released: false,
               metadata: {
                 is_flash_sale: false,
                 delivery_speed: deliverySpeed,
                 fragile,
-                admin_email: commission.admin_email,
-                admin_id: commission.admin_id,
-                delivery_breakdown: deliveryBreakdown
+                store_delivery_type: storeDeliverySettings?.delivery_type,
+                pickup_station: deliveryMethod === "pickup" ? pickupStation : null
               }
             })
             .select()
@@ -633,136 +720,54 @@ export default function Checkout() {
           if (orderError) throw orderError;
           createdOrders.push(orderData);
 
-          // Calculate total deposit amount for this product
-          const totalDepositAmount = product.depositProduct + (deliveryMethod === "door" ? (deliveryFee / products.length) : 0);
+          const productDepositAmount = product.depositProduct + (deliveryMethod === "door" ? (finalDeliveryFee / products.length) : 0);
 
-          // ===== RECORD DEPOSIT IN WALLET TRANSACTIONS =====
-          // Deduct deposit from buyer's wallet
-          const { error: buyerWalletError } = await supabase
-            .from("wallets")
-            .update({ 
-              balance: supabase.raw(`balance - ${totalDepositAmount}`),
-              updated_at: new Date().toISOString()
-            })
-            .eq("user_id", user.id);
+          // Deduct deposit from buyer
+          await updateWalletBalance(user.id, productDepositAmount, 'subtract');
 
-          if (buyerWalletError) throw buyerWalletError;
+          // Record buyer transaction
+          await supabase.from("wallet_transactions").insert({
+            user_id: user.id,
+            type: 'purchase',
+            amount: productDepositAmount,
+            status: 'completed',
+            order_id: orderData.id,
+            description: `Deposit payment for order ${orderData.id.slice(0, 8)}`,
+            metadata: { payment_type: 'deposit', is_escrow: true }
+          });
 
-          // Get buyer's new balance
-          const { data: buyerWallet } = await supabase
-            .from("wallets")
-            .select("balance")
-            .eq("user_id", user.id)
-            .single();
-
-          // Record buyer's deposit transaction
-          const { error: buyerTxError } = await supabase
-            .from("wallet_transactions")
-            .insert({
-              user_id: user.id,
-              type: 'purchase',
-              amount: totalDepositAmount,
-              gross_amount: totalDepositAmount,
-              commission_paid: 0,
-              status: 'completed',
-              order_id: orderData.id,
-              buyer_id: user.id,
-              seller_id: product.owner_id,
-              product_id: product.id,
-              description: `Deposit payment for order ${orderData.id.slice(0, 8)} - ${product.name}`,
-              metadata: {
-                order_id: orderData.id,
-                product_name: product.name,
-                deposit_amount: product.depositProduct,
-                delivery_fee: deliveryMethod === "door" ? (deliveryFee / products.length) : 0,
-                payment_type: 'deposit',
-                is_escrow: true,
-                product_category: product.category
-              },
-              new_balance: buyerWallet?.balance,
-              payment_method: 'wallet',
-              reference: `DEP-${orderData.id.slice(0, 8)}`,
-              source: 'marketplace',
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            });
-
-          if (buyerTxError) throw buyerTxError;
-
-          // Add deposit to admin wallet (escrow)
-          const { error: adminWalletError } = await supabase
-            .from("wallets")
-            .update({ 
-              balance: supabase.raw(`balance + ${totalDepositAmount}`),
-              updated_at: new Date().toISOString()
-            })
-            .eq("user_id", ADMIN_ID);
-
-          if (adminWalletError) throw adminWalletError;
-
-          // Get admin's new balance
-          const { data: adminWallet } = await supabase
-            .from("wallets")
-            .select("balance")
-            .eq("user_id", ADMIN_ID)
-            .single();
+          // Add deposit to admin wallet escrow
+          await updateWalletBalance(ADMIN_ID, productDepositAmount, 'add');
 
           // Record admin escrow transaction
-          const { error: adminTxError } = await supabase
-            .from("wallet_transactions")
-            .insert({
-              user_id: ADMIN_ID,
-              type: 'escrow_receive',
-              amount: totalDepositAmount,
-              gross_amount: totalDepositAmount,
-              commission_paid: 0,
-              status: 'completed',
-              order_id: orderData.id,
-              buyer_id: user.id,
-              seller_id: product.owner_id,
-              product_id: product.id,
-              description: `Escrow deposit for order ${orderData.id.slice(0, 8)} - ${product.name}`,
-              metadata: {
-                order_id: orderData.id,
-                product_name: product.name,
-                deposit_amount: product.depositProduct,
-                delivery_fee: deliveryMethod === "door" ? (deliveryFee / products.length) : 0,
-                payment_type: 'escrow_deposit',
-                admin_email: ADMIN_EMAIL,
-                product_category: product.category
-              },
-              new_balance: adminWallet?.balance,
-              payment_method: 'wallet',
-              reference: `ESC-${orderData.id.slice(0, 8)}`,
-              source: 'marketplace',
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            });
-
-          if (adminTxError) throw adminTxError;
+          await supabase.from("wallet_transactions").insert({
+            user_id: ADMIN_ID,
+            type: 'escrow_receive',
+            amount: productDepositAmount,
+            status: 'completed',
+            order_id: orderData.id,
+            description: `Escrow deposit for order ${orderData.id.slice(0, 8)}`,
+            metadata: { payment_type: 'escrow_deposit' }
+          });
 
           // Remove from cart
-          await supabase
-            .from("cart_items")
-            .delete()
-            .eq("id", product.cartItemId);
+          if (product.cartItemId) {
+            await supabase.from("cart_items").delete().eq("id", product.cartItemId);
+          }
         }
 
         toast.dismiss(loadingToast);
-        toast.success(`${createdOrders.length} orders created successfully!`);
+        toast.success(`${createdOrders.length} orders created! 25% deposit held in escrow.`);
         
       } else {
-        // Single product checkout
+        // Single product
         const product = productTotals[0];
         
-        // First calculate commission
-        const { data: commissionData, error: commissionError } = await supabase
+        const { data: commissionData } = await supabase
           .rpc('calculate_order_commission', {
             p_product_id: product.id,
             p_total_amount: totalOrder
           });
-
-        if (commissionError) throw commissionError;
 
         const commission = commissionData?.[0] || {
           commission_rate: 0.09,
@@ -771,7 +776,6 @@ export default function Checkout() {
           admin_id: ADMIN_ID
         };
 
-        // Create order
         const { data: orderData, error: orderError } = await supabase
           .from("orders")
           .insert({
@@ -784,30 +788,30 @@ export default function Checkout() {
             total_price: totalOrder,
             store_id: product.store_id || null,
             delivery_method: deliveryMethod,
-            delivery_location: deliveryAddress,
+            delivery_location: deliveryLocation,
             buyer_phone: contactPhone,
             payment_method: "wallet",
             deposit_amount: totalDeposit,
             deposit_paid: true,
             balance_due: balanceDue,
-            delivery_fee: deliveryMethod === "door" ? deliveryFee : 0,
+            delivery_fee: deliveryMethod === "door" ? finalDeliveryFee : 0,
             delivery_distance: deliveryDistance,
-            delivery_zone: deliveryBreakdown?.zone,
-            delivery_base_fee: deliveryBreakdown?.baseFee,
-            delivery_rate_per_km: deliveryBreakdown?.rate,
+            delivery_base_fee: storeDeliverySettings?.delivery_base_fee,
+            delivery_rate_per_km: storeDeliverySettings?.delivery_rate_per_km,
             commission_rate: commission.commission_rate,
             commission_amount: commission.commission_amount,
             status: "deposit_paid",
             delivery_otp: Math.floor(100000 + Math.random() * 900000).toString(),
+            delivered: false,
+            escrow_released: false,
             metadata: {
               is_flash_sale: isFlashSale,
               flash_sale_ends_at: isFlashSale ? flashSaleEndsAt : null,
               original_price: isFlashSale ? originalPrice : null,
               delivery_speed: deliverySpeed,
               fragile,
-              admin_email: commission.admin_email,
-              admin_id: commission.admin_id,
-              delivery_breakdown: deliveryBreakdown
+              store_delivery_type: storeDeliverySettings?.delivery_type,
+              pickup_station: deliveryMethod === "pickup" ? pickupStation : null
             }
           })
           .select()
@@ -815,142 +819,47 @@ export default function Checkout() {
 
         if (orderError) throw orderError;
 
-        // ===== RECORD DEPOSIT IN WALLET TRANSACTIONS =====
-        // Calculate total deposit amount (product deposit + delivery fee if applicable)
-        const totalDepositAmount = totalDeposit + (deliveryMethod === "door" ? deliveryFee : 0);
+        const totalDepositAmount = totalDeposit + (deliveryMethod === "door" ? finalDeliveryFee : 0);
 
-        // Deduct deposit from buyer's wallet
-        const { error: buyerWalletError } = await supabase
-          .from("wallets")
-          .update({ 
-            balance: supabase.raw(`balance - ${totalDepositAmount}`),
-            updated_at: new Date().toISOString()
-          })
-          .eq("user_id", user.id);
+        // Deduct from buyer
+        await updateWalletBalance(user.id, totalDepositAmount, 'subtract');
 
-        if (buyerWalletError) throw buyerWalletError;
+        await supabase.from("wallet_transactions").insert({
+          user_id: user.id,
+          type: 'purchase',
+          amount: totalDepositAmount,
+          status: 'completed',
+          order_id: orderData.id,
+          description: `Deposit payment for order ${orderData.id.slice(0, 8)}`,
+          metadata: { payment_type: 'deposit', is_escrow: true }
+        });
 
-        // Get buyer's new balance
-        const { data: buyerWallet } = await supabase
-          .from("wallets")
-          .select("balance")
-          .eq("user_id", user.id)
-          .single();
+        // Add to admin escrow
+        await updateWalletBalance(ADMIN_ID, totalDepositAmount, 'add');
 
-        // Record buyer's deposit transaction
-        const { error: buyerTxError } = await supabase
-          .from("wallet_transactions")
-          .insert({
-            user_id: user.id,
-            type: 'purchase',
-            amount: totalDepositAmount,
-            gross_amount: totalDepositAmount,
-            commission_paid: 0,
-            status: 'completed',
-            order_id: orderData.id,
-            buyer_id: user.id,
-            seller_id: product.owner_id,
-            product_id: product.id,
-            description: `Deposit payment for order ${orderData.id.slice(0, 8)} - ${product.name}`,
-            metadata: {
-              order_id: orderData.id,
-              product_name: product.name,
-              deposit_amount: totalDeposit,
-              delivery_fee: deliveryMethod === "door" ? deliveryFee : 0,
-              payment_type: 'deposit',
-              is_escrow: true,
-              product_category: product.category
-            },
-            new_balance: buyerWallet?.balance,
-            payment_method: 'wallet',
-            reference: `DEP-${orderData.id.slice(0, 8)}`,
-            source: 'marketplace',
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          });
-
-        if (buyerTxError) throw buyerTxError;
-
-        // Add deposit to admin wallet (escrow)
-        const { error: adminWalletError } = await supabase
-          .from("wallets")
-          .update({ 
-            balance: supabase.raw(`balance + ${totalDepositAmount}`),
-            updated_at: new Date().toISOString()
-          })
-          .eq("user_id", ADMIN_ID);
-
-        if (adminWalletError) throw adminWalletError;
-
-        // Get admin's new balance
-        const { data: adminWallet } = await supabase
-          .from("wallets")
-          .select("balance")
-          .eq("user_id", ADMIN_ID)
-          .single();
-
-        // Record admin escrow transaction
-        const { error: adminTxError } = await supabase
-          .from("wallet_transactions")
-          .insert({
-            user_id: ADMIN_ID,
-            type: 'escrow_receive',
-            amount: totalDepositAmount,
-            gross_amount: totalDepositAmount,
-            commission_paid: 0,
-            status: 'completed',
-            order_id: orderData.id,
-            buyer_id: user.id,
-            seller_id: product.owner_id,
-            product_id: product.id,
-            description: `Escrow deposit for order ${orderData.id.slice(0, 8)} - ${product.name}`,
-            metadata: {
-              order_id: orderData.id,
-              product_name: product.name,
-              deposit_amount: totalDeposit,
-              delivery_fee: deliveryMethod === "door" ? deliveryFee : 0,
-              payment_type: 'escrow_deposit',
-              admin_email: ADMIN_EMAIL,
-              product_category: product.category
-            },
-            new_balance: adminWallet?.balance,
-            payment_method: 'wallet',
-            reference: `ESC-${orderData.id.slice(0, 8)}`,
-            source: 'marketplace',
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          });
-
-        if (adminTxError) throw adminTxError;
-
-        // Process delivery payment if door delivery
-        if (deliveryMethod === "door" && deliveryFee > 0) {
-          try {
-            await supabase
-              .rpc("process_delivery_payment", {
-                p_order_id: orderData.id,
-                p_delivery_fee: deliveryDistance,
-                p_delivery_type: seller?.delivery_type || 'omniflow-managed'
-              });
-          } catch (deliveryError) {
-            console.warn("Delivery payment processing failed:", deliveryError);
-            // Don't throw - order is already created
-          }
-        }
+        await supabase.from("wallet_transactions").insert({
+          user_id: ADMIN_ID,
+          type: 'escrow_receive',
+          amount: totalDepositAmount,
+          status: 'completed',
+          order_id: orderData.id,
+          description: `Escrow deposit for order ${orderData.id.slice(0, 8)}`,
+          metadata: { payment_type: 'escrow_deposit' }
+        });
 
         toast.dismiss(loadingToast);
         toast.success(
           <div>
-            <strong>{isFlashSale ? "Flash deal secured!" : "Order created successfully!"}</strong>
+            <strong>{isFlashSale ? "Flash deal secured!" : "Order created!"}</strong>
             <br />
-            <small>Deposit of {formatKSH(totalDepositAmount)} held in escrow</small>
+            <small>25% deposit ({formatKSH(totalDepositAmount)}) held in escrow.</small>
           </div>
         );
       }
 
       navigate("/orders");
     } catch (err) {
-      console.error("Wallet payment error:", err);
+      console.error("Payment error:", err);
       toast.dismiss(loadingToast);
       toast.error("Payment error: " + (err.message || "Please try again"));
     } finally {
@@ -962,7 +871,8 @@ export default function Checkout() {
     if (!user?.id) return toast.error("Login required");
     if (!deliveryMethod) return toast.error("Choose a delivery option");
     if (!contactPhone) return toast.error("Enter contact phone");
-    if (!deliveryAddress && deliveryMethod === "door") return toast.error("Please enter a delivery address");
+    if (deliveryMethod === "door" && !deliveryAddress) return toast.error("Please enter a delivery address");
+    if (deliveryMethod === "pickup" && !pickupStation) return toast.error("Please enter pickup station address");
 
     if (isFlashSale && flashSaleEndsAt) {
       const now = new Date();
@@ -979,6 +889,8 @@ export default function Checkout() {
     const loadingToast = toast.loading("Creating pending order...");
 
     try {
+      const deliveryLocation = deliveryMethod === "door" ? deliveryAddress : pickupStation;
+      
       if (fromCart) {
         for (const product of productTotals) {
           const { data: commissionData } = await supabase
@@ -994,51 +906,32 @@ export default function Checkout() {
             admin_id: ADMIN_ID
           };
 
-          const payload = {
+          await supabase.from("orders").insert({
             product_id: product.id,
             buyer_id: user.id,
             seller_id: product.owner_id,
             variant: product.variant || null,
             quantity: product.quantity,
-            price_paid: 0,
             total_price: product.productPrice,
             store_id: product.store_id || null,
             delivery_method: deliveryMethod,
-            delivery_location: deliveryAddress,
+            delivery_location: deliveryLocation,
             buyer_phone: contactPhone,
             payment_method: method,
             deposit_amount: product.depositProduct,
             deposit_paid: false,
             balance_due: product.productPrice - product.depositProduct,
-            delivery_fee: deliveryMethod === "door" ? deliveryFee : 0,
-            delivery_distance: deliveryDistance,
-            delivery_zone: deliveryBreakdown?.zone,
-            delivery_base_fee: deliveryBreakdown?.baseFee,
-            delivery_rate_per_km: deliveryBreakdown?.rate,
+            delivery_fee: deliveryMethod === "door" ? (finalDeliveryFee / products.length) : 0,
             commission_rate: commission.commission_rate,
             commission_amount: commission.commission_amount,
             status: "pending",
             delivery_otp: Math.floor(100000 + Math.random() * 900000).toString(),
-            metadata: {
-              delivery_speed: deliverySpeed,
-              fragile,
-              from_cart: true,
-              is_flash_sale: false,
-              admin_email: commission.admin_email,
-              admin_id: commission.admin_id,
-              delivery_distance: deliveryDistance,
-              delivery_type: seller?.delivery_type || 'omniflow-managed',
-              delivery_breakdown: deliveryBreakdown
-            }
-          };
+            metadata: { payment_type: 'external_pending' }
+          });
 
-          const { error } = await supabase.from("orders").insert([payload]);
-          if (error) throw error;
-
-          await supabase
-            .from("cart_items")
-            .delete()
-            .eq("id", product.cartItemId);
+          if (product.cartItemId) {
+            await supabase.from("cart_items").delete().eq("id", product.cartItemId);
+          }
         }
       } else {
         const product = productTotals[0];
@@ -1056,55 +949,32 @@ export default function Checkout() {
           admin_id: ADMIN_ID
         };
 
-        const payload = {
+        await supabase.from("orders").insert({
           product_id: product.id,
           buyer_id: user.id,
           seller_id: product.owner_id,
           variant: product.variant || null,
           quantity: product.quantity,
-          price_paid: 0,
           total_price: totalOrder,
           store_id: product.store_id || null,
           delivery_method: deliveryMethod,
-          delivery_location: deliveryAddress,
+          delivery_location: deliveryLocation,
           buyer_phone: contactPhone,
           payment_method: method,
           deposit_amount: totalDeposit,
           deposit_paid: false,
           balance_due: balanceDue,
-          delivery_fee: deliveryMethod === "door" ? deliveryFee : 0,
-          delivery_distance: deliveryDistance,
-          delivery_zone: deliveryBreakdown?.zone,
-          delivery_base_fee: deliveryBreakdown?.baseFee,
-          delivery_rate_per_km: deliveryBreakdown?.rate,
+          delivery_fee: deliveryMethod === "door" ? finalDeliveryFee : 0,
           commission_rate: commission.commission_rate,
           commission_amount: commission.commission_amount,
           status: "pending",
           delivery_otp: Math.floor(100000 + Math.random() * 900000).toString(),
-          metadata: {
-            delivery_speed: deliverySpeed,
-            fragile,
-            is_flash_sale: isFlashSale,
-            flash_sale_ends_at: isFlashSale ? flashSaleEndsAt : null,
-            original_price: isFlashSale ? originalPrice : null,
-            admin_email: commission.admin_email,
-            admin_id: commission.admin_id,
-            delivery_distance: deliveryDistance,
-            delivery_type: seller?.delivery_type || 'omniflow-managed',
-            delivery_breakdown: deliveryBreakdown
-          }
-        };
-
-        const { error } = await supabase.from("orders").insert([payload]);
-        if (error) throw error;
+          metadata: { is_flash_sale: isFlashSale, payment_type: 'external_pending' }
+        });
       }
 
       toast.dismiss(loadingToast);
-      toast.success(
-        isFlashSale 
-          ? "Flash deal secured! Complete payment externally" 
-          : "Pending order created — complete payment externally"
-      );
+      toast.success("Pending order created. Complete payment to confirm.");
       navigate("/orders");
     } catch (err) {
       console.error("External order creation error:", err);
@@ -1119,7 +989,8 @@ export default function Checkout() {
     if (!user?.id) return toast.error("Login required");
     if (!deliveryMethod) return toast.error("Choose a delivery option");
     if (!contactPhone) return toast.error("Enter contact phone");
-    if (!deliveryAddress && deliveryMethod === "door") return toast.error("Please enter a delivery address");
+    if (deliveryMethod === "door" && !deliveryAddress) return toast.error("Please enter a delivery address");
+    if (deliveryMethod === "pickup" && !pickupStation) return toast.error("Please enter pickup station address");
     if (!hasInstallmentPlan) return toast.error("Installments not available");
     if (fromCart && products.length > 1) return toast.error("Installments only available for single products");
     if (isFlashSale) return toast.error("Installments not available for flash sales");
@@ -1135,6 +1006,7 @@ export default function Checkout() {
 
     try {
       const variantPayload = product.variant || null;
+      const deliveryLocation = deliveryMethod === "door" ? deliveryAddress : pickupStation;
 
       const { data, error } = await supabase.rpc("start_installment_order", {
         p_buyer: user.id,
@@ -1142,7 +1014,7 @@ export default function Checkout() {
         p_variant: variantPayload,
         p_quantity: product.quantity,
         p_delivery_method: deliveryMethod,
-        p_delivery_location: deliveryAddress,
+        p_delivery_location: deliveryLocation,
         p_contact_phone: contactPhone,
       });
 
@@ -1151,7 +1023,7 @@ export default function Checkout() {
       const instOrderId = typeof data === "string" ? data : data?.id;
 
       toast.dismiss(dismiss);
-      toast.success("Installment plan started ✅ Initial payment secured in escrow");
+      toast.success("Installment plan started! Initial payment secured in escrow");
       navigate("/orders", { state: { highlight: instOrderId } });
     } catch (err) {
       console.error("Installment flow error:", err);
@@ -1248,19 +1120,19 @@ export default function Checkout() {
                     <div className="flash-price-display">
                       <div className="original-price-line">
                         <span className="original-price-label">Original:</span>
-                        <span className="original-price-value">KSH {product.originalPrice?.toLocaleString() || product.price.toLocaleString()}</span>
+                        <span className="original-price-value">{formatKSH(product.originalPrice)}</span>
                       </div>
                       <div className="flash-price-line">
                         <span className="flash-price-label">Flash Sale:</span>
-                        <span className="flash-price-value">KSH {product.unitPrice.toLocaleString()} × {product.quantity}</span>
+                        <span className="flash-price-value">{formatKSH(product.unitPrice)} × {product.quantity}</span>
                       </div>
                     </div>
                   )}
                   
                   {!isFlashSale && (
                     <div className="product-pricing">
-                      <span>KSH {product.unitPrice.toLocaleString()} × {product.quantity}</span>
-                      <strong>KSH {product.productPrice.toLocaleString()}</strong>
+                      <span>{formatKSH(product.unitPrice)} × {product.quantity}</span>
+                      <strong>{formatKSH(product.productPrice)}</strong>
                     </div>
                   )}
                   
@@ -1269,9 +1141,6 @@ export default function Checkout() {
                       <span className="in-stock">{product.stock_quantity} in stock</span>
                     ) : (
                       <span className="out-of-stock">Out of stock</span>
-                    )}
-                    {isFlashSale && product.stock_quantity <= 5 && product.stock_quantity > 0 && (
-                      <span className="low-stock-warning">Selling fast!</span>
                     )}
                   </div>
                 </div>
@@ -1290,21 +1159,9 @@ export default function Checkout() {
                 <div className="installment-details">
                   <p>
                     Pay <strong>{(products[0].installment_plan.initial_percent || 0.3) * 100}%</strong> now and the remainder after delivery.
-                    Terms: {products[0].installment_plan?.terms || "See seller terms"}.
                   </p>
                 </div>
               )}
-            </div>
-          )}
-
-          {/* Flash Sale Notice */}
-          {isFlashSale && products[0]?.installment_plan && (
-            <div className="flash-sale-notice" style={{ marginBottom: 16 }}>
-              <p>
-                <FaClock style={{ marginRight: '8px', color: '#FF6B35' }} />
-                <strong>Note:</strong> Installment plans are not available for flash sale items.
-                Complete purchase now to secure this limited-time offer.
-              </p>
             </div>
           )}
 
@@ -1338,7 +1195,7 @@ export default function Checkout() {
               )}
             </div>
 
-            {/* Address Input - Only for door delivery */}
+            {/* Door Delivery */}
             {deliveryMethod === "door" && (
               <>
                 <label>
@@ -1352,9 +1209,7 @@ export default function Checkout() {
                       className="address-input"
                     />
                     
-                    {isSearching && (
-                      <div className="search-loading">Searching Kenyan addresses...</div>
-                    )}
+                    {isSearching && <div className="search-loading">Searching...</div>}
                     
                     {showSuggestions && addressSuggestions.length > 0 && (
                       <div className="address-suggestions">
@@ -1371,45 +1226,55 @@ export default function Checkout() {
                       </div>
                     )}
                   </div>
-                  <small className="address-help-text">
-                    Start typing to see precise Kenyan address suggestions
-                  </small>
                 </label>
 
                 {/* Delivery Type Indicator */}
-                {seller?.delivery_type && (
+                {storeDeliverySettings && (
                   <div className="delivery-type-indicator" style={{
-                    marginTop: '4px',
+                    marginTop: '8px',
                     marginBottom: '8px',
+                    padding: '8px 12px',
+                    background: storeDeliverySettings.delivery_type === 'self-delivery' ? '#FEF3C7' : '#EFF6FF',
+                    borderRadius: '8px',
                     fontSize: '0.85em',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '4px',
-                    color: seller.delivery_type === 'self-delivery' ? '#f59e0b' : '#667eea'
+                    gap: '8px',
+                    color: storeDeliverySettings.delivery_type === 'self-delivery' ? '#D97706' : '#2563EB'
                   }}>
-                    {seller.delivery_type === 'self-delivery' ? (
+                    {storeDeliverySettings.delivery_type === 'self-delivery' ? (
                       <>
-                        <FaStore size={12} />
-                        <span>This seller uses their own delivery service</span>
+                        <FaTruck size={14} />
+                        <span>
+                          <strong>Self Delivery</strong> - This seller handles their own delivery
+                          {storeDeliverySettings.delivery_base_fee && (
+                            <span style={{ display: 'block', fontSize: '0.75em', marginTop: '2px' }}>
+                              Base fee: {formatKSH(storeDeliverySettings.delivery_base_fee)} + {storeDeliverySettings.delivery_rate_per_km} KSH/km
+                            </span>
+                          )}
+                        </span>
                       </>
                     ) : (
                       <>
-                        <FaMotorcycle size={12} />
-                        <span>Omniflow managed delivery</span>
+                        <FaMotorcycle size={14} />
+                        <span>
+                          <strong>Omniflow Delivery</strong> - Managed by OmniFlow
+                          <span style={{ display: 'block', fontSize: '0.75em', marginTop: '2px' }}>
+                            Zone-based rates: 50 KSH base + up to 15 KSH/km
+                          </span>
+                        </span>
                       </>
                     )}
                   </div>
                 )}
 
-                {/* Simple delivery fee display */}
+                {/* Delivery Fee Display */}
                 <div className="delivery-fee-display" style={{
-                  marginTop: '8px',
+                  marginTop: '12px',
                   padding: '12px',
                   background: '#f8f9fa',
                   borderRadius: '8px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '4px'
+                  border: '1px solid #e5e7eb'
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontWeight: 500 }}>Delivery fee:</span>
@@ -1419,55 +1284,74 @@ export default function Checkout() {
                       <span style={{ 
                         fontWeight: 600, 
                         fontSize: '1.1em',
-                        color: isFreeDelivery ? '#10B981' : '#667eea' 
+                        color: isFreeDelivery ? '#10B981' : (storeDeliverySettings?.delivery_type === 'self-delivery' ? '#D97706' : '#2563EB')
                       }}>
-                        {isFreeDelivery ? 'FREE' : `KSH ${deliveryFee.toFixed(2)}`}
+                        {isFreeDelivery ? 'FREE' : formatKSH(finalDeliveryFee)}
                       </span>
                     ) : deliveryAddress ? (
                       <span style={{ color: '#f59e0b' }}>Could not calculate</span>
                     ) : (
-                      <span style={{ color: '#666' }}>Enter address</span>
+                      <span style={{ color: '#666' }}>Enter address to see fee</span>
                     )}
                   </div>
                   
                   {deliveryBreakdown && !isFreeDelivery && (
-                    <div style={{
-                      fontSize: '0.85em',
-                      color: '#666',
-                      borderTop: '1px dashed #ddd',
-                      marginTop: '4px',
-                      paddingTop: '4px'
-                    }}>
-                      <div>Zone {deliveryBreakdown.zone?.replace('zone', '')}: {deliveryBreakdown.rate} KSH/km</div>
-                      <div>Distance: {deliveryBreakdown.distance} km</div>
+                    <div style={{ fontSize: '0.85em', color: '#666', marginTop: '8px', paddingTop: '8px', borderTop: '1px dashed #ddd' }}>
+                      {deliveryBreakdown.type === 'self-delivery' ? (
+                        <>
+                          <div>Base fee: {formatKSH(deliveryBreakdown.baseFee)}</div>
+                          <div>Distance rate: {deliveryBreakdown.ratePerKm} KSH/km</div>
+                          <div>Distance: {deliveryBreakdown.distance} km</div>
+                          <div style={{ marginTop: '4px', fontWeight: 500, color: '#D97706' }}>
+                            Total: {formatKSH(deliveryBreakdown.total)}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div>Zone {deliveryBreakdown.zone?.replace('zone', '')}: {deliveryBreakdown.rate} KSH/km</div>
+                          <div>Distance: {deliveryBreakdown.distance} km</div>
+                          <div style={{ marginTop: '4px', fontWeight: 500, color: '#2563EB' }}>
+                            Total: {formatKSH(deliveryBreakdown.total)}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                  
+                  {storeDeliverySettings?.delivery_coverage_radius && (
+                    <div style={{ fontSize: '0.75em', color: '#888', marginTop: '8px' }}>
+                      Max delivery radius: {storeDeliverySettings.delivery_coverage_radius} km
                     </div>
                   )}
                 </div>
-              </>
-            )}
 
-            {deliveryMethod === "door" && (
-              <>
-                <label>
+                <label style={{ marginTop: '12px' }}>
                   Delivery speed:
-                  <select
-                    value={deliverySpeed}
-                    onChange={(e) => setDeliverySpeed(e.target.value)}
-                  >
+                  <select value={deliverySpeed} onChange={(e) => setDeliverySpeed(e.target.value)}>
                     <option value="standard">Standard</option>
-                    <option value="express">Express</option>
+                    <option value="express">Express (+{formatKSH(200)})</option>
                   </select>
                 </label>
 
                 <label>
-                  <input
-                    type="checkbox"
-                    checked={fragile}
-                    onChange={(e) => setFragile(e.target.checked)}
-                  />
-                  Fragile item
+                  <input type="checkbox" checked={fragile} onChange={(e) => setFragile(e.target.checked)} />
+                  Fragile item (extra handling)
                 </label>
               </>
+            )}
+
+            {/* Pickup Station */}
+            {deliveryMethod === "pickup" && (
+              <label>
+                Pickup Station Address:
+                <input
+                  type="text"
+                  placeholder="Enter pickup station address"
+                  value={pickupStation}
+                  onChange={(e) => setPickupStation(e.target.value)}
+                />
+                <small>Enter the exact location where you'll pick up your order</small>
+              </label>
             )}
 
             <label>
@@ -1475,88 +1359,59 @@ export default function Checkout() {
               <input
                 value={contactPhone}
                 onChange={(e) => setContactPhone(e.target.value)}
-                placeholder="07..."
+                placeholder="07XXXXXXXX"
               />
+              <small>We'll use this for delivery updates</small>
             </label>
           </div>
 
-          {/* Installment Payment */}
+          {/* Installment Payment Button */}
           {hasInstallmentPlan && !fromCart && !isFlashSale && (
             <div className="installment-section" style={{ marginTop: 12 }}>
-              <h4>Buy in Installments</h4>
-              <div className="installment-details">
-                <p>
-                  Initial payment: <strong>{(products[0].installment_plan.initial_percent || 0.3) * 100}%</strong> (
-                  <strong>KSH {( (productTotals[0].unitPrice * productTotals[0].quantity) * (products[0].installment_plan.initial_percent || 0.3) ).toFixed(2)}</strong>)
-                </p>
-                <p>Installment schedule:</p>
-                <ul>
-                  {(products[0].installment_plan.installments || []).map((it, idx) => (
-                    <li key={idx}>
-                      {it.percent}% after {it.due_in_days} days
-                    </li>
-                  ))}
-                </ul>
-                <div style={{ marginTop: 8 }}>
-                  <button
-                    onClick={handleStartInstallment}
-                    disabled={processingInstallment || (deliveryMethod === "door" && !deliveryAddress)}
-                    className="wallet"
-                    style={{ marginRight: 8 }}
-                  >
-                    Start Installment Plan (Pay Initial)
-                  </button>
-                </div>
-              </div>
+              <button
+                onClick={handleStartInstallment}
+                disabled={processingInstallment || (deliveryMethod === "door" && !deliveryAddress) || (deliveryMethod === "pickup" && !pickupStation)}
+                className="wallet"
+              >
+                Start Installment Plan (Pay Initial)
+              </button>
             </div>
           )}
 
           {/* PAYMENT SECTION */}
           <div className="payment-methods" style={{ marginTop: 16 }}>
-            <h4>Payment</h4>
+            <h4>Payment Summary</h4>
             <div className="price-breakdown">
-              {isFlashSale && (
+              {isFlashSale && productTotals[0]?.originalPrice && (
                 <div className="flash-sale-savings">
                   <span>Flash Sale Savings:</span>
                   <strong style={{ color: '#10B981' }}>
-                    -KSH {productTotals[0]?.originalPrice 
-                      ? ((productTotals[0].originalPrice - productTotals[0].unitPrice) * productTotals[0].quantity).toLocaleString()
-                      : '0'}
+                    -{formatKSH((productTotals[0].originalPrice - productTotals[0].unitPrice) * productTotals[0].quantity)}
                   </strong>
                 </div>
               )}
               <div>
-                <span>Product{products.length > 1 ? 's' : ''} total:</span>
-                <strong>KSH {totalProductPrice.toLocaleString()}</strong>
+                <span>Products total:</span>
+                <strong>{formatKSH(totalProductPrice)}</strong>
               </div>
               {deliveryMethod === "door" && (
                 <div>
                   <span>Delivery fee:</span>
-                  <strong>
-                    {isFreeDelivery ? (
-                      <span style={{ color: '#10B981' }}>FREE</span>
-                    ) : (
-                      `KSH ${deliveryFee.toFixed(2)}`
-                    )}
-                  </strong>
+                  <strong>{isFreeDelivery ? 'FREE' : formatKSH(finalDeliveryFee)}</strong>
                 </div>
               )}
-              <div>
-                <span>Total:</span>
-                <strong>KSH {(totalProductPrice + (deliveryMethod === "door" && !isFreeDelivery ? deliveryFee : 0)).toFixed(2)}</strong>
-              </div>
               <div className="separator" />
-              <div>
-                <span>Deposit ({depositPercent * 100}%):</span>
-                <strong>KSH {totalDeposit.toFixed(2)}</strong>
+              <div style={{ color: '#667eea', fontWeight: 600 }}>
+                <span>Deposit (25%):</span>
+                <strong>{formatKSH(totalDeposit)}</strong>
               </div>
               <div>
-                <span>Deposit + Delivery:</span>
-                <strong>KSH {(totalDeposit + (deliveryMethod === "door" && !isFreeDelivery ? deliveryFee : 0)).toFixed(2)}</strong>
+                <span>Pay now:</span>
+                <strong style={{ fontSize: '1.1em' }}>{formatKSH(depositTotal)}</strong>
               </div>
               <div>
-                <span>Balance Due:</span>
-                <strong>KSH {balanceDue.toFixed(2)}</strong>
+                <span>Balance due after delivery:</span>
+                <strong>{formatKSH(balanceDue)}</strong>
               </div>
             </div>
 
@@ -1564,40 +1419,30 @@ export default function Checkout() {
               <button 
                 className="wallet" 
                 onClick={handlePayWithWallet} 
-                disabled={buying || (deliveryMethod === "door" && !deliveryAddress)}
+                disabled={buying || (deliveryMethod === "door" && !deliveryAddress) || (deliveryMethod === "pickup" && !pickupStation)}
               >
-                <FaWallet /> 
-                {isFlashSale ? "Secure Flash Deal with Wallet" : "Pay deposit with Wallet"}
+                <FaWallet /> Pay 25% Deposit
               </button>
 
               <button 
                 className="mpesa" 
                 onClick={() => handlePayExternal("mpesa")} 
-                disabled={buying || (deliveryMethod === "door" && !deliveryAddress)}
+                disabled={buying || (deliveryMethod === "door" && !deliveryAddress) || (deliveryMethod === "pickup" && !pickupStation)}
               >
-                <FaMobileAlt /> 
-                {isFlashSale ? "Secure Flash Deal via M-Pesa" : "Pay deposit via M-Pesa"}
+                <FaMobileAlt /> Pay via M-Pesa
               </button>
 
               <button 
                 className="paypal" 
                 onClick={() => handlePayExternal("paypal")} 
-                disabled={buying || (deliveryMethod === "door" && !deliveryAddress)}
+                disabled={buying || (deliveryMethod === "door" && !deliveryAddress) || (deliveryMethod === "pickup" && !pickupStation)}
               >
-                <FaPaypal /> 
-                {isFlashSale ? "Secure Flash Deal via PayPal" : "Pay via PayPal"}
+                <FaPaypal /> Pay via PayPal
               </button>
             </div>
 
             <p className="muted">
-              {isFlashSale ? (
-                <>
-                  <strong>⚠️ Flash Sale Notice:</strong> Complete payment within the time limit to secure this exclusive price. 
-                  The remaining balance is paid on delivery.
-                </>
-              ) : (
-                "Note: you pay the deposit now + delivery fee. Remaining amount is paid on delivery (cash or as seller agrees)."
-              )}
+              <strong>How it works:</strong> Pay 25% deposit now (held in escrow). After delivery is confirmed, pay the remaining 75% to complete the order.
             </p>
           </div>
         </div>
@@ -1629,52 +1474,38 @@ export default function Checkout() {
                   <div>
                     <div style={{ fontWeight: 600 }}>{product.name}</div>
                     <div>Qty: {product.quantity}</div>
-                    {isFlashSale && product.originalPrice && (
-                      <div style={{ fontSize: '0.85em', color: '#888', textDecoration: 'line-through' }}>
-                        Was: KSH {(product.originalPrice * product.quantity).toLocaleString()}
-                      </div>
-                    )}
-                    <div style={{ 
-                      color: isFlashSale ? '#FF6B35' : 'inherit',
-                      fontWeight: isFlashSale ? 700 : 'normal'
-                    }}>
-                      KSH {product.productPrice.toLocaleString()}
-                    </div>
+                    <div>{formatKSH(product.productPrice)}</div>
                   </div>
                 </div>
               ))}
             </div>
             
             <div className="summary-details">
-              <div>Delivery: {deliveryMethod || "—"}</div>
-              {deliveryMethod === "door" && (
-                <div>Address: {deliveryAddress ? "✓ Selected" : "—"}</div>
+              <div>Delivery: {deliveryMethod === "door" ? "Door Delivery" : deliveryMethod === "pickup" ? "Pickup Station" : "—"}</div>
+              {deliveryMethod === "door" && deliveryAddress && (
+                <div className="summary-address">
+                  <FaMapMarkerAlt style={{ fontSize: '0.75em', marginRight: '4px' }} />
+                  <span>{deliveryAddress.substring(0, 50)}...</span>
+                </div>
               )}
-              <div>Shipping: 
-                {deliveryMethod === "door" ? (
-                  isFreeDelivery ? 'FREE' : `KSH ${deliveryFee.toFixed(2)}`
-                ) : (
-                  "KSH 0.00"
-                )}
-              </div>
+              {deliveryMethod === "pickup" && pickupStation && (
+                <div className="summary-address">
+                  <FaBuilding style={{ fontSize: '0.75em', marginRight: '4px' }} />
+                  <span>{pickupStation.substring(0, 50)}...</span>
+                </div>
+              )}
               
               <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #eee', fontWeight: 700 }}>
-                Pay now: KSH {(totalDeposit + (deliveryMethod === "door" && !isFreeDelivery ? deliveryFee : 0)).toFixed(2)}
+                Pay now: {formatKSH(depositTotal)}
               </div>
               <div style={{ fontSize: '0.9em', color: '#666' }}>
-                Balance due: KSH {balanceDue.toFixed(2)}
+                Pay later: {formatKSH(balanceDue)}
               </div>
-              
-              {isFlashSale && (
-                <div style={{ 
-                  marginTop: 8, 
-                  padding: 8, 
-                  background: '#FFF5F0', 
-                  borderRadius: 6,
-                  fontSize: '0.85em',
-                  color: '#FF6B35'
-                }}>
-                  ⚡ Flash sale price locked in
+
+              {storeDeliverySettings?.delivery_type === 'self-delivery' && (
+                <div style={{ marginTop: 8, padding: 8, background: '#FEF3C7', borderRadius: 6, fontSize: '0.85em', color: '#D97706' }}>
+                  <FaTruck style={{ marginRight: '4px' }} />
+                  This seller handles their own delivery. Delivery fee calculated based on their rates.
                 </div>
               )}
             </div>

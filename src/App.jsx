@@ -15,7 +15,6 @@ import "slick-carousel/slick/slick-theme.css";
 import Home from "./components/Home";
 import Auth from "./components/Auth";
 import Profile from "./components/Profile";
-import Messages from "./components/Messages";
 import Notifications from "./components/Notifications";
 import HelpCenter from "./components/HelpCenter";
 import Settings from "./components/Settings";
@@ -50,8 +49,8 @@ import MyInstallments from "./pages/MyInstallments"; // ✅ make sure the path m
 import Checkout from "@/pages/Checkout";
 import Premium from './pages/Premium';
 import SearchPage from "./pages/SearchPage"; 
-import ChatScreen from './pages/ChatScreen';
 import StoreDashboardV2 from './pages/StoreDashboardV2';
+import NewMessages from './pages/NewMessages';
 // Student
 import StudentDashboard from "./pages/StudentDashboard";
 
@@ -112,13 +111,12 @@ function AppRoutes() {
         {/* REMOVED: Discover and Create routes */}
         
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-        <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
         <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         <Route path="/help" element={<ProtectedRoute><HelpCenter /></ProtectedRoute>} />
         <Route path="/wallet" element={<ProtectedRoute><OmniPayWallet /></ProtectedRoute>} />
         <Route path="/convert-currency" element={<ProtectedRoute><CurrencyConverter /></ProtectedRoute>} />
-        <Route path="/chat" element={<ChatScreen />} />
+        <Route path="/messages" element={<NewMessages />} />
         {/* REMOVED: ProtectedRoute from /trade since it's now the root */}
         <Route path="/trade" element={<TradeStore />} />
         <Route path="/seller/dashboard" element={<StoreDashboardV2 />} />
