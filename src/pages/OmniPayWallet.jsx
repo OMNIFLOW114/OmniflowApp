@@ -32,6 +32,7 @@ import {
   ShieldCheck
 } from "lucide-react";
 import "./OmniPayWallet.css";
+import { useMpesaPayment } from "@/hooks/useMpesaPayment";
 
 // SEPARATE SetupModal Component
 const SetupModal = React.memo(({
@@ -1302,7 +1303,9 @@ const SendMoneyModal = React.memo(({
 
 SendMoneyModal.displayName = 'SendMoneyModal';
 
-// Withdraw Money Modal Component
+// ============================================================
+// FIXED: Withdraw Money Modal - Removed email, only M-Pesa phone
+// ============================================================
 const WithdrawMoneyModal = React.memo(({ 
   show, 
   onClose, 
@@ -1310,7 +1313,7 @@ const WithdrawMoneyModal = React.memo(({
   onWithdraw,
   formatKSH 
 }) => {
-  const [recipient, setRecipient] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [amount, setAmount] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState("");
@@ -1318,8 +1321,13 @@ const WithdrawMoneyModal = React.memo(({
   const handleWithdrawMoney = async () => {
     setError("");
     
-    if (!recipient.trim()) {
-      setError("Please enter email or phone number");
+    if (!phoneNumber.trim()) {
+      setError("Please enter M-Pesa phone number");
+      return;
+    }
+    
+    if (!/^0[17]\d{8}$/.test(phoneNumber)) {
+      setError("Please enter a valid M-Pesa phone number (e.g., 0712345678)");
       return;
     }
     
@@ -1337,7 +1345,7 @@ const WithdrawMoneyModal = React.memo(({
     setIsProcessing(true);
     
     try {
-      await onWithdraw(amountNum, recipient.trim());
+      await onWithdraw(amountNum, phoneNumber);
       onClose();
     } catch (err) {
       setError(err.message || "Withdrawal failed. Please try again.");
@@ -1391,17 +1399,21 @@ const WithdrawMoneyModal = React.memo(({
           </div>
           
           <div style={{ marginBottom: "20px" }}>
-            <label className="wallet-input-label">Recipient (Email or M-Pesa Phone)</label>
+            <label className="wallet-input-label">M-Pesa Phone Number</label>
             <input
-              type="text"
-              placeholder="email@example.com or 0712345678"
-              value={recipient}
-              onChange={(e) => setRecipient(e.target.value)}
+              type="tel"
+              placeholder="0712345678"
+              value={phoneNumber}
+              onChange={(e) => {
+                const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                setPhoneNumber(value);
+              }}
               className="wallet-input"
               disabled={isProcessing}
+              maxLength="10"
             />
             <p className="wallet-input-hint">
-              Enter email for PayPal or M-Pesa phone number (e.g., 0712345678)
+              Enter your M-Pesa registered phone number
             </p>
           </div>
 
@@ -1433,7 +1445,7 @@ const WithdrawMoneyModal = React.memo(({
           <button
             onClick={handleWithdrawMoney}
             className="wallet-confirm-btn"
-            disabled={isProcessing || !recipient.trim() || !amount}
+            disabled={isProcessing || !phoneNumber || !amount}
             style={{ width: "100%" }}
           >
             {isProcessing ? (
@@ -1444,7 +1456,7 @@ const WithdrawMoneyModal = React.memo(({
             ) : (
               <>
                 <ArrowUp size={20} style={{ marginRight: "8px" }} />
-                Withdraw Money
+                Withdraw to M-Pesa
               </>
             )}
           </button>
@@ -1456,7 +1468,9 @@ const WithdrawMoneyModal = React.memo(({
 
 WithdrawMoneyModal.displayName = 'WithdrawMoneyModal';
 
-// Deposit Money Modal Component
+// ============================================================
+// Deposit Money Modal with Real M-Pesa STK Push
+// ============================================================
 const DepositMoneyModal = React.memo(({ 
   show, 
   onClose, 
@@ -1465,44 +1479,91 @@ const DepositMoneyModal = React.memo(({
 }) => {
   const [amount, setAmount] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [error, setError] = useState("");
+  const [step, setStep] = useState(1);
+  const [processingError, setProcessingError] = useState("");
+  const [user, setUser] = useState(null);
+  const [depositCompleted, setDepositCompleted] = useState(false);
+  const { initiateWalletDeposit, loading, pollingActive, currentCheckoutId, cancelPolling } = useMpesaPayment();
 
-  const handleDepositMoney = async () => {
-    setError("");
-    
+  useEffect(() => {
+    if (show) {
+      const getUser = async () => {
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        setUser(currentUser);
+      };
+      getUser();
+      setDepositCompleted(false);
+      setStep(1);
+    }
+  }, [show]);
+
+  const handleDeposit = async () => {
     const amountNum = Number(amount);
-    if (!amount || amountNum < 1) {
-      setError("Please enter a valid amount (minimum 1 KSH)");
+    if (!amount || amountNum < 10) {
+      toast.error("Minimum deposit amount is KES 10");
       return;
     }
     
     if (!phoneNumber || !/^0[17]\d{8}$/.test(phoneNumber)) {
-      setError("Please enter a valid M-Pesa phone number (e.g., 0712345678)");
+      toast.error("Please enter a valid M-Pesa phone number (e.g., 0712345678)");
       return;
     }
     
-    setIsProcessing(true);
+    setStep(2);
+    setProcessingError("");
     
-    try {
-      await onDeposit(amountNum, phoneNumber);
-      onClose();
-    } catch (err) {
-      setError(err.message || "Deposit failed. Please try again.");
-    } finally {
-      setIsProcessing(false);
-    }
+    await initiateWalletDeposit(
+      phoneNumber,
+      amountNum,
+      user?.id,
+      async (receipt, paidAmount) => {
+        setDepositCompleted(true);
+        await onDeposit(paidAmount, phoneNumber);
+        
+        toast.success(
+          `Payment successful!\nAmount: ${formatKSH(paidAmount)}\nReceipt: ${receipt}`,
+          { duration: 8000, icon: '✅' }
+        );
+        
+        setTimeout(() => {
+          setStep(1);
+          setAmount("");
+          setPhoneNumber("");
+          setDepositCompleted(false);
+          onClose();
+        }, 3000);
+      },
+      (error) => {
+        setProcessingError(error);
+        setStep(1);
+        toast.error(error || "Deposit failed. Please try again.");
+      }
+    );
   };
-
+  
+  const handleClose = () => {
+    if (pollingActive) {
+      cancelPolling();
+    }
+    setStep(1);
+    setAmount("");
+    setPhoneNumber("");
+    setProcessingError("");
+    setDepositCompleted(false);
+    onClose();
+  };
+  
   if (!show) return null;
 
   return (
     <div className="wallet-pin-modal">
       <div className="wallet-pin-content" style={{ maxWidth: "500px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
-          <h3 className="wallet-pin-title">Deposit via M-Pesa</h3>
+          <h3 className="wallet-pin-title">
+            {step === 1 ? "Deposit via M-Pesa" : depositCompleted ? "Payment Complete!" : "Processing Payment"}
+          </h3>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             style={{
               background: "none",
               border: "none",
@@ -1510,96 +1571,174 @@ const DepositMoneyModal = React.memo(({
               cursor: "pointer",
               padding: "4px"
             }}
-            disabled={isProcessing}
+            disabled={loading || pollingActive}
           >
             <X size={20} />
           </button>
         </div>
 
-        {error && (
-          <div className="wallet-status-error">
-            <AlertCircle size={16} />
-            {error}
+        {step === 1 ? (
+          <div style={{ marginBottom: "24px" }}>
+            <div style={{
+              background: "rgba(0, 167, 78, 0.1)",
+              border: "1px solid rgba(0, 167, 78, 0.3)",
+              padding: "16px",
+              borderRadius: "var(--wallet-radius-md)",
+              marginBottom: "20px"
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
+                <SmartphoneIcon size={20} color="#00A74E" />
+                <span style={{ fontWeight: "600", color: "var(--wallet-text-primary)" }}>
+                  M-Pesa Paybill Deposit
+                </span>
+              </div>
+              <p style={{ fontSize: "14px", color: "var(--wallet-text-secondary)", margin: 0 }}>
+                You'll receive a prompt on your phone to complete the payment
+              </p>
+            </div>
+            
+            <div style={{ marginBottom: "20px" }}>
+              <label className="wallet-input-label">Amount (KES)</label>
+              <input
+                type="number"
+                placeholder="Enter amount"
+                value={amount}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/[^0-9.]/g, '');
+                  if (value === '' || (!isNaN(value) && Number(value) >= 0)) {
+                    setAmount(value);
+                  }
+                }}
+                className="wallet-input"
+                disabled={loading}
+                min="10"
+                step="1"
+              />
+              <p className="wallet-input-hint">
+                Minimum: KES 10
+              </p>
+            </div>
+
+            <div style={{ marginBottom: "32px" }}>
+              <label className="wallet-input-label">M-Pesa Phone Number</label>
+              <input
+                type="tel"
+                placeholder="0712345678"
+                value={phoneNumber}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                  setPhoneNumber(value);
+                }}
+                className="wallet-input"
+                disabled={loading}
+                maxLength="10"
+              />
+              <p className="wallet-input-hint">
+                Enter your M-Pesa registered phone number
+              </p>
+            </div>
+
+            {processingError && (
+              <div className="wallet-status-error" style={{ marginBottom: "16px" }}>
+                <AlertCircle size={16} />
+                {processingError}
+              </div>
+            )}
+
+            <button
+              onClick={handleDeposit}
+              className="wallet-confirm-btn"
+              disabled={loading || !amount || !phoneNumber}
+              style={{ width: "100%", background: "#00A74E" }}
+            >
+              {loading ? (
+                <>
+                  <Loader2 size={20} className="animate-spin inline mr-2" />
+                  Initiating...
+                </>
+              ) : (
+                <>
+                  <SmartphoneIcon size={20} style={{ marginRight: "8px" }} />
+                  Pay via M-Pesa
+                </>
+              )}
+            </button>
+          </div>
+        ) : (
+          <div style={{ textAlign: "center", padding: "20px 0" }}>
+            <div style={{
+              width: "80px",
+              height: "80px",
+              background: "rgba(0, 167, 78, 0.1)",
+              borderRadius: "50%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 24px"
+            }}>
+              {pollingActive && !depositCompleted ? (
+                <Loader2 size={40} className="animate-spin" color="#00A74E" />
+              ) : depositCompleted ? (
+                <CheckCircle size={40} color="#00A74E" />
+              ) : (
+                <Loader2 size={40} className="animate-spin" color="#00A74E" />
+              )}
+            </div>
+            
+            <h4 style={{ fontSize: "18px", fontWeight: "600", marginBottom: "12px", color: "var(--wallet-text-primary)" }}>
+              {pollingActive && !depositCompleted ? "Waiting for Payment" : 
+               depositCompleted ? "Payment Complete!" : "Processing..."}
+            </h4>
+            
+            <p style={{ color: "var(--wallet-text-secondary)", marginBottom: "16px" }}>
+              {pollingActive && !depositCompleted ? (
+                <>
+                  Please check your phone and enter your M-Pesa PIN to complete the payment.
+                  <br />
+                  <span style={{ fontSize: "12px", display: "block", marginTop: "8px" }}>
+                    Amount: <strong>{formatKSH(Number(amount))}</strong>
+                  </span>
+                  {currentCheckoutId && (
+                    <span style={{ fontSize: "12px", display: "block" }}>
+                      Reference: <strong>{currentCheckoutId.slice(-8)}</strong>
+                    </span>
+                  )}
+                </>
+              ) : depositCompleted ? (
+                "Your wallet has been credited successfully!"
+              ) : (
+                "Processing your payment..."
+              )}
+            </p>
+            
+            {pollingActive && !depositCompleted && (
+              <button
+                onClick={cancelPolling}
+                style={{
+                  marginTop: "16px",
+                  padding: "10px 24px",
+                  background: "transparent",
+                  border: "1px solid var(--wallet-border)",
+                  borderRadius: "var(--wallet-radius-md)",
+                  color: "var(--wallet-text-secondary)",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  transition: "var(--wallet-transition)"
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = "var(--wallet-text-secondary)";
+                  e.currentTarget.style.color = "var(--wallet-text-primary)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = "var(--wallet-border)";
+                  e.currentTarget.style.color = "var(--wallet-text-secondary)";
+                }}
+              >
+                Cancel
+              </button>
+            )}
           </div>
         )}
-
-        <div style={{ marginBottom: "24px" }}>
-          <div style={{
-            background: "rgba(0, 167, 78, 0.1)",
-            border: "1px solid rgba(0, 167, 78, 0.3)",
-            padding: "16px",
-            borderRadius: "var(--wallet-radius-md)",
-            marginBottom: "20px"
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
-              <SmartphoneIcon size={20} color="#00A74E" />
-              <span style={{ fontWeight: "600", color: "var(--wallet-text-primary)" }}>
-                M-Pesa Deposit
-              </span>
-            </div>
-            <p style={{ fontSize: "14px", color: "var(--wallet-text-secondary)", margin: 0 }}>
-              Funds will be added instantly to your wallet
-            </p>
-          </div>
-          
-          <div style={{ marginBottom: "20px" }}>
-            <label className="wallet-input-label">Amount (KSH)</label>
-            <input
-              type="number"
-              placeholder="0.00"
-              value={amount}
-              onChange={(e) => {
-                const value = e.target.value.replace(/[^0-9.]/g, '');
-                if (value === '' || (!isNaN(value) && Number(value) >= 0)) {
-                  setAmount(value);
-                }
-              }}
-              className="wallet-input"
-              disabled={isProcessing}
-            />
-            <p className="wallet-input-hint">
-              Enter the amount you want to deposit
-            </p>
-          </div>
-
-          <div style={{ marginBottom: "32px" }}>
-            <label className="wallet-input-label">M-Pesa Phone Number</label>
-            <input
-              type="tel"
-              placeholder="0712345678"
-              value={phoneNumber}
-              onChange={(e) => {
-                const value = e.target.value.replace(/\D/g, '').slice(0, 10);
-                setPhoneNumber(value);
-              }}
-              className="wallet-input"
-              disabled={isProcessing}
-              maxLength="10"
-            />
-            <p className="wallet-input-hint">
-              Enter your M-Pesa registered phone number
-            </p>
-          </div>
-
-          <button
-            onClick={handleDepositMoney}
-            className="wallet-confirm-btn"
-            disabled={isProcessing || !amount || !phoneNumber}
-            style={{ width: "100%", background: "#00A74E" }}
-          >
-            {isProcessing ? (
-              <>
-                <Loader2 size={20} className="animate-spin inline mr-2" />
-                Processing...
-              </>
-            ) : (
-              <>
-                <ArrowDown size={20} style={{ marginRight: "8px" }} />
-                Deposit via M-Pesa
-              </>
-            )}
-          </button>
-        </div>
       </div>
     </div>
   );
@@ -1817,7 +1956,7 @@ const OmniPayWallet = () => {
     };
   }, []);
   
-  // Real-time subscriptions for balance and transactions - MOVED AFTER fetchTransactions declaration
+  // Real-time subscriptions for balance and transactions
   useEffect(() => {
     if (!user) return;
     
@@ -2059,12 +2198,11 @@ const OmniPayWallet = () => {
     toast.success("Wallet refreshed", { duration: 2000 });
   };
   
-  // Enhanced PIN Verification - Compare with stored hash
+  // Enhanced PIN Verification
   const verifyPin = async (pin) => {
     if (!user) return false;
     
     try {
-      // Get stored PIN hash for this user
       const { data: pinData, error: fetchError } = await supabase
         .from("wallet_pin_security")
         .select("pin_hash, is_locked, locked_until, pin_attempts")
@@ -2087,19 +2225,16 @@ const OmniPayWallet = () => {
         }
       }
       
-      // Compare entered PIN with stored hash (btoa encoding)
       const enteredPinHash = btoa(pin);
       const isPinCorrect = enteredPinHash === pinData?.pin_hash;
       
       if (isPinCorrect) {
-        // Successful verification
         setPinVerified(true);
         setPinError("");
         setShowPinModal(false);
         setPinInput(["", "", "", "", "", ""]);
         setFailedPinAttempts(0);
        
-        // Reset failed attempts
         await supabase
           .from("wallet_pin_security")
           .update({
@@ -2113,7 +2248,6 @@ const OmniPayWallet = () => {
         resetSessionTimeout();
         toast.success("PIN verified successfully", { duration: 2000 });
         
-        // Show biometric prompt if available and not yet prompted
         if (biometricAvailable && biometricPrompted && !securitySettings.biometricEnabled) {
           setTimeout(() => {
             setShowBiometricPrompt(true);
@@ -2122,18 +2256,15 @@ const OmniPayWallet = () => {
         
         return true;
       } else {
-        // Failed attempt
         const newFailedAttempts = (pinData?.pin_attempts || 0) + 1;
         setFailedPinAttempts(newFailedAttempts);
         setPinError("Invalid PIN");
         
-        // Update failed attempts in database
         const updateData = {
           pin_attempts: newFailedAttempts,
           last_attempt_at: new Date().toISOString()
         };
         
-        // Lock PIN if max attempts reached
         if (newFailedAttempts >= securitySettings.maxPinAttempts) {
           const lockUntil = new Date(Date.now() + securitySettings.lockDuration * 1000);
           updateData.is_locked = true;
@@ -2225,7 +2356,6 @@ const OmniPayWallet = () => {
     try {
       setShowBiometricPrompt(false);
       
-      // Update biometric preference
       await supabase
         .from("wallet_pin_security")
         .update({
@@ -2251,7 +2381,6 @@ const OmniPayWallet = () => {
   const handleBiometricDecline = async () => {
     setShowBiometricPrompt(false);
     
-    // Mark as prompted but not enabled
     await supabase
       .from("wallet_pin_security")
       .update({
@@ -2264,7 +2393,6 @@ const OmniPayWallet = () => {
   const handleBiometricDontAskAgain = async () => {
     setShowBiometricPrompt(false);
     
-    // Mark as prompted and never ask again
     await supabase
       .from("wallet_pin_security")
       .update({
@@ -2333,7 +2461,6 @@ const OmniPayWallet = () => {
   const creditAdminCommission = async (commission) => {
     if (!ADMIN_ID || commission <= 0) return;
     try {
-      // Get admin's current balance
       const { data: adminWallet, error: adminError } = await supabase
         .from("wallets")
         .select("balance")
@@ -2348,7 +2475,6 @@ const OmniPayWallet = () => {
       const adminCurrentBalance = adminWallet?.balance || 0;
       const adminNewBalance = +(adminCurrentBalance + commission).toFixed(2);
       
-      // Update admin wallet
       const { error: updateError } = await supabase
         .from("wallets")
         .upsert({
@@ -2405,12 +2531,10 @@ const OmniPayWallet = () => {
       let result;
      
       if (field === 'phone') {
-        // Validate Kenyan phone number format
         if (!/^0[17]\d{8}$/.test(value)) {
           throw new Error("Please enter a valid Kenyan phone number (e.g., 0712345678)");
         }
        
-        // Check if phone already exists
         const { data: existingPhone } = await supabase
           .from("users")
           .select("id")
@@ -2423,7 +2547,6 @@ const OmniPayWallet = () => {
         }
       }
      
-      // Update the specific field
       const updateField = field === 'name' ? 'full_name' : field;
       const { error: updateError } = await supabase
         .from("users")
@@ -2439,7 +2562,6 @@ const OmniPayWallet = () => {
      
       toast.success(`${field === 'phone' ? 'Phone number' : 'Full name'} updated successfully!`, { duration: 3000 });
      
-      // Update missing data state
       setMissingData(prev => {
         const updated = prev.filter(item => item.type !== field);
         return updated;
@@ -2450,7 +2572,6 @@ const OmniPayWallet = () => {
     } catch (error) {
       console.error("Update user data error:", error);
      
-      // More specific error messages
       if (error.code === '23505') {
         toast.error("This value already exists. Please use a different one.", { duration: 4000 });
       } else if (error.code === '22P02') {
@@ -2472,10 +2593,8 @@ const OmniPayWallet = () => {
     setProcessing(true);
    
     try {
-      // Use btoa hashing (consistent with verification)
       const pinHash = btoa(pin);
       
-      // Store security question
       const securityQuestions = securityQuestion ? [{
         question: securityQuestion,
         answer: securityAnswer.toLowerCase().trim(),
@@ -2501,7 +2620,6 @@ const OmniPayWallet = () => {
      
       setPinEnabled(true);
      
-      // Update missing data state
       setMissingData(prev => {
         const updated = prev.filter(item => item.type !== 'pin');
         return updated;
@@ -2525,7 +2643,7 @@ const OmniPayWallet = () => {
     setPinVerified(false);
   };
   
-  // Handle send money - FIXED VERSION
+  // Handle send money
   const handleSendMoney = async (recipientEmail, amount) => {
     setProcessing(true);
     
@@ -2533,17 +2651,14 @@ const OmniPayWallet = () => {
       const commission = +(amount * 0.014).toFixed(2);
       const net = +(amount - commission).toFixed(2);
       
-      // Check if sending to self
       if (recipientEmail.toLowerCase() === user.email.toLowerCase()) {
         throw new Error("Cannot send money to yourself.");
       }
       
-      // Check balance
       if (amount > balance) {
         throw new Error("Insufficient balance.");
       }
       
-      // Find recipient user - FIXED: Use ilike for case-insensitive search
       const { data: receiver, error: receiverErr } = await supabase
         .from("users")
         .select("id, email, name, full_name")
@@ -2559,10 +2674,8 @@ const OmniPayWallet = () => {
         throw new Error("User not found. Please check the email address.");
       }
       
-      // Start transaction
       const senderNewBalance = +(balance - amount).toFixed(2);
       
-      // Update sender's balance
       const { error: senderUpdateError } = await supabase
         .from("wallets")
         .update({ 
@@ -2574,7 +2687,6 @@ const OmniPayWallet = () => {
         
       if (senderUpdateError) throw senderUpdateError;
       
-      // Get receiver's current balance
       const { data: receiverWallet } = await supabase
         .from("wallets")
         .select("balance")
@@ -2584,7 +2696,6 @@ const OmniPayWallet = () => {
       const receiverCurrentBalance = receiverWallet?.balance || 0;
       const receiverFinalBalance = +(receiverCurrentBalance + net).toFixed(2);
       
-      // Update receiver's balance
       const { error: receiverUpdateError } = await supabase
         .from("wallets")
         .upsert({
@@ -2598,12 +2709,10 @@ const OmniPayWallet = () => {
         
       if (receiverUpdateError) throw receiverUpdateError;
       
-      // Credit admin commission
       if (ADMIN_ID && commission > 0) {
         await creditAdminCommission(commission);
       }
       
-      // Insert transaction for sender
       const senderTransaction = {
         user_id: user.id,
         type: "send",
@@ -2611,11 +2720,11 @@ const OmniPayWallet = () => {
         amount: net,
         commission_paid: commission,
         receiver_id: receiver.id,
-        receiver_email: recipientEmail,
         status: "Completed",
         message: `Sent ${formatKSH(net)} to ${receiver.full_name || receiver.name || receiver.email}. Transaction fee: ${formatKSH(commission)}.`,
         created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
+        metadata: { receiver_email: recipientEmail }
       };
       
       const { error: senderTxError } = await supabase
@@ -2627,18 +2736,17 @@ const OmniPayWallet = () => {
         throw senderTxError;
       }
       
-      // Insert transaction for receiver
       const receiverTransaction = {
         user_id: receiver.id,
         type: "receive",
         amount: net,
         gross_amount: net,
         sender_id: user.id,
-        sender_email: user.email,
         status: "Completed",
         message: `Received ${formatKSH(net)} from ${user.email}.`,
         created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
+        metadata: { sender_email: user.email }
       };
       
       const { error: receiverTxError } = await supabase
@@ -2647,20 +2755,18 @@ const OmniPayWallet = () => {
         
       if (receiverTxError) console.error("Receiver transaction error:", receiverTxError);
       
-      // Insert admin commission transaction
       if (ADMIN_ID && commission > 0) {
         const adminTransaction = {
           user_id: ADMIN_ID,
           type: "commission",
           amount: commission,
           sender_id: user.id,
-          sender_email: user.email,
           receiver_id: receiver.id,
-          receiver_email: recipientEmail,
           status: "Completed",
           message: `Commission from ${user.email} to ${recipientEmail}`,
           created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
+          metadata: { sender_email: user.email, receiver_email: recipientEmail }
         };
         
         await supabase
@@ -2668,12 +2774,10 @@ const OmniPayWallet = () => {
           .insert(adminTransaction);
       }
       
-      // Update local state
       setBalance(senderNewBalance);
       
       toast.success(`Sent ${formatKSH(net)} to ${receiver.full_name || receiver.name || receiver.email}!`, { duration: 4000 });
       
-      // Refresh transactions
       await fetchTransactions();
       
     } catch (err) {
@@ -2684,25 +2788,24 @@ const OmniPayWallet = () => {
     }
   };
   
-  // Handle withdraw money - FIXED VERSION
-  const handleWithdrawMoney = async (amount, recipient) => {
+  // ============================================================
+  // FIXED: Handle withdraw money - Removed email, only M-Pesa phone
+  // ============================================================
+  const handleWithdrawMoney = async (amount, phoneNumber) => {
     setProcessing(true);
     
     try {
       const commission = +(amount * 0.014).toFixed(2);
       const net = +(amount - commission).toFixed(2);
-      const isEmail = recipient.includes("@");
-      const isPhone = /^0[17]\d{8}$/.test(recipient);
       
-      if (!isEmail && !isPhone) {
-        throw new Error("Please enter a valid email or M-Pesa phone number.");
+      if (!/^0[17]\d{8}$/.test(phoneNumber)) {
+        throw new Error("Please enter a valid M-Pesa phone number (e.g., 0712345678)");
       }
       
       if (amount > balance) {
         throw new Error("Insufficient balance.");
       }
       
-      const method = isEmail ? "PayPal" : "Mpesa";
       const newBalance = +(balance - amount).toFixed(2);
       
       // Update sender's balance
@@ -2729,11 +2832,10 @@ const OmniPayWallet = () => {
         gross_amount: amount,
         amount: net,
         commission_paid: commission,
-        payment_method: method,
-        phone: isPhone ? recipient : null,
-        receiver_email: isEmail ? recipient : null,
+        payment_method: "Mpesa",
+        phone: phoneNumber,
         status: "Processing",
-        message: `Withdrawal of ${formatKSH(net)} to ${recipient} via ${method}. Transaction fee: ${formatKSH(commission)}.`,
+        message: `Withdrawal of ${formatKSH(net)} to ${phoneNumber} via M-Pesa. Transaction fee: ${formatKSH(commission)}.`,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
@@ -2747,7 +2849,7 @@ const OmniPayWallet = () => {
       // Update local state
       setBalance(newBalance);
       
-      toast.success(`Withdrawal of ${formatKSH(net)} initiated! It may take 1-2 business days.`, { duration: 5000 });
+      toast.success(`Withdrawal of ${formatKSH(net)} initiated! Funds will be sent to ${phoneNumber} within 1-2 business days.`, { duration: 5000 });
       
       // Refresh transactions
       await fetchTransactions();
@@ -2760,58 +2862,12 @@ const OmniPayWallet = () => {
     }
   };
   
-  // Handle deposit via M-Pesa - FIXED VERSION
+  // Handle deposit via M-Pesa
   const handleDepositMoney = async (amount, phoneNumber) => {
-    setProcessing(true);
-    
     try {
-      const newBalance = +(balance + amount).toFixed(2);
-      
-      // Update balance
-      const { error: updateError } = await supabase
-        .from("wallets")
-        .update({ 
-          balance: newBalance,
-          updated_at: new Date().toISOString(),
-          last_transaction_at: new Date().toISOString()
-        })
-        .eq("user_id", user.id);
-        
-      if (updateError) throw updateError;
-      
-      // Insert transaction - NO COMMISSION for deposits
-      const depositTransaction = {
-        user_id: user.id,
-        type: "deposit",
-        amount: amount,
-        gross_amount: amount,
-        payment_method: "Mpesa",
-        phone: phoneNumber,
-        status: "Completed",
-        message: `Deposit of ${formatKSH(amount)} via M-Pesa from ${phoneNumber}.`,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-      
-      const { error: txError } = await supabase
-        .from("wallet_transactions")
-        .insert(depositTransaction);
-        
-      if (txError) throw txError;
-      
-      // Update local state
-      setBalance(newBalance);
-      
-      toast.success(`Deposited ${formatKSH(amount)} successfully!`, { duration: 4000 });
-      
-      // Refresh transactions
-      await fetchTransactions();
-      
+      await fetchWalletData();
     } catch (err) {
-      console.error("Deposit error:", err);
-      throw new Error(err.message || "Deposit failed. Please try again.");
-    } finally {
-      setProcessing(false);
+      console.error("Deposit refresh error:", err);
     }
   };
   
@@ -2879,8 +2935,8 @@ const OmniPayWallet = () => {
         txn.type?.toLowerCase().includes(query) ||
         txn.status?.toLowerCase().includes(query) ||
         txn.amount?.toString().includes(query) ||
-        txn.receiver_email?.toLowerCase().includes(query) ||
-        txn.sender_email?.toLowerCase().includes(query)
+        txn.reference?.toLowerCase().includes(query) ||
+        txn.phone?.toLowerCase().includes(query)
       );
     });
   }, [transactions, searchQuery]);
@@ -2893,47 +2949,50 @@ const OmniPayWallet = () => {
     }
   };
   
-  // Enhanced transaction message formatting
+  // Enhanced transaction message formatting with M-Pesa receipt display
   const formatTransactionMessage = useCallback((txn) => {
     const amount = formatKSH(txn.amount);
-   
-    switch (txn.type) {
-      case 'send':
-        return {
-          title: `Sent ${amount}`,
-          subtitle: txn.receiver_email ? `To: ${txn.receiver_email}` : txn.message || 'Money sent',
-          color: 'var(--wallet-danger)',
-          icon: Send
-        };
-      case 'receive':
-        return {
-          title: `Received ${amount}`,
-          subtitle: txn.sender_email ? `From: ${txn.sender_email}` : txn.message || 'Money received',
-          color: 'var(--wallet-success)',
-          icon: ArrowDown
-        };
-      case 'deposit':
-        return {
-          title: `Deposited ${amount}`,
-          subtitle: txn.payment_method ? `Via ${txn.payment_method}` : txn.message || 'Deposit',
-          color: 'var(--wallet-info)',
-          icon: ArrowDown
-        };
-      case 'withdraw':
-        return {
-          title: `Withdrew ${amount}`,
-          subtitle: txn.payment_method ? `Via ${txn.payment_method}` : txn.message || 'Withdrawal',
-          color: 'var(--wallet-warning)',
-          icon: ArrowUp
-        };
-      default:
-        return {
-          title: `${txn.type?.charAt(0).toUpperCase() + txn.type?.slice(1)} ${amount}`,
-          subtitle: txn.message || 'Transaction',
-          color: 'var(--wallet-text-secondary)',
-          icon: Clock
-        };
+    
+    let subtitle = '';
+    if (txn.type === 'deposit' && (txn.payment_method === 'mpesa' || txn.payment_method === 'Mpesa')) {
+      if (txn.reference) {
+        subtitle = `M-Pesa Receipt: ${txn.reference} | Via M-Pesa`;
+      } else if (txn.metadata?.mpesa_receipt) {
+        subtitle = `M-Pesa Receipt: ${txn.metadata.mpesa_receipt} | Via M-Pesa`;
+      } else if (txn.metadata?.checkout_request_id) {
+        subtitle = `Ref: ${txn.metadata.checkout_request_id.slice(-8)} | Via M-Pesa`;
+      } else {
+        subtitle = txn.message || 'Deposit via M-Pesa';
+      }
+    } else if (txn.type === 'send') {
+      const receiverEmail = txn.metadata?.receiver_email || txn.receiver_email;
+      subtitle = receiverEmail ? `To: ${receiverEmail}` : txn.message || 'Money sent';
+    } else if (txn.type === 'receive') {
+      const senderEmail = txn.metadata?.sender_email || txn.sender_email;
+      subtitle = senderEmail ? `From: ${senderEmail}` : txn.message || 'Money received';
+    } else if (txn.type === 'withdraw') {
+      subtitle = txn.phone ? `To M-Pesa: ${txn.phone}` : txn.message || 'Withdrawal';
+    } else {
+      subtitle = txn.message || 'Transaction';
     }
+    
+    return {
+      title: `${txn.type === 'deposit' ? 'Deposited' : 
+              txn.type === 'send' ? 'Sent' :
+              txn.type === 'receive' ? 'Received' :
+              txn.type === 'withdraw' ? 'Withdrew' : 
+              txn.type?.charAt(0).toUpperCase() + txn.type?.slice(1)} ${amount}`,
+      subtitle: subtitle,
+      color: txn.type === 'deposit' ? 'var(--wallet-success)' :
+             txn.type === 'send' ? 'var(--wallet-danger)' :
+             txn.type === 'receive' ? 'var(--wallet-success)' :
+             txn.type === 'withdraw' ? 'var(--wallet-warning)' :
+             'var(--wallet-text-secondary)',
+      icon: txn.type === 'deposit' ? ArrowDown :
+            txn.type === 'send' ? Send :
+            txn.type === 'receive' ? ArrowDown :
+            txn.type === 'withdraw' ? ArrowUp : Clock
+    };
   }, [formatKSH]);
   
   // Show skeleton loading initially
@@ -3018,7 +3077,7 @@ const OmniPayWallet = () => {
         formatKSH={formatKSH}
       />
       
-      {/* Withdraw Money Modal */}
+      {/* Withdraw Money Modal - Updated */}
       <WithdrawMoneyModal
         show={showWithdrawModal}
         onClose={() => setShowWithdrawModal(false)}
