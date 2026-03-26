@@ -368,6 +368,37 @@ html.dark .progress-line {
   background: #ff6200;
 }
 
+/* Status Message */
+.status-message {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  margin: 0.5rem 0;
+}
+
+.status-message.info {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+html.dark .status-message.info {
+  background: #1e3a8a;
+  color: #bfdbfe;
+}
+
+.status-message.success {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+html.dark .status-message.success {
+  background: #064e3b;
+  color: #a7f3d0;
+}
+
 /* Price Row */
 .price-row {
   display: flex;
@@ -468,6 +499,16 @@ html.dark .price-sep {
   transform: scale(0.98);
 }
 
+.action-btn.complete {
+  background: #10b981;
+  color: #ffffff;
+}
+
+.action-btn.complete:active {
+  background: #059669;
+  transform: scale(0.98);
+}
+
 .action-btn:disabled {
   opacity: 0.5;
   pointer-events: none;
@@ -480,6 +521,19 @@ html.dark .price-sep {
   font-size: 0.8rem;
   font-weight: 600;
   text-align: center;
+}
+
+.status-badge.completed {
+  background: #10b98115;
+  color: #10b981;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.status-badge.completed svg {
+  font-size: 0.9rem;
 }
 
 .status-badge.processing {
@@ -640,6 +694,189 @@ html.dark .star {
   transform: scale(1.1);
 }
 
+/* ===== M-PESA PAYMENT MODAL STYLES ===== */
+.mpesa-payment-modal,
+.mpesa-success-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.mpesa-payment-content,
+.mpesa-success-content {
+  background: white;
+  padding: 2rem 1.5rem;
+  border-radius: 1.5rem;
+  max-width: 350px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 20px 35px -10px rgba(0, 0, 0, 0.2);
+  animation: slideUp 0.3s ease;
+}
+
+html.dark .mpesa-payment-content,
+html.dark .mpesa-success-content {
+  background: #1e293b;
+  box-shadow: 0 20px 35px -10px rgba(0, 0, 0, 0.4);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.payment-loader {
+  text-align: center;
+}
+
+.spinner {
+  width: 55px;
+  height: 55px;
+  border: 4px solid #e2e8f0;
+  border-top: 4px solid #00A74E;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 1rem;
+}
+
+html.dark .spinner {
+  border-color: #334155;
+  border-top-color: #10b981;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.payment-loader p {
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 0.75rem;
+}
+
+html.dark .payment-loader p {
+  color: #f8fafc;
+}
+
+.payment-instruction {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin: 0.5rem 0;
+  line-height: 1.5;
+}
+
+html.dark .payment-instruction {
+  color: #94a3b8;
+}
+
+.reference-text {
+  font-size: 0.7rem;
+  color: #94a3b8;
+  font-family: monospace;
+  margin-top: 0.5rem;
+  word-break: break-all;
+}
+
+.cancel-payment-btn {
+  margin-top: 1.25rem;
+  padding: 0.6rem 1.2rem;
+  background: #f1f5f9;
+  border: none;
+  border-radius: 0.75rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #475569;
+  transition: all 0.2s ease;
+}
+
+html.dark .cancel-payment-btn {
+  background: #334155;
+  color: #cbd5e1;
+}
+
+.cancel-payment-btn:hover,
+.cancel-payment-btn:active {
+  background: #e2e8f0;
+}
+
+html.dark .cancel-payment-btn:hover,
+html.dark .cancel-payment-btn:active {
+  background: #475569;
+}
+
+.success-icon {
+  font-size: 4rem;
+  margin-bottom: 0.75rem;
+  animation: bounce 0.5s ease;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+}
+
+.mpesa-success-content h3 {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #10b981;
+  margin-bottom: 0.5rem;
+}
+
+html.dark .mpesa-success-content h3 {
+  color: #34d399;
+}
+
+.mpesa-success-content p {
+  color: #64748b;
+  font-size: 0.9rem;
+  margin: 0.25rem 0;
+}
+
+html.dark .mpesa-success-content p {
+  color: #94a3b8;
+}
+
+/* M-Pesa Info Message */
+.mpesa-info {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: #f0f9ff;
+  border-radius: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: #2563eb;
+  font-size: 0.75rem;
+  text-align: left;
+}
+
+html.dark .mpesa-info {
+  background: #1e3a8a;
+  color: #93c5fd;
+}
+
 /* Empty State */
 .empty-state {
   display: flex;
@@ -690,7 +927,7 @@ html.dark .empty-state svg {
 
 @keyframes pulse {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  50% { opacity: 0.6; }
 }
 
 .skeleton-image {
@@ -786,17 +1023,6 @@ html.dark .skeleton-actions {
   background: #334155;
 }
 
-.skeleton-badge {
-  width: 100px;
-  height: 32px;
-  background: #e2e8f0;
-  border-radius: 100px;
-}
-
-html.dark .skeleton-badge {
-  background: #334155;
-}
-
 .skeleton-tab {
   width: 100px;
   height: 36px;
@@ -808,7 +1034,7 @@ html.dark .skeleton-tab {
   background: #334155;
 }
 
-/* Modal Styles */
+/* Modal Styles (OTP & Payment) */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -836,7 +1062,7 @@ html.dark .skeleton-tab {
   max-width: 400px;
   max-height: 90vh;
   overflow-y: auto;
-  animation: slideUp 0.3s ease;
+  animation: slideUpModal 0.3s ease;
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
 }
 
@@ -844,7 +1070,7 @@ html.dark .modal-content {
   background: #1e293b;
 }
 
-@keyframes slideUp {
+@keyframes slideUpModal {
   from { transform: translateY(100%); }
   to { transform: translateY(0); }
 }
@@ -1078,10 +1304,6 @@ html.dark .loading-spinner {
   border-top-color: #ff6200;
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
 /* Safe Area Support */
 @supports (padding: max(0px)) {
   .orders-container {
@@ -1122,13 +1344,23 @@ html.dark .loading-spinner {
     margin-bottom: 0;
   }
   
-  @keyframes slideUp {
+  .modal-overlay {
+    align-items: center;
+  }
+  
+  @keyframes slideUpModal {
     from { transform: translateY(20px); opacity: 0; }
     to { transform: translateY(0); opacity: 1; }
   }
   
   .orders-list {
     max-height: calc(100vh - 200px);
+  }
+  
+  .mpesa-payment-content,
+  .mpesa-success-content {
+    max-width: 380px;
+    padding: 2rem;
   }
 }
 
@@ -1149,6 +1381,13 @@ html.dark .loading-spinner {
   
   .orders-list {
     max-height: calc(100vh - 160px);
+  }
+  
+  .mpesa-payment-content,
+  .mpesa-success-content {
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: 1.5rem;
   }
 }
 
@@ -1176,24 +1415,17 @@ html.dark .loading-spinner {
   .tab-btn,
   .shop-btn,
   .installment-link,
-  .modal-btn {
-    min-height: 44px; /* Better touch targets */
+  .modal-btn,
+  .cancel-payment-btn {
+    min-height: 44px;
   }
   
   .close-btn {
     min-width: 44px;
     min-height: 44px;
   }
-}
-.status-badge.completed {
-  background: #10b98115;
-  color: #10b981;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-}
-
-.status-badge.completed svg {
-  font-size: 0.9rem;
+  
+  .payment-method {
+    padding: 0.875rem 1rem;
+  }
 }

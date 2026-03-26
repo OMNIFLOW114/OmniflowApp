@@ -1835,7 +1835,7 @@ const OmniPayWallet = () => {
         .limit(50);
         
       if (searchQuery) {
-        query = query.or(`message.ilike.%${searchQuery}%,type.ilike.%${searchQuery}%,status.ilike.%${searchQuery}%`);
+        query = query.or(`description.ilike.%${searchQuery}%,type.ilike.%${searchQuery}%,status.ilike.%${searchQuery}%`);
       }
       
       const { data, error } = await query;

@@ -3,6 +3,7 @@ import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { supabase } from "@/supabase";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "react-hot-toast";
+import { useMpesaPayment } from "@/hooks/useMpesaPayment";
 import {
   FaWallet,
   FaMobileAlt,
@@ -20,7 +21,6 @@ import {
 } from "react-icons/fa";
 import "./Checkout.css";
 
-// Get Mapbox token from environment variables
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 
 export default function Checkout() {
@@ -28,6 +28,9 @@ export default function Checkout() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const location = useLocation();
+
+  // M-Pesa payment hook
+  const { initiateWalletDeposit, loading: mpesaLoading, pollingActive, currentCheckoutId, cancelPolling } = useMpesaPayment();
 
   const [products, setProducts] = useState([]);
   const [seller, setSeller] = useState(null);
@@ -59,6 +62,11 @@ export default function Checkout() {
   const [isSearching, setIsSearching] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState(null);
   const addressInputRef = useRef(null);
+
+  // Payment state for M-Pesa
+  const [mpesaPaymentStep, setMpesaPaymentStep] = useState(1);
+  const [pendingOrderId, setPendingOrderId] = useState(null);
+  const [paymentCheckoutId, setPaymentCheckoutId] = useState(null);
 
   // installments UI
   const depositPercent = 0.25;
@@ -126,7 +134,7 @@ export default function Checkout() {
     }
   };
 
-  // Calculate product totals FIRST
+  // Calculate product totals
   const productTotals = useMemo(() => {
     return products.map(product => {
       let unitPrice;
@@ -167,26 +175,20 @@ export default function Checkout() {
     if (!distance || distance <= 0) return 0;
     if (!storeSettings) return 0;
     
-    console.log("Calculating delivery fee with store settings:", storeSettings);
-    
     // For self-delivery stores, use their rates
     if (storeSettings.delivery_type === 'self-delivery') {
       const baseFee = Number(storeSettings.delivery_base_fee) || 100;
       const ratePerKm = Number(storeSettings.delivery_rate_per_km) || 15;
-      const totalFee = baseFee + (distance * ratePerKm);
-      
-      console.log(`Self-delivery fee: base=${baseFee}, rate=${ratePerKm}, distance=${distance}, total=${totalFee}`);
-      
-      return Math.round(totalFee);
+      return Math.round(baseFee + (distance * ratePerKm));
     }
     
     // For Omniflow managed delivery, use zone-based rates
     const DELIVERY_RATES = {
       BASE_FEE: 50,
       ZONES: [
-        { maxDistance: 10, ratePerKm: 15 },   // Zone 1: up to 10km
-        { maxDistance: 50, ratePerKm: 10 },   // Zone 2: up to 50km
-        { maxDistance: Infinity, ratePerKm: 7 } // Zone 3: beyond 50km
+        { maxDistance: 10, ratePerKm: 15 },
+        { maxDistance: 50, ratePerKm: 10 },
+        { maxDistance: Infinity, ratePerKm: 7 }
       ]
     };
     
@@ -197,31 +199,21 @@ export default function Checkout() {
       zoneRate = DELIVERY_RATES.ZONES[1].ratePerKm;
     }
     
-    const totalFee = DELIVERY_RATES.BASE_FEE + (distance * zoneRate);
-    
-    console.log(`Omniflow delivery fee: distance=${distance}, rate=${zoneRate}, total=${totalFee}`);
-    
-    return Math.round(totalFee);
+    return Math.round(DELIVERY_RATES.BASE_FEE + (distance * zoneRate));
   }, []);
 
-  // Delivery fee calculation
   const deliveryFee = useMemo(() => {
     if (!deliveryDistance || deliveryMethod !== "door") return 0;
     return calculateDeliveryFeeFromStore(deliveryDistance, storeDeliverySettings);
   }, [deliveryDistance, deliveryMethod, storeDeliverySettings, calculateDeliveryFeeFromStore]);
 
-  // Check free delivery eligibility (for Omniflow managed only)
   const FREE_DELIVERY_THRESHOLD = 5000;
   const isFreeDelivery = useMemo(() => {
-    // Self-delivery stores don't offer free delivery
     if (storeDeliverySettings?.delivery_type === 'self-delivery') return false;
     return totalProductPrice >= FREE_DELIVERY_THRESHOLD;
   }, [totalProductPrice, storeDeliverySettings]);
 
-  const finalDeliveryFee = useMemo(() => {
-    return isFreeDelivery ? 0 : deliveryFee;
-  }, [isFreeDelivery, deliveryFee]);
-
+  const finalDeliveryFee = useMemo(() => isFreeDelivery ? 0 : deliveryFee, [isFreeDelivery, deliveryFee]);
   const depositTotal = useMemo(() => +(totalDeposit + (deliveryMethod === "door" ? finalDeliveryFee : 0)).toFixed(2), [totalDeposit, finalDeliveryFee, deliveryMethod]);
   const balanceDue = useMemo(() => +(totalProductPrice - totalDeposit).toFixed(2), [totalProductPrice, totalDeposit]);
   const totalOrder = useMemo(() => +(totalProductPrice + (deliveryMethod === "door" ? finalDeliveryFee : 0)).toFixed(2), [totalProductPrice, finalDeliveryFee, deliveryMethod]);
@@ -282,7 +274,6 @@ export default function Checkout() {
       
       const distanceKm = routeData.routes[0].distance / 1000;
       
-      // Update delivery breakdown for display
       if (storeDeliverySettings?.delivery_type === 'self-delivery') {
         const baseFee = Number(storeDeliverySettings.delivery_base_fee) || 100;
         const ratePerKm = Number(storeDeliverySettings.delivery_rate_per_km) || 15;
@@ -343,7 +334,7 @@ export default function Checkout() {
     updateDistance();
   }, [deliveryAddress, seller, deliveryMethod, storeDeliverySettings, calculateDistance, fromCart]);
 
-  // Mapbox address search
+  // Mapbox address search - works for ALL sellers (both Omniflow and self-delivery)
   const searchAddresses = async (query) => {
     if (!query || query.length < 2) {
       setAddressSuggestions([]);
@@ -426,7 +417,7 @@ export default function Checkout() {
     };
   }, []);
 
-  // Load checkout data
+  // Load checkout data (same as original)
   useEffect(() => {
     async function load() {
       setLoading(true);
@@ -466,7 +457,6 @@ export default function Checkout() {
 
           setProducts([productWithFlashPrice]);
 
-          // Fetch store delivery settings from stores table
           const { data: store, error: storeError } = await supabase
             .from("stores")
             .select("id, name, contact_phone, location, location_lat, location_lng, owner_id, delivery_type, has_delivery_fleet, delivery_fleet_size, delivery_coverage_radius, delivery_base_fee, delivery_rate_per_km, county")
@@ -478,13 +468,6 @@ export default function Checkout() {
           }
           
           if (store) {
-            console.log("Store delivery settings loaded:", {
-              delivery_type: store.delivery_type,
-              delivery_base_fee: store.delivery_base_fee,
-              delivery_rate_per_km: store.delivery_rate_per_km,
-              delivery_coverage_radius: store.delivery_coverage_radius
-            });
-            
             setSeller({
               ...store,
               location_coords: store.location_lat && store.location_lng ? 
@@ -523,7 +506,6 @@ export default function Checkout() {
           if (location.state.seller) {
             setSeller(location.state.seller);
             
-            // Fetch store delivery settings from stores table
             const { data: storeSettings, error: storeError } = await supabase
               .from("stores")
               .select("delivery_type, has_delivery_fleet, delivery_fleet_size, delivery_coverage_radius, delivery_base_fee, delivery_rate_per_km, county")
@@ -535,7 +517,6 @@ export default function Checkout() {
             }
             
             if (storeSettings) {
-              console.log("Store delivery settings loaded:", storeSettings);
               setStoreDeliverySettings(storeSettings);
             }
           }
@@ -563,7 +544,6 @@ export default function Checkout() {
 
           setProducts([{ ...p, quantity: 1 }]);
 
-          // Fetch store delivery settings from stores table
           const { data: store, error: storeError } = await supabase
             .from("stores")
             .select("id, name, contact_phone, location, location_lat, location_lng, owner_id, delivery_type, has_delivery_fleet, delivery_fleet_size, delivery_coverage_radius, delivery_base_fee, delivery_rate_per_km, county")
@@ -575,13 +555,6 @@ export default function Checkout() {
           }
           
           if (store) {
-            console.log("Store delivery settings loaded:", {
-              delivery_type: store.delivery_type,
-              delivery_base_fee: store.delivery_base_fee,
-              delivery_rate_per_km: store.delivery_rate_per_km,
-              delivery_coverage_radius: store.delivery_coverage_radius
-            });
-            
             setSeller({
               ...store,
               location_coords: store.location_lat && store.location_lng ? 
@@ -614,7 +587,233 @@ export default function Checkout() {
     load();
   }, [productId, location.state, user, fromCart, fromFlashSale, navigate, isFlashSale]);
 
-  // Payment handler
+  // ============================================================
+  // M-PESA PAYMENT FUNCTION WITH STK PUSH
+  // ============================================================
+  const handleMpesaPayment = async () => {
+    if (!user?.id) return toast.error("Login required");
+    if (!deliveryMethod) return toast.error("Choose a delivery option");
+    if (!contactPhone) return toast.error("Enter contact phone number");
+    if (deliveryMethod === "door" && !deliveryAddress) return toast.error("Please enter a delivery address");
+    if (deliveryMethod === "pickup" && !pickupStation) return toast.error("Please enter pickup station address");
+
+    const phoneRegex = /^0[17]\d{8}$/;
+    if (!phoneRegex.test(contactPhone)) {
+      toast.error("Please enter a valid M-Pesa phone number (e.g., 0712345678)");
+      return;
+    }
+
+    if (isFlashSale && flashSaleEndsAt) {
+      const now = new Date();
+      const flashEndsAt = new Date(flashSaleEndsAt);
+      if (flashEndsAt <= now) {
+        toast.error("This flash sale has expired");
+        setIsFlashSale(false);
+        navigate("/flash-sales");
+        return;
+      }
+    }
+
+    const outOfStock = products.some(product => product.stock_quantity < product.quantity);
+    if (outOfStock) return toast.error("Some items are out of stock");
+
+    setBuying(true);
+    setMpesaPaymentStep(2);
+    const loadingToast = toast.loading("Initiating M-Pesa payment...");
+
+    try {
+      const deliveryLocation = deliveryMethod === "door" ? deliveryAddress : pickupStation;
+      const totalDepositAmount = depositTotal;
+      
+      let orderId = null;
+      
+      if (fromCart) {
+        const createdOrders = [];
+        
+        for (const product of productTotals) {
+          const { data: commissionData } = await supabase
+            .rpc('calculate_order_commission', {
+              p_product_id: product.id,
+              p_total_amount: product.productPrice
+            });
+
+          const commission = commissionData?.[0] || {
+            commission_rate: 0.09,
+            commission_amount: product.productPrice * 0.09,
+            admin_email: ADMIN_EMAIL,
+            admin_id: ADMIN_ID
+          };
+
+          const { data: orderData, error: orderError } = await supabase
+            .from("orders")
+            .insert({
+              product_id: product.id,
+              buyer_id: user.id,
+              seller_id: product.owner_id,
+              variant: product.variant || null,
+              quantity: product.quantity,
+              total_price: product.productPrice,
+              store_id: product.store_id || null,
+              delivery_method: deliveryMethod,
+              delivery_location: deliveryLocation,
+              buyer_phone: contactPhone,
+              payment_method: "mpesa",
+              deposit_amount: product.depositProduct,
+              deposit_paid: false,
+              balance_due: product.productPrice - product.depositProduct,
+              delivery_fee: deliveryMethod === "door" ? (finalDeliveryFee / products.length) : 0,
+              delivery_distance: deliveryDistance,
+              status: "pending",
+              delivery_otp: Math.floor(100000 + Math.random() * 900000).toString(),
+              metadata: {
+                is_flash_sale: isFlashSale,
+                payment_type: 'mpesa_pending',
+                store_delivery_type: storeDeliverySettings?.delivery_type
+              }
+            })
+            .select()
+            .single();
+
+          if (orderError) throw orderError;
+          createdOrders.push(orderData);
+          orderId = orderData.id;
+          
+          if (product.cartItemId) {
+            await supabase.from("cart_items").delete().eq("id", product.cartItemId);
+          }
+        }
+        
+        orderId = createdOrders[0]?.id;
+        
+      } else {
+        const product = productTotals[0];
+        
+        const { data: commissionData } = await supabase
+          .rpc('calculate_order_commission', {
+            p_product_id: product.id,
+            p_total_amount: totalOrder
+          });
+
+        const commission = commissionData?.[0] || {
+          commission_rate: 0.09,
+          commission_amount: totalOrder * 0.09,
+          admin_email: ADMIN_EMAIL,
+          admin_id: ADMIN_ID
+        };
+
+        const { data: orderData, error: orderError } = await supabase
+          .from("orders")
+          .insert({
+            product_id: product.id,
+            buyer_id: user.id,
+            seller_id: product.owner_id,
+            variant: product.variant || null,
+            quantity: product.quantity,
+            total_price: totalOrder,
+            store_id: product.store_id || null,
+            delivery_method: deliveryMethod,
+            delivery_location: deliveryLocation,
+            buyer_phone: contactPhone,
+            payment_method: "mpesa",
+            deposit_amount: totalDeposit,
+            deposit_paid: false,
+            balance_due: balanceDue,
+            delivery_fee: deliveryMethod === "door" ? finalDeliveryFee : 0,
+            delivery_distance: deliveryDistance,
+            status: "pending",
+            delivery_otp: Math.floor(100000 + Math.random() * 900000).toString(),
+            metadata: {
+              is_flash_sale: isFlashSale,
+              flash_sale_ends_at: isFlashSale ? flashSaleEndsAt : null,
+              original_price: isFlashSale ? originalPrice : null,
+              payment_type: 'mpesa_pending',
+              store_delivery_type: storeDeliverySettings?.delivery_type
+            }
+          })
+          .select()
+          .single();
+
+        if (orderError) throw orderError;
+        orderId = orderData.id;
+      }
+      
+      setPendingOrderId(orderId);
+      
+      toast.dismiss(loadingToast);
+      toast.success("Order created! Please complete M-Pesa payment.");
+      
+      // Initiate STK Push
+      const result = await initiateWalletDeposit(
+        contactPhone,
+        totalDepositAmount,
+        user.id,
+        async (receipt, paidAmount) => {
+          console.log('M-Pesa payment successful:', { receipt, paidAmount });
+          
+          // Update order to deposit_paid
+          const { error: updateError } = await supabase
+            .from("orders")
+            .update({
+              deposit_paid: true,
+              status: "deposit_paid",
+              mpesa_receipt: receipt,
+              metadata: {
+                ...(await supabase.from("orders").select("metadata").eq("id", orderId).single()).data?.metadata,
+                payment_completed_at: new Date().toISOString(),
+                mpesa_receipt: receipt,
+                deposit_amount_paid: paidAmount
+              }
+            })
+            .eq("id", orderId);
+          
+          if (updateError) {
+            console.error('Failed to update order:', updateError);
+            toast.error("Payment successful but order update failed. Please contact support.");
+          } else {
+            // Add to admin escrow
+            await updateWalletBalance(ADMIN_ID, paidAmount, 'add');
+            
+            await supabase.from("wallet_transactions").insert({
+              user_id: ADMIN_ID,
+              type: 'escrow_receive',
+              amount: paidAmount,
+              status: 'completed',
+              order_id: orderId,
+              description: `Escrow deposit for order ${orderId.slice(0, 8)} via M-Pesa`,
+              metadata: { payment_type: 'mpesa_escrow', mpesa_receipt: receipt }
+            });
+          }
+          
+          setMpesaPaymentStep(3);
+          toast.success(
+            `Payment successful! Amount: ${formatKSH(paidAmount)}\nReceipt: ${receipt}`,
+            { duration: 8000, icon: '✅' }
+          );
+          
+          setTimeout(() => {
+            navigate("/orders");
+          }, 3000);
+        },
+        (error) => {
+          console.error('M-Pesa payment failed:', error);
+          setMpesaPaymentStep(1);
+          toast.error(`Payment failed: ${error}. Please try again.`);
+          setBuying(false);
+        }
+      );
+      
+      setPaymentCheckoutId(result?.checkoutRequestID);
+      
+    } catch (err) {
+      console.error("Checkout error:", err);
+      toast.dismiss(loadingToast);
+      toast.error("Failed to create order: " + (err.message || "Please try again"));
+      setMpesaPaymentStep(1);
+      setBuying(false);
+    }
+  };
+
+  // Wallet payment handler
   async function handlePayWithWallet() {
     if (!user?.id) return toast.error("Login required");
     if (!deliveryMethod) return toast.error("Choose a delivery option");
@@ -640,7 +839,6 @@ export default function Checkout() {
     const loadingToast = toast.loading("Processing payment...");
 
     try {
-      // Check user balance
       const { data: userWallet } = await supabase
         .from("wallets")
         .select("balance")
@@ -663,7 +861,6 @@ export default function Checkout() {
         let createdOrders = [];
         
         for (const product of productTotals) {
-          // Calculate commission
           const { data: commissionData } = await supabase
             .rpc('calculate_order_commission', {
               p_product_id: product.id,
@@ -677,7 +874,6 @@ export default function Checkout() {
             admin_id: ADMIN_ID
           };
 
-          // Create order with deposit_paid status
           const { data: orderData, error: orderError } = await supabase
             .from("orders")
             .insert({
@@ -722,10 +918,8 @@ export default function Checkout() {
 
           const productDepositAmount = product.depositProduct + (deliveryMethod === "door" ? (finalDeliveryFee / products.length) : 0);
 
-          // Deduct deposit from buyer
           await updateWalletBalance(user.id, productDepositAmount, 'subtract');
 
-          // Record buyer transaction
           await supabase.from("wallet_transactions").insert({
             user_id: user.id,
             type: 'purchase',
@@ -736,10 +930,8 @@ export default function Checkout() {
             metadata: { payment_type: 'deposit', is_escrow: true }
           });
 
-          // Add deposit to admin wallet escrow
           await updateWalletBalance(ADMIN_ID, productDepositAmount, 'add');
 
-          // Record admin escrow transaction
           await supabase.from("wallet_transactions").insert({
             user_id: ADMIN_ID,
             type: 'escrow_receive',
@@ -750,7 +942,6 @@ export default function Checkout() {
             metadata: { payment_type: 'escrow_deposit' }
           });
 
-          // Remove from cart
           if (product.cartItemId) {
             await supabase.from("cart_items").delete().eq("id", product.cartItemId);
           }
@@ -760,7 +951,6 @@ export default function Checkout() {
         toast.success(`${createdOrders.length} orders created! 25% deposit held in escrow.`);
         
       } else {
-        // Single product
         const product = productTotals[0];
         
         const { data: commissionData } = await supabase
@@ -821,7 +1011,6 @@ export default function Checkout() {
 
         const totalDepositAmount = totalDeposit + (deliveryMethod === "door" ? finalDeliveryFee : 0);
 
-        // Deduct from buyer
         await updateWalletBalance(user.id, totalDepositAmount, 'subtract');
 
         await supabase.from("wallet_transactions").insert({
@@ -834,7 +1023,6 @@ export default function Checkout() {
           metadata: { payment_type: 'deposit', is_escrow: true }
         });
 
-        // Add to admin escrow
         await updateWalletBalance(ADMIN_ID, totalDepositAmount, 'add');
 
         await supabase.from("wallet_transactions").insert({
@@ -1087,6 +1275,45 @@ export default function Checkout() {
         </h1>
       </div>
 
+      {/* M-Pesa Payment Modal */}
+      {mpesaPaymentStep === 2 && (
+        <div className="mpesa-payment-modal">
+          <div className="mpesa-payment-content">
+            <div className="payment-loader">
+              <div className="spinner"></div>
+              <p>Waiting for M-Pesa payment...</p>
+              <p className="payment-instruction">
+                Please check your phone ({contactPhone}) and enter your M-Pesa PIN to complete the payment of {formatKSH(depositTotal)}
+              </p>
+              {paymentCheckoutId && (
+                <p className="reference-text">Reference: {paymentCheckoutId.slice(-8)}</p>
+              )}
+              <button 
+                onClick={() => {
+                  cancelPolling();
+                  setMpesaPaymentStep(1);
+                  setBuying(false);
+                }}
+                className="cancel-payment-btn"
+              >
+                Cancel Payment
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {mpesaPaymentStep === 3 && (
+        <div className="mpesa-success-modal">
+          <div className="mpesa-success-content">
+            <div className="success-icon">✅</div>
+            <h3>Payment Successful!</h3>
+            <p>Your deposit has been received.</p>
+            <p>Redirecting to orders...</p>
+          </div>
+        </div>
+      )}
+
       <FlashSaleBanner />
 
       <div className="checkout-grid">
@@ -1158,7 +1385,7 @@ export default function Checkout() {
               {showInstallmentInfo && (
                 <div className="installment-details">
                   <p>
-                    Pay <strong>{(products[0].installment_plan.initial_percent || 0.3) * 100}%</strong> now and the remainder after delivery.
+                    Pay <strong>{(products[0]?.installment_plan?.initial_percent || 0.3) * 100}%</strong> now and the remainder after delivery.
                   </p>
                 </div>
               )}
@@ -1195,7 +1422,7 @@ export default function Checkout() {
               )}
             </div>
 
-            {/* Door Delivery */}
+            {/* Door Delivery with Mapbox Autocomplete (works for ALL sellers) */}
             {deliveryMethod === "door" && (
               <>
                 <label>
@@ -1355,13 +1582,13 @@ export default function Checkout() {
             )}
 
             <label>
-              Contact phone:
+              Contact / M-Pesa Phone:
               <input
                 value={contactPhone}
                 onChange={(e) => setContactPhone(e.target.value)}
-                placeholder="07XXXXXXXX"
+                placeholder="0712345678"
               />
-              <small>We'll use this for delivery updates</small>
+              <small>This number will receive the M-Pesa payment prompt and delivery updates</small>
             </label>
           </div>
 
@@ -1419,17 +1646,17 @@ export default function Checkout() {
               <button 
                 className="wallet" 
                 onClick={handlePayWithWallet} 
-                disabled={buying || (deliveryMethod === "door" && !deliveryAddress) || (deliveryMethod === "pickup" && !pickupStation)}
+                disabled={buying || mpesaLoading || (deliveryMethod === "door" && !deliveryAddress) || (deliveryMethod === "pickup" && !pickupStation)}
               >
                 <FaWallet /> Pay 25% Deposit
               </button>
 
               <button 
                 className="mpesa" 
-                onClick={() => handlePayExternal("mpesa")} 
-                disabled={buying || (deliveryMethod === "door" && !deliveryAddress) || (deliveryMethod === "pickup" && !pickupStation)}
+                onClick={handleMpesaPayment} 
+                disabled={buying || mpesaLoading || (deliveryMethod === "door" && !deliveryAddress) || (deliveryMethod === "pickup" && !pickupStation)}
               >
-                <FaMobileAlt /> Pay via M-Pesa
+                <FaMobileAlt /> {mpesaLoading ? "Processing..." : "Pay via M-Pesa"}
               </button>
 
               <button 
@@ -1512,6 +1739,81 @@ export default function Checkout() {
           </div>
         </aside>
       </div>
+
+      <style jsx>{`
+        .mpesa-payment-modal,
+        .mpesa-success-modal {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.5);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+        }
+        
+        .mpesa-payment-content,
+        .mpesa-success-content {
+          background: white;
+          padding: 2rem;
+          border-radius: 1rem;
+          max-width: 400px;
+          text-align: center;
+          box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        
+        .payment-loader {
+          text-align: center;
+        }
+        
+        .spinner {
+          width: 50px;
+          height: 50px;
+          border: 4px solid #f3f3f3;
+          border-top: 4px solid #00A74E;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+          margin: 0 auto 1rem;
+        }
+        
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        
+        .payment-instruction {
+          margin: 1rem 0;
+          font-size: 0.9rem;
+          color: #666;
+        }
+        
+        .reference-text {
+          font-size: 0.8rem;
+          color: #999;
+          margin-top: 0.5rem;
+        }
+        
+        .cancel-payment-btn {
+          margin-top: 1rem;
+          padding: 0.5rem 1rem;
+          background: #f3f4f6;
+          border: none;
+          border-radius: 0.5rem;
+          cursor: pointer;
+        }
+        
+        .cancel-payment-btn:hover {
+          background: #e5e7eb;
+        }
+        
+        .success-icon {
+          font-size: 4rem;
+          margin-bottom: 1rem;
+        }
+      `}</style>
     </div>
   );
 }

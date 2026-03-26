@@ -1105,3 +1105,158 @@ html.dark .loading {
     font-size: 16px;
   }
 }
+/* ===== M-PESA PAYMENT MODAL STYLES ===== */
+.mpesa-payment-modal,
+.mpesa-success-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.mpesa-payment-content,
+.mpesa-success-content {
+  background: white;
+  padding: 2rem;
+  border-radius: 1rem;
+  max-width: 400px;
+  text-align: center;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  animation: slideUp 0.3s ease;
+}
+
+html.dark .mpesa-payment-content,
+html.dark .mpesa-success-content {
+  background: #242424;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.payment-loader {
+  text-align: center;
+}
+
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #00A74E;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1rem;
+}
+
+html.dark .spinner {
+  border: 4px solid #374151;
+  border-top: 4px solid #10b981;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.payment-instruction {
+  margin: 1rem 0;
+  font-size: 0.9rem;
+  color: #666;
+  line-height: 1.5;
+}
+
+html.dark .payment-instruction {
+  color: #b0b0b0;
+}
+
+.reference-text {
+  font-size: 0.8rem;
+  color: #999;
+  margin-top: 0.5rem;
+  font-family: monospace;
+}
+
+html.dark .reference-text {
+  color: #9ca3af;
+}
+
+.cancel-payment-btn {
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  background: #f3f4f6;
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s ease;
+}
+
+html.dark .cancel-payment-btn {
+  background: #374151;
+  color: #ffffff;
+}
+
+.cancel-payment-btn:hover {
+  background: #e5e7eb;
+}
+
+html.dark .cancel-payment-btn:hover {
+  background: #4b5563;
+}
+
+.success-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  animation: bounce 0.5s ease;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+}
+
+/* Delivery Type Indicator (already in your CSS, but ensure these styles exist) */
+.delivery-type-indicator {
+  margin-top: 8px;
+  margin-bottom: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.85em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Delivery Fee Display (already in your CSS, but ensure these styles exist) */
+.delivery-fee-display {
+  margin-top: 12px;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+html.dark .delivery-fee-display {
+  background: #2a2a2a;
+  border-color: #4b5563;
+}

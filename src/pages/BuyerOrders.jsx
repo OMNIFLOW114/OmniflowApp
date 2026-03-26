@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { supabase } from "@/supabase";
 import { useAuth } from "@/context/AuthContext";
+import { useMpesaPayment } from "@/hooks/useMpesaPayment";
 import {
   FaBox,
   FaCheckCircle,
@@ -25,6 +26,10 @@ import "./BuyerOrders.css";
 
 const BuyerOrders = () => {
   const { user } = useAuth();
+  
+  // M-Pesa payment hook
+  const { initiateWalletDeposit, loading: mpesaLoading, pollingActive, currentCheckoutId, cancelPolling } = useMpesaPayment();
+  
   const [tab, setTab] = useState(() => {
     return sessionStorage.getItem('buyerOrdersTab') || "all";
   });
@@ -45,6 +50,13 @@ const BuyerOrders = () => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState("");
   const [processingPayment, setProcessingPayment] = useState(false);
+  
+  // M-Pesa payment state
+  const [mpesaPaymentStep, setMpesaPaymentStep] = useState(1);
+  const [mpesaOrderId, setMpesaOrderId] = useState(null);
+  const [mpesaPaymentCheckoutId, setMpesaPaymentCheckoutId] = useState(null);
+  const [mpesaPaymentAmount, setMpesaPaymentAmount] = useState(0);
+  const [mpesaPhoneNumber, setMpesaPhoneNumber] = useState("");
 
   const [releasingOrderId, setReleasingOrderId] = useState(null);
 
@@ -478,13 +490,97 @@ const BuyerOrders = () => {
     }
   }
 
-  // ===== PAYMENT FUNCTIONS =====
-  function openPaymentModal(order) {
-    setSelectedOrder(order);
-    setPaymentMethod("");
-    setPaymentModalOpen(true);
-  }
+  // ===== M-PESA PAYMENT FUNCTION =====
+  const handleMpesaPayment = async (order, phoneNumber) => {
+    setProcessingPayment(true);
+    setMpesaPaymentStep(2);
+    setMpesaOrderId(order.id);
+    setMpesaPaymentAmount(order.balance_due);
+    setMpesaPhoneNumber(phoneNumber);
+    
+    const loadingToast = toast.loading("Initiating M-Pesa payment...");
+    
+    try {
+      const result = await initiateWalletDeposit(
+        phoneNumber,
+        order.balance_due,
+        user.id,
+        async (receipt, paidAmount) => {
+          console.log('M-Pesa payment successful:', { receipt, paidAmount });
+          
+          // Update order to mark balance paid
+          const { error: updateError } = await supabase
+            .from("orders")
+            .update({
+              balance_due: 0,
+              balance_paid: true,
+              status: "completed",
+              mpesa_receipt: receipt,
+              updated_at: new Date().toISOString(),
+              escrow_released: true
+            })
+            .eq("id", order.id);
+          
+          if (updateError) {
+            console.error('Failed to update order:', updateError);
+            toast.error("Payment successful but order update failed. Please contact support.");
+          } else {
+            // Update local state
+            setOrders(prev =>
+              prev.map(o =>
+                o.id === order.id
+                  ? { 
+                      ...o, 
+                      balance_paid: true, 
+                      balance_due: 0,
+                      status: 'completed',
+                      escrow_released: true
+                    }
+                  : o
+              )
+            );
+            
+            toast.success(
+              `Payment successful! Amount: ${formatKSH(paidAmount)}\nReceipt: ${receipt}`,
+              { duration: 8000, icon: '✅' }
+            );
+          }
+          
+          setMpesaPaymentStep(3);
+          toast.dismiss(loadingToast);
+          
+          // Refresh wallet balance
+          await fetchWallet();
+          
+          // Close modal after delay
+          setTimeout(() => {
+            setPaymentModalOpen(false);
+            setSelectedOrder(null);
+            setMpesaPaymentStep(1);
+            setProcessingPayment(false);
+          }, 3000);
+        },
+        (error) => {
+          console.error('M-Pesa payment failed:', error);
+          setMpesaPaymentStep(1);
+          toast.dismiss(loadingToast);
+          toast.error(`Payment failed: ${error}. Please try again.`);
+          setProcessingPayment(false);
+        }
+      );
+      
+      setMpesaPaymentCheckoutId(result?.checkoutRequestID);
+      
+    } catch (err) {
+      console.error("M-Pesa error:", err);
+      toast.dismiss(loadingToast);
+      toast.error(err?.message || "M-Pesa payment failed");
+      setMpesaPaymentStep(1);
+      setProcessingPayment(false);
+    }
+  };
 
+  // ===== WALLET PAYMENT FUNCTION =====
   async function processWalletPayment(order) {
     setProcessingPayment(true);
     const loadingToast = toast.loading("Processing payment...");
@@ -550,38 +646,6 @@ const BuyerOrders = () => {
     }
   }
 
-  async function processMpesaPayment(order) {
-    setProcessingPayment(true);
-    const loadingToast = toast.loading("Initiating M-Pesa payment...");
-    
-    try {
-      const { data, error } = await supabase.functions.invoke("initiate-mpesa", {
-        body: {
-          orderId: order.id,
-          amount: order.balance_due,
-          phone: user?.phone,
-          buyerId: user.id
-        }
-      });
-      
-      if (error) throw error;
-      
-      toast.dismiss(loadingToast);
-      toast.success("M-Pesa STK push sent. Check your phone to complete payment.");
-      
-      // Close modal after sending STK push
-      setPaymentModalOpen(false);
-      setSelectedOrder(null);
-      
-    } catch (err) {
-      console.error("M-Pesa error:", err);
-      toast.dismiss(loadingToast);
-      toast.error(err?.message || "M-Pesa payment failed");
-    } finally {
-      setProcessingPayment(false);
-    }
-  }
-
   async function processPaypalPayment(order) {
     setProcessingPayment(true);
     const loadingToast = toast.loading("Redirecting to PayPal...");
@@ -611,6 +675,13 @@ const BuyerOrders = () => {
     }
   }
 
+  // ===== OPEN PAYMENT MODAL WITH PHONE INPUT =====
+  function openPaymentModal(order) {
+    setSelectedOrder(order);
+    setPaymentMethod("");
+    setPaymentModalOpen(true);
+  }
+
   async function processPayment() {
     if (!selectedOrder || !paymentMethod) {
       toast.error("Please select a payment method");
@@ -620,7 +691,23 @@ const BuyerOrders = () => {
     if (paymentMethod === 'wallet') {
       await processWalletPayment(selectedOrder);
     } else if (paymentMethod === 'mpesa') {
-      await processMpesaPayment(selectedOrder);
+      // Show phone number input for M-Pesa
+      const phone = prompt("Enter your M-Pesa phone number (e.g., 0712345678):", user?.phone || "");
+      
+      if (!phone) {
+        toast.error("Phone number is required for M-Pesa payment");
+        setProcessingPayment(false);
+        return;
+      }
+      
+      const phoneRegex = /^0[17]\d{8}$/;
+      if (!phoneRegex.test(phone)) {
+        toast.error("Please enter a valid M-Pesa phone number (e.g., 0712345678)");
+        setProcessingPayment(false);
+        return;
+      }
+      
+      await handleMpesaPayment(selectedOrder, phone);
     } else if (paymentMethod === 'paypal') {
       await processPaypalPayment(selectedOrder);
     }
@@ -697,6 +784,45 @@ const BuyerOrders = () => {
 
   return (
     <div className="orders-container">
+      {/* M-Pesa Payment Modal */}
+      {mpesaPaymentStep === 2 && (
+        <div className="mpesa-payment-modal">
+          <div className="mpesa-payment-content">
+            <div className="payment-loader">
+              <div className="spinner"></div>
+              <p>Waiting for M-Pesa payment...</p>
+              <p className="payment-instruction">
+                Please check your phone ({mpesaPhoneNumber}) and enter your M-Pesa PIN to complete the payment of {formatKSH(mpesaPaymentAmount)}
+              </p>
+              {mpesaPaymentCheckoutId && (
+                <p className="reference-text">Reference: {mpesaPaymentCheckoutId.slice(-8)}</p>
+              )}
+              <button 
+                onClick={() => {
+                  cancelPolling();
+                  setMpesaPaymentStep(1);
+                  setProcessingPayment(false);
+                }}
+                className="cancel-payment-btn"
+              >
+                Cancel Payment
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {mpesaPaymentStep === 3 && (
+        <div className="mpesa-success-modal">
+          <div className="mpesa-success-content">
+            <div className="success-icon">✅</div>
+            <h3>Payment Successful!</h3>
+            <p>Your payment has been received.</p>
+            <p>Redirecting to orders...</p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="orders-header">
         <h1 className="orders-title">My Orders</h1>
@@ -850,7 +976,7 @@ const BuyerOrders = () => {
                             <button
                               className="action-btn pay"
                               onClick={() => openPaymentModal(order)}
-                              disabled={processingPayment}
+                              disabled={processingPayment || mpesaLoading}
                             >
                               <FaWallet /> Pay Balance
                             </button>
@@ -1059,7 +1185,7 @@ const BuyerOrders = () => {
                 <button
                   className={`payment-method ${paymentMethod === 'wallet' ? 'selected' : ''}`}
                   onClick={() => setPaymentMethod('wallet')}
-                  disabled={processingPayment}
+                  disabled={processingPayment || mpesaLoading}
                 >
                   <FaWallet size={20} />
                   <div className="method-info">
@@ -1072,7 +1198,7 @@ const BuyerOrders = () => {
                 <button
                   className={`payment-method ${paymentMethod === 'mpesa' ? 'selected' : ''}`}
                   onClick={() => setPaymentMethod('mpesa')}
-                  disabled={processingPayment}
+                  disabled={processingPayment || mpesaLoading}
                 >
                   <FaMobile size={20} />
                   <div className="method-info">
@@ -1095,6 +1221,13 @@ const BuyerOrders = () => {
                   {paymentMethod === 'paypal' && <div className="check-indicator">✓</div>}
                 </button>
               </div>
+              
+              {paymentMethod === 'mpesa' && (
+                <div className="mpesa-info">
+                  <FaInfoCircle size={14} />
+                  <small>You will be prompted to enter your M-Pesa phone number after clicking "Pay Now"</small>
+                </div>
+              )}
             </div>
             <div className="modal-footer">
               <button 
@@ -1107,14 +1240,101 @@ const BuyerOrders = () => {
               <button
                 className="modal-btn confirm"
                 onClick={processPayment}
-                disabled={processingPayment || !paymentMethod}
+                disabled={processingPayment || mpesaLoading || !paymentMethod}
               >
-                {processingPayment ? "Processing..." : "Pay Now"}
+                {processingPayment || mpesaLoading ? "Processing..." : "Pay Now"}
               </button>
             </div>
           </div>
         </div>
       )}
+
+      <style jsx>{`
+        .mpesa-payment-modal,
+        .mpesa-success-modal {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.5);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+        }
+        
+        .mpesa-payment-content,
+        .mpesa-success-content {
+          background: white;
+          padding: 2rem;
+          border-radius: 1rem;
+          max-width: 400px;
+          text-align: center;
+          box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        
+        .payment-loader {
+          text-align: center;
+        }
+        
+        .spinner {
+          width: 50px;
+          height: 50px;
+          border: 4px solid #f3f3f3;
+          border-top: 4px solid #00A74E;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+          margin: 0 auto 1rem;
+        }
+        
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        
+        .payment-instruction {
+          margin: 1rem 0;
+          font-size: 0.9rem;
+          color: #666;
+        }
+        
+        .reference-text {
+          font-size: 0.8rem;
+          color: #999;
+          margin-top: 0.5rem;
+        }
+        
+        .cancel-payment-btn {
+          margin-top: 1rem;
+          padding: 0.5rem 1rem;
+          background: #f3f4f6;
+          border: none;
+          border-radius: 0.5rem;
+          cursor: pointer;
+        }
+        
+        .cancel-payment-btn:hover {
+          background: #e5e7eb;
+        }
+        
+        .success-icon {
+          font-size: 4rem;
+          margin-bottom: 1rem;
+        }
+        
+        .mpesa-info {
+          margin-top: 1rem;
+          padding: 0.75rem;
+          background: #f0f9ff;
+          border-radius: 0.5rem;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          color: #2563eb;
+          font-size: 0.8rem;
+        }
+      `}</style>
     </div>
   );
 };
