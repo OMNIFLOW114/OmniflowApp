@@ -2521,71 +2521,91 @@ const OmniPayWallet = () => {
     }
   };
   
-  // Update missing user data
-  const updateUserData = async (field, value) => {
-    if (!user) return false;
+// ====== UPDATE THE updateUserData FUNCTION IN YOUR CODE ======
+// Replace the existing updateUserData function (around line 1200) with this updated version:
+
+const updateUserData = async (field, value) => {
+  if (!user) return false;
+ 
+  setProcessing(true);
+ 
+  try {
+    let result;
    
-    setProcessing(true);
-   
-    try {
-      let result;
-     
-      if (field === 'phone') {
-        if (!/^0[17]\d{8}$/.test(value)) {
-          throw new Error("Please enter a valid Kenyan phone number (e.g., 0712345678)");
-        }
-       
-        const { data: existingPhone } = await supabase
-          .from("users")
-          .select("id")
-          .eq("phone", value)
-          .neq("id", user.id)
-          .maybeSingle();
-       
-        if (existingPhone) {
-          throw new Error("This phone number is already registered to another account");
-        }
+    if (field === 'phone') {
+      // Validate Kenyan phone number format
+      if (!/^0[17]\d{8}$/.test(value)) {
+        throw new Error("Please enter a valid Kenyan phone number (e.g., 0712345678)");
       }
      
-      const updateField = field === 'name' ? 'full_name' : field;
-      const { error: updateError } = await supabase
+      // Check if phone already exists
+      const { data: existingPhone } = await supabase
         .from("users")
+        .select("id")
+        .eq("phone", value)
+        .neq("id", user.id)
+        .maybeSingle();
+     
+      if (existingPhone) {
+        throw new Error("This phone number is already registered to another account");
+      }
+    }
+   
+    // Update the specific field in users table
+    const updateField = field === 'name' ? 'full_name' : field;
+    const { error: updateError } = await supabase
+      .from("users")
+      .update({
+        [updateField]: value,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", user.id);
+      
+    if (updateError) throw updateError;
+    
+    // If updating phone number, also update the wallet's contact_phone
+    if (field === 'phone') {
+      const { error: walletUpdateError } = await supabase
+        .from("wallets")
         .update({
-          [updateField]: value,
+          contact_phone: value,
           updated_at: new Date().toISOString()
         })
-        .eq("id", user.id);
-        
-      if (updateError) throw updateError;
-     
-      result = true;
-     
-      toast.success(`${field === 'phone' ? 'Phone number' : 'Full name'} updated successfully!`, { duration: 3000 });
-     
-      setMissingData(prev => {
-        const updated = prev.filter(item => item.type !== field);
-        return updated;
-      });
-     
-      return result;
-     
-    } catch (error) {
-      console.error("Update user data error:", error);
-     
-      if (error.code === '23505') {
-        toast.error("This value already exists. Please use a different one.", { duration: 4000 });
-      } else if (error.code === '22P02') {
-        toast.error("Invalid data format. Please check your input.", { duration: 4000 });
-      } else {
-        toast.error(error.message || `Failed to update ${field}. Please try again.`, { duration: 4000 });
+        .eq("user_id", user.id);
+      
+      if (walletUpdateError) {
+        console.error("Error updating wallet contact phone:", walletUpdateError);
+        // Don't throw - user update succeeded, wallet update is secondary
       }
-     
-      return false;
-    } finally {
-      setProcessing(false);
     }
-  };
-  
+   
+    result = true;
+   
+    toast.success(`${field === 'phone' ? 'Phone number' : 'Full name'} updated successfully!`, { duration: 3000 });
+   
+    setMissingData(prev => {
+      const updated = prev.filter(item => item.type !== field);
+      return updated;
+    });
+   
+    return result;
+   
+  } catch (error) {
+    console.error("Update user data error:", error);
+   
+    if (error.code === '23505') {
+      toast.error("This value already exists. Please use a different one.", { duration: 4000 });
+    } else if (error.code === '22P02') {
+      toast.error("Invalid data format. Please check your input.", { duration: 4000 });
+    } else {
+      toast.error(error.message || `Failed to update ${field}. Please try again.`, { duration: 4000 });
+    }
+   
+    return false;
+  } finally {
+    setProcessing(false);
+  }
+};  
   // Setup wallet PIN with security questions
   const setupWalletPin = async (pin, securityQuestion, securityAnswer) => {
     if (!user) return false;
