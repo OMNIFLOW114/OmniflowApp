@@ -53,6 +53,17 @@ import StoreDashboardV2 from './pages/StoreDashboardV2';
 import NewMessages from './pages/NewMessages';
 // Student
 import StudentDashboard from "./pages/StudentDashboard";
+import CategoryPage from "./pages/CategoryPage";
+import CampusSearchPage from "./pages/CampusSearchPage"
+import CampusFlashSales from "./pages/CampusFlashSales";
+import CampusTrendingNow from "./pages/CampusTrendingNow";
+import CampusRecommendedForYou from "./pages/CampusRecommendedForYou";
+import CampusNearbyRestaurants from "./pages/CampusNearbyRestaurants";
+import CampusPopularServices from "./pages/CampusPopularServices";
+import OfferServicePage from "./pages/OfferServicePage";
+import StudentProfilePage from "./pages/StudentProfilePage";
+import StudentNotificationsPage from "./pages/StudentNotificationsPage";
+
 
 // Admin
 import AdminWallet from "./pages/AdminWallet";
@@ -142,6 +153,17 @@ function AppRoutes() {
         <Route path="/student/earnings" element={<StudentEarningsPage />} />
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/search" element={<SearchPage />} />
+        <Route path="/student/category/:categoryId" element={<CategoryPage />} />
+        <Route path="/student/campus-search" element={<CampusSearchPage />} />
+        <Route path="/student/campus-flash-sales" element={<CampusFlashSales />} />
+        <Route path="/student/campus-trending-now" element={<CampusTrendingNow />} />
+        <Route path="/student/campus-recommended" element={<CampusRecommendedForYou />} />
+        <Route path="/student/campus-nearby-restaurants" element={<CampusNearbyRestaurants />} />
+        <Route path="/student/campus-popular-services" element={<CampusPopularServices />} />
+        <Route path="/student/offer-service" element={<OfferServicePage />} />
+        <Route path="/student/profile" element={<StudentProfilePage />} />
+        <Route path="/student/notifications" element={<StudentNotificationsPage />} />
+
 
         {/* ===================== ADMIN ROUTES ===================== */}
         <Route path="/admin" element={<AdminAuth />} />

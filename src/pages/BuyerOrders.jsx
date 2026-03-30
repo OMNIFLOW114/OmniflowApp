@@ -118,7 +118,6 @@ const BuyerOrders = () => {
   useEffect(() => {
     if (!user?.id) return;
 
-    // Subscribe to order changes
     const orderChannel = supabase
       .channel('buyer-orders-changes')
       .on(
@@ -132,7 +131,6 @@ const BuyerOrders = () => {
         (payload) => {
           console.log('Order updated:', payload.new);
           
-          // Update the order in local state
           setOrders(prevOrders => 
             prevOrders.map(order => 
               order.id === payload.new.id 
@@ -141,7 +139,6 @@ const BuyerOrders = () => {
             )
           );
 
-          // Show toast notification based on status change
           const oldStatus = payload.old?.status;
           const newStatus = payload.new?.status;
 
@@ -168,7 +165,6 @@ const BuyerOrders = () => {
         },
         (payload) => {
           console.log('New order:', payload.new);
-          // Fetch the full order with relations
           fetchOrders();
           toast.success('New order created!');
         }
@@ -238,7 +234,6 @@ const BuyerOrders = () => {
       if (!storesError) storesData = data || [];
     }
 
-    // Fetch existing ratings
     const productIds = ordersData.map(o => o.product?.id).filter(Boolean);
     let ratingsData = [];
     if (productIds.length > 0 && user?.id) {
@@ -387,7 +382,6 @@ const BuyerOrders = () => {
 
       if (error) throw error;
 
-      // Update local state
       setOrders(prev =>
         prev.map(o =>
           o.id === order.id
@@ -464,25 +458,36 @@ const BuyerOrders = () => {
 
     setSubmittingOtp(true);
     try {
-      const { error } = await supabase.rpc("mark_order_delivered", {
+      const { data, error } = await supabase.rpc("mark_order_delivered", {
         p_order: otpOrderId,
         p_otp: otpValue,
       });
+      
       if (error) throw error;
+      
+      if (!data?.success) throw new Error(data?.error || 'Failed to confirm delivery');
 
-      // Update local state immediately
       setOrders(prev =>
         prev.map(order =>
           order.id === otpOrderId
-            ? { ...order, delivered: true, status: 'delivered' }
+            ? { ...order, delivered: true, status: data.needs_payment ? 'delivered' : 'completed' }
             : order
         )
       );
 
-      toast.success("Delivery confirmed! You can now pay the remaining balance.");
+      if (data.needs_payment) {
+        toast.success("Delivery confirmed! You can now pay the remaining balance.");
+      } else {
+        toast.success("Delivery confirmed! Order completed.");
+      }
+      
       setOtpOpen(false);
       setOtpOrderId(null);
       setOtpValue("");
+      
+      // Refresh data
+      await fetchData();
+      
     } catch (err) {
       showError(err, "Failed to confirm delivery");
     } finally {
@@ -490,7 +495,7 @@ const BuyerOrders = () => {
     }
   }
 
-  // ===== M-PESA PAYMENT FUNCTION =====
+  // ===== M-PESA PAYMENT FUNCTION FOR REMAINING BALANCE =====
   const handleMpesaPayment = async (order, phoneNumber) => {
     setProcessingPayment(true);
     setMpesaPaymentStep(2);
@@ -508,46 +513,55 @@ const BuyerOrders = () => {
         async (receipt, paidAmount) => {
           console.log('M-Pesa payment successful:', { receipt, paidAmount });
           
-          // Update order to mark balance paid
-          const { error: updateError } = await supabase
+          // Use the pay_remaining_balance RPC to handle the payment and commission
+          const { data, error } = await supabase.rpc("pay_remaining_balance", {
+            p_order: order.id,
+            p_buyer: user.id,
+          });
+          
+          if (error) throw error;
+          
+          if (!data?.success) throw new Error(data?.error || "Payment processing failed");
+          
+          // Update order with M-Pesa receipt
+          await supabase
             .from("orders")
             .update({
-              balance_due: 0,
-              balance_paid: true,
-              status: "completed",
               mpesa_receipt: receipt,
-              updated_at: new Date().toISOString(),
-              escrow_released: true
+              updated_at: new Date().toISOString()
             })
             .eq("id", order.id);
           
-          if (updateError) {
-            console.error('Failed to update order:', updateError);
-            toast.error("Payment successful but order update failed. Please contact support.");
-          } else {
-            // Update local state
-            setOrders(prev =>
-              prev.map(o =>
-                o.id === order.id
-                  ? { 
-                      ...o, 
-                      balance_paid: true, 
-                      balance_due: 0,
-                      status: 'completed',
-                      escrow_released: true
-                    }
-                  : o
-              )
-            );
-            
-            toast.success(
-              `Payment successful! Amount: ${formatKSH(paidAmount)}\nReceipt: ${receipt}`,
-              { duration: 8000, icon: '✅' }
-            );
-          }
+          // Update local state
+          setOrders(prev =>
+            prev.map(o =>
+              o.id === order.id
+                ? { 
+                    ...o, 
+                    balance_paid: true, 
+                    balance_due: 0,
+                    status: o.delivered ? 'completed' : 'balance_paid',
+                    escrow_released: o.delivered ? true : o.escrow_released
+                  }
+                : o
+            )
+          );
           
           setMpesaPaymentStep(3);
           toast.dismiss(loadingToast);
+          
+          toast.success(
+            <div>
+              <strong>Payment successful!</strong>
+              <br />
+              <small>Amount: {formatKSH(paidAmount)}</small>
+              <br />
+              <small>Receipt: {receipt}</small>
+              <br />
+              <small>Platform fee: {(data.commission_rate * 100).toFixed(1)}%</small>
+            </div>,
+            { duration: 8000, icon: '✅' }
+          );
           
           // Refresh wallet balance
           await fetchWallet();
@@ -580,7 +594,7 @@ const BuyerOrders = () => {
     }
   };
 
-  // ===== WALLET PAYMENT FUNCTION =====
+  // ===== WALLET PAYMENT FUNCTION FOR REMAINING BALANCE =====
   async function processWalletPayment(order) {
     setProcessingPayment(true);
     const loadingToast = toast.loading("Processing payment...");
@@ -605,7 +619,7 @@ const BuyerOrders = () => {
                 ...o, 
                 balance_paid: true, 
                 balance_due: 0,
-                status: o.delivered ? 'completed' : o.status,
+                status: o.delivered ? 'completed' : 'balance_paid',
                 escrow_released: o.delivered ? true : o.escrow_released
               }
             : o
@@ -614,10 +628,13 @@ const BuyerOrders = () => {
 
       toast.dismiss(loadingToast);
       
-      // Show success with commission breakdown
       toast.success(
         <div>
           <strong>Payment successful!</strong>
+          <br />
+          <small style={{ fontSize: '0.8rem' }}>
+            Amount paid: {formatKSH(order.balance_due)}
+          </small>
           <br />
           <small style={{ fontSize: '0.8rem' }}>
             Platform fee: {(data.commission_rate * 100).toFixed(1)}% 
@@ -675,7 +692,7 @@ const BuyerOrders = () => {
     }
   }
 
-  // ===== OPEN PAYMENT MODAL WITH PHONE INPUT =====
+  // ===== OPEN PAYMENT MODAL =====
   function openPaymentModal(order) {
     setSelectedOrder(order);
     setPaymentMethod("");
@@ -691,7 +708,6 @@ const BuyerOrders = () => {
     if (paymentMethod === 'wallet') {
       await processWalletPayment(selectedOrder);
     } else if (paymentMethod === 'mpesa') {
-      // Show phone number input for M-Pesa
       const phone = prompt("Enter your M-Pesa phone number (e.g., 0712345678):", user?.phone || "");
       
       if (!phone) {
@@ -710,41 +726,6 @@ const BuyerOrders = () => {
       await handleMpesaPayment(selectedOrder, phone);
     } else if (paymentMethod === 'paypal') {
       await processPaypalPayment(selectedOrder);
-    }
-  }
-
-  // ===== ESCROW RELEASE =====
-  async function releaseEscrow(order) {
-    if (!order?.id || releasingOrderId) return;
-    
-    setReleasingOrderId(order.id);
-    const loadingToast = toast.loading("Completing order...");
-    
-    try {
-      const { error } = await supabase.rpc("release_escrow_to_seller", {
-        p_order: order.id,
-      });
-      
-      if (error) throw error;
-      
-      // Update local state
-      setOrders(prev =>
-        prev.map(o =>
-          o.id === order.id
-            ? { ...o, escrow_released: true, status: 'completed' }
-            : o
-        )
-      );
-      
-      toast.dismiss(loadingToast);
-      toast.success("Order completed! Payment released to seller.");
-      
-    } catch (err) {
-      console.error("Escrow release error:", err);
-      toast.dismiss(loadingToast);
-      toast.error("Failed to release payment");
-    } finally {
-      setReleasingOrderId(null);
     }
   }
 
@@ -874,16 +855,8 @@ const BuyerOrders = () => {
                 const sellerMarkedDelivered = order.status?.toLowerCase() === "delivered";
                 const buyerConfirmed = !!order.delivered;
                 
-                // Show confirm delivery button only when seller marked delivered AND buyer hasn't confirmed
                 const canConfirmDelivery = sellerMarkedDelivered && !buyerConfirmed;
-                
-                // Show pay balance only when buyer has confirmed delivery AND balance is not paid
                 const canPayRemaining = buyerConfirmed && order.balance_due > 0 && !order.balance_paid;
-                
-                // Show complete button when delivered, paid, but escrow not released
-                const canComplete = order.delivered && order.balance_paid && !order.escrow_released;
-
-                // Get current status for progress bar
                 const currentStatus = order.status;
 
                 return (
@@ -931,7 +904,6 @@ const BuyerOrders = () => {
 
                         {renderHorizontalProgress(currentStatus, buyerConfirmed)}
 
-                        {/* Status Message */}
                         {sellerMarkedDelivered && !buyerConfirmed && (
                           <div className="status-message info">
                             <FaTruck /> Seller marked as delivered - Please confirm delivery with OTP
@@ -979,16 +951,6 @@ const BuyerOrders = () => {
                               disabled={processingPayment || mpesaLoading}
                             >
                               <FaWallet /> Pay Balance
-                            </button>
-                          )}
-
-                          {canComplete && (
-                            <button
-                              className="action-btn complete"
-                              onClick={() => releaseEscrow(order)}
-                              disabled={releasingOrderId === order.id}
-                            >
-                              {releasingOrderId === order.id ? "Completing..." : "Complete Order"}
                             </button>
                           )}
 

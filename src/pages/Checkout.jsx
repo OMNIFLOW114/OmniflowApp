@@ -588,7 +588,7 @@ export default function Checkout() {
   }, [productId, location.state, user, fromCart, fromFlashSale, navigate, isFlashSale]);
 
   // ============================================================
-  // M-PESA PAYMENT FUNCTION WITH STK PUSH
+  // M-PESA PAYMENT FUNCTION WITH STK PUSH - FIXED
   // ============================================================
   const handleMpesaPayment = async () => {
     if (!user?.id) return toast.error("Login required");
@@ -640,6 +640,7 @@ export default function Checkout() {
           const commission = commissionData?.[0] || {
             commission_rate: 0.09,
             commission_amount: product.productPrice * 0.09,
+            seller_amount: product.productPrice * 0.91,
             admin_email: ADMIN_EMAIL,
             admin_id: ADMIN_ID
           };
@@ -665,6 +666,8 @@ export default function Checkout() {
               delivery_distance: deliveryDistance,
               status: "pending",
               delivery_otp: Math.floor(100000 + Math.random() * 900000).toString(),
+              commission_rate: commission.commission_rate,
+              commission_amount: commission.commission_amount,
               metadata: {
                 is_flash_sale: isFlashSale,
                 payment_type: 'mpesa_pending',
@@ -697,6 +700,7 @@ export default function Checkout() {
         const commission = commissionData?.[0] || {
           commission_rate: 0.09,
           commission_amount: totalOrder * 0.09,
+          seller_amount: totalOrder * 0.91,
           admin_email: ADMIN_EMAIL,
           admin_id: ADMIN_ID
         };
@@ -722,6 +726,8 @@ export default function Checkout() {
             delivery_distance: deliveryDistance,
             status: "pending",
             delivery_otp: Math.floor(100000 + Math.random() * 900000).toString(),
+            commission_rate: commission.commission_rate,
+            commission_amount: commission.commission_amount,
             metadata: {
               is_flash_sale: isFlashSale,
               flash_sale_ends_at: isFlashSale ? flashSaleEndsAt : null,
@@ -757,8 +763,8 @@ export default function Checkout() {
               deposit_paid: true,
               status: "deposit_paid",
               mpesa_receipt: receipt,
+              updated_at: new Date().toISOString(),
               metadata: {
-                ...(await supabase.from("orders").select("metadata").eq("id", orderId).single()).data?.metadata,
                 payment_completed_at: new Date().toISOString(),
                 mpesa_receipt: receipt,
                 deposit_amount_paid: paidAmount
@@ -773,20 +779,40 @@ export default function Checkout() {
             // Add to admin escrow
             await updateWalletBalance(ADMIN_ID, paidAmount, 'add');
             
+            // Record admin escrow transaction
             await supabase.from("wallet_transactions").insert({
               user_id: ADMIN_ID,
               type: 'escrow_receive',
               amount: paidAmount,
               status: 'completed',
               order_id: orderId,
-              description: `Escrow deposit for order ${orderId.slice(0, 8)} via M-Pesa`,
-              metadata: { payment_type: 'mpesa_escrow', mpesa_receipt: receipt }
+              description: `Escrow deposit (25%) for order ${orderId.slice(0, 8)} via M-Pesa`,
+              metadata: { 
+                payment_type: 'mpesa_escrow', 
+                mpesa_receipt: receipt,
+                deposit_percentage: 25
+              }
+            });
+            
+            // Record buyer transaction
+            await supabase.from("wallet_transactions").insert({
+              user_id: user.id,
+              type: 'purchase',
+              amount: paidAmount,
+              status: 'completed',
+              order_id: orderId,
+              description: `Deposit payment for order ${orderId.slice(0, 8)} via M-Pesa`,
+              metadata: { 
+                payment_type: 'deposit',
+                mpesa_receipt: receipt,
+                is_escrow: true
+              }
             });
           }
           
           setMpesaPaymentStep(3);
           toast.success(
-            `Payment successful! Amount: ${formatKSH(paidAmount)}\nReceipt: ${receipt}`,
+            `Payment successful! Amount: ${formatKSH(paidAmount)}\nReceipt: ${receipt}\n25% deposit held in escrow.`,
             { duration: 8000, icon: '✅' }
           );
           
@@ -813,7 +839,7 @@ export default function Checkout() {
     }
   };
 
-  // Wallet payment handler
+  // Wallet payment handler - FIXED to use RPC
   async function handlePayWithWallet() {
     if (!user?.id) return toast.error("Login required");
     if (!deliveryMethod) return toast.error("Choose a delivery option");
@@ -839,22 +865,6 @@ export default function Checkout() {
     const loadingToast = toast.loading("Processing payment...");
 
     try {
-      const { data: userWallet } = await supabase
-        .from("wallets")
-        .select("balance")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      const userBalance = userWallet?.balance || 0;
-      const totalDueNow = depositTotal;
-      
-      if (userBalance < totalDueNow) {
-        toast.dismiss(loadingToast);
-        toast.error(`Insufficient balance. You need ${formatKSH(totalDueNow)} but have ${formatKSH(userBalance)}`);
-        setBuying(false);
-        return;
-      }
-
       const deliveryLocation = deliveryMethod === "door" ? deliveryAddress : pickupStation;
 
       if (fromCart) {
@@ -870,6 +880,7 @@ export default function Checkout() {
           const commission = commissionData?.[0] || {
             commission_rate: 0.09,
             commission_amount: product.productPrice * 0.09,
+            seller_amount: product.productPrice * 0.91,
             admin_email: ADMIN_EMAIL,
             admin_id: ADMIN_ID
           };
@@ -918,29 +929,15 @@ export default function Checkout() {
 
           const productDepositAmount = product.depositProduct + (deliveryMethod === "door" ? (finalDeliveryFee / products.length) : 0);
 
-          await updateWalletBalance(user.id, productDepositAmount, 'subtract');
-
-          await supabase.from("wallet_transactions").insert({
-            user_id: user.id,
-            type: 'purchase',
-            amount: productDepositAmount,
-            status: 'completed',
-            order_id: orderData.id,
-            description: `Deposit payment for order ${orderData.id.slice(0, 8)}`,
-            metadata: { payment_type: 'deposit', is_escrow: true }
+          // Use RPC for wallet operations
+          const { data: paymentResult, error: paymentError } = await supabase.rpc('pay_order_deposit', {
+            p_order_id: orderData.id,
+            p_buyer_id: user.id,
+            p_amount: productDepositAmount
           });
 
-          await updateWalletBalance(ADMIN_ID, productDepositAmount, 'add');
-
-          await supabase.from("wallet_transactions").insert({
-            user_id: ADMIN_ID,
-            type: 'escrow_receive',
-            amount: productDepositAmount,
-            status: 'completed',
-            order_id: orderData.id,
-            description: `Escrow deposit for order ${orderData.id.slice(0, 8)}`,
-            metadata: { payment_type: 'escrow_deposit' }
-          });
+          if (paymentError) throw paymentError;
+          if (!paymentResult?.success) throw new Error(paymentResult?.error || 'Payment failed');
 
           if (product.cartItemId) {
             await supabase.from("cart_items").delete().eq("id", product.cartItemId);
@@ -962,6 +959,7 @@ export default function Checkout() {
         const commission = commissionData?.[0] || {
           commission_rate: 0.09,
           commission_amount: totalOrder * 0.09,
+          seller_amount: totalOrder * 0.91,
           admin_email: ADMIN_EMAIL,
           admin_id: ADMIN_ID
         };
@@ -1011,29 +1009,15 @@ export default function Checkout() {
 
         const totalDepositAmount = totalDeposit + (deliveryMethod === "door" ? finalDeliveryFee : 0);
 
-        await updateWalletBalance(user.id, totalDepositAmount, 'subtract');
-
-        await supabase.from("wallet_transactions").insert({
-          user_id: user.id,
-          type: 'purchase',
-          amount: totalDepositAmount,
-          status: 'completed',
-          order_id: orderData.id,
-          description: `Deposit payment for order ${orderData.id.slice(0, 8)}`,
-          metadata: { payment_type: 'deposit', is_escrow: true }
+        // Use RPC for wallet operations
+        const { data: paymentResult, error: paymentError } = await supabase.rpc('pay_order_deposit', {
+          p_order_id: orderData.id,
+          p_buyer_id: user.id,
+          p_amount: totalDepositAmount
         });
 
-        await updateWalletBalance(ADMIN_ID, totalDepositAmount, 'add');
-
-        await supabase.from("wallet_transactions").insert({
-          user_id: ADMIN_ID,
-          type: 'escrow_receive',
-          amount: totalDepositAmount,
-          status: 'completed',
-          order_id: orderData.id,
-          description: `Escrow deposit for order ${orderData.id.slice(0, 8)}`,
-          metadata: { payment_type: 'escrow_deposit' }
-        });
+        if (paymentError) throw paymentError;
+        if (!paymentResult?.success) throw new Error(paymentResult?.error || 'Payment failed');
 
         toast.dismiss(loadingToast);
         toast.success(
@@ -1090,6 +1074,7 @@ export default function Checkout() {
           const commission = commissionData?.[0] || {
             commission_rate: 0.09,
             commission_amount: product.productPrice * 0.09,
+            seller_amount: product.productPrice * 0.91,
             admin_email: ADMIN_EMAIL,
             admin_id: ADMIN_ID
           };
@@ -1133,6 +1118,7 @@ export default function Checkout() {
         const commission = commissionData?.[0] || {
           commission_rate: 0.09,
           commission_amount: totalOrder * 0.09,
+          seller_amount: totalOrder * 0.91,
           admin_email: ADMIN_EMAIL,
           admin_id: ADMIN_ID
         };

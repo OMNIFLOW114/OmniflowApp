@@ -1,0 +1,980 @@
+/* src/pages/StudentMarketplace.module.css - ISOLATED CSS */
+/* This CSS only affects StudentMarketplace component */
+
+/* ============================================
+   DARK MODE VARIABLES
+   ============================================ */
+.lightMode {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8fafc;
+  --bg-tertiary: #f1f5f9;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-tertiary: #94a3b8;
+  --border-color: #e2e8f0;
+  --card-bg: #ffffff;
+  --accent-primary: #4F46E5;
+  --accent-secondary: #7C3AED;
+}
+
+.darkMode {
+  --bg-primary: #000000;
+  --bg-secondary: #0a0a0a;
+  --bg-tertiary: #111111;
+  --text-primary: #ffffff;
+  --text-secondary: #a3a3a3;
+  --text-tertiary: #666666;
+  --border-color: #1f1f1f;
+  --card-bg: #0a0a0a;
+  --accent-primary: #6366F1;
+  --accent-secondary: #8B5CF6;
+}
+
+.container {
+  background: var(--bg-primary);
+  min-height: 100vh;
+  transition: all 0.3s ease;
+  color: var(--text-primary);
+  overflow-x: hidden;
+  width: 100%;
+  position: relative;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+}
+
+/* Header */
+.header {
+  background: var(--bg-primary);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+  width: 100%;
+}
+
+.topNav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.profileIcon {
+  background: var(--bg-tertiary);
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+
+.campusDisplay {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-tertiary);
+  padding: 8px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  flex: 1;
+  justify-content: center;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.campusDisplay span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.headerRight {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.themeToggle,
+.notificationIcon {
+  background: var(--bg-tertiary);
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--text-primary);
+  position: relative;
+}
+
+/* Search Bar */
+.searchWrapper {
+  margin-top: 12px;
+  width: 100%;
+}
+
+.searchBar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-tertiary);
+  border-radius: 30px;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid var(--border-color);
+  width: 100%;
+}
+
+.searchIcon {
+  color: var(--text-tertiary);
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.searchBar input {
+  flex: 1;
+  border: none;
+  background: none;
+  outline: none;
+  font-size: 15px;
+  color: var(--text-primary);
+  cursor: pointer;
+  width: 100%;
+}
+
+.searchBar input::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* Hero Section */
+.heroSection {
+  padding: 16px;
+  width: 100%;
+}
+
+.heroBanner {
+  border-radius: 20px;
+  overflow: hidden;
+  min-height: 160px;
+  display: flex;
+  align-items: center;
+  padding: 20px;
+  color: white;
+  position: relative;
+}
+
+.heroContent {
+  flex: 1;
+  z-index: 2;
+}
+
+.heroContent h1 {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.heroContent p {
+  font-size: 11px;
+  opacity: 0.9;
+  margin-bottom: 10px;
+}
+
+.heroCta {
+  background: rgba(255,255,255,0.2);
+  backdrop-filter: blur(10px);
+  border: none;
+  padding: 6px 14px;
+  border-radius: 20px;
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.heroImage {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 40%;
+  opacity: 0.5;
+}
+
+.heroImage img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.heroIndicators {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border-color);
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.indicator.active {
+  width: 20px;
+  background: var(--accent-primary);
+}
+
+/* Categories - FIXED SCROLLABLE */
+.categoriesSection {
+  padding: 0 16px;
+  margin-bottom: 24px;
+  width: 100%;
+}
+
+.categoriesScroll {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  overflow-y: visible;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 8px;
+  scroll-snap-type: x mandatory;
+  cursor: grab;
+  position: relative;
+}
+
+.categoriesScroll:active {
+  cursor: grabbing;
+}
+
+.categoriesScroll::-webkit-scrollbar {
+  height: 3px;
+}
+
+.categoriesScroll::-webkit-scrollbar-track {
+  background: var(--bg-tertiary);
+  border-radius: 10px;
+}
+
+.categoriesScroll::-webkit-scrollbar-thumb {
+  background: var(--accent-primary);
+  border-radius: 10px;
+}
+
+.categoryChip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  scroll-snap-align: start;
+  padding: 4px 0;
+}
+
+.categoryIcon {
+  width: 50px;
+  height: 50px;
+  border-radius: 25px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  transition: all 0.2s;
+  background: var(--bg-tertiary);
+}
+
+.categoryName {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* Scroll Sections */
+.scrollSection {
+  margin-bottom: 28px;
+  padding: 0 16px;
+  width: 100%;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.titleWrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sectionIcon {
+  font-size: 18px;
+  color: var(--accent-primary);
+}
+
+.sectionHeader h2 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.sectionActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.scrollBtn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-primary);
+  transition: all 0.2s;
+}
+
+.scrollBtn:hover {
+  background: var(--accent-primary);
+  color: white;
+  border-color: var(--accent-primary);
+}
+
+.seeAllLink {
+  background: none;
+  border: none;
+  font-size: 12px;
+  color: var(--accent-primary);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  padding: 4px 8px;
+  transition: all 0.2s;
+}
+
+.horizontalScroll {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  overflow-y: visible;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 8px;
+  scrollbar-width: thin;
+}
+
+.horizontalScroll::-webkit-scrollbar {
+  height: 3px;
+}
+
+.horizontalScroll::-webkit-scrollbar-track {
+  background: var(--bg-tertiary);
+  border-radius: 10px;
+}
+
+.horizontalScroll::-webkit-scrollbar-thumb {
+  background: var(--accent-primary);
+  border-radius: 10px;
+}
+
+/* Product Card - SQUARE DESIGN */
+.productCard {
+  background: var(--card-bg);
+  border-radius: 14px;
+  overflow: hidden;
+  width: 150px;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid var(--border-color);
+}
+
+.productCard.flash {
+  border: 2px solid #F59E0B;
+}
+
+.productImageContainer {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: var(--bg-tertiary);
+  overflow: hidden;
+}
+
+.productImageContainer img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.discountBadge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: #EF4444;
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 12px;
+  z-index: 2;
+}
+
+.wishlistBtn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(4px);
+  border: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 12px;
+  color: white;
+  transition: all 0.2s;
+}
+
+.productInfo {
+  padding: 10px;
+}
+
+.productTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  height: 32px;
+}
+
+.productRating {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 4px;
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.starIcon {
+  color: #F59E0B;
+  font-size: 9px;
+}
+
+.productPrice {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent-primary);
+  margin-bottom: 4px;
+}
+
+.productLocation {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9px;
+  color: var(--text-tertiary);
+}
+
+/* Restaurant Card */
+.restaurantCard {
+  background: var(--card-bg);
+  border-radius: 14px;
+  overflow: hidden;
+  width: 170px;
+  flex-shrink: 0;
+  cursor: pointer;
+  border: 1px solid var(--border-color);
+  transition: all 0.2s;
+}
+
+.restaurantImage {
+  position: relative;
+  width: 100%;
+  height: 120px;
+  background: var(--bg-tertiary);
+  overflow: hidden;
+}
+
+.restaurantImage img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.restaurantRating {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(4px);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.restaurantInfo {
+  padding: 10px;
+}
+
+.restaurantInfo h4 {
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 3px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cuisine {
+  font-size: 10px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.deliveryInfo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.deliveryFee {
+  margin-left: auto;
+  font-weight: 600;
+  color: #10B981;
+}
+
+/* Service Card */
+.serviceCard {
+  background: var(--card-bg);
+  border-radius: 14px;
+  padding: 10px;
+  width: 200px;
+  flex-shrink: 0;
+  cursor: pointer;
+  border: 1px solid var(--border-color);
+  transition: all 0.2s;
+  display: flex;
+  gap: 10px;
+}
+
+.serviceIcon {
+  font-size: 28px;
+  width: 48px;
+  height: 48px;
+  background: var(--bg-tertiary);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.serviceInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.serviceInfo h4 {
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 3px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.serviceInfo p {
+  font-size: 10px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.serviceFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.servicePrice {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent-primary);
+}
+
+.serviceOrders {
+  font-size: 9px;
+  color: var(--text-tertiary);
+}
+
+/* Deals Banner */
+.dealsBannerSection {
+  padding: 0 16px;
+  margin-bottom: 24px;
+  width: 100%;
+}
+
+.dealsBanner {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 18px;
+  padding: 16px;
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.dealsTag {
+  background: rgba(255,255,255,0.2);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 16px;
+  font-size: 10px;
+  margin-bottom: 8px;
+  width: fit-content;
+}
+
+.dealsContent h2 {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.dealsContent p {
+  font-size: 11px;
+  opacity: 0.9;
+  margin-bottom: 12px;
+}
+
+.dealsContent button {
+  background: white;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 18px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #667eea;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+
+.dealsCountdown {
+  display: flex;
+  gap: 6px;
+}
+
+.countdownItem {
+  text-align: center;
+  background: rgba(0,0,0,0.3);
+  backdrop-filter: blur(10px);
+  padding: 6px;
+  border-radius: 10px;
+  min-width: 42px;
+}
+
+.countdownItem span {
+  font-size: 16px;
+  font-weight: 700;
+  display: block;
+}
+
+.countdownItem label {
+  font-size: 9px;
+  opacity: 0.8;
+}
+
+/* Featured Section */
+.featuredSection {
+  padding: 0 16px;
+  margin-bottom: 24px;
+  width: 100%;
+}
+
+.featuredGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.featuredGrid .productCard {
+  width: 100%;
+}
+
+/* Bottom Spacing */
+.bottomSpacing {
+  height: 70px;
+}
+
+/* FAB */
+.fabButton {
+  position: fixed;
+  bottom: 70px;
+  right: 16px;
+  width: 52px;
+  height: 52px;
+  border-radius: 26px;
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  border: none;
+  color: white;
+  font-size: 22px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+/* Empty State */
+.emptyScroll {
+  min-width: 200px;
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-tertiary);
+}
+
+/* Skeleton Loading */
+.skeletonHeader {
+  padding: 12px 16px;
+}
+
+.skeletonTopNav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  gap: 12px;
+}
+
+.skeletonCircle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--border-color) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+.skeletonCampusBadge {
+  flex: 1;
+  height: 40px;
+  border-radius: 20px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--border-color) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+.skeletonSearchBar {
+  height: 48px;
+  border-radius: 30px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--border-color) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+.skeletonHero {
+  height: 160px;
+  margin: 16px;
+  border-radius: 20px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--border-color) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+.skeletonCategories {
+  display: flex;
+  gap: 12px;
+  padding: 0 16px;
+  margin-bottom: 24px;
+  overflow-x: auto;
+}
+
+.skeletonCategory {
+  min-width: 62px;
+  height: 70px;
+  border-radius: 14px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--border-color) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+.skeletonSection {
+  padding: 0 16px;
+  margin-bottom: 24px;
+}
+
+.skeletonSectionHeader {
+  height: 28px;
+  width: 140px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--border-color) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+  margin-bottom: 14px;
+}
+
+.skeletonHorizontal {
+  display: flex;
+  gap: 12px;
+}
+
+.skeletonCard {
+  width: 150px;
+  height: 210px;
+  border-radius: 14px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--border-color) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Responsive Breakpoints */
+@media (min-width: 768px) {
+  .productCard {
+    width: 180px;
+  }
+  
+  .restaurantCard {
+    width: 210px;
+  }
+  
+  .restaurantImage {
+    height: 140px;
+  }
+  
+  .serviceCard {
+    width: 240px;
+  }
+  
+  .categoryIcon {
+    width: 64px;
+    height: 64px;
+    font-size: 28px;
+  }
+  
+  .featuredGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  
+  .heroBanner {
+    min-height: 200px;
+  }
+  
+  .heroContent h1 {
+    font-size: 24px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .featuredGrid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  
+  .productCard {
+    width: 200px;
+  }
+}
+
+@media (max-width: 480px) {
+  .productCard {
+    width: 140px;
+  }
+  
+  .restaurantCard {
+    width: 160px;
+  }
+  
+  .restaurantImage {
+    height: 110px;
+  }
+  
+  .serviceCard {
+    width: 180px;
+  }
+  
+  .dealsBanner {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .dealsCountdown {
+    justify-content: center;
+  }
+}

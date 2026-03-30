@@ -29,10 +29,10 @@ import {
   HelpCircle,
   Smartphone as SmartphoneIcon,
   Mail as MailIcon,
-  ShieldCheck
+  ShieldCheck,
+  TrendingUp
 } from "lucide-react";
 import "./OmniPayWallet.css";
-import { useMpesaPayment } from "@/hooks/useMpesaPayment";
 
 // SEPARATE SetupModal Component
 const SetupModal = React.memo(({
@@ -702,7 +702,7 @@ const PinResetModal = React.memo(({ show, onClose, userEmail, onResetSuccess }) 
         return;
       }
 
-      // Update PIN - FIXED: Use same hashing method as setup
+      // Update PIN - Use same hashing method as setup
       const pinHash = btoa(pinStr);
       
       const { error: updateError } = await supabase
@@ -1157,6 +1157,9 @@ const SendMoneyModal = React.memo(({
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState("");
 
+  const transactionFee = (Number(amount) || 0) * 0.014;
+  const netAmount = (Number(amount) || 0) - transactionFee;
+
   const handleSendMoney = async () => {
     setError("");
     
@@ -1267,14 +1270,29 @@ const SendMoneyModal = React.memo(({
               className="wallet-input"
               disabled={isProcessing}
             />
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: "8px" }}>
-              <p className="wallet-input-hint" style={{ margin: 0 }}>
-                Minimum: 1 KSH
-              </p>
-              <p className="wallet-input-hint" style={{ margin: 0 }}>
-                Commission: 1.4%
-              </p>
-            </div>
+            
+            {amount && Number(amount) > 0 && (
+              <div style={{ 
+                marginTop: "12px", 
+                padding: "12px", 
+                background: "rgba(250, 173, 20, 0.1)", 
+                borderRadius: "8px",
+                fontSize: "13px"
+              }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+                  <span style={{ color: "var(--wallet-text-secondary)" }}>Transaction Fee (1.4%):</span>
+                  <span style={{ color: "var(--wallet-warning)", fontWeight: "500" }}>
+                    -{formatKSH(transactionFee)}
+                  </span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid var(--wallet-border)", paddingTop: "8px" }}>
+                  <span style={{ fontWeight: "600" }}>Recipient Receives:</span>
+                  <span style={{ fontWeight: "700", color: "var(--wallet-success)" }}>
+                    {formatKSH(netAmount)}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           <button
@@ -1303,9 +1321,7 @@ const SendMoneyModal = React.memo(({
 
 SendMoneyModal.displayName = 'SendMoneyModal';
 
-// ============================================================
-// FIXED: Withdraw Money Modal - Removed email, only M-Pesa phone
-// ============================================================
+// Withdraw Money Modal Component - Updated with transaction fee display
 const WithdrawMoneyModal = React.memo(({ 
   show, 
   onClose, 
@@ -1317,6 +1333,9 @@ const WithdrawMoneyModal = React.memo(({
   const [amount, setAmount] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState("");
+
+  const transactionFee = (Number(amount) || 0) * 0.014;
+  const netAmount = (Number(amount) || 0) - transactionFee;
 
   const handleWithdrawMoney = async () => {
     setError("");
@@ -1332,8 +1351,8 @@ const WithdrawMoneyModal = React.memo(({
     }
     
     const amountNum = Number(amount);
-    if (!amount || amountNum < 500) {
-      setError("Minimum withdrawal amount is 500 KSH");
+    if (!amount || amountNum < 100) {
+      setError("Minimum withdrawal amount is 100 KSH");
       return;
     }
     
@@ -1360,7 +1379,7 @@ const WithdrawMoneyModal = React.memo(({
     <div className="wallet-pin-modal">
       <div className="wallet-pin-content" style={{ maxWidth: "500px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
-          <h3 className="wallet-pin-title">Withdraw Money</h3>
+          <h3 className="wallet-pin-title">Withdraw to M-Pesa</h3>
           <button
             onClick={onClose}
             style={{
@@ -1431,22 +1450,42 @@ const WithdrawMoneyModal = React.memo(({
               }}
               className="wallet-input"
               disabled={isProcessing}
+              min="100"
+              step="100"
             />
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: "8px" }}>
-              <p className="wallet-input-hint" style={{ margin: 0 }}>
-                Minimum: 500 KSH
-              </p>
-              <p className="wallet-input-hint" style={{ margin: 0 }}>
-                Commission: 1.4%
-              </p>
-            </div>
+            
+            {amount && Number(amount) >= 100 && (
+              <div style={{ 
+                marginTop: "12px", 
+                padding: "12px", 
+                background: "rgba(250, 173, 20, 0.1)", 
+                borderRadius: "8px",
+                fontSize: "13px"
+              }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+                  <span style={{ color: "var(--wallet-text-secondary)" }}>Transaction Fee (1.4%):</span>
+                  <span style={{ color: "var(--wallet-warning)", fontWeight: "500" }}>
+                    -{formatKSH(transactionFee)}
+                  </span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid var(--wallet-border)", paddingTop: "8px" }}>
+                  <span style={{ fontWeight: "600" }}>You'll Receive:</span>
+                  <span style={{ fontWeight: "700", color: "var(--wallet-success)" }}>
+                    {formatKSH(netAmount)}
+                  </span>
+                </div>
+                <div style={{ marginTop: "8px", fontSize: "11px", color: "var(--wallet-text-tertiary)", textAlign: "center" }}>
+                  Funds will be sent to {phoneNumber || "your M-Pesa"} within minutes
+                </div>
+              </div>
+            )}
           </div>
 
           <button
             onClick={handleWithdrawMoney}
             className="wallet-confirm-btn"
-            disabled={isProcessing || !phoneNumber || !amount}
-            style={{ width: "100%" }}
+            disabled={isProcessing || !phoneNumber || !amount || Number(amount) < 100}
+            style={{ width: "100%", background: "#fa8c16" }}
           >
             {isProcessing ? (
               <>
@@ -1456,7 +1495,7 @@ const WithdrawMoneyModal = React.memo(({
             ) : (
               <>
                 <ArrowUp size={20} style={{ marginRight: "8px" }} />
-                Withdraw to M-Pesa
+                Withdraw {amount ? formatKSH(Number(amount)) : "Funds"} to M-Pesa
               </>
             )}
           </button>
@@ -1468,9 +1507,7 @@ const WithdrawMoneyModal = React.memo(({
 
 WithdrawMoneyModal.displayName = 'WithdrawMoneyModal';
 
-// ============================================================
 // Deposit Money Modal with Real M-Pesa STK Push
-// ============================================================
 const DepositMoneyModal = React.memo(({ 
   show, 
   onClose, 
@@ -2430,182 +2467,90 @@ const OmniPayWallet = () => {
     await callback();
   };
   
-  // Update balance
-  const updateBalance = async (amount, type = "add") => {
-    if (!user) return 0;
+  // Update user data function
+  const updateUserData = async (field, value) => {
+    if (!user) return false;
+   
+    setProcessing(true);
    
     try {
-      const newBalance = type === "add" ? balance + amount : balance - amount;
-      if (newBalance < 0) throw new Error("Insufficient balance.");
+      let result;
      
-      const { error } = await supabase
-        .from("wallets")
-        .update({
-          balance: newBalance,
-          last_transaction_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .eq("user_id", user.id);
-     
-      if (error) throw error;
-      setBalance(newBalance);
-      return newBalance;
-    } catch (err) {
-      toast.error("Balance update failed: " + err.message, { duration: 4000 });
-      console.error("Update balance error:", err);
-      throw err;
-    }
-  };
-  
-  // Credit admin commission
-  const creditAdminCommission = async (commission) => {
-    if (!ADMIN_ID || commission <= 0) return;
-    try {
-      const { data: adminWallet, error: adminError } = await supabase
-        .from("wallets")
-        .select("balance")
-        .eq("user_id", ADMIN_ID)
-        .maybeSingle();
-        
-      if (adminError) {
-        console.error("Error fetching admin wallet:", adminError);
-        return;
+      if (field === 'phone') {
+        // Validate Kenyan phone number format
+        if (!/^0[17]\d{8}$/.test(value)) {
+          throw new Error("Please enter a valid Kenyan phone number (e.g., 0712345678)");
+        }
+       
+        // Check if phone already exists
+        const { data: existingPhone } = await supabase
+          .from("users")
+          .select("id")
+          .eq("phone", value)
+          .neq("id", user.id)
+          .maybeSingle();
+       
+        if (existingPhone) {
+          throw new Error("This phone number is already registered to another account");
+        }
       }
-      
-      const adminCurrentBalance = adminWallet?.balance || 0;
-      const adminNewBalance = +(adminCurrentBalance + commission).toFixed(2);
-      
+     
+      // Update the specific field in users table
+      const updateField = field === 'name' ? 'full_name' : field;
       const { error: updateError } = await supabase
-        .from("wallets")
-        .upsert({
-          user_id: ADMIN_ID,
-          balance: adminNewBalance,
-          updated_at: new Date().toISOString(),
-          last_transaction_at: new Date().toISOString()
-        }, {
-          onConflict: 'user_id'
-        });
-        
-      if (updateError) {
-        console.error("Error updating admin wallet:", updateError);
-      }
-    } catch (err) {
-      console.error("Admin commission error:", err);
-    }
-  };
-  
-  // Insert transaction
-  const insertTransaction = async (txnData) => {
-    if (!user) return;
-   
-    try {
-      const enhancedData = {
-        ...txnData,
-        user_id: user.id,
-        device_id: navigator.userAgent,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        status: txnData.status || "Completed"
-      };
-      
-      const { error } = await supabase
-        .from("wallet_transactions")
-        .insert(enhancedData);
-        
-      if (error) throw error;
-     
-    } catch (err) {
-      toast.error("Transaction logging failed.", { duration: 4000 });
-      console.error("Insert transaction error:", err);
-      throw err;
-    }
-  };
-  
-// ====== UPDATE THE updateUserData FUNCTION IN YOUR CODE ======
-// Replace the existing updateUserData function (around line 1200) with this updated version:
-
-const updateUserData = async (field, value) => {
-  if (!user) return false;
- 
-  setProcessing(true);
- 
-  try {
-    let result;
-   
-    if (field === 'phone') {
-      // Validate Kenyan phone number format
-      if (!/^0[17]\d{8}$/.test(value)) {
-        throw new Error("Please enter a valid Kenyan phone number (e.g., 0712345678)");
-      }
-     
-      // Check if phone already exists
-      const { data: existingPhone } = await supabase
         .from("users")
-        .select("id")
-        .eq("phone", value)
-        .neq("id", user.id)
-        .maybeSingle();
-     
-      if (existingPhone) {
-        throw new Error("This phone number is already registered to another account");
-      }
-    }
-   
-    // Update the specific field in users table
-    const updateField = field === 'name' ? 'full_name' : field;
-    const { error: updateError } = await supabase
-      .from("users")
-      .update({
-        [updateField]: value,
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", user.id);
-      
-    if (updateError) throw updateError;
-    
-    // If updating phone number, also update the wallet's contact_phone
-    if (field === 'phone') {
-      const { error: walletUpdateError } = await supabase
-        .from("wallets")
         .update({
-          contact_phone: value,
+          [updateField]: value,
           updated_at: new Date().toISOString()
         })
-        .eq("user_id", user.id);
+        .eq("id", user.id);
+        
+      if (updateError) throw updateError;
       
-      if (walletUpdateError) {
-        console.error("Error updating wallet contact phone:", walletUpdateError);
-        // Don't throw - user update succeeded, wallet update is secondary
+      // If updating phone number, also update the wallet's contact_phone
+      if (field === 'phone') {
+        const { error: walletUpdateError } = await supabase
+          .from("wallets")
+          .update({
+            contact_phone: value,
+            updated_at: new Date().toISOString()
+          })
+          .eq("user_id", user.id);
+        
+        if (walletUpdateError) {
+          console.error("Error updating wallet contact phone:", walletUpdateError);
+          // Don't throw - user update succeeded, wallet update is secondary
+        }
       }
+     
+      result = true;
+     
+      toast.success(`${field === 'phone' ? 'Phone number' : 'Full name'} updated successfully!`, { duration: 3000 });
+     
+      setMissingData(prev => {
+        const updated = prev.filter(item => item.type !== field);
+        return updated;
+      });
+     
+      return result;
+     
+    } catch (error) {
+      console.error("Update user data error:", error);
+     
+      if (error.code === '23505') {
+        toast.error("This value already exists. Please use a different one.", { duration: 4000 });
+      } else if (error.code === '22P02') {
+        toast.error("Invalid data format. Please check your input.", { duration: 4000 });
+      } else {
+        toast.error(error.message || `Failed to update ${field}. Please try again.`, { duration: 4000 });
+      }
+     
+      return false;
+    } finally {
+      setProcessing(false);
     }
-   
-    result = true;
-   
-    toast.success(`${field === 'phone' ? 'Phone number' : 'Full name'} updated successfully!`, { duration: 3000 });
-   
-    setMissingData(prev => {
-      const updated = prev.filter(item => item.type !== field);
-      return updated;
-    });
-   
-    return result;
-   
-  } catch (error) {
-    console.error("Update user data error:", error);
-   
-    if (error.code === '23505') {
-      toast.error("This value already exists. Please use a different one.", { duration: 4000 });
-    } else if (error.code === '22P02') {
-      toast.error("Invalid data format. Please check your input.", { duration: 4000 });
-    } else {
-      toast.error(error.message || `Failed to update ${field}. Please try again.`, { duration: 4000 });
-    }
-   
-    return false;
-  } finally {
-    setProcessing(false);
-  }
-};  
+  };
+  
   // Setup wallet PIN with security questions
   const setupWalletPin = async (pin, securityQuestion, securityAnswer) => {
     if (!user) return false;
@@ -2729,8 +2674,27 @@ const updateUserData = async (field, value) => {
         
       if (receiverUpdateError) throw receiverUpdateError;
       
+      // Credit admin commission
       if (ADMIN_ID && commission > 0) {
-        await creditAdminCommission(commission);
+        const { data: adminWallet } = await supabase
+          .from("wallets")
+          .select("balance")
+          .eq("user_id", ADMIN_ID)
+          .maybeSingle();
+          
+        const adminCurrentBalance = adminWallet?.balance || 0;
+        const adminNewBalance = +(adminCurrentBalance + commission).toFixed(2);
+        
+        await supabase
+          .from("wallets")
+          .upsert({
+            user_id: ADMIN_ID,
+            balance: adminNewBalance,
+            updated_at: new Date().toISOString(),
+            last_transaction_at: new Date().toISOString()
+          }, {
+            onConflict: 'user_id'
+          });
       }
       
       const senderTransaction = {
@@ -2741,7 +2705,7 @@ const updateUserData = async (field, value) => {
         commission_paid: commission,
         receiver_id: receiver.id,
         status: "Completed",
-        message: `Sent ${formatKSH(net)} to ${receiver.full_name || receiver.name || receiver.email}. Transaction fee: ${formatKSH(commission)}.`,
+        description: `Sent ${formatKSH(net)} to ${receiver.full_name || receiver.name || receiver.email}. Transaction fee: ${formatKSH(commission)}.`,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         metadata: { receiver_email: recipientEmail }
@@ -2763,7 +2727,7 @@ const updateUserData = async (field, value) => {
         gross_amount: net,
         sender_id: user.id,
         status: "Completed",
-        message: `Received ${formatKSH(net)} from ${user.email}.`,
+        description: `Received ${formatKSH(net)} from ${user.email}.`,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         metadata: { sender_email: user.email }
@@ -2774,25 +2738,6 @@ const updateUserData = async (field, value) => {
         .insert(receiverTransaction);
         
       if (receiverTxError) console.error("Receiver transaction error:", receiverTxError);
-      
-      if (ADMIN_ID && commission > 0) {
-        const adminTransaction = {
-          user_id: ADMIN_ID,
-          type: "commission",
-          amount: commission,
-          sender_id: user.id,
-          receiver_id: receiver.id,
-          status: "Completed",
-          message: `Commission from ${user.email} to ${recipientEmail}`,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          metadata: { sender_email: user.email, receiver_email: recipientEmail }
-        };
-        
-        await supabase
-          .from("wallet_transactions")
-          .insert(adminTransaction);
-      }
       
       setBalance(senderNewBalance);
       
@@ -2808,9 +2753,7 @@ const updateUserData = async (field, value) => {
     }
   };
   
-  // ============================================================
-  // FIXED: Handle withdraw money - Removed email, only M-Pesa phone
-  // ============================================================
+  // Handle withdraw money - UPDATED to call B2C API
   const handleWithdrawMoney = async (amount, phoneNumber) => {
     setProcessing(true);
     
@@ -2826,10 +2769,35 @@ const updateUserData = async (field, value) => {
         throw new Error("Insufficient balance.");
       }
       
-      const newBalance = +(balance - amount).toFixed(2);
+      // Call the B2C API for seller withdrawal
+      const { data: session } = await supabase.auth.getSession();
+      const token = session?.session?.access_token;
       
-      // Update sender's balance
-      const { error: updateError } = await supabase
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mpesa/seller-withdraw`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          amount: amount,
+          phoneNumber: phoneNumber,
+          orderId: null
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Withdrawal failed');
+      }
+      
+      // Optimistically update balance (will be confirmed when callback arrives)
+      const newBalance = balance - amount;
+      setBalance(newBalance);
+      
+      // Update wallet locally (optimistic)
+      await supabase
         .from("wallets")
         .update({ 
           balance: newBalance,
@@ -2837,15 +2805,8 @@ const updateUserData = async (field, value) => {
           last_transaction_at: new Date().toISOString()
         })
         .eq("user_id", user.id);
-        
-      if (updateError) throw updateError;
       
-      // Credit admin commission
-      if (ADMIN_ID && commission > 0) {
-        await creditAdminCommission(commission);
-      }
-      
-      // Insert withdrawal transaction
+      // Record withdrawal transaction (pending)
       const withdrawalTransaction = {
         user_id: user.id,
         type: "withdraw",
@@ -2854,8 +2815,9 @@ const updateUserData = async (field, value) => {
         commission_paid: commission,
         payment_method: "Mpesa",
         phone: phoneNumber,
-        status: "Processing",
-        message: `Withdrawal of ${formatKSH(net)} to ${phoneNumber} via M-Pesa. Transaction fee: ${formatKSH(commission)}.`,
+        reference: result.conversationID,
+        status: "pending",
+        description: `Withdrawal of ${formatKSH(net)} to ${phoneNumber} via M-Pesa. Transaction fee: ${formatKSH(commission)}.`,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
@@ -2864,12 +2826,12 @@ const updateUserData = async (field, value) => {
         .from("wallet_transactions")
         .insert(withdrawalTransaction);
         
-      if (txError) throw txError;
+      if (txError) console.error("Transaction record error:", txError);
       
-      // Update local state
-      setBalance(newBalance);
-      
-      toast.success(`Withdrawal of ${formatKSH(net)} initiated! Funds will be sent to ${phoneNumber} within 1-2 business days.`, { duration: 5000 });
+      toast.success(
+        `Withdrawal of ${formatKSH(net)} initiated! Funds will be sent to ${phoneNumber} shortly.`,
+        { duration: 5000 }
+      );
       
       // Refresh transactions
       await fetchTransactions();
@@ -2951,7 +2913,7 @@ const updateUserData = async (field, value) => {
       if (!searchQuery) return true;
       const query = searchQuery.toLowerCase();
       return (
-        txn.message?.toLowerCase().includes(query) ||
+        txn.description?.toLowerCase().includes(query) ||
         txn.type?.toLowerCase().includes(query) ||
         txn.status?.toLowerCase().includes(query) ||
         txn.amount?.toString().includes(query) ||
@@ -2982,18 +2944,18 @@ const updateUserData = async (field, value) => {
       } else if (txn.metadata?.checkout_request_id) {
         subtitle = `Ref: ${txn.metadata.checkout_request_id.slice(-8)} | Via M-Pesa`;
       } else {
-        subtitle = txn.message || 'Deposit via M-Pesa';
+        subtitle = txn.description || 'Deposit via M-Pesa';
       }
     } else if (txn.type === 'send') {
       const receiverEmail = txn.metadata?.receiver_email || txn.receiver_email;
-      subtitle = receiverEmail ? `To: ${receiverEmail}` : txn.message || 'Money sent';
+      subtitle = receiverEmail ? `To: ${receiverEmail}` : txn.description || 'Money sent';
     } else if (txn.type === 'receive') {
       const senderEmail = txn.metadata?.sender_email || txn.sender_email;
-      subtitle = senderEmail ? `From: ${senderEmail}` : txn.message || 'Money received';
+      subtitle = senderEmail ? `From: ${senderEmail}` : txn.description || 'Money received';
     } else if (txn.type === 'withdraw') {
-      subtitle = txn.phone ? `To M-Pesa: ${txn.phone}` : txn.message || 'Withdrawal';
+      subtitle = txn.phone ? `To M-Pesa: ${txn.phone}` : txn.description || 'Withdrawal';
     } else {
-      subtitle = txn.message || 'Transaction';
+      subtitle = txn.description || 'Transaction';
     }
     
     return {
@@ -3097,7 +3059,7 @@ const updateUserData = async (field, value) => {
         formatKSH={formatKSH}
       />
       
-      {/* Withdraw Money Modal - Updated */}
+      {/* Withdraw Money Modal - Updated with transaction fee display */}
       <WithdrawMoneyModal
         show={showWithdrawModal}
         onClose={() => setShowWithdrawModal(false)}

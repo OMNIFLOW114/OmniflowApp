@@ -1,889 +1,618 @@
-// src/pages/StudentMarketplace.jsx - FIXED VERSION
-import React, { useEffect, useState } from "react";
+// src/pages/StudentMarketplace.jsx - FINAL UPDATED VERSION
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/supabase";
 import { useAuth } from "@/context/AuthContext";
-import {
-  FaStore, FaUtensils, FaMotorcycle, FaGraduationCap, 
-  FaMoneyBillWave, FaGem, FaFire, FaStar, FaShoppingCart,
-  FaSearch, FaFilter, FaClock, FaBolt, FaCoins, FaRocket,
-  FaTshirt, FaLaptop, FaBook, FaHome, FaGamepad, FaMusic,
-  FaHeart, FaBell, FaCrown, FaTrophy, FaShippingFast,
-  FaUniversity, FaUsers, FaRegCompass, FaPlus, FaMapMarkerAlt,
-  FaExclamationTriangle, FaUser
+import { useDarkMode } from "@/context/DarkModeContext";
+import { toast } from 'react-hot-toast';
+import { 
+  FaFire, FaStar, FaSearch, FaClock, FaBolt, 
+  FaHeart, FaBell, FaUniversity, FaMapMarkerAlt,
+  FaUser, FaArrowRight, FaTag, FaGem, FaCrown, 
+  FaChevronLeft, FaChevronRight, FaPlus, FaMoon, FaSun,
+  FaStore, FaUtensils, FaGraduationCap, FaLaptop, FaBook, FaTshirt,
+  FaMobile, FaHeadphones, FaGamepad, FaCamera, FaStopwatch
 } from "react-icons/fa";
-import "./StudentMarketplace.css";
+import styles from "./StudentMarketplace.module.css";
+
+// Helper function for Kenyan price formatting
+const formatKenyanPrice = (price) => {
+  if (!price && price !== 0) return 'KSh 0';
+  return `KSh ${price.toLocaleString('en-KE', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  })}`;
+};
 
 const StudentMarketplace = () => {
   const { user } = useAuth();
+  const { darkMode, toggleDarkMode } = useDarkMode();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("marketplace");
+  
+  // State Management
   const [userProfile, setUserProfile] = useState(null);
+  const [campusProfile, setCampusProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [marketplaceData, setMarketplaceData] = useState({
-    campusProducts: [],
-    campusRestaurants: [],
-    studentServices: [],
-    campusDeals: [],
-    trendingOpportunities: []
-  });
-  const [stats, setStats] = useState({
-    totalProducts: 0,
-    totalRestaurants: 0,
-    totalServices: 0,
-    activeDeals: 0
-  });
-
-  // Enhanced error handling
+  
+  // Data States
+  const [featuredProducts, setFeaturedProducts] = useState([]);
+  const [flashSales, setFlashSales] = useState([]);
+  const [trendingProducts, setTrendingProducts] = useState([]);
+  const [recommendedProducts, setRecommendedProducts] = useState([]);
+  const [nearbyRestaurants, setNearbyRestaurants] = useState([]);
+  const [popularServices, setPopularServices] = useState([]);
+  const [campusDeals, setCampusDeals] = useState([]);
   const [error, setError] = useState(null);
+  
+  // UI States
+  const [activeHeroIndex, setActiveHeroIndex] = useState(0);
+  const categoriesScrollRef = useRef(null);
+  const scrollRefs = {
+    flash: useRef(null),
+    trending: useRef(null),
+    recommended: useRef(null),
+    restaurants: useRef(null),
+    services: useRef(null)
+  };
 
-  useEffect(() => {
-    if (!user) {
-      navigate('/auth');
-      return;
+  // Categories - All categories for horizontal scroll
+  const categories = [
+    { id: "textbooks", name: "Textbooks", icon: <FaBook />, color: "#10B981" },
+    { id: "electronics", name: "Electronics", icon: <FaLaptop />, color: "#3B82F6" },
+    { id: "clothing", name: "Clothing", icon: <FaTshirt />, color: "#EF4444" },
+    { id: "food", name: "Food", icon: <FaUtensils />, color: "#F59E0B" },
+    { id: "services", name: "Services", icon: <FaGraduationCap />, color: "#8B5CF6" },
+    { id: "phones", name: "Phones", icon: <FaMobile />, color: "#EC4899" },
+    { id: "accessories", name: "Accessories", icon: <FaHeadphones />, color: "#06B6D4" },
+    { id: "gaming", name: "Gaming", icon: <FaGamepad />, color: "#84CC16" },
+    { id: "cameras", name: "Cameras", icon: <FaCamera />, color: "#F97316" },
+    { id: "watches", name: "Watches", icon: <FaStopwatch />, color: "#A855F7" },
+    { id: "furniture", name: "Furniture", icon: "🛋️", color: "#14B8A6" },
+    { id: "sports", name: "Sports", icon: "⚽", color: "#EAB308" }
+  ];
+
+  // Hero Banners
+  const heroBanners = [
+    {
+      id: 1,
+      title: "Back to Campus Sale",
+      subtitle: "Up to 50% off on textbooks & electronics",
+      image: "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=800",
+      cta: "Shop Now",
+      color: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+    },
+    {
+      id: 2,
+      title: "Campus Food Festival",
+      subtitle: "Get KSh 100 off your first food order",
+      image: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800",
+      cta: "Order Food",
+      color: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)"
+    },
+    {
+      id: 3,
+      title: "Earn While You Learn",
+      subtitle: "Start your side hustle today",
+      image: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=800",
+      cta: "Start Earning",
+      color: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)"
     }
-    loadUserProfile();
-  }, [user, navigate]);
+  ];
 
+  // Auto-scroll hero banners
   useEffect(() => {
-    if (userProfile) {
-      loadMarketplaceData();
-    }
-  }, [userProfile, activeTab]);
+    const interval = setInterval(() => {
+      setActiveHeroIndex((prev) => (prev + 1) % heroBanners.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
-  const loadUserProfile = async () => {
+  // Load user data
+  const loadUserData = useCallback(async () => {
+    if (!user?.id) return;
+    
     try {
       setError(null);
-      setLoading(true);
       
-      // First, try to get the user's profile from the profiles table
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', user.id)
-        .maybeSingle(); // Use maybeSingle to handle no rows
+        .maybeSingle();
       
       if (profileError) throw profileError;
       
       if (profileData) {
         setUserProfile(profileData);
-        
-        // If profile exists but isn't completed, show a gentle reminder
-        if (!profileData.profile_completed) {
-          setError("Complete your profile to unlock all features");
-        }
       } else {
-        // If no profile exists, create a basic one
         const newProfile = {
           id: user.id,
           full_name: user.user_metadata?.full_name || "Student",
           email: user.email,
           profile_completed: false
         };
-        
-        // Insert the basic profile
-        const { error: insertError } = await supabase
-          .from('profiles')
-          .insert([newProfile]);
-          
-        if (insertError) {
-          console.error('Error creating profile:', insertError);
-        }
-        
+        await supabase.from('profiles').insert([newProfile]);
         setUserProfile(newProfile);
-        setError("Welcome! Complete your profile to get started");
+      }
+      
+      const { data: campusData } = await supabase
+        .from('student_campus_profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      
+      if (campusData) {
+        setCampusProfile(campusData);
       }
       
     } catch (error) {
-      console.error('Error loading user profile:', error);
-      setError("Unable to load profile information");
-      // Set a fallback profile to prevent crashes
-      setUserProfile({
-        id: user.id,
-        full_name: "Student",
-        email: user.email,
-        profile_completed: false
-      });
-    } finally {
-      setLoading(false);
+      console.error('Error loading user data:', error);
+      setError("Unable to load profile");
     }
-  };
+  }, [user]);
 
-  // Get campus from user's profile or use a default
-  const getUserCampus = () => {
-    // You can modify this logic based on where you store campus info in profiles
-    // For now, using a default campus or city as campus
-    return userProfile?.city || "University of Nairobi"; // Default campus
-  };
-
-  const loadMarketplaceData = async () => {
-    setLoading(true);
+  // Load marketplace data
+  const loadMarketplaceData = useCallback(async () => {
+    setRefreshing(true);
     setError(null);
+    
     try {
-      const campusName = getUserCampus();
-
-      // Don't load data if campus isn't selected
-      if (!campusName || campusName === "Select Campus") {
-        setMarketplaceData({
-          campusProducts: [],
-          campusRestaurants: [],
-          studentServices: [],
-          campusDeals: [],
-          trendingOpportunities: []
-        });
-        setStats({ totalProducts: 0, totalRestaurants: 0, totalServices: 0, activeDeals: 0 });
-        return;
-      }
-
-      // Load products for user's campus
-      const { data: products, error: productsError } = await supabase
-        .from('campus_products')
-        .select('*')
-        .eq('campus_name', campusName)
-        .eq('status', 'available')
-        .order('created_at', { ascending: false })
-        .limit(8);
-
-      if (productsError) throw productsError;
-
-      // Load restaurants for user's campus
-      const { data: restaurants, error: restaurantsError } = await supabase
-        .from('campus_restaurants')
-        .select('*')
-        .eq('campus_name', campusName)
-        .eq('is_active', true)
-        .order('rating', { ascending: false })
-        .limit(6);
-
-      if (restaurantsError) throw restaurantsError;
-
-      // Load services for user's campus
-      const { data: services, error: servicesError } = await supabase
-        .from('student_services')
-        .select('*')
-        .eq('campus_name', campusName)
-        .eq('is_active', true)
-        .order('total_orders', { ascending: false })
-        .limit(6);
-
-      if (servicesError) throw servicesError;
-
-      // Load campus deals
-      const { data: deals, error: dealsError } = await supabase
-        .from('campus_deals')
-        .select('*')
-        .eq('campus_name', campusName)
-        .eq('is_active', true)
-        .gte('valid_until', new Date().toISOString())
-        .limit(4);
-
-      if (dealsError) throw dealsError;
-
-      // Load stats
-      const { count: productsCount, error: productsCountError } = await supabase
-        .from('campus_products')
-        .select('*', { count: 'exact', head: true })
-        .eq('campus_name', campusName)
-        .eq('status', 'available');
-
-      if (productsCountError) throw productsCountError;
-
-      const { count: restaurantsCount, error: restaurantsCountError } = await supabase
-        .from('campus_restaurants')
-        .select('*', { count: 'exact', head: true })
-        .eq('campus_name', campusName)
-        .eq('is_active', true);
-
-      if (restaurantsCountError) throw restaurantsCountError;
-
-      const { count: servicesCount, error: servicesCountError } = await supabase
-        .from('student_services')
-        .select('*', { count: 'exact', head: true })
-        .eq('campus_name', campusName)
-        .eq('is_active', true);
-
-      if (servicesCountError) throw servicesCountError;
-
-      const { count: dealsCount, error: dealsCountError } = await supabase
-        .from('campus_deals')
-        .select('*', { count: 'exact', head: true })
-        .eq('campus_name', campusName)
-        .eq('is_active', true)
-        .gte('valid_until', new Date().toISOString());
-
-      if (dealsCountError) throw dealsCountError;
-
-      setMarketplaceData({
-        campusProducts: products || [],
-        campusRestaurants: restaurants || [],
-        studentServices: services || [],
-        campusDeals: deals || [],
-        trendingOpportunities: [
-          {
-            id: 1,
-            name: "Assignment Help",
-            category: "Academic",
-            earnings: "KSh 500-2,000",
-            students: "1.2k",
-            icon: "📝",
-            demand: "High"
-          },
-          {
-            id: 2,
-            name: "Code Mentorship",
-            category: "Tech Skills",
-            earnings: "KSh 1,000-5,000",
-            students: "2.4k",
-            icon: "💻",
-            demand: "Very High"
-          }
-        ]
-      });
-
-      setStats({
-        totalProducts: productsCount || 0,
-        totalRestaurants: restaurantsCount || 0,
-        totalServices: servicesCount || 0,
-        activeDeals: dealsCount || 0
-      });
-
+      const [
+        productsRes,
+        restaurantsRes,
+        servicesRes,
+        dealsRes
+      ] = await Promise.all([
+        supabase
+          .from('campus_products')
+          .select('*')
+          .eq('status', 'available')
+          .order('created_at', { ascending: false })
+          .limit(30),
+        supabase
+          .from('campus_restaurants')
+          .select('*')
+          .eq('is_active', true)
+          .order('rating', { ascending: false, nullsLast: true })
+          .limit(8),
+        supabase
+          .from('student_services')
+          .select('*')
+          .eq('is_active', true)
+          .order('total_orders', { ascending: false, nullsLast: true })
+          .limit(8),
+        supabase
+          .from('campus_deals')
+          .select('*')
+          .eq('is_active', true)
+          .gte('valid_until', new Date().toISOString())
+          .limit(6)
+      ]);
+      
+      const allProducts = productsRes.data || [];
+      
+      setTrendingProducts([...allProducts].sort((a, b) => (b.view_count || 0) - (a.view_count || 0)).slice(0, 10));
+      setRecommendedProducts(allProducts.slice(0, 12));
+      setFeaturedProducts([...allProducts].sort((a, b) => (b.view_count || 0) - (a.view_count || 0)).slice(0, 8));
+      setFlashSales([...allProducts].filter(p => p.price > 5000).slice(0, 6));
+      setNearbyRestaurants(restaurantsRes.data || []);
+      setPopularServices(servicesRes.data || []);
+      setCampusDeals(dealsRes.data || []);
+      
     } catch (error) {
       console.error('Error loading marketplace data:', error);
-      setError("Failed to load marketplace data. Please try again.");
+      setError("Failed to load marketplace");
+      toast.error("Failed to load marketplace");
     } finally {
+      setRefreshing(false);
       setLoading(false);
     }
-  };
+  }, []);
 
-  const businessCategories = [
-    { 
-      title: "Sell Products", 
-      icon: <FaStore />, 
-      desc: "Start your campus shop", 
-      color: "#10B981", 
-      earnings: "KSh 1K-50K/mo",
-      route: "/student/sell-product"
-    },
-    { 
-      title: "Food Business", 
-      icon: <FaUtensils />, 
-      desc: "Cook & earn big", 
-      color: "#EF4444", 
-      earnings: "KSh 5K-100K/mo",
-      route: "/student/start-restaurant"
-    },
-    { 
-      title: "Delivery Agent", 
-      icon: <FaMotorcycle />, 
-      desc: "Flexible delivery jobs", 
-      color: "#3B82F6", 
-      earnings: "KSh 3K-25K/mo",
-      route: "/student/become-delivery-agent"
-    },
-    { 
-      title: "Tutoring", 
-      icon: <FaGraduationCap />, 
-      desc: "Teach your strong subjects", 
-      color: "#8B5CF6", 
-      earnings: "KSh 2K-30K/mo",
-      route: "/student/offer-service"
-    },
-    { 
-      title: "Freelance", 
-      icon: <FaCoins />, 
-      desc: "Design, write, code", 
-      color: "#F59E0B", 
-      earnings: "KSh 4K-50K/mo",
-      route: "/student/freelance"
-    },
-    { 
-      title: "Event Planning", 
-      icon: <FaRocket />, 
-      desc: "Organize campus events", 
-      color: "#EC4899", 
-      earnings: "KSh 5K-100K/mo",
-      route: "/student/event-planning"
+  useEffect(() => {
+    loadUserData();
+  }, [loadUserData]);
+
+  useEffect(() => {
+    if (userProfile) {
+      loadMarketplaceData();
     }
-  ];
+  }, [loadMarketplaceData, userProfile]);
 
-  const quickActions = [
-    {
-      label: "Sell Item",
-      icon: <FaRocket />,
-      route: "/student/sell-product",
-      type: "primary"
-    },
-    {
-      label: "Track Order", 
-      icon: <FaShippingFast />,
-      route: "/student/orders",
-      type: "secondary"
-    },
-    {
-      label: "My Earnings",
-      icon: <FaTrophy />,
-      route: "/student/earnings",
-      type: "secondary"
-    },
-    {
-      label: "My Profile",
-      icon: <FaUser />,
-      route: "/student/profile",
-      type: "secondary"
-    }
-  ];
-
-  const handleSearch = (e) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      // Implement search functionality
-      console.log("Searching for:", searchQuery);
+  // Scroll handlers for categories
+  const scrollCategories = (direction) => {
+    if (categoriesScrollRef.current) {
+      const scrollAmount = direction === 'left' ? -200 : 200;
+      categoriesScrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
     }
   };
 
-  const ProductCard = ({ product }) => (
+  // Scroll handlers for sections
+  const scrollHorizontal = (ref, direction) => {
+    if (ref?.current) {
+      const scrollAmount = direction === 'left' ? -300 : 300;
+      ref.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+  };
+
+  // Navigation handlers - CORRECTED REDIRECTS
+  const handleCategoryClick = (categoryId, categoryName) => {
+    navigate(`/student/category/${categoryId}`, { state: { categoryName, categoryId } });
+  };
+
+  const handleSeeAllClick = (section) => {
+    // Map section names to correct routes
+    const sectionRoutes = {
+      'flash-sales': '/student/campus-flash-sales',
+      'trending': '/student/campus-trending-now',
+      'recommended': '/student/campus-recommended',
+      'restaurants': '/student/campus-nearby-restaurants',
+      'services': '/student/campus-popular-services',
+      'deals': '/student/campus-deals'
+    };
+    
+    const route = sectionRoutes[section];
+    if (route) {
+      navigate(route);
+    } else {
+      // Fallback for any other sections
+      navigate(`/student/${section}`);
+    }
+  };
+
+  const handleSearchClick = () => {
+    navigate('/student/campus-search');
+  };
+
+  // Loading Skeleton
+  const SkeletonLoader = () => (
+    <div className={`${styles.container} ${darkMode ? styles.darkMode : styles.lightMode}`}>
+      <div className={styles.skeletonHeader}>
+        <div className={styles.skeletonTopNav}>
+          <div className={styles.skeletonCircle}></div>
+          <div className={styles.skeletonCampusBadge}></div>
+          <div className={styles.skeletonCircle}></div>
+          <div className={styles.skeletonCircle}></div>
+        </div>
+        <div className={styles.skeletonSearchBar}></div>
+      </div>
+      <div className={styles.skeletonHero}></div>
+      <div className={styles.skeletonCategories}>
+        {[1,2,3,4,5,6,7,8].map(i => (
+          <div key={i} className={styles.skeletonCategory}></div>
+        ))}
+      </div>
+      <div className={styles.skeletonSection}>
+        <div className={styles.skeletonSectionHeader}></div>
+        <div className={styles.skeletonHorizontal}>
+          {[1,2,3,4].map(i => (
+            <div key={i} className={styles.skeletonCard}></div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  // Product Card Component - WITH KENYAN PRICE FORMATTING
+  const ProductCard = ({ product, variant = 'default' }) => (
     <motion.div
-      key={product.id}
-      className="product-card premium"
-      whileHover={{ y: -8, scale: 1.02 }}
+      className={`${styles.productCard} ${variant === 'flash' ? styles.flash : ''}`}
+      whileHover={{ y: -4, scale: 1.02 }}
+      transition={{ duration: 0.2 }}
       onClick={() => navigate(`/student/product/${product.id}`)}
     >
-      <div className="product-image">
-        {product.images && product.images.length > 0 ? (
-          <img src={product.images[0]} alt={product.title} />
+      <div className={styles.productImageContainer}>
+        {variant === 'flash' && <span className={styles.discountBadge}>FLASH</span>}
+        {product.images && product.images[0] ? (
+          <img src={product.images[0]} alt={product.title} loading="lazy" />
         ) : (
-          <div className="placeholder-image">
+          <div className={styles.imagePlaceholder}>
             {product.category === 'textbooks' ? '📚' : 
              product.category === 'electronics' ? '💻' : 
              product.category === 'clothing' ? '👕' : '🛒'}
           </div>
         )}
+        <button className={styles.wishlistBtn} onClick={(e) => { e.stopPropagation(); toast.success("Added to wishlist"); }}>
+          <FaHeart />
+        </button>
       </div>
-      
-      <div className="product-content">
-        <h4 className="product-name">{product.title}</h4>
-        <p className="product-price">KSh {product.price?.toLocaleString()}</p>
-        
-        <div className="product-meta">
-          <span className="condition">{product.condition}</span>
-          <span className="rating">
-            <FaStar /> {product.view_count || 0}
-          </span>
+      <div className={styles.productInfo}>
+        <h4 className={styles.productTitle}>{product.title}</h4>
+        <div className={styles.productRating}>
+          <FaStar className={styles.starIcon} />
+          <span>{product.view_count || 0} views</span>
         </div>
-        
-        <div className="product-footer">
-          <span className="campus-tag">
-            <FaMapMarkerAlt /> {product.campus_name}
-          </span>
-          <span className="delivery">Pickup</span>
-        </div>
-        
-        <div className="product-actions">
-          <motion.button 
-            className="like-btn"
-            whileTap={{ scale: 0.8 }}
-            onClick={(e) => {
-              e.stopPropagation();
-              // Add to favorites logic
-            }}
-          >
-            <FaHeart /> {product.like_count || 0}
-          </motion.button>
-          <motion.button 
-            className="buy-btn"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate(`/student/product/${product.id}`);
-            }}
-          >
-            View Details
-          </motion.button>
+        <div className={styles.productPrice}>{formatKenyanPrice(product.price)}</div>
+        <div className={styles.productLocation}>
+          <FaMapMarkerAlt className={styles.locationIcon} />
+          <span>{product.campus_name || "Campus"}</span>
         </div>
       </div>
     </motion.div>
   );
 
+  // Restaurant Card - WITH KENYAN PRICE FORMATTING
   const RestaurantCard = ({ restaurant }) => (
     <motion.div
-      key={restaurant.id}
-      className="restaurant-card premium"
-      whileHover={{ y: -5 }}
+      className={styles.restaurantCard}
+      whileHover={{ y: -4 }}
       onClick={() => navigate(`/student/restaurant/${restaurant.id}`)}
     >
-      <div className="restaurant-header">
-        <div className="restaurant-image">
-          {restaurant.cover_image_url ? (
-            <img src={restaurant.cover_image_url} alt={restaurant.name} />
-          ) : (
-            <div className="placeholder-image">
-              {restaurant.cuisine_type?.includes('Pizza') ? '🍕' : 
-               restaurant.cuisine_type?.includes('Burger') ? '🍔' : '🍛'}
-            </div>
+      <div className={styles.restaurantImage}>
+        {restaurant.cover_image_url ? (
+          <img src={restaurant.cover_image_url} alt={restaurant.name} />
+        ) : (
+          <div className={styles.imagePlaceholder}>🍔</div>
+        )}
+        <div className={styles.restaurantRating}><FaStar /> {restaurant.rating || 'New'}</div>
+      </div>
+      <div className={styles.restaurantInfo}>
+        <h4>{restaurant.name}</h4>
+        <p className={styles.cuisine}>{restaurant.cuisine_type || "Various Cuisine"}</p>
+        <div className={styles.deliveryInfo}>
+          <FaClock /> {restaurant.delivery_time_range || '20-30 min'}
+          <span className={styles.deliveryFee}>
+            {restaurant.delivery_fee === 0 ? 'Free' : formatKenyanPrice(restaurant.delivery_fee || 50)}
+          </span>
+        </div>
+      </div>
+    </motion.div>
+  );
+
+  // Service Card - WITH KENYAN PRICE FORMATTING
+  const ServiceCard = ({ service }) => {
+    const formatServicePrice = () => {
+      if (service.price_range) return service.price_range;
+      if (service.price_amount) return formatKenyanPrice(service.price_amount);
+      return 'KSh 500';
+    };
+    
+    return (
+      <motion.div
+        className={styles.serviceCard}
+        whileHover={{ y: -4 }}
+        onClick={() => navigate(`/student/service/${service.id}`)}
+      >
+        <div className={styles.serviceIcon}>
+          {service.category === 'academic' ? '📚' : service.category === 'technical' ? '💻' : '🔧'}
+        </div>
+        <div className={styles.serviceInfo}>
+          <h4>{service.title}</h4>
+          <p>{service.description?.substring(0, 60)}...</p>
+          <div className={styles.serviceFooter}>
+            <span className={styles.servicePrice}>{formatServicePrice()}</span>
+            <span className={styles.serviceOrders}>{service.total_orders || 0} orders</span>
+          </div>
+        </div>
+      </motion.div>
+    );
+  };
+
+  // Scroll Section Component
+  const ScrollSection = ({ title, icon, items, renderItem, seeAllLink, scrollKey }) => (
+    <section className={styles.scrollSection}>
+      <div className={styles.sectionHeader}>
+        <div className={styles.titleWrapper}>
+          {icon && <span className={styles.sectionIcon}>{icon}</span>}
+          <h2>{title}</h2>
+        </div>
+        <div className={styles.sectionActions}>
+          <button className={styles.scrollBtn} onClick={() => scrollHorizontal(scrollRefs[scrollKey], 'left')}>
+            <FaChevronLeft />
+          </button>
+          <button className={styles.scrollBtn} onClick={() => scrollHorizontal(scrollRefs[scrollKey], 'right')}>
+            <FaChevronRight />
+          </button>
+          {seeAllLink && (
+            <button className={styles.seeAllLink} onClick={() => handleSeeAllClick(seeAllLink)}>
+              See All <FaArrowRight />
+            </button>
           )}
         </div>
-        <div className="restaurant-info">
-          <h4>{restaurant.name}</h4>
-          <p className="cuisine">{restaurant.cuisine_type}</p>
-          <div className="rating-delivery">
-            <span className="rating">⭐ {restaurant.rating || 'New'}</span>
-            <span className="delivery-time">
-              <FaClock /> {restaurant.delivery_time_range}
-            </span>
-          </div>
-        </div>
       </div>
-      
-      {restaurant.special_offers && restaurant.special_offers.length > 0 && (
-        <div className="restaurant-special">
-          <FaBolt className="bolt-icon" />
-          <span>{restaurant.special_offers[0]}</span>
-        </div>
-      )}
-      
-      <div className="restaurant-actions">
-        <span className="min-order">Min: KSh {restaurant.min_order_amount}</span>
-        <motion.button 
-          className="order-now-btn"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-        >
-          Order Now
-        </motion.button>
+      <div className={styles.horizontalScroll} ref={scrollRefs[scrollKey]}>
+        {items.length > 0 ? items.map(item => renderItem(item)) : (
+          <div className={styles.emptyScroll}><p>No items available</p></div>
+        )}
       </div>
-    </motion.div>
+    </section>
   );
 
-  const ServiceCard = ({ service }) => (
-    <motion.div
-      key={service.id}
-      className="service-card premium"
-      whileHover={{ y: -5 }}
-      onClick={() => navigate(`/student/service/${service.id}`)}
-    >
-      <div className="service-icon">
-        {service.category === 'academic' ? '📚' : 
-         service.category === 'technical' ? '💻' : 
-         service.category === 'creative' ? '🎨' : '🔧'}
-      </div>
-      <div className="service-content">
-        <h4>{service.title}</h4>
-        <p className="service-desc">{service.description?.substring(0, 100)}...</p>
-        <div className="service-meta">
-          <span className="price">{service.price_range || `KSh ${service.price_amount}`}</span>
-          <span className="rating">⭐ {service.rating || 'New'}</span>
-        </div>
-        <div className="service-tags">
-          {service.tags?.slice(0, 2).map((tag, index) => (
-            <span key={index} className="tag">{tag}</span>
-          ))}
-        </div>
-      </div>
-    </motion.div>
-  );
-
-  const EmptyState = ({ icon, title, description, buttonText, onButtonClick }) => (
-    <div className="empty-state">
-      <div className="empty-icon">{icon}</div>
-      <h3>{title}</h3>
-      <p>{description}</p>
-      {buttonText && (
-        <motion.button 
-          className="primary-btn"
-          whileHover={{ scale: 1.05 }}
-          onClick={onButtonClick}
-        >
-          {buttonText}
-        </motion.button>
-      )}
-    </div>
-  );
-
-  if (loading) {
-    return (
-      <div className="loading-screen">
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-          className="loading-spinner"
-        />
-        <p>Loading Marketplace...</p>
-      </div>
-    );
-  }
+  if (loading) return <SkeletonLoader />;
 
   return (
-    <div className="student-marketplace premium-ui">
-      {/* Premium Header */}
-      <header className="premium-header">
-        <div className="header-main">
-          <div className="header-left">
-            <motion.div 
-              className="campus-badge"
-              whileHover={{ scale: 1.05 }}
-              onClick={() => navigate('/student/profile')}
-            >
-              <FaUniversity />
-              <span>{getUserCampus()}</span>
-            </motion.div>
+    <div className={`${styles.container} ${darkMode ? styles.darkMode : styles.lightMode}`}>
+      {/* Header */}
+      <header className={styles.header}>
+        <div className={styles.topNav}>
+          <button className={styles.profileIcon} onClick={() => navigate('/student/profile')}>
+            <FaUser />
+          </button>
+          
+          <div className={styles.campusDisplay}>
+            <FaUniversity />
+            <span>{campusProfile?.campus_name?.split(' ').slice(0, 2).join(' ') || 'Select Campus'}</span>
           </div>
           
-          <div className="header-center">
-            <h1 className="app-title">
-              <FaFire className="fire-icon" />
-              Comrade<span className="highlight">Market</span>
-            </h1>
-            <p className="app-tagline">Kenya's #1 Campus Lifestyle App</p>
-          </div>
-
-          <div className="header-right">
-            <motion.button 
-              className="icon-btn notification-btn" 
-              whileTap={{ scale: 0.9 }}
-              onClick={() => navigate('/student/notifications')}
-            >
+          <div className={styles.headerRight}>
+            <button className={styles.themeToggle} onClick={toggleDarkMode}>
+              {darkMode ? <FaSun /> : <FaMoon />}
+            </button>
+            <button className={styles.notificationIcon} onClick={() => navigate('/student/notifications')}>
               <FaBell />
-              <span className="notification-badge">3</span>
-            </motion.button>
-            <motion.button 
-              className="icon-btn" 
-              whileTap={{ scale: 0.9 }}
-              onClick={() => navigate('/student/favorites')}
-            >
-              <FaHeart />
-            </motion.button>
+              <span className={styles.notificationBadge}>3</span>
+            </button>
           </div>
         </div>
 
-        {/* Stats Bar */}
-        <div className="stats-bar">
-          <div className="stat-item">
-            <span className="stat-number">{stats.totalProducts}</span>
-            <span className="stat-label">Products</span>
-          </div>
-          <div className="stat-item">
-            <span className="stat-number">{stats.totalRestaurants}</span>
-            <span className="stat-label">Restaurants</span>
-          </div>
-          <div className="stat-item">
-            <span className="stat-number">{stats.totalServices}</span>
-            <span className="stat-label">Services</span>
-          </div>
-          <div className="stat-item">
-            <span className="stat-number">{stats.activeDeals}</span>
-            <span className="stat-label">Deals</span>
-          </div>
-        </div>
-
-        {/* Mega Search */}
-        <form onSubmit={handleSearch} className="mega-search">
-          <div className="search-container">
-            <FaSearch className="search-icon" />
-            <input 
-              type="text" 
-              placeholder={`Search in ${getUserCampus()}...`}
-              className="search-input"
+        {/* Search Bar */}
+        <div className={styles.searchWrapper}>
+          <div className={styles.searchBar} onClick={handleSearchClick}>
+            <FaSearch className={styles.searchIcon} />
+            <input
+              type="text"
+              placeholder="Search products, services, restaurants..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              readOnly
             />
-            <motion.button 
-              type="button"
-              className="filter-btn"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <FaFilter />
-            </motion.button>
           </div>
-        </form>
+        </div>
       </header>
 
-      {/* Error Banner */}
-      {error && (
-        <motion.div 
-          className="error-banner"
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <FaExclamationTriangle />
-          <span>{error}</span>
-          <button onClick={() => {
-            if (error.includes("profile")) {
-              navigate('/student/profile');
-            } else {
-              loadMarketplaceData();
-            }
-          }}>
-            {error.includes("profile") ? "Complete Profile" : "Retry"}
-          </button>
-        </motion.div>
-      )}
-
-      {/* Navigation Tabs - Premium */}
-      <nav className="premium-tabs">
-        {[
-          { id: "marketplace", label: "Marketplace", icon: <FaStore />, badge: stats.totalProducts },
-          { id: "food", label: "Campus Food", icon: <FaUtensils />, badge: stats.totalRestaurants },
-          { id: "services", label: "Services", icon: <FaGem />, badge: stats.totalServices },
-          { id: "earn", label: "Make Money", icon: <FaMoneyBillWave />, badge: "HOT" }
-        ].map(tab => (
-          <motion.button
-            key={tab.id}
-            className={`premium-tab ${activeTab === tab.id ? 'active' : ''}`}
-            onClick={() => setActiveTab(tab.id)}
-            whileHover={{ y: -2 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <div className="tab-icon">{tab.icon}</div>
-            <span className="tab-label">{tab.label}</span>
-            {tab.badge && <span className="tab-badge">{tab.badge}</span>}
-          </motion.button>
-        ))}
-      </nav>
-
-      {/* Quick Actions */}
-      <section className="quick-actions">
-        {quickActions.map((action, index) => (
-          <motion.button
-            key={index}
-            className={`action-btn ${action.type}`}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => navigate(action.route)}
-          >
-            {action.icon}
-            <span>{action.label}</span>
-          </motion.button>
-        ))}
-      </section>
-
-      {/* Main Content with Bottom Navigation Spacing */}
-      <main className="main-content-with-nav">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.3 }}
-            className="tab-content-container"
-          >
-            {/* MARKETPLACE TAB */}
-            {activeTab === 'marketplace' && (
-              <div className="tab-content">
-                <section className="featured-section premium">
-                  <div className="section-header premium">
-                    <div className="title-group">
-                      <h2>🔥 Trending in {getUserCampus()}</h2>
-                      <p>Most wanted items on campus right now</p>
-                    </div>
-                    <motion.button 
-                      className="see-all-btn" 
-                      whileHover={{ x: 5 }}
-                      onClick={() => navigate('/student/products')}
-                    >
-                      See All <FaRegCompass />
-                    </motion.button>
-                  </div>
-
-                  <div className="featured-grid">
-                    {marketplaceData.campusProducts.length > 0 ? (
-                      marketplaceData.campusProducts.map((product, index) => (
-                        <ProductCard key={product.id} product={product} />
-                      ))
-                    ) : (
-                      <EmptyState
-                        icon="🛒"
-                        title="No products yet"
-                        description="Be the first to sell something on campus!"
-                        buttonText="Sell Your First Item"
-                        onButtonClick={() => navigate('/student/sell-product')}
-                      />
-                    )}
-                  </div>
-                </section>
-
-                {/* Campus Deals */}
-                {marketplaceData.campusDeals.length > 0 && (
-                  <section className="deals-section premium">
-                    <div className="section-header premium">
-                      <h2>🎯 Campus Exclusive Deals</h2>
-                      <motion.button className="see-all-btn" whileHover={{ x: 5 }}>
-                        All Deals <FaRegCompass />
-                      </motion.button>
-                    </div>
-                    <div className="deals-grid">
-                      {marketplaceData.campusDeals.map(deal => (
-                        <motion.div
-                          key={deal.id}
-                          className="deal-card premium"
-                          whileHover={{ scale: 1.03 }}
-                        >
-                          <div className="deal-badge">HOT DEAL</div>
-                          <div className="deal-content">
-                            <h4>{deal.title}</h4>
-                            <p>{deal.description}</p>
-                            <div className="deal-prices">
-                              <span className="original-price">KSh {deal.original_price}</span>
-                              <span className="deal-price">KSh {deal.deal_price}</span>
-                            </div>
-                            <span className="deal-campus">{deal.campus_name}</span>
-                          </div>
-                        </motion.div>
-                      ))}
-                    </div>
-                  </section>
-                )}
+      {/* Main Content */}
+      <main>
+        {/* Hero Banner */}
+        <section className={styles.heroSection}>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeHeroIndex}
+              className={styles.heroBanner}
+              initial={{ opacity: 0, x: 100 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -100 }}
+              transition={{ duration: 0.5 }}
+              style={{ background: heroBanners[activeHeroIndex].color }}
+            >
+              <div className={styles.heroContent}>
+                <h1>{heroBanners[activeHeroIndex].title}</h1>
+                <p>{heroBanners[activeHeroIndex].subtitle}</p>
+                <button className={styles.heroCta}>
+                  {heroBanners[activeHeroIndex].cta} <FaArrowRight />
+                </button>
               </div>
-            )}
-
-            {/* FOOD TAB */}
-            {activeTab === 'food' && (
-              <div className="tab-content">
-                <section className="food-section premium">
-                  <div className="section-header premium">
-                    <div className="title-group">
-                      <h2>🍔 Campus Food Delivery</h2>
-                      <p>Hot meals delivered to your hostel</p>
-                    </div>
-                    <motion.button 
-                      className="see-all-btn" 
-                      whileHover={{ x: 5 }}
-                      onClick={() => navigate('/student/restaurants')}
-                    >
-                      All Restaurants <FaRegCompass />
-                    </motion.button>
-                  </div>
-
-                  <div className="restaurants-grid">
-                    {marketplaceData.campusRestaurants.length > 0 ? (
-                      marketplaceData.campusRestaurants.map(restaurant => (
-                        <RestaurantCard key={restaurant.id} restaurant={restaurant} />
-                      ))
-                    ) : (
-                      <EmptyState
-                        icon="🍔"
-                        title="No restaurants yet"
-                        description="Start a food business on campus!"
-                        buttonText="Start Food Business"
-                        onButtonClick={() => navigate('/student/start-restaurant')}
-                      />
-                    )}
-                  </div>
-                </section>
+              <div className={styles.heroImage}>
+                <img src={heroBanners[activeHeroIndex].image} alt="Hero" />
               </div>
-            )}
+            </motion.div>
+          </AnimatePresence>
+          <div className={styles.heroIndicators}>
+            {heroBanners.map((_, idx) => (
+              <button
+                key={idx}
+                className={`${styles.indicator} ${activeHeroIndex === idx ? styles.active : ''}`}
+                onClick={() => setActiveHeroIndex(idx)}
+              />
+            ))}
+          </div>
+        </section>
 
-            {/* SERVICES TAB */}
-            {activeTab === 'services' && (
-              <div className="tab-content">
-                <section className="services-section premium">
-                  <div className="section-header premium">
-                    <div className="title-group">
-                      <h2>🔧 Student Services</h2>
-                      <p>Get help from fellow students</p>
-                    </div>
-                    <motion.button 
-                      className="see-all-btn" 
-                      whileHover={{ x: 5 }}
-                      onClick={() => navigate('/student/services')}
-                    >
-                      All Services <FaRegCompass />
-                    </motion.button>
-                  </div>
+        {/* Categories - Horizontally Scrollable */}
+        <section className={styles.categoriesSection}>
+          <div className={styles.categoriesScroll} ref={categoriesScrollRef}>
+            {categories.map(category => (
+              <motion.button
+                key={category.id}
+                className={styles.categoryChip}
+                whileHover={{ scale: 1.05, y: -2 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => handleCategoryClick(category.id, category.name)}
+              >
+                <span className={styles.categoryIcon} style={{ color: category.color }}>
+                  {category.icon}
+                </span>
+                <span className={styles.categoryName}>{category.name}</span>
+              </motion.button>
+            ))}
+          </div>
+        </section>
 
-                  <div className="services-grid">
-                    {marketplaceData.studentServices.length > 0 ? (
-                      marketplaceData.studentServices.map(service => (
-                        <ServiceCard key={service.id} service={service} />
-                      ))
-                    ) : (
-                      <EmptyState
-                        icon="🔧"
-                        title="No services yet"
-                        description="Offer your skills to other students!"
-                        buttonText="Offer a Service"
-                        onButtonClick={() => navigate('/student/offer-service')}
-                      />
-                    )}
-                  </div>
-                </section>
+        {/* Flash Sales */}
+        {flashSales.length > 0 && (
+          <ScrollSection
+            title="Flash Sales"
+            icon={<FaBolt />}
+            items={flashSales}
+            renderItem={(item) => <ProductCard key={item.id} product={item} variant="flash" />}
+            seeAllLink="flash-sales"
+            scrollKey="flash"
+          />
+        )}
+
+        {/* Trending Now */}
+        <ScrollSection
+          title="Trending Now"
+          icon={<FaFire />}
+          items={trendingProducts}
+          renderItem={(item) => <ProductCard key={item.id} product={item} />}
+          seeAllLink="trending"
+          scrollKey="trending"
+        />
+
+        {/* Deals Banner */}
+        {campusDeals.length > 0 && (
+          <section className={styles.dealsBannerSection}>
+            <div className={styles.dealsBanner}>
+              <div className={styles.dealsContent}>
+                <div className={styles.dealsTag}><FaTag /> Limited Time Offers</div>
+                <h2>Exclusive Campus Deals</h2>
+                <p>Special discounts for students only</p>
+                <button onClick={() => handleSeeAllClick('deals')}>
+                  View All Deals <FaArrowRight />
+                </button>
               </div>
-            )}
-
-            {/* EARN TAB */}
-            {activeTab === 'earn' && (
-              <div className="tab-content">
-                <section className="earn-section premium">
-                  <div className="section-header premium">
-                    <div className="title-group">
-                      <h2>💸 Make Serious Money on Campus</h2>
-                      <p>Join thousands of students already earning</p>
-                    </div>
-                    <div className="earnings-preview">
-                      <FaCoins className="coins-icon" />
-                      <span>Start earning today!</span>
-                    </div>
-                  </div>
-
-                  <div className="business-grid premium">
-                    {businessCategories.map((business, index) => (
-                      <motion.div
-                        key={index}
-                        className="business-card premium"
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: index * 0.1 }}
-                        whileHover={{ 
-                          y: -8, 
-                          scale: 1.03,
-                          boxShadow: "0 20px 40px rgba(0,0,0,0.1)"
-                        }}
-                        style={{ borderTop: `4px solid ${business.color}` }}
-                        onClick={() => navigate(business.route)}
-                      >
-                        <div className="business-header">
-                          <div className="business-icon" style={{ color: business.color }}>
-                            {business.icon}
-                          </div>
-                          <div className="business-earnings">
-                            <span>{business.earnings}</span>
-                          </div>
-                        </div>
-                        
-                        <div className="business-content">
-                          <h4>{business.title}</h4>
-                          <p>{business.desc}</p>
-                        </div>
-                        
-                        <motion.button 
-                          className="start-earning-btn"
-                          style={{ background: business.color }}
-                          whileHover={{ 
-                            scale: 1.05,
-                            boxShadow: `0 8px 20px ${business.color}40`
-                          }}
-                          whileTap={{ scale: 0.95 }}
-                        >
-                          Start Earning <FaRocket />
-                        </motion.button>
-                      </motion.div>
-                    ))}
-                  </div>
-                </section>
+              <div className={styles.dealsCountdown}>
+                <div className={styles.countdownItem}><span>24</span><label>Hours</label></div>
+                <div className={styles.countdownItem}><span>59</span><label>Mins</label></div>
+                <div className={styles.countdownItem}><span>59</span><label>Secs</label></div>
               </div>
-            )}
-          </motion.div>
-        </AnimatePresence>
+            </div>
+          </section>
+        )}
+
+        {/* Recommended for You */}
+        <ScrollSection
+          title="Recommended for You"
+          icon={<FaGem />}
+          items={recommendedProducts}
+          renderItem={(item) => <ProductCard key={item.id} product={item} />}
+          seeAllLink="recommended"
+          scrollKey="recommended"
+        />
+
+        {/* Nearby Restaurants */}
+        <ScrollSection
+          title="Nearby Restaurants"
+          icon={<FaUtensils />}
+          items={nearbyRestaurants}
+          renderItem={(item) => <RestaurantCard key={item.id} restaurant={item} />}
+          seeAllLink="restaurants"
+          scrollKey="restaurants"
+        />
+
+        {/* Popular Services */}
+        <ScrollSection
+          title="Popular Services"
+          icon={<FaGraduationCap />}
+          items={popularServices}
+          renderItem={(item) => <ServiceCard key={item.id} service={item} />}
+          seeAllLink="services"
+          scrollKey="services"
+        />
+
+        {/* Featured Products */}
+        {featuredProducts.length > 0 && (
+          <section className={styles.featuredSection}>
+            <div className={styles.sectionHeader}>
+              <h2><FaCrown className={styles.crownIcon} /> Featured Products</h2>
+            </div>
+            <div className={styles.featuredGrid}>
+              {featuredProducts.slice(0, 4).map(product => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        <div className={styles.bottomSpacing} />
       </main>
 
-      {/* Floating Action Button */}
+      {/* FAB */}
       <motion.button
-        className="premium-fab"
-        whileHover={{ scale: 1.1, rotate: 5 }}
+        className={styles.fabButton}
+        whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
         onClick={() => navigate('/student/sell-product')}
       >
