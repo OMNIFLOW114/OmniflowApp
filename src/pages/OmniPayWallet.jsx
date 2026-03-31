@@ -32,6 +32,7 @@ import {
   ShieldCheck,
   TrendingUp
 } from "lucide-react";
+import { useMpesaPayment } from "@/hooks/useMpesaPayment";
 import "./OmniPayWallet.css";
 
 // SEPARATE SetupModal Component
