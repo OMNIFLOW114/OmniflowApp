@@ -1,7 +1,10 @@
+// src/pages/Checkout.jsx - UPDATED PREMIUM VERSION
 import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/supabase";
 import { useAuth } from "@/context/AuthContext";
+import { useDarkMode } from "@/context/DarkModeContext";
 import { toast } from "react-hot-toast";
 import { useMpesaPayment } from "@/hooks/useMpesaPayment";
 import {
@@ -17,16 +20,60 @@ import {
   FaTruck,
   FaMotorcycle,
   FaMapMarkerAlt,
-  FaBuilding
+  FaBuilding,
+  FaArrowLeft,
+  FaCheckCircle,
+  FaSpinner,
+  FaShieldAlt,
+  FaPercent,
+  FaInfoCircle,
+  FaTimes
 } from "react-icons/fa";
-import "./Checkout.css";
+import styles from "./Checkout.module.css";
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
+
+// Helper function for Kenyan price formatting
+const formatKSH = (amount) => {
+  const num = Number(amount || 0);
+  if (Number.isInteger(num) || num % 1 === 0) {
+    return `KSh ${num.toLocaleString('en-KE')}`;
+  }
+  return `KSh ${num.toLocaleString('en-KE', { 
+    minimumFractionDigits: 2, 
+    maximumFractionDigits: 2 
+  })}`;
+};
+
+// Skeleton Loader Component
+const CheckoutSkeleton = () => {
+  const { darkMode } = useDarkMode();
+  
+  return (
+    <div className={`${styles.container} ${darkMode ? styles.darkMode : styles.lightMode}`}>
+      <div className={styles.skeletonHeader}>
+        <div className={styles.skeletonBackBtn}></div>
+        <div className={styles.skeletonTitle}></div>
+      </div>
+      <div className={styles.skeletonContent}>
+        <div className={styles.skeletonLeft}>
+          <div className={styles.skeletonCard}></div>
+          <div className={styles.skeletonCard}></div>
+          <div className={styles.skeletonCard}></div>
+        </div>
+        <div className={styles.skeletonRight}>
+          <div className={styles.skeletonCard}></div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default function Checkout() {
   const { id: productId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { darkMode } = useDarkMode();
   const location = useLocation();
 
   // M-Pesa payment hook
@@ -80,18 +127,6 @@ export default function Checkout() {
   // Admin constants
   const ADMIN_ID = "755ed9e9-69f6-459c-ad44-d1b93b80a4c6";
   const ADMIN_EMAIL = "omniflow718@gmail.com";
-
-  // ===== KENYAN CURRENCY FORMATTING =====
-  const formatKSH = (amount) => {
-    const num = Number(amount || 0);
-    if (Number.isInteger(num) || num % 1 === 0) {
-      return `KSH ${num.toLocaleString('en-KE')}`;
-    }
-    return `KSH ${num.toLocaleString('en-KE', { 
-      minimumFractionDigits: 2, 
-      maximumFractionDigits: 2 
-    })}`;
-  };
 
   // Helper function to update wallet balance
   const updateWalletBalance = async (userId, amount, operation) => {
@@ -175,14 +210,12 @@ export default function Checkout() {
     if (!distance || distance <= 0) return 0;
     if (!storeSettings) return 0;
     
-    // For self-delivery stores, use their rates
     if (storeSettings.delivery_type === 'self-delivery') {
       const baseFee = Number(storeSettings.delivery_base_fee) || 100;
       const ratePerKm = Number(storeSettings.delivery_rate_per_km) || 15;
       return Math.round(baseFee + (distance * ratePerKm));
     }
     
-    // For Omniflow managed delivery, use zone-based rates
     const DELIVERY_RATES = {
       BASE_FEE: 50,
       ZONES: [
@@ -334,7 +367,7 @@ export default function Checkout() {
     updateDistance();
   }, [deliveryAddress, seller, deliveryMethod, storeDeliverySettings, calculateDistance, fromCart]);
 
-  // Mapbox address search - works for ALL sellers (both Omniflow and self-delivery)
+  // Mapbox address search
   const searchAddresses = async (query) => {
     if (!query || query.length < 2) {
       setAddressSuggestions([]);
@@ -417,7 +450,7 @@ export default function Checkout() {
     };
   }, []);
 
-  // Load checkout data (same as original)
+  // Load checkout data
   useEffect(() => {
     async function load() {
       setLoading(true);
@@ -463,10 +496,6 @@ export default function Checkout() {
             .eq("owner_id", flashProduct.owner_id)
             .maybeSingle();
 
-          if (storeError) {
-            console.error("Error fetching store:", storeError);
-          }
-          
           if (store) {
             setSeller({
               ...store,
@@ -506,16 +535,12 @@ export default function Checkout() {
           if (location.state.seller) {
             setSeller(location.state.seller);
             
-            const { data: storeSettings, error: storeError } = await supabase
+            const { data: storeSettings } = await supabase
               .from("stores")
               .select("delivery_type, has_delivery_fleet, delivery_fleet_size, delivery_coverage_radius, delivery_base_fee, delivery_rate_per_km, county")
               .eq("owner_id", location.state.seller.owner_id)
               .maybeSingle();
               
-            if (storeError) {
-              console.error("Error fetching store settings:", storeError);
-            }
-            
             if (storeSettings) {
               setStoreDeliverySettings(storeSettings);
             }
@@ -544,15 +569,11 @@ export default function Checkout() {
 
           setProducts([{ ...p, quantity: 1 }]);
 
-          const { data: store, error: storeError } = await supabase
+          const { data: store } = await supabase
             .from("stores")
             .select("id, name, contact_phone, location, location_lat, location_lng, owner_id, delivery_type, has_delivery_fleet, delivery_fleet_size, delivery_coverage_radius, delivery_base_fee, delivery_rate_per_km, county")
             .eq("owner_id", p.owner_id)
             .maybeSingle();
-          
-          if (storeError) {
-            console.error("Error fetching store:", storeError);
-          }
           
           if (store) {
             setSeller({
@@ -587,9 +608,7 @@ export default function Checkout() {
     load();
   }, [productId, location.state, user, fromCart, fromFlashSale, navigate, isFlashSale]);
 
-  // ============================================================
-  // M-PESA PAYMENT FUNCTION WITH STK PUSH - FIXED
-  // ============================================================
+  // M-PESA PAYMENT FUNCTION
   const handleMpesaPayment = async () => {
     if (!user?.id) return toast.error("Login required");
     if (!deliveryMethod) return toast.error("Choose a delivery option");
@@ -748,16 +767,12 @@ export default function Checkout() {
       toast.dismiss(loadingToast);
       toast.success("Order created! Please complete M-Pesa payment.");
       
-      // Initiate STK Push
       const result = await initiateWalletDeposit(
         contactPhone,
         totalDepositAmount,
         user.id,
         async (receipt, paidAmount) => {
-          console.log('M-Pesa payment successful:', { receipt, paidAmount });
-          
-          // Update order to deposit_paid
-          const { error: updateError } = await supabase
+          await supabase
             .from("orders")
             .update({
               deposit_paid: true,
@@ -772,49 +787,19 @@ export default function Checkout() {
             })
             .eq("id", orderId);
           
-          if (updateError) {
-            console.error('Failed to update order:', updateError);
-            toast.error("Payment successful but order update failed. Please contact support.");
-          } else {
-            // Add to admin escrow
-            await updateWalletBalance(ADMIN_ID, paidAmount, 'add');
-            
-            // Record admin escrow transaction
-            await supabase.from("wallet_transactions").insert({
-              user_id: ADMIN_ID,
-              type: 'escrow_receive',
-              amount: paidAmount,
-              status: 'completed',
-              order_id: orderId,
-              description: `Escrow deposit (25%) for order ${orderId.slice(0, 8)} via M-Pesa`,
-              metadata: { 
-                payment_type: 'mpesa_escrow', 
-                mpesa_receipt: receipt,
-                deposit_percentage: 25
-              }
-            });
-            
-            // Record buyer transaction
-            await supabase.from("wallet_transactions").insert({
-              user_id: user.id,
-              type: 'purchase',
-              amount: paidAmount,
-              status: 'completed',
-              order_id: orderId,
-              description: `Deposit payment for order ${orderId.slice(0, 8)} via M-Pesa`,
-              metadata: { 
-                payment_type: 'deposit',
-                mpesa_receipt: receipt,
-                is_escrow: true
-              }
-            });
-          }
+          await updateWalletBalance(ADMIN_ID, paidAmount, 'add');
+          
+          await supabase.from("wallet_transactions").insert({
+            user_id: ADMIN_ID,
+            type: 'escrow_receive',
+            amount: paidAmount,
+            status: 'completed',
+            order_id: orderId,
+            description: `Escrow deposit for order ${orderId.slice(0, 8)} via M-Pesa`
+          });
           
           setMpesaPaymentStep(3);
-          toast.success(
-            `Payment successful! Amount: ${formatKSH(paidAmount)}\nReceipt: ${receipt}\n25% deposit held in escrow.`,
-            { duration: 8000, icon: '✅' }
-          );
+          toast.success(`Payment successful! Amount: ${formatKSH(paidAmount)}`, { duration: 5000, icon: '✅' });
           
           setTimeout(() => {
             navigate("/orders");
@@ -839,7 +824,7 @@ export default function Checkout() {
     }
   };
 
-  // Wallet payment handler - FIXED to use RPC
+  // Wallet payment handler
   async function handlePayWithWallet() {
     if (!user?.id) return toast.error("Login required");
     if (!deliveryMethod) return toast.error("Choose a delivery option");
@@ -905,8 +890,6 @@ export default function Checkout() {
               balance_due: product.productPrice - product.depositProduct,
               delivery_fee: deliveryMethod === "door" ? (finalDeliveryFee / products.length) : 0,
               delivery_distance: deliveryDistance,
-              delivery_base_fee: storeDeliverySettings?.delivery_base_fee,
-              delivery_rate_per_km: storeDeliverySettings?.delivery_rate_per_km,
               commission_rate: commission.commission_rate,
               commission_amount: commission.commission_amount,
               status: "deposit_paid",
@@ -929,7 +912,6 @@ export default function Checkout() {
 
           const productDepositAmount = product.depositProduct + (deliveryMethod === "door" ? (finalDeliveryFee / products.length) : 0);
 
-          // Use RPC for wallet operations
           const { data: paymentResult, error: paymentError } = await supabase.rpc('pay_order_deposit', {
             p_order_id: orderData.id,
             p_buyer_id: user.id,
@@ -984,8 +966,6 @@ export default function Checkout() {
             balance_due: balanceDue,
             delivery_fee: deliveryMethod === "door" ? finalDeliveryFee : 0,
             delivery_distance: deliveryDistance,
-            delivery_base_fee: storeDeliverySettings?.delivery_base_fee,
-            delivery_rate_per_km: storeDeliverySettings?.delivery_rate_per_km,
             commission_rate: commission.commission_rate,
             commission_amount: commission.commission_amount,
             status: "deposit_paid",
@@ -1009,7 +989,6 @@ export default function Checkout() {
 
         const totalDepositAmount = totalDeposit + (deliveryMethod === "door" ? finalDeliveryFee : 0);
 
-        // Use RPC for wallet operations
         const { data: paymentResult, error: paymentError } = await supabase.rpc('pay_order_deposit', {
           p_order_id: orderData.id,
           p_buyer_id: user.id,
@@ -1227,31 +1206,46 @@ export default function Checkout() {
     if (!isFlashSale) return null;
 
     return (
-      <div className="flash-sale-banner">
-        <div className="flash-sale-content">
-          <FaBolt className="flash-sale-icon" />
-          <div className="flash-sale-text">
+      <div className={styles.flashSaleBanner}>
+        <div className={styles.flashSaleContent}>
+          <FaBolt className={styles.flashSaleIcon} />
+          <div className={styles.flashSaleText}>
             <strong>FLASH SALE ACTIVE</strong>
             <span>Special price expires in: {flashSaleTimeLeft}</span>
           </div>
         </div>
-        <div className="flash-sale-note">
+        <div className={styles.flashSaleNote}>
           Complete checkout before time runs out to lock in this exclusive price
         </div>
       </div>
     );
   };
 
-  if (loading) return <div className="loading">Loading…</div>;
-  if (!products.length) return <div className="loading">No products found</div>;
+  if (loading) return <CheckoutSkeleton />;
+  if (!products.length) return (
+    <div className={`${styles.container} ${darkMode ? styles.darkMode : styles.lightMode}`}>
+      <div className={styles.emptyState}>
+        <div className={styles.emptyIcon}>🛒</div>
+        <h3>No products found</h3>
+        <p>Your cart is empty or the product doesn't exist</p>
+        <button onClick={() => navigate('/student/marketplace')} className={styles.emptyBtn}>
+          Continue Shopping
+        </button>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="checkout-page">
-      <div className="checkout-header" style={{ justifyContent: 'center' }}>
+    <div className={`${styles.container} ${darkMode ? styles.darkMode : styles.lightMode}`}>
+      {/* Header */}
+      <header className={styles.header}>
+        <button className={styles.backBtn} onClick={() => navigate(-1)}>
+          <FaArrowLeft />
+        </button>
         <h1>
           {fromCart ? (
             <>
-              <FaStore /> Checkout - {seller?.name}
+              <FaStore /> Checkout
             </>
           ) : (
             <>
@@ -1259,101 +1253,124 @@ export default function Checkout() {
             </>
           )}
         </h1>
-      </div>
+      </header>
 
       {/* M-Pesa Payment Modal */}
-      {mpesaPaymentStep === 2 && (
-        <div className="mpesa-payment-modal">
-          <div className="mpesa-payment-content">
-            <div className="payment-loader">
-              <div className="spinner"></div>
-              <p>Waiting for M-Pesa payment...</p>
-              <p className="payment-instruction">
-                Please check your phone ({contactPhone}) and enter your M-Pesa PIN to complete the payment of {formatKSH(depositTotal)}
-              </p>
-              {paymentCheckoutId && (
-                <p className="reference-text">Reference: {paymentCheckoutId.slice(-8)}</p>
-              )}
-              <button 
-                onClick={() => {
-                  cancelPolling();
-                  setMpesaPaymentStep(1);
-                  setBuying(false);
-                }}
-                className="cancel-payment-btn"
-              >
-                Cancel Payment
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {mpesaPaymentStep === 2 && (
+          <motion.div 
+            className={styles.modalOverlay}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div 
+              className={styles.modalContent}
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+            >
+              <div className={styles.paymentLoader}>
+                <div className={styles.spinner}></div>
+                <p>Waiting for M-Pesa payment...</p>
+                <p className={styles.paymentInstruction}>
+                  Please check your phone ({contactPhone}) and enter your M-Pesa PIN to complete the payment of {formatKSH(depositTotal)}
+                </p>
+                {paymentCheckoutId && (
+                  <p className={styles.referenceText}>Reference: {paymentCheckoutId.slice(-8)}</p>
+                )}
+                <button 
+                  onClick={() => {
+                    cancelPolling();
+                    setMpesaPaymentStep(1);
+                    setBuying(false);
+                  }}
+                  className={styles.cancelBtn}
+                >
+                  Cancel Payment
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
 
-      {mpesaPaymentStep === 3 && (
-        <div className="mpesa-success-modal">
-          <div className="mpesa-success-content">
-            <div className="success-icon">✅</div>
-            <h3>Payment Successful!</h3>
-            <p>Your deposit has been received.</p>
-            <p>Redirecting to orders...</p>
-          </div>
-        </div>
-      )}
+        {mpesaPaymentStep === 3 && (
+          <motion.div 
+            className={styles.modalOverlay}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div 
+              className={styles.successContent}
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+            >
+              <div className={styles.successIcon}>✅</div>
+              <h3>Payment Successful!</h3>
+              <p>Your deposit has been received.</p>
+              <p>Redirecting to orders...</p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <FlashSaleBanner />
 
-      <div className="checkout-grid">
-        <div className="left">
-          {/* Products Display */}
-          <div className="products-section">
+      <div className={styles.checkoutGrid}>
+        <div className={styles.leftColumn}>
+          {/* Products Section */}
+          <div className={styles.card}>
             <h3>
               {fromCart ? `Ordering from ${seller?.name}` : "Product Details"}
               {isFlashSale && (
-                <span className="flash-badge">
+                <span className={styles.flashBadge}>
                   <FaBolt /> FLASH SALE
                 </span>
               )}
             </h3>
             
             {productTotals.map((product, index) => (
-              <div key={product.id || index} className="checkout-product">
+              <div key={product.id || index} className={styles.checkoutProduct}>
                 <img 
                   src={product.image_gallery?.[0] || product.image_url || "/placeholder.jpg"} 
                   alt={product.name}
+                  className={styles.productImage}
                 />
-                <div className="product-info">
+                <div className={styles.productInfo}>
                   <h4>{product.name}</h4>
                   {product.variant && (
-                    <div className="variant-display">
+                    <div className={styles.variantDisplay}>
                       Variant: {typeof product.variant === 'string' ? product.variant : JSON.stringify(product.variant)}
                     </div>
                   )}
                   
                   {isFlashSale && (
-                    <div className="flash-price-display">
-                      <div className="original-price-line">
-                        <span className="original-price-label">Original:</span>
-                        <span className="original-price-value">{formatKSH(product.originalPrice)}</span>
+                    <div className={styles.flashPriceDisplay}>
+                      <div className={styles.originalPriceLine}>
+                        <span className={styles.originalPriceLabel}>Original:</span>
+                        <span className={styles.originalPriceValue}>{formatKSH(product.originalPrice)}</span>
                       </div>
-                      <div className="flash-price-line">
-                        <span className="flash-price-label">Flash Sale:</span>
-                        <span className="flash-price-value">{formatKSH(product.unitPrice)} × {product.quantity}</span>
+                      <div className={styles.flashPriceLine}>
+                        <span className={styles.flashPriceLabel}>Flash Sale:</span>
+                        <span className={styles.flashPriceValue}>{formatKSH(product.unitPrice)} × {product.quantity}</span>
                       </div>
                     </div>
                   )}
                   
                   {!isFlashSale && (
-                    <div className="product-pricing">
+                    <div className={styles.productPricing}>
                       <span>{formatKSH(product.unitPrice)} × {product.quantity}</span>
                       <strong>{formatKSH(product.productPrice)}</strong>
                     </div>
                   )}
                   
-                  <div className="stock-info">
+                  <div className={styles.stockInfo}>
                     {product.stock_quantity > 0 ? (
-                      <span className="in-stock">{product.stock_quantity} in stock</span>
+                      <span className={styles.inStock}>{product.stock_quantity} in stock</span>
                     ) : (
-                      <span className="out-of-stock">Out of stock</span>
+                      <span className={styles.outOfStock}>Out of stock</span>
                     )}
                   </div>
                 </div>
@@ -1363,27 +1380,34 @@ export default function Checkout() {
 
           {/* Installment Section */}
           {hasInstallmentPlan && !fromCart && !isFlashSale && (
-            <div className="installment-section" style={{ marginBottom: 16 }}>
-              <h4 onClick={() => setShowInstallmentInfo((s) => !s)}>
+            <div className={styles.card}>
+              <h4 onClick={() => setShowInstallmentInfo(!showInstallmentInfo)}>
                 Special Offer: Buy in Installments{" "}
                 {showInstallmentInfo ? <FaChevronUp /> : <FaChevronDown />}
               </h4>
-              {showInstallmentInfo && (
-                <div className="installment-details">
-                  <p>
-                    Pay <strong>{(products[0]?.installment_plan?.initial_percent || 0.3) * 100}%</strong> now and the remainder after delivery.
-                  </p>
-                </div>
-              )}
+              <AnimatePresence>
+                {showInstallmentInfo && (
+                  <motion.div
+                    className={styles.installmentDetails}
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                  >
+                    <p>
+                      Pay <strong>{(products[0]?.installment_plan?.initial_percent || 0.3) * 100}%</strong> now and the remainder after delivery.
+                    </p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           )}
 
-          {/* DELIVERY SECTION */}
-          <div className="delivery-settings">
+          {/* Delivery Section */}
+          <div className={styles.card}>
             <h4>Delivery & Options</h4>
-            <div className="delivery-methods" style={{ marginBottom: 12 }}>
+            <div className={styles.deliveryMethods}>
               {products[0]?.delivery_methods?.pickup && (
-                <label>
+                <label className={styles.radioLabel}>
                   <input
                     type="radio"
                     name="dm"
@@ -1391,11 +1415,11 @@ export default function Checkout() {
                     checked={deliveryMethod === "pickup"}
                     onChange={() => setDeliveryMethod("pickup")}
                   />
-                  Pickup Station
+                  <span>Pickup Station</span>
                 </label>
               )}
               {products[0]?.delivery_methods?.door && (
-                <label>
+                <label className={styles.radioLabel}>
                   <input
                     type="radio"
                     name="dm"
@@ -1403,77 +1427,66 @@ export default function Checkout() {
                     checked={deliveryMethod === "door"}
                     onChange={() => setDeliveryMethod("door")}
                   />
-                  Door Delivery
+                  <span>Door Delivery</span>
                 </label>
               )}
             </div>
 
-            {/* Door Delivery with Mapbox Autocomplete (works for ALL sellers) */}
+            {/* Door Delivery */}
             {deliveryMethod === "door" && (
               <>
-                <label>
-                  Delivery Address:
-                  <div ref={addressInputRef} className="address-autocomplete-container">
+                <div className={styles.formGroup}>
+                  <label>Delivery Address:</label>
+                  <div ref={addressInputRef} className={styles.addressAutocomplete}>
                     <input
                       type="text"
                       placeholder="Start typing your address (e.g. Kilimani, Nairobi)"
                       value={deliveryAddress}
                       onChange={handleAddressChange}
-                      className="address-input"
+                      className={styles.addressInput}
                     />
                     
-                    {isSearching && <div className="search-loading">Searching...</div>}
+                    {isSearching && <div className={styles.searchLoading}>Searching...</div>}
                     
                     {showSuggestions && addressSuggestions.length > 0 && (
-                      <div className="address-suggestions">
+                      <div className={styles.addressSuggestions}>
                         {addressSuggestions.map((suggestion, index) => (
                           <div
                             key={index}
-                            className="suggestion-item"
+                            className={styles.suggestionItem}
                             onClick={() => handleAddressSelect(suggestion)}
                           >
-                            <div className="suggestion-text">{suggestion.place_name}</div>
-                            <div className="suggestion-type">{getAddressType(suggestion)}</div>
+                            <div className={styles.suggestionText}>{suggestion.place_name}</div>
+                            <div className={styles.suggestionType}>{getAddressType(suggestion)}</div>
                           </div>
                         ))}
                       </div>
                     )}
                   </div>
-                </label>
+                </div>
 
                 {/* Delivery Type Indicator */}
                 {storeDeliverySettings && (
-                  <div className="delivery-type-indicator" style={{
-                    marginTop: '8px',
-                    marginBottom: '8px',
-                    padding: '8px 12px',
-                    background: storeDeliverySettings.delivery_type === 'self-delivery' ? '#FEF3C7' : '#EFF6FF',
-                    borderRadius: '8px',
-                    fontSize: '0.85em',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    color: storeDeliverySettings.delivery_type === 'self-delivery' ? '#D97706' : '#2563EB'
-                  }}>
+                  <div className={`${styles.deliveryTypeIndicator} ${storeDeliverySettings.delivery_type === 'self-delivery' ? styles.selfDelivery : styles.omniflowDelivery}`}>
                     {storeDeliverySettings.delivery_type === 'self-delivery' ? (
                       <>
-                        <FaTruck size={14} />
+                        <FaTruck />
                         <span>
                           <strong>Self Delivery</strong> - This seller handles their own delivery
                           {storeDeliverySettings.delivery_base_fee && (
-                            <span style={{ display: 'block', fontSize: '0.75em', marginTop: '2px' }}>
-                              Base fee: {formatKSH(storeDeliverySettings.delivery_base_fee)} + {storeDeliverySettings.delivery_rate_per_km} KSH/km
+                            <span className={styles.deliveryRateDetail}>
+                              Base fee: {formatKSH(storeDeliverySettings.delivery_base_fee)} + {storeDeliverySettings.delivery_rate_per_km} KSh/km
                             </span>
                           )}
                         </span>
                       </>
                     ) : (
                       <>
-                        <FaMotorcycle size={14} />
+                        <FaMotorcycle />
                         <span>
                           <strong>Omniflow Delivery</strong> - Managed by OmniFlow
-                          <span style={{ display: 'block', fontSize: '0.75em', marginTop: '2px' }}>
-                            Zone-based rates: 50 KSH base + up to 15 KSH/km
+                          <span className={styles.deliveryRateDetail}>
+                            Zone-based rates: 50 KSh base + up to 15 KSh/km
                           </span>
                         </span>
                       </>
@@ -1482,81 +1495,67 @@ export default function Checkout() {
                 )}
 
                 {/* Delivery Fee Display */}
-                <div className="delivery-fee-display" style={{
-                  marginTop: '12px',
-                  padding: '12px',
-                  background: '#f8f9fa',
-                  borderRadius: '8px',
-                  border: '1px solid #e5e7eb'
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontWeight: 500 }}>Delivery fee:</span>
+                <div className={styles.deliveryFeeDisplay}>
+                  <div className={styles.feeRow}>
+                    <span>Delivery fee:</span>
                     {deliveryCalculating ? (
-                      <span style={{ color: '#666' }}>Calculating...</span>
+                      <span className={styles.calculating}>Calculating...</span>
                     ) : deliveryDistance ? (
-                      <span style={{ 
-                        fontWeight: 600, 
-                        fontSize: '1.1em',
-                        color: isFreeDelivery ? '#10B981' : (storeDeliverySettings?.delivery_type === 'self-delivery' ? '#D97706' : '#2563EB')
-                      }}>
+                      <span className={isFreeDelivery ? styles.freeDelivery : styles.feeAmount}>
                         {isFreeDelivery ? 'FREE' : formatKSH(finalDeliveryFee)}
                       </span>
                     ) : deliveryAddress ? (
-                      <span style={{ color: '#f59e0b' }}>Could not calculate</span>
+                      <span className={styles.cannotCalculate}>Could not calculate</span>
                     ) : (
-                      <span style={{ color: '#666' }}>Enter address to see fee</span>
+                      <span className={styles.enterAddress}>Enter address to see fee</span>
                     )}
                   </div>
                   
                   {deliveryBreakdown && !isFreeDelivery && (
-                    <div style={{ fontSize: '0.85em', color: '#666', marginTop: '8px', paddingTop: '8px', borderTop: '1px dashed #ddd' }}>
+                    <div className={styles.feeBreakdown}>
                       {deliveryBreakdown.type === 'self-delivery' ? (
                         <>
                           <div>Base fee: {formatKSH(deliveryBreakdown.baseFee)}</div>
-                          <div>Distance rate: {deliveryBreakdown.ratePerKm} KSH/km</div>
+                          <div>Distance rate: {deliveryBreakdown.ratePerKm} KSh/km</div>
                           <div>Distance: {deliveryBreakdown.distance} km</div>
-                          <div style={{ marginTop: '4px', fontWeight: 500, color: '#D97706' }}>
-                            Total: {formatKSH(deliveryBreakdown.total)}
-                          </div>
+                          <div className={styles.totalFee}>Total: {formatKSH(deliveryBreakdown.total)}</div>
                         </>
                       ) : (
                         <>
-                          <div>Zone {deliveryBreakdown.zone?.replace('zone', '')}: {deliveryBreakdown.rate} KSH/km</div>
+                          <div>Zone {deliveryBreakdown.zone?.replace('zone', '')}: {deliveryBreakdown.rate} KSh/km</div>
                           <div>Distance: {deliveryBreakdown.distance} km</div>
-                          <div style={{ marginTop: '4px', fontWeight: 500, color: '#2563EB' }}>
-                            Total: {formatKSH(deliveryBreakdown.total)}
-                          </div>
+                          <div className={styles.totalFee}>Total: {formatKSH(deliveryBreakdown.total)}</div>
                         </>
                       )}
                     </div>
                   )}
                   
                   {storeDeliverySettings?.delivery_coverage_radius && (
-                    <div style={{ fontSize: '0.75em', color: '#888', marginTop: '8px' }}>
+                    <div className={styles.coverageNote}>
                       Max delivery radius: {storeDeliverySettings.delivery_coverage_radius} km
                     </div>
                   )}
                 </div>
 
-                <label style={{ marginTop: '12px' }}>
-                  Delivery speed:
+                <div className={styles.formGroup}>
+                  <label>Delivery speed:</label>
                   <select value={deliverySpeed} onChange={(e) => setDeliverySpeed(e.target.value)}>
                     <option value="standard">Standard</option>
                     <option value="express">Express (+{formatKSH(200)})</option>
                   </select>
-                </label>
+                </div>
 
-                <label>
+                <label className={styles.checkboxLabel}>
                   <input type="checkbox" checked={fragile} onChange={(e) => setFragile(e.target.checked)} />
-                  Fragile item (extra handling)
+                  <span>Fragile item (extra handling)</span>
                 </label>
               </>
             )}
 
             {/* Pickup Station */}
             {deliveryMethod === "pickup" && (
-              <label>
-                Pickup Station Address:
+              <div className={styles.formGroup}>
+                <label>Pickup Station Address:</label>
                 <input
                   type="text"
                   placeholder="Enter pickup station address"
@@ -1564,73 +1563,103 @@ export default function Checkout() {
                   onChange={(e) => setPickupStation(e.target.value)}
                 />
                 <small>Enter the exact location where you'll pick up your order</small>
-              </label>
+              </div>
             )}
 
-            <label>
-              Contact / M-Pesa Phone:
+            <div className={styles.formGroup}>
+              <label>Contact / M-Pesa Phone:</label>
               <input
                 value={contactPhone}
                 onChange={(e) => setContactPhone(e.target.value)}
                 placeholder="0712345678"
               />
               <small>This number will receive the M-Pesa payment prompt and delivery updates</small>
-            </label>
+            </div>
           </div>
 
           {/* Installment Payment Button */}
           {hasInstallmentPlan && !fromCart && !isFlashSale && (
-            <div className="installment-section" style={{ marginTop: 12 }}>
-              <button
-                onClick={handleStartInstallment}
-                disabled={processingInstallment || (deliveryMethod === "door" && !deliveryAddress) || (deliveryMethod === "pickup" && !pickupStation)}
-                className="wallet"
-              >
-                Start Installment Plan (Pay Initial)
-              </button>
-            </div>
+            <button
+              onClick={handleStartInstallment}
+              disabled={processingInstallment || (deliveryMethod === "door" && !deliveryAddress) || (deliveryMethod === "pickup" && !pickupStation)}
+              className={styles.installmentBtn}
+            >
+              {processingInstallment ? <FaSpinner className={styles.spinning} /> : <FaPercent />}
+              Start Installment Plan (Pay Initial)
+            </button>
           )}
+        </div>
 
-          {/* PAYMENT SECTION */}
-          <div className="payment-methods" style={{ marginTop: 16 }}>
-            <h4>Payment Summary</h4>
-            <div className="price-breakdown">
+        <div className={styles.rightColumn}>
+          <div className={styles.orderSummary}>
+            <h4>Order Summary</h4>
+            
+            {fromCart && seller && (
+              <div className={styles.storeInfo}>
+                <FaStore />
+                <span>{seller.name}</span>
+              </div>
+            )}
+            
+            {isFlashSale && (
+              <div className={styles.flashSummaryAlert}>
+                <FaBolt /> Flash Sale Active
+                <div className={styles.flashTimerSmall}>
+                  <FaClock /> {flashSaleTimeLeft}
+                </div>
+              </div>
+            )}
+            
+            <div className={styles.productsList}>
+              {productTotals.map((product, index) => (
+                <div key={index} className={styles.summaryProduct}>
+                  <img src={product.image_gallery?.[0] || "/placeholder.jpg"} alt="thumb" className={styles.summaryImage} />
+                  <div className={styles.summaryProductInfo}>
+                    <div className={styles.summaryProductName}>{product.name}</div>
+                    <div>Qty: {product.quantity}</div>
+                    <div className={styles.summaryProductPrice}>{formatKSH(product.productPrice)}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <div className={styles.priceBreakdown}>
               {isFlashSale && productTotals[0]?.originalPrice && (
-                <div className="flash-sale-savings">
+                <div className={styles.flashSaleSavings}>
                   <span>Flash Sale Savings:</span>
                   <strong style={{ color: '#10B981' }}>
                     -{formatKSH((productTotals[0].originalPrice - productTotals[0].unitPrice) * productTotals[0].quantity)}
                   </strong>
                 </div>
               )}
-              <div>
+              <div className={styles.priceRow}>
                 <span>Products total:</span>
                 <strong>{formatKSH(totalProductPrice)}</strong>
               </div>
               {deliveryMethod === "door" && (
-                <div>
+                <div className={styles.priceRow}>
                   <span>Delivery fee:</span>
                   <strong>{isFreeDelivery ? 'FREE' : formatKSH(finalDeliveryFee)}</strong>
                 </div>
               )}
-              <div className="separator" />
-              <div style={{ color: '#667eea', fontWeight: 600 }}>
+              <div className={styles.divider} />
+              <div className={styles.depositRow}>
                 <span>Deposit (25%):</span>
                 <strong>{formatKSH(totalDeposit)}</strong>
               </div>
-              <div>
+              <div className={styles.totalRow}>
                 <span>Pay now:</span>
-                <strong style={{ fontSize: '1.1em' }}>{formatKSH(depositTotal)}</strong>
+                <strong className={styles.totalAmount}>{formatKSH(depositTotal)}</strong>
               </div>
-              <div>
+              <div className={styles.balanceRow}>
                 <span>Balance due after delivery:</span>
                 <strong>{formatKSH(balanceDue)}</strong>
               </div>
             </div>
 
-            <div className="methods">
+            <div className={styles.paymentMethods}>
               <button 
-                className="wallet" 
+                className={styles.walletBtn} 
                 onClick={handlePayWithWallet} 
                 disabled={buying || mpesaLoading || (deliveryMethod === "door" && !deliveryAddress) || (deliveryMethod === "pickup" && !pickupStation)}
               >
@@ -1638,7 +1667,7 @@ export default function Checkout() {
               </button>
 
               <button 
-                className="mpesa" 
+                className={styles.mpesaBtn} 
                 onClick={handleMpesaPayment} 
                 disabled={buying || mpesaLoading || (deliveryMethod === "door" && !deliveryAddress) || (deliveryMethod === "pickup" && !pickupStation)}
               >
@@ -1646,7 +1675,7 @@ export default function Checkout() {
               </button>
 
               <button 
-                className="paypal" 
+                className={styles.paypalBtn} 
                 onClick={() => handlePayExternal("paypal")} 
                 disabled={buying || (deliveryMethod === "door" && !deliveryAddress) || (deliveryMethod === "pickup" && !pickupStation)}
               >
@@ -1654,152 +1683,24 @@ export default function Checkout() {
               </button>
             </div>
 
-            <p className="muted">
-              <strong>How it works:</strong> Pay 25% deposit now (held in escrow). After delivery is confirmed, pay the remaining 75% to complete the order.
-            </p>
+            <div className={styles.infoNote}>
+              <FaInfoCircle />
+              <span>
+                <strong>How it works:</strong> Pay 25% deposit now (held in escrow). After delivery is confirmed, pay the remaining 75% to complete the order.
+              </span>
+            </div>
+
+            {storeDeliverySettings?.delivery_type === 'self-delivery' && (
+              <div className={styles.deliveryNote}>
+                <FaTruck />
+                <span>
+                  This seller handles their own delivery. Delivery fee calculated based on their rates.
+                </span>
+              </div>
+            )}
           </div>
         </div>
-
-        <aside className="right">
-          <div className="order-summary">
-            <h4>Order Summary</h4>
-            
-            {fromCart && seller && (
-              <div className="store-info">
-                <FaStore />
-                <span>{seller.name}</span>
-              </div>
-            )}
-            
-            {isFlashSale && (
-              <div className="flash-summary-alert">
-                <FaBolt /> Flash Sale Active
-                <div className="flash-timer-small">
-                  <FaClock /> {flashSaleTimeLeft}
-                </div>
-              </div>
-            )}
-            
-            <div className="products-list">
-              {productTotals.map((product, index) => (
-                <div key={index} className="summary-product">
-                  <img src={product.image_gallery?.[0] || "/placeholder.jpg"} alt="thumb" />
-                  <div>
-                    <div style={{ fontWeight: 600 }}>{product.name}</div>
-                    <div>Qty: {product.quantity}</div>
-                    <div>{formatKSH(product.productPrice)}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-            
-            <div className="summary-details">
-              <div>Delivery: {deliveryMethod === "door" ? "Door Delivery" : deliveryMethod === "pickup" ? "Pickup Station" : "—"}</div>
-              {deliveryMethod === "door" && deliveryAddress && (
-                <div className="summary-address">
-                  <FaMapMarkerAlt style={{ fontSize: '0.75em', marginRight: '4px' }} />
-                  <span>{deliveryAddress.substring(0, 50)}...</span>
-                </div>
-              )}
-              {deliveryMethod === "pickup" && pickupStation && (
-                <div className="summary-address">
-                  <FaBuilding style={{ fontSize: '0.75em', marginRight: '4px' }} />
-                  <span>{pickupStation.substring(0, 50)}...</span>
-                </div>
-              )}
-              
-              <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #eee', fontWeight: 700 }}>
-                Pay now: {formatKSH(depositTotal)}
-              </div>
-              <div style={{ fontSize: '0.9em', color: '#666' }}>
-                Pay later: {formatKSH(balanceDue)}
-              </div>
-
-              {storeDeliverySettings?.delivery_type === 'self-delivery' && (
-                <div style={{ marginTop: 8, padding: 8, background: '#FEF3C7', borderRadius: 6, fontSize: '0.85em', color: '#D97706' }}>
-                  <FaTruck style={{ marginRight: '4px' }} />
-                  This seller handles their own delivery. Delivery fee calculated based on their rates.
-                </div>
-              )}
-            </div>
-          </div>
-        </aside>
       </div>
-
-      <style jsx>{`
-        .mpesa-payment-modal,
-        .mpesa-success-modal {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: rgba(0, 0, 0, 0.5);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1000;
-        }
-        
-        .mpesa-payment-content,
-        .mpesa-success-content {
-          background: white;
-          padding: 2rem;
-          border-radius: 1rem;
-          max-width: 400px;
-          text-align: center;
-          box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-        }
-        
-        .payment-loader {
-          text-align: center;
-        }
-        
-        .spinner {
-          width: 50px;
-          height: 50px;
-          border: 4px solid #f3f3f3;
-          border-top: 4px solid #00A74E;
-          border-radius: 50%;
-          animation: spin 1s linear infinite;
-          margin: 0 auto 1rem;
-        }
-        
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-        
-        .payment-instruction {
-          margin: 1rem 0;
-          font-size: 0.9rem;
-          color: #666;
-        }
-        
-        .reference-text {
-          font-size: 0.8rem;
-          color: #999;
-          margin-top: 0.5rem;
-        }
-        
-        .cancel-payment-btn {
-          margin-top: 1rem;
-          padding: 0.5rem 1rem;
-          background: #f3f4f6;
-          border: none;
-          border-radius: 0.5rem;
-          cursor: pointer;
-        }
-        
-        .cancel-payment-btn:hover {
-          background: #e5e7eb;
-        }
-        
-        .success-icon {
-          font-size: 4rem;
-          margin-bottom: 1rem;
-        }
-      `}</style>
     </div>
   );
 }

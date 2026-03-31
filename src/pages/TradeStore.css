@@ -1700,3 +1700,116 @@ html.dark .glass-button.secondary {
 .fade-in {
   animation: fadeIn 0.3s ease;
 }
+/* Additional fixes for full product display and dark mode */
+.discount-badge {
+  position: absolute;
+  top: 0.2rem;
+  right: 0.2rem;
+  background: linear-gradient(135deg, #dc2626, #ef4444);
+  color: white;
+  padding: 0.15rem 0.3rem;
+  border-radius: 0.3rem;
+  font-size: 0.55rem;
+  font-weight: 700;
+  z-index: 10;
+}
+
+.filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.5rem 0.6rem;
+  margin: 0.5rem 0;
+  background: var(--card-bg);
+  border-radius: 0.5rem;
+  border: 1px solid var(--border-color);
+}
+
+.filter-btn, .refresh-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.6rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 1rem;
+  font-size: 0.7rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.filter-btn:hover, .refresh-btn:hover {
+  background: var(--accent-primary);
+  color: white;
+}
+
+.active-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  align-items: center;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+  padding: 0.2rem 0.5rem;
+  border-radius: 1rem;
+  font-size: 0.65rem;
+}
+
+.filter-chip svg {
+  cursor: pointer;
+}
+
+.clear-filters {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  font-size: 0.65rem;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.empty-tab-state button {
+  background: var(--accent-primary);
+  color: white;
+  border: none;
+  padding: 0.4rem 0.8rem;
+  border-radius: 1rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 0.5rem;
+}
+
+html.dark .product-card,
+html.dark .filter-bar,
+html.dark .premium-navbar {
+  background: var(--card-bg);
+}
+
+html.dark .search-bar.compact input {
+  color: var(--text-primary);
+}
+
+html.dark .price-old {
+  color: var(--text-tertiary);
+}
+
+.skeleton-loader-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+  padding: 0.5rem;
+}
+@media (min-width: 640px) { .skeleton-loader-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 768px) { .skeleton-loader-grid { grid-template-columns: repeat(4, 1fr); } }
+@media (min-width: 1024px) { .skeleton-loader-grid { grid-template-columns: repeat(5, 1fr); } }
+@media (min-width: 1280px) { .skeleton-loader-grid { grid-template-columns: repeat(6, 1fr); } }

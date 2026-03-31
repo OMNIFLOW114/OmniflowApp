@@ -51,6 +51,7 @@ import Premium from './pages/Premium';
 import SearchPage from "./pages/SearchPage"; 
 import StoreDashboardV2 from './pages/StoreDashboardV2';
 import NewMessages from './pages/NewMessages';
+import ReportProductPage from "./pages/ReportProductPage";
 // Student
 import StudentDashboard from "./pages/StudentDashboard";
 import CategoryPage from "./pages/CategoryPage";
@@ -163,6 +164,7 @@ function AppRoutes() {
         <Route path="/student/offer-service" element={<OfferServicePage />} />
         <Route path="/student/profile" element={<StudentProfilePage />} />
         <Route path="/student/notifications" element={<StudentNotificationsPage />} />
+        <Route path="/student/report-product/:id" element={<ReportProductPage />} />
 
 
         {/* ===================== ADMIN ROUTES ===================== */}

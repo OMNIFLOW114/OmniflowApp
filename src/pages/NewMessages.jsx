@@ -1,22 +1,25 @@
-// NewMessages.jsx - Complete with Proper Navigation Handling
+// src/pages/NewMessages.jsx - FIXED VERSION
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/supabase";
 import { useAuth } from "@/context/AuthContext";
+import { useDarkMode } from "@/context/DarkModeContext";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   FaSearch, FaTimes, FaComment, FaStore, FaUser,
   FaPaperPlane, FaArrowLeft, FaCheck, FaCheckDouble,
   FaRegSmile, FaImage, FaEllipsisV, FaPhone, FaVideo,
   FaInfoCircle, FaStar, FaRegStar, FaSpinner, FaReply,
-  FaSignal, FaExclamationTriangle
+  FaSignal, FaExclamationTriangle, FaCircle, FaCheckCircle,
+  FaClock, FaUsers
 } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "react-hot-toast";
 import EmojiPicker from "emoji-picker-react";
-import "./NewMessages.css";
+import styles from "./NewMessages.module.css";
 
 const NewMessages = () => {
   const { user: currentUser } = useAuth();
+  const { darkMode } = useDarkMode();
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -44,39 +47,13 @@ const NewMessages = () => {
   const [showConversationList, setShowConversationList] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   
-  // Refs for preventing double navigation
-  const isNavigatingBackRef = useRef(false);
+  // Refs
   const messagesEndRef = useRef(null);
   const searchInputRef = useRef(null);
   const textareaRef = useRef(null);
   const subscriptionRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
   const hasLoadedDataRef = useRef(false);
-  
-  // Get theme from body or html element
-  const isDarkMode = document.documentElement.classList.contains("dark") || 
-                     document.body.getAttribute("data-theme") === "dark";
-
-  // Handle browser back button
-  useEffect(() => {
-    const handlePopState = (event) => {
-      if (showChat && isMobileView) {
-        event.preventDefault();
-        handleBackToList();
-        // Replace current history state to prevent going back further
-        window.history.pushState(null, '', window.location.pathname);
-      }
-    };
-    
-    window.addEventListener('popstate', handlePopState);
-    
-    // Push initial state for navigation handling
-    window.history.pushState(null, '', window.location.pathname);
-    
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-    };
-  }, [showChat, isMobileView]);
 
   // Check for mobile view
   useEffect(() => {
@@ -96,7 +73,7 @@ const NewMessages = () => {
     return () => window.removeEventListener('resize', checkMobile);
   }, [selectedChat]);
 
-  // Initial data fetch - only once
+  // Initial data fetch
   useEffect(() => {
     if (!hasLoadedDataRef.current && currentUser?.id) {
       searchInputRef.current?.focus();
@@ -104,7 +81,6 @@ const NewMessages = () => {
       hasLoadedDataRef.current = true;
     }
     
-    // Monitor connection status
     const checkConnection = () => {
       setIsConnected(navigator.onLine);
     };
@@ -115,7 +91,6 @@ const NewMessages = () => {
     return () => {
       window.removeEventListener('online', checkConnection);
       window.removeEventListener('offline', checkConnection);
-      // Clean up subscription on unmount
       if (subscriptionRef.current) {
         subscriptionRef.current.unsubscribe();
         subscriptionRef.current = null;
@@ -126,7 +101,7 @@ const NewMessages = () => {
     };
   }, [currentUser]);
 
-  // Auto-scroll to bottom when messages change
+  // Auto-scroll to bottom
   useEffect(() => {
     if (messages.length > 0 && !isLoadingMessages) {
       setTimeout(() => {
@@ -135,7 +110,6 @@ const NewMessages = () => {
     }
   }, [messages, isLoadingMessages]);
 
-  // Helper function to check if a message is from current user
   const isMessageFromCurrentUser = useCallback((message) => {
     if (!currentUser || !selectedChat) return false;
     
@@ -148,12 +122,12 @@ const NewMessages = () => {
     return false;
   }, [currentUser, selectedChat, storeInfo]);
 
-  // Fetch all conversations and user data
   const fetchData = useCallback(async () => {
     if (!currentUser?.id) return;
     
     setIsLoading(true);
     try {
+      // Fixed: Removed avatar_url from select - it doesn't exist
       const { data: userStores, error: storesError } = await supabase
         .from("stores")
         .select("id, name, owner_id, is_verified, seller_score, contact_phone, location")
@@ -230,6 +204,7 @@ const NewMessages = () => {
       
       const missingStoreIds = storeIds.filter(id => !storeMap[id]);
       if (missingStoreIds.length > 0) {
+        // Fixed: Removed avatar_url from select - it doesn't exist
         const { data: additionalStores } = await supabase
           .from("stores")
           .select("id, name, owner_id, is_verified, seller_score, contact_phone, location")
@@ -304,7 +279,6 @@ const NewMessages = () => {
     }
   }, [currentUser]);
   
-  // Fetch messages for selected conversation - only when chat is selected
   const fetchMessages = useCallback(async (conversation) => {
     if (!conversation) return;
     
@@ -354,7 +328,6 @@ const NewMessages = () => {
     }
   }, [currentUser, storeInfo]);
   
-  // Send message
   const sendMessage = async () => {
     if (!newMessage.trim() || !selectedChat || isSending) return;
     
@@ -408,17 +381,14 @@ const NewMessages = () => {
     }
   };
   
-  // Setup real-time subscription with retry logic
   const setupRealtimeSubscription = useCallback(() => {
     if (!selectedChat?.store_id) return;
     
-    // Clean up existing subscription
     if (subscriptionRef.current) {
       subscriptionRef.current.unsubscribe();
       subscriptionRef.current = null;
     }
     
-    // Clear any pending reconnect timeout
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
     }
@@ -452,7 +422,6 @@ const NewMessages = () => {
           }
         });
       
-      // Subscribe with error handling
       channel.subscribe((status) => {
         if (status === 'SUBSCRIBED') {
           setIsConnected(true);
@@ -462,9 +431,7 @@ const NewMessages = () => {
           }
         } else if (status === 'CHANNEL_ERROR') {
           setIsConnected(false);
-          console.warn('Channel error, attempting to reconnect...');
           
-          // Attempt reconnection with exponential backoff
           const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 10000);
           reconnectTimeoutRef.current = setTimeout(() => {
             setReconnectAttempts(prev => prev + 1);
@@ -479,7 +446,6 @@ const NewMessages = () => {
       console.error('Error setting up subscription:', error);
       setIsConnected(false);
       
-      // Retry after delay
       const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 10000);
       reconnectTimeoutRef.current = setTimeout(() => {
         setReconnectAttempts(prev => prev + 1);
@@ -488,7 +454,6 @@ const NewMessages = () => {
     }
   }, [selectedChat, fetchMessages, currentUser, storeInfo, reconnectAttempts]);
   
-  // Setup real-time subscription when selected chat changes
   useEffect(() => {
     if (selectedChat?.store_id) {
       setupRealtimeSubscription();
@@ -524,9 +489,9 @@ const NewMessages = () => {
   };
   
   const handleCall = () => {
-    const phone = selectedChat.is_buyer 
+    const phone = selectedChat?.is_buyer 
       ? storeInfo[selectedChat.store_id]?.phone 
-      : userProfiles[selectedChat.other_user_id]?.phone;
+      : userProfiles[selectedChat?.other_user_id]?.phone;
     
     if (phone) {
       window.location.href = `tel:${phone}`;
@@ -564,6 +529,7 @@ const NewMessages = () => {
   };
   
   const getChatName = (conversation) => {
+    if (!conversation) return "";
     if (conversation.is_buyer) {
       return conversation.store_name;
     } else {
@@ -572,8 +538,9 @@ const NewMessages = () => {
   };
   
   const getChatAvatar = (conversation) => {
+    if (!conversation) return null;
     if (conversation.is_buyer) {
-      return null;
+      return null; // Store avatar not available
     } else {
       return userProfiles[conversation.other_user_id]?.avatar;
     }
@@ -587,11 +554,11 @@ const NewMessages = () => {
     if (!isUserMessage) return null;
     
     if (message.is_read) {
-      return <FaCheckDouble className="status-icon read" title="Read" />;
+      return <FaCheckDouble className={styles.statusIconRead} title="Read" />;
     } else if (message.status === 'delivered') {
-      return <FaCheckDouble className="status-icon delivered" title="Delivered" />;
+      return <FaCheckDouble className={styles.statusIconDelivered} title="Delivered" />;
     } else {
-      return <FaCheck className="status-icon sent" title="Sent" />;
+      return <FaCheck className={styles.statusIconSent} title="Sent" />;
     }
   };
   
@@ -601,48 +568,34 @@ const NewMessages = () => {
   );
   
   const handleSelectChat = (conversation) => {
-    // Prevent double navigation
-    if (isNavigatingBackRef.current) return;
-    
     setSelectedChat(conversation);
     fetchMessages(conversation);
     if (isMobileView) {
       setShowConversationList(false);
       setShowChat(true);
-      // Push a new state to handle back button
       window.history.pushState(null, '', window.location.pathname);
     }
   };
   
   const handleBackToList = () => {
-    // Prevent multiple back navigations
-    if (isNavigatingBackRef.current) return;
-    
-    isNavigatingBackRef.current = true;
-    
     setShowConversationList(true);
     setShowChat(false);
     setSelectedChat(null);
     setMessages([]);
     setReplyTo(null);
-    
-    // Reset navigation flag after animation
-    setTimeout(() => {
-      isNavigatingBackRef.current = false;
-    }, 500);
   };
   
   // Connection Status Indicator
   const ConnectionStatus = () => (
-    <div className={`connection-status ${isConnected ? 'connected' : 'disconnected'}`}>
+    <div className={`${styles.connectionStatus} ${isConnected ? styles.connected : styles.disconnected}`}>
       {isConnected ? (
         <>
-          <FaSignal className="status-icon" />
+          <FaSignal className={styles.statusIcon} />
           <span>Connected</span>
         </>
       ) : (
         <>
-          <FaExclamationTriangle className="status-icon" />
+          <FaExclamationTriangle className={styles.statusIcon} />
           <span>Reconnecting...</span>
         </>
       )}
@@ -651,11 +604,11 @@ const NewMessages = () => {
   
   // Conversation List Component
   const ConversationList = () => (
-    <div className={`conversation-list ${!showConversationList && isMobileView ? 'hidden' : ''}`}>
-      <div className="list-header">
+    <div className={`${styles.conversationList} ${!showConversationList && isMobileView ? styles.hidden : ''}`}>
+      <div className={styles.listHeader}>
         <h2>Messages</h2>
-        <div className="search-box">
-          <FaSearch className="search-icon" />
+        <div className={styles.searchBox}>
+          <FaSearch className={styles.searchIcon} />
           <input
             ref={searchInputRef}
             type="text"
@@ -664,29 +617,29 @@ const NewMessages = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
           {searchTerm && (
-            <button onClick={() => setSearchTerm("")} className="clear-btn">
+            <button onClick={() => setSearchTerm("")} className={styles.clearBtn}>
               <FaTimes />
             </button>
           )}
         </div>
       </div>
       
-      <div className="conversations-container">
+      <div className={styles.conversationsContainer}>
         {isLoading && isInitialLoad ? (
           [...Array(5)].map((_, i) => (
-            <div key={i} className="conversation-skeleton">
-              <div className="skeleton-avatar"></div>
-              <div className="skeleton-content">
-                <div className="skeleton-line"></div>
-                <div className="skeleton-line short"></div>
+            <div key={i} className={styles.conversationSkeleton}>
+              <div className={styles.skeletonAvatar}></div>
+              <div className={styles.skeletonContent}>
+                <div className={styles.skeletonLine}></div>
+                <div className={styles.skeletonLineShort}></div>
               </div>
             </div>
           ))
         ) : filteredConversations.length === 0 ? (
-          <div className="empty-state">
-            <FaComment className="empty-icon" />
+          <div className={styles.emptyState}>
+            <FaComment className={styles.emptyIcon} />
             <p>No messages yet</p>
-            <p className="subtext">Start a conversation with a seller</p>
+            <p className={styles.subtext}>Start a conversation with a seller</p>
           </div>
         ) : (
           filteredConversations.map(conv => {
@@ -696,30 +649,30 @@ const NewMessages = () => {
             return (
               <div
                 key={conv.id}
-                className={`conversation-item ${selectedChat?.id === conv.id ? 'active' : ''} ${conv.unread > 0 ? 'unread' : ''}`}
+                className={`${styles.conversationItem} ${selectedChat?.id === conv.id ? styles.active : ''} ${conv.unread > 0 ? styles.unread : ''}`}
                 onClick={() => handleSelectChat(conv)}
               >
-                <div className="avatar">
+                <div className={styles.avatar}>
                   {conv.is_buyer ? (
-                    <FaStore />
+                    <FaStore className={styles.storeIcon} />
                   ) : avatar ? (
-                    <img src={avatar} alt={name} className="avatar-img" />
+                    <img src={avatar} alt={name} className={styles.avatarImg} />
                   ) : (
-                    <div className="avatar-initial">{name[0]?.toUpperCase() || "U"}</div>
+                    <div className={styles.avatarInitial}>{name[0]?.toUpperCase() || "U"}</div>
                   )}
                 </div>
-                <div className="conversation-info">
-                  <div className="top-row">
-                    <span className="name">
+                <div className={styles.conversationInfo}>
+                  <div className={styles.topRow}>
+                    <span className={styles.name}>
                       {name}
-                      {conv.store_verified && <FaCheck className="verified-badge" />}
+                      {conv.store_verified && <FaCheckCircle className={styles.verifiedBadge} />}
                     </span>
-                    <span className="time">{formatTime(conv.last_time)}</span>
+                    <span className={styles.time}>{formatTime(conv.last_time)}</span>
                   </div>
-                  <div className="bottom-row">
-                    <p className="preview">{conv.last_message}</p>
+                  <div className={styles.bottomRow}>
+                    <p className={styles.preview}>{conv.last_message}</p>
                     {conv.unread > 0 && (
-                      <span className="unread-badge">{conv.unread}</span>
+                      <span className={styles.unreadBadge}>{conv.unread}</span>
                     )}
                   </div>
                 </div>
@@ -733,47 +686,47 @@ const NewMessages = () => {
   
   // Chat Area Component
   const ChatArea = () => (
-    <div className={`chat-area ${!showChat && isMobileView ? 'hidden' : ''}`}>
+    <div className={`${styles.chatArea} ${!showChat && isMobileView ? styles.hidden : ''}`}>
       {selectedChat ? (
         <>
-          <div className="chat-header">
+          <div className={styles.chatHeader}>
             <button 
-              className="mobile-back" 
+              className={styles.mobileBack} 
               onClick={handleBackToList}
-              style={{ display: isMobileView ? 'block' : 'none' }}
+              style={{ display: isMobileView ? 'flex' : 'none' }}
             >
               <FaArrowLeft />
             </button>
-            <div className="chat-info">
-              <div className="avatar small">
+            <div className={styles.chatInfo}>
+              <div className={styles.avatarSmall}>
                 {selectedChat.is_buyer ? (
-                  <FaStore />
+                  <FaStore className={styles.storeIconSmall} />
                 ) : getChatAvatar(selectedChat) ? (
-                  <img src={getChatAvatar(selectedChat)} alt={getChatName(selectedChat)} className="avatar-img" />
+                  <img src={getChatAvatar(selectedChat)} alt={getChatName(selectedChat)} className={styles.avatarImgSmall} />
                 ) : (
-                  <div className="avatar-initial">{getChatName(selectedChat)[0]?.toUpperCase() || "U"}</div>
+                  <div className={styles.avatarInitialSmall}>{getChatName(selectedChat)[0]?.toUpperCase() || "U"}</div>
                 )}
               </div>
               <div>
                 <h3>{getChatName(selectedChat)}</h3>
-                <p className="status">
+                <p className={styles.status}>
                   {selectedChat.seller_score > 0 && (
                     <>
-                      <FaStar className="star" /> {selectedChat.seller_score.toFixed(1)}
+                      <FaStar className={styles.star} /> {selectedChat.seller_score.toFixed(1)}
                     </>
                   )}
-                  {selectedChat.store_phone && <span className="phone-indicator">• 📞 Available</span>}
+                  {selectedChat.store_phone && <span className={styles.phoneIndicator}>• 📞 Available</span>}
                 </p>
               </div>
             </div>
-            <div className="chat-actions">
-              <button className="action-btn" title="Call" onClick={handleCall}>
+            <div className={styles.chatActions}>
+              <button className={styles.actionBtn} title="Call" onClick={handleCall}>
                 <FaPhone />
               </button>
-              <button className="action-btn" title="Video Call" onClick={() => toast.info("Video call coming soon")}>
+              <button className={styles.actionBtn} title="Video Call" onClick={() => toast.info("Video call coming soon")}>
                 <FaVideo />
               </button>
-              <button className="action-btn" title="Info" onClick={() => {
+              <button className={styles.actionBtn} title="Info" onClick={() => {
                 if (selectedChat.is_buyer) {
                   navigate(`/store/${selectedChat.store_id}`);
                 } else {
@@ -786,20 +739,20 @@ const NewMessages = () => {
             <ConnectionStatus />
           </div>
           
-          <div className="messages-container">
+          <div className={styles.messagesContainer}>
             {isLoadingMessages ? (
-              <div className="loading-messages">
-                <FaSpinner className="spinner" />
+              <div className={styles.loadingMessages}>
+                <FaSpinner className={styles.spinner} />
                 <p>Loading messages...</p>
               </div>
             ) : messages.length === 0 ? (
-              <div className="empty-messages">
-                <FaComment className="empty-icon" />
+              <div className={styles.emptyMessages}>
+                <FaComment className={styles.emptyIcon} />
                 <p>No messages yet</p>
-                <p className="subtext">Start the conversation!</p>
+                <p className={styles.subtext}>Start the conversation!</p>
               </div>
             ) : (
-              <div className="messages-list">
+              <div className={styles.messagesList}>
                 {messages.map((msg, idx) => {
                   const isCurrentUser = isMessageFromCurrentUser(msg);
                   const showDate = idx === 0 || 
@@ -811,7 +764,7 @@ const NewMessages = () => {
                   return (
                     <React.Fragment key={msg.id}>
                       {showDate && (
-                        <div className="date-divider">
+                        <div className={styles.dateDivider}>
                           <span>{new Date(msg.created_at).toLocaleDateString(undefined, { 
                             weekday: 'long', 
                             month: 'long', 
@@ -819,24 +772,24 @@ const NewMessages = () => {
                           })}</span>
                         </div>
                       )}
-                      <div className={`message-wrapper ${isCurrentUser ? 'sent' : 'received'}`}>
-                        <div className={`message-bubble ${isCurrentUser ? 'sent' : 'received'}`}>
+                      <div className={`${styles.messageWrapper} ${isCurrentUser ? styles.sent : styles.received}`}>
+                        <div className={`${styles.messageBubble} ${isCurrentUser ? styles.sent : styles.received}`}>
                           {isReply && (
-                            <div className="reply-preview">
-                              <FaReply className="reply-icon" />
-                              <span className="reply-text">{msg.content.split('\n')[0].replace('📎 Replying to: ', '')}</span>
+                            <div className={styles.replyPreview}>
+                              <FaReply className={styles.replyIcon} />
+                              <span className={styles.replyText}>{msg.content.split('\n')[0].replace('📎 Replying to: ', '')}</span>
                             </div>
                           )}
-                          <div className="message-content">
+                          <div className={styles.messageContent}>
                             <p>{isReply ? msg.content.split('\n\n').slice(1).join('\n\n') : msg.content}</p>
                           </div>
-                          <div className="message-footer">
-                            <span className="message-time">{formatMessageTime(msg.created_at)}</span>
+                          <div className={styles.messageFooter}>
+                            <span className={styles.messageTime}>{formatMessageTime(msg.created_at)}</span>
                             {getMessageStatusIcon(msg)}
                           </div>
                         </div>
                         {!isCurrentUser && (
-                          <button className="reply-button" onClick={() => handleReply(msg)} title="Reply">
+                          <button className={styles.replyButton} onClick={() => handleReply(msg)} title="Reply">
                             <FaReply />
                           </button>
                         )}
@@ -850,29 +803,29 @@ const NewMessages = () => {
           </div>
           
           {replyTo && (
-            <div className="reply-bar">
-              <div className="reply-content">
-                <FaReply className="reply-icon" />
-                <div className="reply-text-content">
-                  <span className="reply-label">Replying to</span>
-                  <p className="reply-message">{replyTo.content.substring(0, 60)}...</p>
+            <div className={styles.replyBar}>
+              <div className={styles.replyContent}>
+                <FaReply className={styles.replyIcon} />
+                <div className={styles.replyTextContent}>
+                  <span className={styles.replyLabel}>Replying to</span>
+                  <p className={styles.replyMessage}>{replyTo.content.substring(0, 60)}...</p>
                 </div>
-                <button className="cancel-reply" onClick={() => setReplyTo(null)}>
+                <button className={styles.cancelReply} onClick={() => setReplyTo(null)}>
                   <FaTimes />
                 </button>
               </div>
             </div>
           )}
           
-          <div className="message-input-area">
+          <div className={styles.messageInputArea}>
             <button 
-              className="attach-btn"
+              className={styles.attachBtn}
               onClick={() => setShowEmojiPicker(!showEmojiPicker)}
               title="Emoji"
             >
               <FaRegSmile />
             </button>
-            <div className="input-wrapper">
+            <div className={styles.inputWrapper}>
               <textarea
                 ref={textareaRef}
                 value={newMessage}
@@ -883,18 +836,18 @@ const NewMessages = () => {
               />
             </div>
             <button 
-              className="send-btn"
+              className={styles.sendBtn}
               onClick={sendMessage}
               disabled={!newMessage.trim() || isSending}
             >
-              {isSending ? <FaSpinner className="spinner" /> : <FaPaperPlane />}
+              {isSending ? <FaSpinner className={styles.spinner} /> : <FaPaperPlane />}
             </button>
           </div>
           
           <AnimatePresence>
             {showEmojiPicker && (
               <motion.div
-                className="emoji-picker-container"
+                className={styles.emojiPickerContainer}
                 initial={{ opacity: 0, y: 20, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 20, scale: 0.95 }}
@@ -911,8 +864,8 @@ const NewMessages = () => {
           </AnimatePresence>
         </>
       ) : (
-        <div className="no-chat-selected">
-          <FaComment className="empty-icon" />
+        <div className={styles.noChatSelected}>
+          <FaComment className={styles.emptyIcon} />
           <h3>Select a conversation</h3>
           <p>Choose a chat to start messaging</p>
         </div>
@@ -921,11 +874,12 @@ const NewMessages = () => {
   );
   
   return (
-    <div className={`new-messages-app ${isDarkMode ? 'dark' : 'light'}`}>
-      <div className="messages-layout">
+    <div className={`${styles.container} ${darkMode ? styles.darkMode : styles.lightMode}`}>
+      <div className={styles.messagesLayout}>
         <ConversationList />
         <ChatArea />
       </div>
+      <div className={styles.bottomSpacing} />
     </div>
   );
 };
