@@ -1,6 +1,7 @@
 // App.jsx - UPDATED: Clean White/Dark Mode Compatible Layout with Toast Fixes
 import React from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { DarkModeProvider } from "./context/DarkModeContext";
 import { PayPalScriptProvider } from "@paypal/react-paypal-js";
@@ -45,7 +46,7 @@ import AboutUs from '@/pages/AboutUs';
 import TradeStore from "./pages/TradeStore";
 import CreateStore from "./pages/CreateStore";
 import StoreDashboard from "./pages/StoreDashboard";
-import MyInstallments from "./pages/MyInstallments"; // ✅ make sure the path matches
+import MyInstallments from "./pages/MyInstallments";
 import Checkout from "@/pages/Checkout";
 import Premium from './pages/Premium';
 import SearchPage from "./pages/SearchPage"; 
@@ -64,7 +65,6 @@ import CampusPopularServices from "./pages/CampusPopularServices";
 import OfferServicePage from "./pages/OfferServicePage";
 import StudentProfilePage from "./pages/StudentProfilePage";
 import StudentNotificationsPage from "./pages/StudentNotificationsPage";
-
 
 // Admin
 import AdminWallet from "./pages/AdminWallet";
@@ -85,6 +85,18 @@ import DatabaseManagement from '@/pages/admin/DatabaseManagement';
 import DashboardOverview from '@/pages/admin/DashboardOverview';
 import AdminAuth from "@/pages/admin/AdminAuth";
 import ProtectedAdminRoute from "@/pages/admin/ProtectedAdminRoute";
+
+// Create a client for React Query
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      gcTime: 10 * 60 * 1000, // 10 minutes
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -120,8 +132,6 @@ function AppRoutes() {
         
         <Route path="/auth" element={<Auth />} />
         
-        {/* REMOVED: Discover and Create routes */}
-        
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
@@ -129,7 +139,6 @@ function AppRoutes() {
         <Route path="/wallet" element={<ProtectedRoute><OmniPayWallet /></ProtectedRoute>} />
         <Route path="/convert-currency" element={<ProtectedRoute><CurrencyConverter /></ProtectedRoute>} />
         <Route path="/messages" element={<NewMessages />} />
-        {/* REMOVED: ProtectedRoute from /trade since it's now the root */}
         <Route path="/trade" element={<TradeStore />} />
         <Route path="/seller/dashboard" element={<StoreDashboardV2 />} />
         <Route path="/flash-sales" element={<FlashSalesPage />} />
@@ -165,7 +174,6 @@ function AppRoutes() {
         <Route path="/student/profile" element={<StudentProfilePage />} />
         <Route path="/student/notifications" element={<StudentNotificationsPage />} />
         <Route path="/student/report-product/:id" element={<ReportProductPage />} />
-
 
         {/* ===================== ADMIN ROUTES ===================== */}
         <Route path="/admin" element={<AdminAuth />} />
@@ -333,53 +341,55 @@ export default function App() {
   Modal.setAppElement("#root");
 
   return (
-    <AuthProvider>
-      <DarkModeProvider>
-        <PayPalScriptProvider
-          options={{
-            "client-id": PAYPAL_CLIENT_ID,
-            currency: "USD",
-            intent: "capture",
-            vault: false,
-            debug: false,
-          }}
-        >
-          <div className="bg-white dark:bg-gray-900 min-h-screen flex flex-col text-black dark:text-white transition-colors">
-            <Toaster
-              position="top-right"
-              reverseOrder={false}
-              toastOptions={{
-                style: {
-                  background: "#ffffff",
-                  color: "#000000",
-                  border: "1px solid #ddd",
-                  boxShadow: "0 2px 10px rgba(0, 0, 0, 0.08)",
-                  fontWeight: "normal",
-                },
-                success: {
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <DarkModeProvider>
+          <PayPalScriptProvider
+            options={{
+              "client-id": PAYPAL_CLIENT_ID,
+              currency: "USD",
+              intent: "capture",
+              vault: false,
+              debug: false,
+            }}
+          >
+            <div className="bg-white dark:bg-gray-900 min-h-screen flex flex-col text-black dark:text-white transition-colors">
+              <Toaster
+                position="top-right"
+                reverseOrder={false}
+                toastOptions={{
                   style: {
-                    background: "#e6ffed",
-                    borderColor: "#a2f5bf",
-                    color: "#065f46",
+                    background: "#ffffff",
+                    color: "#000000",
+                    border: "1px solid #ddd",
+                    boxShadow: "0 2px 10px rgba(0, 0, 0, 0.08)",
+                    fontWeight: "normal",
                   },
-                },
-                error: {
-                  style: {
-                    background: "#ffe6e6",
-                    borderColor: "#ff9999",
-                    color: "#991b1b",
+                  success: {
+                    style: {
+                      background: "#e6ffed",
+                      borderColor: "#a2f5bf",
+                      color: "#065f46",
+                    },
                   },
-                },
-                progressStyle: {
-                  background: "#4ade80",
-                },
-              }}
-            />
-            <AppRoutes />
-            <BottomNav />
-          </div>
-        </PayPalScriptProvider>
-      </DarkModeProvider>
-    </AuthProvider>
+                  error: {
+                    style: {
+                      background: "#ffe6e6",
+                      borderColor: "#ff9999",
+                      color: "#991b1b",
+                    },
+                  },
+                  progressStyle: {
+                    background: "#4ade80",
+                  },
+                }}
+              />
+              <AppRoutes />
+              <BottomNav />
+            </div>
+          </PayPalScriptProvider>
+        </DarkModeProvider>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }

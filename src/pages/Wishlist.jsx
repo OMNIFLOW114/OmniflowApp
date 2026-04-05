@@ -1,40 +1,44 @@
+// src/pages/Wishlist.jsx - PREMIUM UPDATED VERSION
 import React, { useEffect, useState, useCallback, useRef, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/supabase";
 import { useAuth } from "@/context/AuthContext";
+import { useDarkMode } from "@/context/DarkModeContext";
 import { 
   FaHeart, FaTrash, FaShoppingCart, FaTag, 
-  FaStar, FaStarHalfAlt, FaRegStar, FaStore
+  FaStar, FaStarHalfAlt, FaRegStar, FaStore,
+  FaArrowLeft, FaSpinner, FaEye, FaClock,
+  FaTruck, FaShieldAlt
 } from "react-icons/fa";
 import { toast } from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
-import "./Wishlist.css";
+import styles from "./Wishlist.module.css";
 
 // Kenyan Money Formatter
 const formatKenyanMoney = (amount) => {
-  if (amount === undefined || amount === null) return "0";
+  if (amount === undefined || amount === null) return "KSh 0";
   const num = Number(amount);
-  if (isNaN(num)) return "0";
-  return num.toLocaleString('en-KE', {
+  if (isNaN(num)) return "KSh 0";
+  return `KSh ${num.toLocaleString('en-KE', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0
-  });
+  })}`;
 };
 
-// Gold Rating Stars
+// Gold Rating Stars Component
 const RatingStars = ({ rating }) => {
   const fullStars = Math.floor(rating);
   const hasHalfStar = rating % 1 >= 0.5;
   const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
 
   return (
-    <div className="rating-stars">
+    <div className={styles.ratingStars}>
       {[...Array(fullStars)].map((_, i) => (
-        <FaStar key={`full-${i}`} className="star gold-filled" />
+        <FaStar key={`full-${i}`} className={styles.starFilled} />
       ))}
-      {hasHalfStar && <FaStarHalfAlt className="star gold-half" />}
+      {hasHalfStar && <FaStarHalfAlt className={styles.starHalf} />}
       {[...Array(emptyStars)].map((_, i) => (
-        <FaRegStar key={`empty-${i}`} className="star gold-empty" />
+        <FaRegStar key={`empty-${i}`} className={styles.starEmpty} />
       ))}
     </div>
   );
@@ -42,8 +46,8 @@ const RatingStars = ({ rating }) => {
 
 // Cache keys
 const WISHLIST_CACHE_KEYS = {
-  ITEMS: 'wishlist_items_final_v3',
-  CACHE_TIMESTAMP: 'wishlist_cache_timestamp_final_v3'
+  ITEMS: 'wishlist_items_v4',
+  CACHE_TIMESTAMP: 'wishlist_cache_timestamp_v4'
 };
 
 const WISHLIST_CACHE_EXPIRY = 15 * 60 * 1000;
@@ -72,44 +76,163 @@ const saveWishlistToCache = (key, data) => {
   }
 };
 
-// Clear wishlist cache completely
-const clearWishlistCache = () => {
-  localStorage.removeItem(WISHLIST_CACHE_KEYS.ITEMS);
-  localStorage.removeItem(WISHLIST_CACHE_KEYS.CACHE_TIMESTAMP);
-};
-
-// Skeleton Loading - Matches Exact Card Layout
-const WishlistSkeleton = () => (
-  <div className="wishlist-page">
-    <div className="wishlist-container">
-      <div className="wishlist-header-skeleton">
-        <div className="skeleton-title"></div>
-        <div className="skeleton-stats">
-          <div className="skeleton-stat"></div>
-          <div className="skeleton-stat"></div>
-        </div>
+// Skeleton Loading Component
+const WishlistSkeleton = () => {
+  const { darkMode } = useDarkMode();
+  
+  return (
+    <div className={`${styles.container} ${darkMode ? styles.darkMode : styles.lightMode}`}>
+      <div className={styles.skeletonHeader}>
+        <div className={styles.skeletonBackBtn}></div>
+        <div className={styles.skeletonTitle}></div>
+        <div className={styles.skeletonStats}></div>
       </div>
-      <div className="wishlist-grid-skeleton">
+      <div className={styles.skeletonGrid}>
         {[...Array(4)].map((_, i) => (
-          <div key={i} className="skeleton-card">
-            <div className="skeleton-image"></div>
-            <div className="skeleton-info">
-              <div className="skeleton-store"></div>
-              <div className="skeleton-title-line"></div>
-              <div className="skeleton-rating"></div>
-              <div className="skeleton-price"></div>
-              <div className="skeleton-actions"></div>
+          <div key={i} className={styles.skeletonCard}>
+            <div className={styles.skeletonImage}></div>
+            <div className={styles.skeletonInfo}>
+              <div className={styles.skeletonLine}></div>
+              <div className={styles.skeletonLineShort}></div>
+              <div className={styles.skeletonPrice}></div>
+              <div className={styles.skeletonButtons}></div>
             </div>
           </div>
         ))}
       </div>
     </div>
-  </div>
-);
+  );
+};
 
+// Empty Wishlist Component
+const EmptyWishlist = () => {
+  const navigate = useNavigate();
+  const { darkMode } = useDarkMode();
+  
+  return (
+    <div className={`${styles.emptyState} ${darkMode ? styles.darkMode : styles.lightMode}`}>
+      <div className={styles.emptyIcon}>
+        <FaHeart />
+      </div>
+      <h2>Your wishlist is empty</h2>
+      <p>Add items you love to see them here</p>
+      <button className={styles.shopBtn} onClick={() => navigate("/student/marketplace")}>
+        Start Shopping
+      </button>
+    </div>
+  );
+};
+
+// Wishlist Item Component
+const WishlistItem = memo(({ item, index, onRemove, onMoveToCart, isRemoving }) => {
+  const navigate = useNavigate();
+  const { darkMode } = useDarkMode();
+  const product = item.products;
+  
+  if (!product) return null;
+
+  const price = Number(product.price) || 0;
+  const discount = Number(product.discount) || 0;
+  const finalPrice = price * (1 - discount / 100);
+  const imageUrl = product.image_gallery?.[0] || product.image_url || "/placeholder.jpg";
+  const rating = product.avg_rating || 0;
+  const reviewCount = product.review_count || 0;
+  const store = product.stores;
+
+  return (
+    <motion.div
+      className={styles.wishlistItem}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ duration: 0.25, delay: index * 0.05 }}
+      layout
+    >
+      {/* Discount Badge */}
+      {discount > 0 && (
+        <div className={styles.discountBadge}>
+          <FaTag />
+          <span>{discount}% OFF</span>
+        </div>
+      )}
+
+      {/* Product Image */}
+      <div className={styles.itemImage} onClick={() => navigate(`/student/product/${product.id}`)}>
+        <img src={imageUrl} alt={product.name} loading="lazy" />
+      </div>
+
+      {/* Product Info */}
+      <div className={styles.itemInfo}>
+        {/* Store Name */}
+        <div className={styles.storeRow}>
+          <FaStore className={styles.storeIcon} />
+          <span className={styles.storeName}>{store?.name || "Store"}</span>
+          <span className={styles.verifiedBadge}>✓ Verified</span>
+        </div>
+
+        {/* Product Name */}
+        <h3 className={styles.productName} onClick={() => navigate(`/student/product/${product.id}`)}>
+          {product.name}
+        </h3>
+
+        {/* Rating */}
+        <div className={styles.ratingRow}>
+          <RatingStars rating={rating} />
+          <span className={styles.ratingValue}>{rating.toFixed(1)}</span>
+          <span className={styles.reviewCount}>({reviewCount} reviews)</span>
+        </div>
+
+        {/* Price Section */}
+        <div className={styles.priceRow}>
+          <span className={styles.currentPrice}>{formatKenyanMoney(finalPrice)}</span>
+          {discount > 0 && (
+            <span className={styles.originalPrice}>{formatKenyanMoney(price)}</span>
+          )}
+        </div>
+
+        {/* Stock Status */}
+        <div className={styles.stockStatus}>
+          {product.stock_quantity > 10 ? (
+            <span className={styles.inStock}>✓ In Stock</span>
+          ) : product.stock_quantity > 0 ? (
+            <span className={styles.lowStock}>⚠️ Only {product.stock_quantity} left</span>
+          ) : (
+            <span className={styles.outOfStock}>✗ Out of Stock</span>
+          )}
+        </div>
+
+        {/* Action Buttons */}
+        <div className={styles.actionRow}>
+          <button
+            className={styles.addCartBtn}
+            onClick={() => onMoveToCart(item)}
+            disabled={isRemoving || product.stock_quantity <= 0}
+          >
+            <FaShoppingCart />
+            <span>Add to Cart</span>
+          </button>
+          
+          <button
+            className={styles.removeBtn}
+            onClick={() => onRemove(item.id, product.name)}
+            disabled={isRemoving}
+          >
+            <FaTrash />
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  );
+});
+
+WishlistItem.displayName = 'WishlistItem';
+
+// Main Wishlist Component
 const Wishlist = memo(() => {
   const { user } = useAuth();
+  const { darkMode } = useDarkMode();
   const navigate = useNavigate();
+  
   const [wishlistItems, setWishlistItems] = useState(() => 
     loadWishlistFromCache(WISHLIST_CACHE_KEYS.ITEMS, [])
   );
@@ -127,24 +250,13 @@ const Wishlist = memo(() => {
       return;
     }
     
-    if (!forceRefresh && cacheDataRef.current.lastFetchTime > 0 && 
-        Date.now() - cacheDataRef.current.lastFetchTime < 30000) {
-      setLoading(false);
-      return;
-    }
-    
     cacheDataRef.current.isFetching = true;
     setLoading(true);
     
     try {
-      // Fetch wishlist items directly from database (source of truth)
       const { data: wishlistData, error: wishlistError } = await supabase
         .from("wishlist_items")
-        .select(`
-          id, 
-          product_id, 
-          created_at
-        `)
+        .select(`id, product_id, created_at`)
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
@@ -152,8 +264,6 @@ const Wishlist = memo(() => {
 
       if (!wishlistData || wishlistData.length === 0) {
         setWishlistItems([]);
-        // Clear cache when wishlist is empty
-        clearWishlistCache();
         setLoading(false);
         cacheDataRef.current.isFetching = false;
         return;
@@ -161,36 +271,26 @@ const Wishlist = memo(() => {
 
       const productIds = wishlistData.map(item => item.product_id).filter(Boolean);
       
-      // Fetch products with their stores
       const { data: productsData, error: productsError } = await supabase
         .from("products")
         .select(`
-          id,
-          name,
-          price,
-          discount,
-          stock_quantity,
-          image_gallery,
-          image_url,
-          store_id,
-          stores (
-            id,
-            name
-          )
+          id, name, price, discount, stock_quantity,
+          image_gallery, image_url, store_id,
+          stores (id, name)
         `)
         .in("id", productIds);
 
       if (productsError) throw productsError;
 
-      // Fetch ratings from ratings table
+      // Fetch ratings
       let ratingsMap = new Map();
       if (productIds.length > 0) {
-        const { data: ratingsData, error: ratingsError } = await supabase
+        const { data: ratingsData } = await supabase
           .from("ratings")
           .select("product_id, rating")
           .in("product_id", productIds);
         
-        if (!ratingsError && ratingsData) {
+        if (ratingsData) {
           const ratingAggregate = new Map();
           ratingsData.forEach(r => {
             if (!ratingAggregate.has(r.product_id)) {
@@ -199,7 +299,6 @@ const Wishlist = memo(() => {
             const current = ratingAggregate.get(r.product_id);
             current.total += r.rating;
             current.count += 1;
-            ratingAggregate.set(r.product_id, current);
           });
           
           ratingAggregate.forEach((value, productId) => {
@@ -211,12 +310,12 @@ const Wishlist = memo(() => {
       // Fetch review counts
       let reviewCountMap = new Map();
       if (productIds.length > 0) {
-        const { data: reviewCounts, error: reviewError } = await supabase
+        const { data: reviewCounts } = await supabase
           .from("ratings")
           .select("product_id")
           .in("product_id", productIds);
         
-        if (!reviewError && reviewCounts) {
+        if (reviewCounts) {
           const countMap = new Map();
           reviewCounts.forEach(r => {
             countMap.set(r.product_id, (countMap.get(r.product_id) || 0) + 1);
@@ -225,13 +324,11 @@ const Wishlist = memo(() => {
         }
       }
       
-      // Combine data
       const combinedItems = wishlistData.map(wishlistItem => {
         const product = productsData?.find(p => p.id === wishlistItem.product_id);
         return {
           id: wishlistItem.id,
           product_id: wishlistItem.product_id,
-          created_at: wishlistItem.created_at,
           products: product ? {
             ...product,
             avg_rating: ratingsMap.get(wishlistItem.product_id) || 0,
@@ -268,12 +365,10 @@ const Wishlist = memo(() => {
     }
   }, [wishlistItems]);
 
-  // Handle permanent deletion from database and cache
   const handleRemoveFromWishlist = useCallback(async (wishlistId, productName) => {
     setRemovingItems(prev => new Set(prev).add(wishlistId));
     
     try {
-      // Delete from database - PERMANENT DELETION
       const { error } = await supabase
         .from("wishlist_items")
         .delete()
@@ -281,15 +376,13 @@ const Wishlist = memo(() => {
       
       if (error) throw error;
 
-      // Update state immediately
       setWishlistItems(prev => {
         const newItems = prev.filter(item => item.id !== wishlistId);
-        // Update cache with new items
         saveWishlistToCache(WISHLIST_CACHE_KEYS.ITEMS, newItems);
         return newItems;
       });
       
-      toast.success(`${productName || 'Item'} permanently removed from wishlist`);
+      toast.success(`${productName || 'Item'} removed from wishlist`);
       
     } catch (error) {
       console.error("Remove error:", error);
@@ -310,7 +403,6 @@ const Wishlist = memo(() => {
     }
 
     try {
-      // Check if already in cart
       const { data: existingCart } = await supabase
         .from("cart_items")
         .select("id")
@@ -323,7 +415,6 @@ const Wishlist = memo(() => {
         return;
       }
 
-      // Add to cart
       const { error: insertError } = await supabase
         .from("cart_items")
         .insert({
@@ -334,7 +425,6 @@ const Wishlist = memo(() => {
 
       if (insertError) throw insertError;
 
-      // Remove from wishlist (permanent)
       const { error: deleteError } = await supabase
         .from("wishlist_items")
         .delete()
@@ -342,7 +432,6 @@ const Wishlist = memo(() => {
 
       if (deleteError) throw deleteError;
 
-      // Update state and cache
       setWishlistItems(prev => {
         const newItems = prev.filter(i => i.id !== item.id);
         saveWishlistToCache(WISHLIST_CACHE_KEYS.ITEMS, newItems);
@@ -357,30 +446,21 @@ const Wishlist = memo(() => {
     }
   }, [user]);
 
-  // Real-time subscription for wishlist changes
+  // Real-time subscription
   useEffect(() => {
     if (!user?.id) return;
 
     const subscription = supabase
       .channel('wishlist-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'wishlist_items',
-          filter: `user_id=eq.${user.id}`
-        },
-        () => {
-          // Refetch to ensure data is in sync
-          fetchWishlistItems(true);
-        }
-      )
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'wishlist_items',
+        filter: `user_id=eq.${user.id}`
+      }, () => fetchWishlistItems(true))
       .subscribe();
 
-    return () => {
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, [user, fetchWishlistItems]);
 
   const totalItems = wishlistItems.length;
@@ -397,130 +477,63 @@ const Wishlist = memo(() => {
   }
 
   return (
-    <div className="wishlist-page">
-      <div className="wishlist-container">
-        {/* Header */}
-        <div className="wishlist-header">
-          <div className="header-left">
-            <FaHeart className="header-icon" />
-            <h1>Wishlist</h1>
-            <span className="count-badge">{totalItems} items</span>
-          </div>
-          <div className="header-right">
-            <div className="value-card">
-              <span className="value-label">Total Value</span>
-              <span className="value-amount">KES {formatKenyanMoney(totalValue)}</span>
-            </div>
-          </div>
+    <div className={`${styles.container} ${darkMode ? styles.darkMode : styles.lightMode}`}>
+      {/* Header */}
+      <header className={styles.header}>
+        <button className={styles.backBtn} onClick={() => navigate(-1)}>
+          <FaArrowLeft />
+        </button>
+        <h1>My Wishlist</h1>
+        <div className={styles.headerStats}>
+          <span className={styles.itemCount}>{totalItems} {totalItems === 1 ? 'item' : 'items'}</span>
         </div>
+      </header>
 
+      {/* Main Content */}
+      <div className={styles.content}>
         {wishlistItems.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-icon">
-              <FaHeart />
-            </div>
-            <h2>Your wishlist is empty</h2>
-            <p>Add items you love to see them here</p>
-            <button className="shop-now" onClick={() => navigate("/")}>
-              Start Shopping
-            </button>
-          </div>
+          <EmptyWishlist />
         ) : (
-          <div className="wishlist-grid">
-            <AnimatePresence>
-              {wishlistItems.map((item, index) => {
-                const product = item.products;
-                const isRemoving = removingItems.has(item.id);
-                if (!product) return null;
+          <>
+            {/* Stats Bar */}
+            <div className={styles.statsBar}>
+              <div className={styles.statCard}>
+                <FaHeart className={styles.statIcon} />
+                <div className={styles.statInfo}>
+                  <span className={styles.statValue}>{totalItems}</span>
+                  <span className={styles.statLabel}>Items</span>
+                </div>
+              </div>
+              <div className={styles.statCard}>
+                <FaShoppingCart className={styles.statIcon} />
+                <div className={styles.statInfo}>
+                  <span className={styles.statValue}>{formatKenyanMoney(totalValue)}</span>
+                  <span className={styles.statLabel}>Total Value</span>
+                </div>
+              </div>
+            </div>
 
-                const price = Number(product.price) || 0;
-                const discount = Number(product.discount) || 0;
-                const finalPrice = price * (1 - discount / 100);
-                const imageUrl = product.image_gallery?.[0] || product.image_url || "/placeholder.jpg";
-                const rating = product.avg_rating || 0;
-                const reviewCount = product.review_count || 0;
-                const store = product.stores;
-
-                return (
-                  <motion.div
+            {/* Wishlist Grid */}
+            <div className={styles.wishlistGrid}>
+              <AnimatePresence>
+                {wishlistItems.map((item, index) => (
+                  <WishlistItem
                     key={item.id}
-                    className="wishlist-item"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ duration: 0.25, delay: index * 0.05 }}
-                    layout
-                  >
-                    {/* Discount Badge */}
-                    {discount > 0 && (
-                      <div className="discount-circle">
-                        <FaTag />
-                        <span>{discount}%</span>
-                      </div>
-                    )}
-
-                    {/* Product Image - Bigger and Full */}
-                    <div className="item-image" onClick={() => navigate(`/product/${product.id}`)}>
-                      <img src={imageUrl} alt={product.name} />
-                    </div>
-
-                    {/* Product Info */}
-                    <div className="item-info">
-                      {/* Store Name */}
-                      <div className="store-row">
-                        <FaStore className="store-icon" />
-                        <span className="store-name">{store?.name || "Store"}</span>
-                      </div>
-
-                      {/* Product Name */}
-                      <h3 onClick={() => navigate(`/product/${product.id}`)}>
-                        {product.name}
-                      </h3>
-
-                      {/* Rating with Gold Stars */}
-                      <div className="rating-row">
-                        <RatingStars rating={rating} />
-                        <span className="rating-value">{rating.toFixed(1)}</span>
-                        <span className="review-count">({reviewCount})</span>
-                      </div>
-
-                      {/* Price Section */}
-                      <div className="price-row">
-                        <span className="current-price">KES {formatKenyanMoney(finalPrice)}</span>
-                        {discount > 0 && (
-                          <span className="original-price">KES {formatKenyanMoney(price)}</span>
-                        )}
-                      </div>
-
-                      {/* Action Buttons */}
-                      <div className="action-row">
-                        <button
-                          className="add-cart-btn"
-                          onClick={() => handleMoveToCart(item)}
-                          disabled={isRemoving}
-                        >
-                          <FaShoppingCart />
-                          <span>Add to Cart</span>
-                        </button>
-                        
-                        <button
-                          className="remove-btn"
-                          onClick={() => handleRemoveFromWishlist(item.id, product.name)}
-                          disabled={isRemoving}
-                        >
-                          <FaTrash />
-                        </button>
-                      </div>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
-          </div>
+                    item={item}
+                    index={index}
+                    isRemoving={removingItems.has(item.id)}
+                    onRemove={handleRemoveFromWishlist}
+                    onMoveToCart={handleMoveToCart}
+                  />
+                ))}
+              </AnimatePresence>
+            </div>
+          </>
         )}
-        
-        <div className="bottom-space"></div>
       </div>
+      
+      {/* Bottom Spacing for Navigation */}
+      <div className={styles.bottomSpacing} />
     </div>
   );
 });

@@ -10,7 +10,9 @@ import {
   FaInfoCircle, FaCamera, FaImage, FaTrash, FaPlus, FaSave, FaUndo,
   FaSun, FaMoon, FaSearch, FaCog, FaSignOutAlt, FaCopy, FaShare,
   FaEye, FaEyeSlash, FaArrowUp, FaArrowDown, FaHistory, FaMoneyBillWaveAlt,
-  FaPercentage, FaTable, FaChartPie, FaPlusCircle
+  FaPercentage, FaTable, FaChartPie, FaPlusCircle, FaClock, FaChartBar,
+  FaTicketAlt, FaGift, FaUsers as FaCustomers, FaFileInvoice, FaCalendarAlt,
+  FaExchangeAlt, FaShippingFast as FaDelivery, FaTachometerAlt
 } from 'react-icons/fa';
 import { useDropzone } from 'react-dropzone';
 import { supabase } from '../lib/supabaseClient';
@@ -19,6 +21,8 @@ import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import InstallmentOrdersTab from '../components/InstallmentOrdersTab';
 import InstallmentSetupModal from '../components/InstallmentSetupModal';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import jsPDF from 'jspdf';
 import './StoreDashboardV2.css';
 
 // App categories
@@ -62,6 +66,8 @@ const STATUS_FLOW = [
   { value: 'delivered', label: 'Delivered', icon: <FaCheckCircle />, color: '#10B981', step: 5, nextStatus: null, prevStatus: 'out for delivery' }
 ];
 
+const CHART_COLORS = ['#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
+
 const StoreDashboardV2 = () => {
   const { user } = useContext(AuthContext);
   const [section, setSection] = useState('overview');
@@ -99,6 +105,26 @@ const StoreDashboardV2 = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showOrderDetails, setShowOrderDetails] = useState(false);
+  
+  // NEW STATE VARIABLES FOR ADDED FEATURES
+  const [coupons, setCoupons] = useState([]);
+  const [couponModalOpen, setCouponModalOpen] = useState(false);
+  const [editingCoupon, setEditingCoupon] = useState(null);
+  const [customers, setCustomers] = useState([]);
+  const [returns, setReturns] = useState([]);
+  const [returnModalOpen, setReturnModalOpen] = useState(false);
+  const [selectedReturn, setSelectedReturn] = useState(null);
+  const [storeSettings, setStoreSettings] = useState(null);
+  const [selfDeliveryModalOpen, setSelfDeliveryModalOpen] = useState(false);
+  const [selfDeliveryData, setSelfDeliveryData] = useState({
+    fleet_size: 1,
+    coverage_radius: 50,
+    base_fee: 100,
+    rate_per_km: 15
+  });
+  const [lowStockAlerts, setLowStockAlerts] = useState([]);
+  const [analyticsData, setAnalyticsData] = useState({ dailySales: [], totalOrders: 0, totalRevenue: 0, avgOrderValue: 0, weeklyGrowth: 0, monthlyGrowth: 0 });
+  const [loadingAnalytics, setLoadingAnalytics] = useState(false);
   
   // Payout states
   const [sellerPayouts, setSellerPayouts] = useState([]);
@@ -192,6 +218,439 @@ const StoreDashboardV2 = () => {
   const handleMarkForInstallment = (product) => { setInstallmentModalProduct(product); };
   const handleFlashSaleRequest = (product) => { setFlashSaleModalProduct(product); };
 
+  // ========== NEW FEATURE FUNCTIONS ==========
+
+  // Fetch analytics data with growth calculations
+  const fetchAnalytics = async () => {
+    if (!store) return;
+    setLoadingAnalytics(true);
+    try {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const { data: allOrders } = await supabase
+        .from('orders')
+        .select('created_at, total_price, status')
+        .eq('store_id', store.id)
+        .gte('created_at', thirtyDaysAgo.toISOString())
+        .order('created_at', { ascending: true });
+      
+      // Calculate daily sales for last 7 days
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      
+      const dailySalesMap = {};
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        dailySalesMap[dateStr] = { date: dateStr, sales: 0, orders: 0 };
+      }
+      
+      let totalRevenue = 0;
+      let totalDeliveredOrders = 0;
+      let lastWeekRevenue = 0;
+      let thisWeekRevenue = 0;
+      const now = new Date();
+      
+      (allOrders || []).forEach(order => {
+        totalRevenue += order.total_price || 0;
+        if (order.status === 'delivered') totalDeliveredOrders++;
+        
+        const orderDate = new Date(order.created_at);
+        const dateStr = orderDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        if (dailySalesMap[dateStr]) {
+          dailySalesMap[dateStr].sales += order.total_price || 0;
+          dailySalesMap[dateStr].orders++;
+        }
+        
+        // Calculate weekly growth
+        const daysAgo = Math.floor((now - orderDate) / (1000 * 60 * 60 * 24));
+        if (daysAgo >= 7 && daysAgo < 14) {
+          lastWeekRevenue += order.total_price || 0;
+        } else if (daysAgo < 7) {
+          thisWeekRevenue += order.total_price || 0;
+        }
+      });
+      
+      const weeklyGrowth = lastWeekRevenue > 0 ? ((thisWeekRevenue - lastWeekRevenue) / lastWeekRevenue) * 100 : 0;
+      
+      // Calculate monthly growth
+      const lastMonthStart = new Date();
+      lastMonthStart.setMonth(lastMonthStart.getMonth() - 1);
+      lastMonthStart.setDate(1);
+      const thisMonthStart = new Date();
+      thisMonthStart.setDate(1);
+      
+      let lastMonthRevenue = 0;
+      let thisMonthRevenue = 0;
+      (allOrders || []).forEach(order => {
+        const orderDate = new Date(order.created_at);
+        if (orderDate >= lastMonthStart && orderDate < thisMonthStart) {
+          lastMonthRevenue += order.total_price || 0;
+        } else if (orderDate >= thisMonthStart) {
+          thisMonthRevenue += order.total_price || 0;
+        }
+      });
+      
+      const monthlyGrowth = lastMonthRevenue > 0 ? ((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100 : 0;
+      
+      setAnalyticsData({
+        dailySales: Object.values(dailySalesMap),
+        totalOrders: allOrders?.length || 0,
+        totalRevenue,
+        avgOrderValue: totalDeliveredOrders > 0 ? totalRevenue / totalDeliveredOrders : 0,
+        weeklyGrowth,
+        monthlyGrowth
+      });
+    } catch (error) {
+      console.error('Error fetching analytics:', error);
+    } finally {
+      setLoadingAnalytics(false);
+    }
+  };
+
+  // Fetch coupons
+  const fetchCoupons = async () => {
+    if (!store) return;
+    try {
+      const { data, error } = await supabase
+        .from('coupons')
+        .select('*')
+        .eq('store_id', store.id)
+        .order('created_at', { ascending: false });
+      if (error && error.code !== 'PGRST116') throw error;
+      setCoupons(data || []);
+    } catch (error) {
+      console.error('Error fetching coupons:', error);
+    }
+  };
+
+  // Create coupon
+  const createCoupon = async (couponData) => {
+    try {
+      const { error } = await supabase.from('coupons').insert([{
+        ...couponData,
+        store_id: store.id,
+        used_count: 0,
+        created_at: new Date().toISOString()
+      }]);
+      if (error) throw error;
+      toast.success('Coupon created successfully!');
+      fetchCoupons();
+      setCouponModalOpen(false);
+    } catch (error) {
+      console.error('Error creating coupon:', error);
+      toast.error('Failed to create coupon');
+    }
+  };
+
+  // Update coupon
+  const updateCoupon = async (id, couponData) => {
+    try {
+      const { error } = await supabase
+        .from('coupons')
+        .update(couponData)
+        .eq('id', id);
+      if (error) throw error;
+      toast.success('Coupon updated successfully!');
+      fetchCoupons();
+      setCouponModalOpen(false);
+      setEditingCoupon(null);
+    } catch (error) {
+      console.error('Error updating coupon:', error);
+      toast.error('Failed to update coupon');
+    }
+  };
+
+  // Delete coupon
+  const deleteCoupon = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this coupon?')) return;
+    try {
+      const { error } = await supabase.from('coupons').delete().eq('id', id);
+      if (error) throw error;
+      toast.success('Coupon deleted');
+      fetchCoupons();
+    } catch (error) {
+      console.error('Error deleting coupon:', error);
+      toast.error('Failed to delete coupon');
+    }
+  };
+
+  // Fetch customers
+  const fetchCustomers = async () => {
+    if (!store) return;
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('buyer_id, buyer:buyer_id(name, email, phone), total_price, created_at, status')
+        .eq('store_id', store.id)
+        .eq('status', 'delivered');
+      
+      if (error && error.code !== 'PGRST116') throw error;
+      
+      const customerMap = new Map();
+      (data || []).forEach(order => {
+        if (order.buyer_id && order.buyer) {
+          if (!customerMap.has(order.buyer_id)) {
+            customerMap.set(order.buyer_id, {
+              id: order.buyer_id,
+              name: order.buyer.name || 'Anonymous',
+              email: order.buyer.email,
+              phone: order.buyer.phone,
+              total_orders: 0,
+              total_spent: 0,
+              last_order_date: order.created_at
+            });
+          }
+          const customer = customerMap.get(order.buyer_id);
+          customer.total_orders++;
+          customer.total_spent += order.total_price;
+          if (new Date(order.created_at) > new Date(customer.last_order_date)) {
+            customer.last_order_date = order.created_at;
+          }
+        }
+      });
+      setCustomers(Array.from(customerMap.values()));
+    } catch (error) {
+      console.error('Error fetching customers:', error);
+    }
+  };
+
+  // Fetch returns
+  const fetchReturns = async () => {
+    if (!store) return;
+    try {
+      const { data, error } = await supabase
+        .from('returns')
+        .select('*, product:product_id(name, image_gallery), order:order_id(total_price, created_at)')
+        .eq('seller_id', user?.id)
+        .order('created_at', { ascending: false });
+      if (error && error.code !== 'PGRST116') throw error;
+      setReturns(data || []);
+    } catch (error) {
+      console.error('Error fetching returns:', error);
+    }
+  };
+
+  // Process return
+  const processReturn = async (returnId, action, adminNotes) => {
+    try {
+      if (action === 'approve') {
+        const { data, error } = await supabase.rpc('process_return_refund', {
+          p_return_id: returnId
+        });
+        if (error) throw error;
+        toast.success('Return approved and refund processed!');
+      } else {
+        const { error } = await supabase
+          .from('returns')
+          .update({ status: 'rejected', admin_notes: adminNotes, approved_at: new Date().toISOString() })
+          .eq('id', returnId);
+        if (error) throw error;
+        toast.success('Return rejected');
+      }
+      fetchReturns();
+      fetchDashboardData();
+      setReturnModalOpen(false);
+      setSelectedReturn(null);
+    } catch (error) {
+      console.error('Error processing return:', error);
+      toast.error('Failed to process return');
+    }
+  };
+
+  // Fetch low stock alerts
+  const fetchLowStockAlerts = async () => {
+    if (!store) return;
+    try {
+      const { data, error } = await supabase
+        .from('low_stock_alerts')
+        .select('*, product:product_id(name, image_gallery, price, stock_quantity)')
+        .eq('store_id', store.id)
+        .eq('is_resolved', false);
+      if (error && error.code !== 'PGRST116') throw error;
+      setLowStockAlerts(data || []);
+    } catch (error) {
+      console.error('Error fetching low stock alerts:', error);
+    }
+  };
+
+  // Fetch store settings (with error handling for missing table)
+  const fetchStoreSettings = async () => {
+    if (!store) return;
+    try {
+      // First check if the table exists by trying to select from it
+      const { data, error } = await supabase
+        .from('store_settings')
+        .select('*')
+        .eq('store_id', store.id)
+        .maybeSingle();
+      
+      // If table doesn't exist (PGRST116), we'll use store data as fallback
+      if (error && error.code === 'PGRST116') {
+        // Table doesn't exist yet, use store data
+        setStoreSettings({
+          delivery_type: store.delivery_type || 'omniflow-managed',
+          has_delivery_fleet: store.has_delivery_fleet || false,
+          delivery_fleet_size: store.delivery_fleet_size || 0,
+          delivery_coverage_radius: store.delivery_coverage_radius || 50,
+          delivery_base_fee: store.delivery_base_fee || 100,
+          delivery_rate_per_km: store.delivery_rate_per_km || 15
+        });
+        return;
+      }
+      if (error) throw error;
+      
+      if (data) {
+        setStoreSettings(data);
+      } else {
+        // No settings found, use store defaults
+        setStoreSettings({
+          delivery_type: store.delivery_type || 'omniflow-managed',
+          has_delivery_fleet: store.has_delivery_fleet || false,
+          delivery_fleet_size: store.delivery_fleet_size || 0,
+          delivery_coverage_radius: store.delivery_coverage_radius || 50,
+          delivery_base_fee: store.delivery_base_fee || 100,
+          delivery_rate_per_km: store.delivery_rate_per_km || 15
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching store settings:', error);
+      // Fallback to store data
+      setStoreSettings({
+        delivery_type: store.delivery_type || 'omniflow-managed',
+        has_delivery_fleet: store.has_delivery_fleet || false,
+        delivery_fleet_size: store.delivery_fleet_size || 0,
+        delivery_coverage_radius: store.delivery_coverage_radius || 50,
+        delivery_base_fee: store.delivery_base_fee || 100,
+        delivery_rate_per_km: store.delivery_rate_per_km || 15
+      });
+    }
+  };
+
+  // Update store settings
+  const updateStoreSettings = async (settings) => {
+    try {
+      // Try to upsert into store_settings table
+      const { error } = await supabase
+        .from('store_settings')
+        .upsert({
+          store_id: store.id,
+          ...settings,
+          updated_at: new Date().toISOString(),
+          updated_by: user?.id
+        });
+      
+      if (error && error.code !== 'PGRST116') throw error;
+      
+      // Also update stores table
+      const { error: storeError } = await supabase
+        .from('stores')
+        .update({
+          delivery_type: settings.delivery_type,
+          has_delivery_fleet: settings.has_delivery_fleet,
+          delivery_fleet_size: settings.delivery_fleet_size,
+          delivery_coverage_radius: settings.delivery_coverage_radius,
+          delivery_base_fee: settings.delivery_base_fee,
+          delivery_rate_per_km: settings.delivery_rate_per_km
+        })
+        .eq('id', store.id);
+      if (storeError) throw storeError;
+      
+      toast.success('Store settings updated successfully!');
+      fetchStoreSettings();
+      setSelfDeliveryModalOpen(false);
+    } catch (error) {
+      console.error('Error updating store settings:', error);
+      toast.error('Failed to update store settings');
+    }
+  };
+
+  // Generate invoice PDF
+  const generateInvoice = (order) => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 15;
+    let y = 20;
+    
+    doc.setFontSize(20);
+    doc.setTextColor(40, 40, 40);
+    doc.text('INVOICE', pageWidth / 2, y, { align: 'center' });
+    y += 15;
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Invoice #: INV-${order.id.slice(0, 8).toUpperCase()}`, margin, y);
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, pageWidth - margin, y, { align: 'right' });
+    y += 10;
+    
+    doc.setFontSize(12);
+    doc.setTextColor(0, 0, 0);
+    doc.text(store?.name || 'Your Store', margin, y);
+    y += 6;
+    doc.setFontSize(10);
+    doc.setTextColor(80, 80, 80);
+    doc.text(store?.contact_email || '', margin, y);
+    y += 6;
+    doc.text(store?.contact_phone || '', margin, y);
+    y += 15;
+    
+    doc.setFontSize(11);
+    doc.setTextColor(0, 0, 0);
+    doc.text('Bill To:', margin, y);
+    y += 6;
+    doc.setFontSize(10);
+    doc.setTextColor(80, 80, 80);
+    doc.text(order.buyer?.name || 'Customer', margin, y);
+    y += 5;
+    if (order.buyer?.email) doc.text(order.buyer.email, margin, y);
+    y += 5;
+    if (order.buyer?.phone) doc.text(order.buyer.phone, margin, y);
+    y += 15;
+    
+    doc.setFontSize(11);
+    doc.setTextColor(0, 0, 0);
+    doc.text('Order Details:', margin, y);
+    y += 8;
+    
+    doc.setFontSize(10);
+    doc.setTextColor(80, 80, 80);
+    doc.text(`Order ID: ${order.id.slice(0, 12)}...`, margin, y);
+    y += 6;
+    doc.text(`Product: ${order.product?.name || 'N/A'}`, margin, y);
+    y += 6;
+    doc.text(`Quantity: ${order.quantity || 1}`, margin, y);
+    y += 6;
+    doc.text(`Delivery Location: ${order.delivery_location || 'N/A'}`, margin, y);
+    y += 15;
+    
+    doc.setDrawColor(200, 200, 200);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 8;
+    
+    doc.setFontSize(11);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Subtotal: Ksh ${formatPrice((order.total_price || 0) - (order.delivery_fee || 0))}`, margin, y);
+    y += 7;
+    doc.text(`Delivery Fee: Ksh ${formatPrice(order.delivery_fee || 0)}`, margin, y);
+    y += 7;
+    doc.setFontSize(12);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Total: Ksh ${formatPrice(order.total_price || 0)}`, margin, y);
+    y += 7;
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Commission (${((order.commission_rate || 0.05) * 100).toFixed(1)}%): Ksh ${formatPrice(order.commission_amount || 0)}`, margin, y);
+    y += 15;
+    
+    doc.setFontSize(9);
+    doc.setTextColor(150, 150, 150);
+    doc.text('Thank you for shopping with us!', pageWidth / 2, y + 30, { align: 'center' });
+    
+    doc.save(`invoice-${order.id.slice(0, 8)}.pdf`);
+  };
+
   const submitFlashSaleRequest = async () => {
     if (!flashSaleModalProduct) return;
     setLoadingFlashSale(true);
@@ -207,7 +666,7 @@ const StoreDashboardV2 = () => {
         expires_at: expiresAt.toISOString()
       });
       if (error) throw error;
-      toast.success('Flash sale request submitted!');
+      toast.success('Flash sale request submitted for admin review!');
       setFlashSaleModalProduct(null);
       setFlashSaleDuration(24);
       setFlashSaleDiscount(10);
@@ -229,7 +688,7 @@ const StoreDashboardV2 = () => {
         .eq('escrow_released', true)
         .order('updated_at', { ascending: false });
       
-      if (ordersError) throw ordersError;
+      if (ordersError && ordersError.code !== 'PGRST116') throw ordersError;
       
       const payouts = (completedOrders || []).map(order => ({
         id: order.id,
@@ -281,10 +740,11 @@ const StoreDashboardV2 = () => {
     if (!store || !user) return;
     setLoadingEarnings(true);
     try {
+      // Get store data including seller_score from stores table
       const { data: storeData } = await supabase
         .from('stores')
         .select('seller_score, total_orders, successful_orders')
-        .eq('owner_id', user.id)
+        .eq('id', store.id)
         .maybeSingle();
 
       if (storeData) {
@@ -372,8 +832,9 @@ const StoreDashboardV2 = () => {
 
       const incomplete = [];
       if (pendingOrders > 0) incomplete.push({ type: 'orders', count: pendingOrders, message: `${pendingOrders} pending orders` });
-      if (incompleteProducts > 0) incomplete.push({ type: 'products', count: incompleteProducts, message: `${incompleteProducts} products incomplete` });
+      if (incompleteProducts > 0) incomplete.push({ type: 'products', count: incompleteProducts, message: `${incompleteProducts} products need warranty/return policy` });
       if (unreadMessages > 0) incomplete.push({ type: 'messages', count: unreadMessages, message: `${unreadMessages} unread messages` });
+      if (lowStockAlerts.length > 0) incomplete.push({ type: 'stock', count: lowStockAlerts.length, message: `${lowStockAlerts.length} products low on stock` });
       setIncompleteItems(incomplete);
 
       const { data: paymentData } = await supabase
@@ -395,6 +856,12 @@ const StoreDashboardV2 = () => {
       }
       
       await fetchSellerPayouts();
+      await fetchAnalytics();
+      await fetchCoupons();
+      await fetchCustomers();
+      await fetchReturns();
+      await fetchLowStockAlerts();
+      await fetchStoreSettings();
       
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -457,22 +924,29 @@ const StoreDashboardV2 = () => {
           .select('*, buyer:buyer_id(name, phone, email), product:product_id(name, price, image_gallery, category)')
           .eq('store_id', store.id)
           .order('created_at', { ascending: false });
-        if (error) { console.error("Failed to load orders:", error); }
-        else { setOrders(data); }
+        if (error && error.code !== 'PGRST116') { console.error("Failed to load orders:", error); }
+        else { setOrders(data || []); }
       } catch (error) { console.error("Failed to load orders:", error); }
     };
     fetchOrders();
   }, [store]);
 
+  // Updated navItems with new sections
   const navItems = [
     { id: 'overview', label: 'Overview', icon: <FaHome />, notification: incompleteItems.length > 0 },
+    { id: 'analytics', label: 'Analytics', icon: <FaChartBar />, notification: false },
     { id: 'products', label: 'Products', icon: <FaBox />, notification: dashboardStats.incompleteProducts > 0 },
     { id: 'orders', label: 'Orders', icon: <FaClipboardCheck />, notification: dashboardStats.pendingOrders > 0 },
+    { id: 'inventory', label: 'Inventory', icon: <FaBoxOpen />, notification: lowStockAlerts.length > 0 },
+    { id: 'coupons', label: 'Coupons', icon: <FaTicketAlt />, notification: false },
+    { id: 'customers', label: 'Customers', icon: <FaCustomers />, notification: false },
+    { id: 'returns', label: 'Returns', icon: <FaExchangeAlt />, notification: returns?.filter(r => r.status === 'pending').length > 0 },
     { id: 'earnings', label: 'Earnings', icon: <FaChartLine />, notification: false },
     { id: 'payments', label: 'Payments', icon: <FaCreditCard />, notification: newPaymentNotification || pendingPayoutsList.length > 0 },
     { id: 'commission', label: 'Commission', icon: <FaPercentage />, notification: false },
     { id: 'lipa-products', label: 'Lipa Products', icon: <FaShoppingBag />, notification: false },
     { id: 'installments', label: 'Lipa Orders', icon: <FaMoneyBillWave />, notification: false },
+    { id: 'store', label: 'Store Settings', icon: <FaStore />, notification: false },
     { id: 'chat', label: 'Support', icon: <FaCommentDots />, notification: dashboardStats.unreadMessages > 0 },
   ];
 
@@ -482,7 +956,10 @@ const StoreDashboardV2 = () => {
     try {
       const { data, error } = await supabase.from('products').select('*')
         .eq('store_id', store?.id).order('created_at', { ascending: false });
-      if (error) { console.error("Failed to load products:", error); return; }
+      if (error && error.code !== 'PGRST116') {
+        console.error("Failed to load products:", error);
+        return;
+      }
       if (data) {
         setProducts(data);
         setCurrentImageIndices(data.reduce((acc, p) => ({ ...acc, [p.id]: 0 }), {}));
@@ -531,7 +1008,10 @@ const StoreDashboardV2 = () => {
     try {
       const { data, error } = await supabase.from('store_messages').select('*')
         .eq('store_id', store?.id).order('created_at', { ascending: true });
-      if (error) { console.error("Failed to load messages:", error); return; }
+      if (error && error.code !== 'PGRST116') {
+        console.error("Failed to load messages:", error);
+        return;
+      }
       if (data) setMessages(data);
     } catch (error) { console.error("Failed to load messages:", error); }
     finally { setLoadingMessages(false); }
@@ -547,6 +1027,42 @@ const StoreDashboardV2 = () => {
       .subscribe();
     return () => supabase.removeChannel(channel);
   }, [store]);
+
+  // Real-time subscriptions for new features
+  useEffect(() => {
+    if (!store?.id) return;
+    
+    const orderChannel = supabase.channel(`store-orders-${store.id}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders', filter: `store_id=eq.${store.id}` },
+        (payload) => {
+          toast.info('New order received!');
+          fetchDashboardData();
+          setOrders(prev => [payload.new, ...prev]);
+        })
+      .subscribe();
+    
+    const lowStockChannel = supabase.channel(`low-stock-${store.id}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'low_stock_alerts', filter: `store_id=eq.${store.id}` },
+        () => {
+          toast.warning('Low stock alert! Some products need restocking.');
+          fetchLowStockAlerts();
+        })
+      .subscribe();
+    
+    const returnChannel = supabase.channel(`returns-${store.id}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'returns', filter: `seller_id=eq.${user?.id}` },
+        () => {
+          toast.info('New return request received!');
+          fetchReturns();
+        })
+      .subscribe();
+    
+    return () => {
+      supabase.removeChannel(orderChannel);
+      supabase.removeChannel(lowStockChannel);
+      supabase.removeChannel(returnChannel);
+    };
+  }, [store?.id, user?.id]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: { 'image/*': [] },
@@ -768,7 +1284,7 @@ const StoreDashboardV2 = () => {
 
   const formatPrice = (price) => new Intl.NumberFormat('en-KE', {
     minimumFractionDigits: 2, maximumFractionDigits: 2
-  }).format(price);
+  }).format(price || 0);
 
   useEffect(() => {
     if (!store) return;
@@ -791,7 +1307,7 @@ const StoreDashboardV2 = () => {
   };
 
   const filteredProducts = products.filter(p => 
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.category?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -974,7 +1490,7 @@ const StoreDashboardV2 = () => {
         )}
 
         <AnimatePresence mode="wait">
-          {/* Overview Section */}
+          {/* ========== OVERVIEW SECTION ========== */}
           {section === 'overview' && (
             <motion.div
               key="overview"
@@ -1072,7 +1588,87 @@ const StoreDashboardV2 = () => {
             </motion.div>
           )}
 
-          {/* Products Section with Lipa Polepole */}
+          {/* ========== ANALYTICS SECTION ========== */}
+          {section === 'analytics' && (
+            <motion.div
+              key="analytics"
+              className="v2-section"
+              variants={sectionVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+            >
+              <h2 className="v2-section-title">Analytics Dashboard</h2>
+              
+              {loadingAnalytics ? (
+                <div className="v2-skeleton-grid"><SkeletonCard /><SkeletonCard /><SkeletonCard /></div>
+              ) : (
+                <>
+                  <div className="v2-analytics-summary">
+                    <div className="v2-analytics-card">
+                      <h4>Total Revenue</h4>
+                      <p className="v2-analytics-value">Ksh {analyticsData.totalRevenue.toLocaleString()}</p>
+                    </div>
+                    <div className="v2-analytics-card">
+                      <h4>Total Orders</h4>
+                      <p className="v2-analytics-value">{analyticsData.totalOrders}</p>
+                    </div>
+                    <div className="v2-analytics-card">
+                      <h4>Avg Order Value</h4>
+                      <p className="v2-analytics-value">Ksh {formatPrice(analyticsData.avgOrderValue)}</p>
+                    </div>
+                    <div className="v2-analytics-card">
+                      <h4>Weekly Growth</h4>
+                      <p className={`v2-analytics-value ${analyticsData.weeklyGrowth >= 0 ? 'v2-growth-positive' : 'v2-growth-negative'}`}>
+                        {analyticsData.weeklyGrowth >= 0 ? '+' : ''}{analyticsData.weeklyGrowth.toFixed(1)}%
+                      </p>
+                    </div>
+                    <div className="v2-analytics-card">
+                      <h4>Monthly Growth</h4>
+                      <p className={`v2-analytics-value ${analyticsData.monthlyGrowth >= 0 ? 'v2-growth-positive' : 'v2-growth-negative'}`}>
+                        {analyticsData.monthlyGrowth >= 0 ? '+' : ''}{analyticsData.monthlyGrowth.toFixed(1)}%
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="v2-chart-container">
+                    <h3>📈 Sales Trend (Last 7 Days)</h3>
+                    <p className="v2-chart-subtitle">Track your daily sales performance and order volume</p>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <LineChart data={analyticsData.dailySales}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="date" />
+                        <YAxis yAxisId="left" />
+                        <YAxis yAxisId="right" orientation="right" />
+                        <Tooltip formatter={(value, name) => name === 'sales' ? `Ksh ${value?.toLocaleString()}` : value} />
+                        <Legend />
+                        <Line yAxisId="left" type="monotone" dataKey="sales" stroke="#4F46E5" name="Sales (Ksh)" strokeWidth={2} />
+                        <Line yAxisId="right" type="monotone" dataKey="orders" stroke="#10B981" name="Orders" strokeWidth={2} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  <div className="v2-insights-box">
+                    <h4>📊 Key Insights</h4>
+                    <ul>
+                      <li>Your best performing day this week: <strong>
+                        {analyticsData.dailySales.reduce((best, day) => day.sales > best.sales ? day : best, { sales: 0, date: 'N/A' }).date}
+                      </strong> with Ksh {formatPrice(analyticsData.dailySales.reduce((best, day) => day.sales > best.sales ? day : best, { sales: 0 }).sales)}</li>
+                      <li>Average daily orders: <strong>{(analyticsData.dailySales.reduce((sum, day) => sum + day.orders, 0) / 7).toFixed(1)}</strong> orders per day</li>
+                      <li>Your store has generated <strong>Ksh {formatPrice(analyticsData.totalRevenue)}</strong> in total revenue</li>
+                      {analyticsData.weeklyGrowth >= 0 ? (
+                        <li className="v2-growth-positive">📈 Weekly revenue is up {analyticsData.weeklyGrowth.toFixed(1)}% compared to last week!</li>
+                      ) : (
+                        <li className="v2-growth-negative">📉 Weekly revenue is down {Math.abs(analyticsData.weeklyGrowth).toFixed(1)}% compared to last week</li>
+                      )}
+                    </ul>
+                  </div>
+                </>
+              )}
+            </motion.div>
+          )}
+
+          {/* ========== PRODUCTS SECTION ========== */}
           {section === 'products' && (
             <motion.div
               key="products"
@@ -1355,17 +1951,23 @@ const StoreDashboardV2 = () => {
                             <div className="v2-product-badges">
                               {p.lipa_polepole && <span className="v2-badge v2-badge-lipa">Lipa</span>}
                               {p.discount > 0 && <span className="v2-badge v2-badge-discount">-{p.discount}%</span>}
+                              {p.stock_quantity <= 10 && p.stock_quantity > 0 && <span className="v2-badge v2-badge-lowstock">Low Stock</span>}
+                              {p.stock_quantity === 0 && <span className="v2-badge v2-badge-out">Out of Stock</span>}
                             </div>
                           </div>
 
                           <div className="v2-product-item-info">
                             <h4>{p.name}</h4>
                             <p className="v2-price">Ksh {formatPrice(p.price)}</p>
+                            <p className="v2-stock">Stock: {p.stock_quantity}</p>
                           </div>
 
                           <div className="v2-product-item-actions">
                             <button onClick={() => handleEditClick(p)}>
                               <FaEdit /> Edit
+                            </button>
+                            <button onClick={() => handleFlashSaleRequest(p)}>
+                              <FaFire /> Flash Sale
                             </button>
                             <button onClick={() => confirmDelete(p.id)}>
                               <FaTrash /> Delete
@@ -1380,7 +1982,7 @@ const StoreDashboardV2 = () => {
             </motion.div>
           )}
 
-          {/* Orders Section */}
+          {/* ========== ORDERS SECTION ========== */}
           {section === 'orders' && (
             <motion.div
               key="orders"
@@ -1498,6 +2100,13 @@ const StoreDashboardV2 = () => {
                           >
                             <FaEye /> View Details
                           </button>
+                          
+                          <button 
+                            className="v2-order-action-btn v2-order-action-invoice"
+                            onClick={() => generateInvoice(order)}
+                          >
+                            <FaFileInvoice /> Invoice
+                          </button>
                         </div>
                       </div>
                     );
@@ -1507,7 +2116,176 @@ const StoreDashboardV2 = () => {
             </motion.div>
           )}
 
-          {/* EARNINGS SECTION - Mobile Responsive */}
+          {/* ========== INVENTORY SECTION (Low Stock Alerts) ========== */}
+          {section === 'inventory' && (
+            <motion.div
+              key="inventory"
+              className="v2-section"
+              variants={sectionVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+            >
+              <h2 className="v2-section-title">Inventory Management</h2>
+              
+              <div className="v2-low-stock-section">
+                <h3><FaExclamationTriangle /> Low Stock Alerts</h3>
+                {lowStockAlerts.length === 0 ? (
+                  <div className="v2-empty-state">
+                    <FaCheckCircle size={48} />
+                    <p>No low stock alerts - all products have sufficient inventory</p>
+                  </div>
+                ) : (
+                  <div className="v2-low-stock-grid">
+                    {lowStockAlerts.map(alert => (
+                      <div key={alert.id} className="v2-low-stock-card">
+                        <img src={alert.product?.image_gallery?.[0] || '/placeholder.jpg'} alt={alert.product?.name} />
+                        <div className="v2-low-stock-info">
+                          <h4>{alert.product?.name}</h4>
+                          <p className="v2-stock-warning">⚠️ Only {alert.current_stock} left in stock</p>
+                          <p className="v2-stock-threshold">Threshold: {alert.threshold} units</p>
+                          <button className="v2-btn-small" onClick={() => { setSection('products'); setSearchTerm(alert.product?.name || ''); }}>Restock Now</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {/* ========== COUPONS SECTION ========== */}
+          {section === 'coupons' && (
+            <motion.div
+              key="coupons"
+              className="v2-section"
+              variants={sectionVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+            >
+              <div className="v2-section-header">
+                <h2 className="v2-section-title">Coupon Management</h2>
+                <button className="v2-btn-primary" onClick={() => { setEditingCoupon(null); setCouponModalOpen(true); }}>➕ Create Coupon</button>
+              </div>
+
+              {coupons.length === 0 ? (
+                <div className="v2-empty-state">
+                  <FaTicketAlt size={48} />
+                  <p>No coupons created yet</p>
+                  <button className="v2-btn-primary" onClick={() => { setEditingCoupon(null); setCouponModalOpen(true); }}>Create your first coupon</button>
+                </div>
+              ) : (
+                <div className="v2-coupons-grid">
+                  {coupons.map(coupon => (
+                    <div key={coupon.id} className={`v2-coupon-card ${coupon.is_active && new Date(coupon.valid_until) > new Date() ? 'active' : 'expired'}`}>
+                      <div className="v2-coupon-header">
+                        <span className="v2-coupon-code">{coupon.code}</span>
+                        <span className="v2-coupon-status">{coupon.is_active && new Date(coupon.valid_until) > new Date() ? 'Active' : 'Expired'}</span>
+                      </div>
+                      <div className="v2-coupon-body">
+                        <p className="v2-coupon-discount">{coupon.discount_type === 'percentage' ? `${coupon.discount_value}% OFF` : `Ksh ${formatPrice(coupon.discount_value)} OFF`}</p>
+                        {coupon.min_order_amount > 0 && <p>Min Order: Ksh {formatPrice(coupon.min_order_amount)}</p>}
+                        <p>Used: {coupon.used_count} / {coupon.usage_limit || '∞'}</p>
+                        <p>Valid until: {new Date(coupon.valid_until).toLocaleDateString()}</p>
+                      </div>
+                      <div className="v2-coupon-actions">
+                        <button onClick={() => { setEditingCoupon(coupon); setCouponModalOpen(true); }}>✏️ Edit</button>
+                        <button onClick={() => deleteCoupon(coupon.id)}>🗑️ Delete</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* ========== CUSTOMERS SECTION ========== */}
+          {section === 'customers' && (
+            <motion.div
+              key="customers"
+              className="v2-section"
+              variants={sectionVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+            >
+              <h2 className="v2-section-title">Customer Management</h2>
+              
+              {customers.length === 0 ? (
+                <div className="v2-empty-state">
+                  <FaUsers size={48} />
+                  <p>No customers yet</p>
+                </div>
+              ) : (
+                <div className="v2-customers-table-wrapper">
+                  <table className="v2-customers-table">
+                    <thead>
+                      <tr><th>Customer</th><th>Contact</th><th>Orders</th><th>Total Spent</th><th>Last Order</th></tr>
+                    </thead>
+                    <tbody>
+                      {customers.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase())).map(customer => (
+                        <tr key={customer.id}>
+                          <td data-label="Customer"><strong>{customer.name}</strong></td>
+                          <td data-label="Contact">{customer.email || customer.phone || 'N/A'}</td>
+                          <td data-label="Orders">{customer.total_orders}</td>
+                          <td data-label="Total Spent">Ksh {formatPrice(customer.total_spent)}</td>
+                          <td data-label="Last Order">{new Date(customer.last_order_date).toLocaleDateString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* ========== RETURNS SECTION ========== */}
+          {section === 'returns' && (
+            <motion.div
+              key="returns"
+              className="v2-section"
+              variants={sectionVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+            >
+              <h2 className="v2-section-title">Returns Management</h2>
+              
+              {returns.length === 0 ? (
+                <div className="v2-empty-state">
+                  <FaExchangeAlt size={48} />
+                  <p>No return requests</p>
+                </div>
+              ) : (
+                <div className="v2-returns-grid">
+                  {returns.map(returnReq => (
+                    <div key={returnReq.id} className="v2-return-card">
+                      <div className="v2-return-header">
+                        <span className="v2-return-id">Return #{returnReq.id.slice(0, 8)}</span>
+                        <span className={`v2-return-status v2-status-${returnReq.status}`}>{returnReq.status}</span>
+                      </div>
+                      <div className="v2-return-body">
+                        <p><strong>Product:</strong> {returnReq.product?.name}</p>
+                        <p><strong>Reason:</strong> {returnReq.reason}</p>
+                        <p><strong>Order Total:</strong> Ksh {formatPrice(returnReq.order?.total_price)}</p>
+                        <p><strong>Refund Amount:</strong> Ksh {formatPrice(returnReq.refund_amount)}</p>
+                        <p><strong>Buyer Gets:</strong> 95% (Ksh {formatPrice(returnReq.buyer_refund_amount)})</p>
+                      </div>
+                      {returnReq.status === 'pending' && (
+                        <div className="v2-return-actions">
+                          <button className="v2-btn-success" onClick={() => { setSelectedReturn(returnReq); setReturnModalOpen(true); }}>✅ Approve</button>
+                          <button className="v2-btn-danger" onClick={() => { setSelectedReturn(returnReq); setReturnModalOpen(true); }}>❌ Reject</button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* ========== EARNINGS SECTION ========== */}
           {section === 'earnings' && (
             <motion.div
               key="earnings"
@@ -1525,7 +2303,6 @@ const StoreDashboardV2 = () => {
                 </div>
               ) : (
                 <>
-                  {/* 2-COLUMN EARNINGS GRID */}
                   <div className="v2-earnings-grid">
                     <div className="v2-earnings-card v2-earnings-total">
                       <div className="v2-earnings-icon"><FaMoneyCheckAlt /></div>
@@ -1576,7 +2353,6 @@ const StoreDashboardV2 = () => {
                     </div>
                   </div>
 
-                  {/* Performance Metrics */}
                   <div className="v2-performance-section">
                     <h3>Performance Metrics</h3>
                     <div className="v2-performance-metrics">
@@ -1603,7 +2379,6 @@ const StoreDashboardV2 = () => {
                     </div>
                   </div>
 
-                  {/* Recent Transactions Table - Responsive */}
                   {paymentHistory.length > 0 && (
                     <div className="v2-recent-transactions">
                       <h3>Recent Transactions</h3>
@@ -1649,7 +2424,7 @@ const StoreDashboardV2 = () => {
             </motion.div>
           )}
 
-          {/* PAYMENTS SECTION */}
+          {/* ========== PAYMENTS SECTION ========== */}
           {section === 'payments' && (
             <motion.div
               key="payments"
@@ -1793,7 +2568,7 @@ const StoreDashboardV2 = () => {
             </motion.div>
           )}
 
-          {/* COMMISSION SECTION - Mobile Responsive */}
+          {/* ========== COMMISSION SECTION ========== */}
           {section === 'commission' && (
             <motion.div
               key="commission"
@@ -1852,7 +2627,7 @@ const StoreDashboardV2 = () => {
             </motion.div>
           )}
 
-          {/* Lipa Products Section */}
+          {/* ========== LIPA PRODUCTS SECTION ========== */}
           {section === 'lipa-products' && (
             <motion.div
               key="lipa-products"
@@ -1905,7 +2680,7 @@ const StoreDashboardV2 = () => {
             </motion.div>
           )}
 
-          {/* Installments Section */}
+          {/* ========== INSTALLMENTS SECTION ========== */}
           {section === 'installments' && (
             <motion.div
               key="installments"
@@ -1920,7 +2695,93 @@ const StoreDashboardV2 = () => {
             </motion.div>
           )}
 
-          {/* Chat Section */}
+          {/* ========== STORE SETTINGS SECTION ========== */}
+          {section === 'store' && (
+            <motion.div
+              key="store"
+              className="v2-section"
+              variants={sectionVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+            >
+              <h2 className="v2-section-title">Store Customization</h2>
+              
+              <div className="v2-store-settings-form">
+                <div className="v2-form-group">
+                  <label>Store Name</label>
+                  <input type="text" id="storeName" defaultValue={store?.name} />
+                </div>
+                <div className="v2-form-group">
+                  <label>Store Description</label>
+                  <textarea id="storeDesc" defaultValue={store?.description} rows="3" />
+                </div>
+                <div className="v2-form-group">
+                  <label>Contact Email</label>
+                  <input type="email" id="storeEmail" defaultValue={store?.contact_email} />
+                </div>
+                <div className="v2-form-group">
+                  <label>Contact Phone</label>
+                  <input type="tel" id="storePhone" defaultValue={store?.contact_phone} />
+                </div>
+                
+                <h3>Delivery Settings</h3>
+                <div className="v2-delivery-cards">
+                  <label className={`v2-delivery-card ${storeSettings?.delivery_type === 'self-delivery' ? 'selected' : ''}`}>
+                    <input type="radio" name="delivery_type" value="self-delivery" defaultChecked={storeSettings?.delivery_type === 'self-delivery'} />
+                    <span>🚚</span>
+                    <h4>Self-Delivery</h4>
+                    <p>I have my own delivery fleet</p>
+                  </label>
+                  <label className={`v2-delivery-card ${storeSettings?.delivery_type === 'omniflow-managed' ? 'selected' : ''}`}>
+                    <input type="radio" name="delivery_type" value="omniflow-managed" defaultChecked={storeSettings?.delivery_type === 'omniflow-managed'} />
+                    <span>🛵</span>
+                    <h4>Omniflow Managed</h4>
+                    <p>We handle delivery for you</p>
+                  </label>
+                </div>
+
+                <div id="selfDeliveryFields" style={{ display: (storeSettings?.delivery_type === 'self-delivery') ? 'block' : 'none' }}>
+                  <div className="v2-form-row">
+                    <div className="v2-form-group"><label>Fleet Size</label><input type="number" id="fleetSize" defaultValue={storeSettings?.delivery_fleet_size || 1} /></div>
+                    <div className="v2-form-group"><label>Coverage Radius (km)</label><input type="number" id="coverageRadius" defaultValue={storeSettings?.delivery_coverage_radius || 50} /></div>
+                  </div>
+                  <div className="v2-form-row">
+                    <div className="v2-form-group"><label>Base Fee (Ksh)</label><input type="number" id="baseFee" defaultValue={storeSettings?.delivery_base_fee || 100} /></div>
+                    <div className="v2-form-group"><label>Rate per KM (Ksh)</label><input type="number" id="ratePerKm" defaultValue={storeSettings?.delivery_rate_per_km || 15} /></div>
+                  </div>
+                </div>
+
+                <button className="v2-btn-primary" onClick={() => {
+                  const deliveryType = document.querySelector('input[name="delivery_type"]:checked')?.value;
+                  const isSelfDelivery = deliveryType === 'self-delivery';
+                  
+                  if (isSelfDelivery) {
+                    // Show modal to confirm delivery details
+                    setSelfDeliveryData({
+                      fleet_size: parseInt(document.getElementById('fleetSize')?.value || 1),
+                      coverage_radius: parseInt(document.getElementById('coverageRadius')?.value || 50),
+                      base_fee: parseFloat(document.getElementById('baseFee')?.value || 100),
+                      rate_per_km: parseFloat(document.getElementById('ratePerKm')?.value || 15)
+                    });
+                    setSelfDeliveryModalOpen(true);
+                  } else {
+                    // Direct update for Omniflow Managed
+                    updateStoreSettings({
+                      delivery_type: deliveryType,
+                      has_delivery_fleet: false,
+                      delivery_fleet_size: 0,
+                      delivery_coverage_radius: 50,
+                      delivery_base_fee: 100,
+                      delivery_rate_per_km: 15
+                    });
+                  }
+                }}>💾 Save Settings</button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ========== CHAT SECTION ========== */}
           {section === 'chat' && (
             <motion.div
               key="chat"
@@ -1980,6 +2841,8 @@ const StoreDashboardV2 = () => {
           )}
         </AnimatePresence>
       </main>
+
+      {/* ========== MODALS ========== */}
 
       {/* Tutorial Modal */}
       <AnimatePresence>
@@ -2346,6 +3209,201 @@ const StoreDashboardV2 = () => {
                     <span className="v2-toggle-slider"></span>
                   </label>
                 </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ========== COUPON MODAL ========== */}
+      <AnimatePresence>
+        {couponModalOpen && (
+          <motion.div
+            className="v2-modal-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="v2-modal"
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+            >
+              <div className="v2-modal-header">
+                <h3>{editingCoupon ? 'Edit Coupon' : 'Create Coupon'}</h3>
+                <button onClick={() => { setCouponModalOpen(false); setEditingCoupon(null); }}>✕</button>
+              </div>
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                const couponData = {
+                  code: formData.get('code').toUpperCase(),
+                  discount_type: formData.get('discount_type'),
+                  discount_value: parseFloat(formData.get('discount_value')),
+                  min_order_amount: parseFloat(formData.get('min_order_amount')) || 0,
+                  max_discount: parseFloat(formData.get('max_discount')) || null,
+                  usage_limit: parseInt(formData.get('usage_limit')) || null,
+                  valid_from: new Date(formData.get('valid_from')).toISOString(),
+                  valid_until: new Date(formData.get('valid_until')).toISOString(),
+                  description: formData.get('description')
+                };
+                if (editingCoupon) {
+                  updateCoupon(editingCoupon.id, couponData);
+                } else {
+                  createCoupon(couponData);
+                }
+              }}>
+                <div className="v2-form-group">
+                  <label>Coupon Code</label>
+                  <input name="code" required defaultValue={editingCoupon?.code || ''} placeholder="SUMMER20" />
+                </div>
+                <div className="v2-form-row">
+                  <div className="v2-form-group">
+                    <label>Discount Type</label>
+                    <select name="discount_type" defaultValue={editingCoupon?.discount_type || 'percentage'}>
+                      <option value="percentage">Percentage (%)</option>
+                      <option value="fixed">Fixed Amount (Ksh)</option>
+                    </select>
+                  </div>
+                  <div className="v2-form-group">
+                    <label>Discount Value</label>
+                    <input name="discount_value" type="number" step="0.01" required defaultValue={editingCoupon?.discount_value} />
+                  </div>
+                </div>
+                <div className="v2-form-row">
+                  <div className="v2-form-group">
+                    <label>Min Order Amount (Ksh)</label>
+                    <input name="min_order_amount" type="number" step="0.01" defaultValue={editingCoupon?.min_order_amount || 0} />
+                  </div>
+                  <div className="v2-form-group">
+                    <label>Max Discount (Ksh)</label>
+                    <input name="max_discount" type="number" step="0.01" defaultValue={editingCoupon?.max_discount || ''} />
+                  </div>
+                </div>
+                <div className="v2-form-row">
+                  <div className="v2-form-group">
+                    <label>Valid From</label>
+                    <input name="valid_from" type="datetime-local" required defaultValue={editingCoupon?.valid_from?.slice(0, 16)} />
+                  </div>
+                  <div className="v2-form-group">
+                    <label>Valid Until</label>
+                    <input name="valid_until" type="datetime-local" required defaultValue={editingCoupon?.valid_until?.slice(0, 16)} />
+                  </div>
+                </div>
+                <div className="v2-form-group">
+                  <label>Usage Limit</label>
+                  <input name="usage_limit" type="number" defaultValue={editingCoupon?.usage_limit || ''} placeholder="Unlimited" />
+                </div>
+                <div className="v2-form-group">
+                  <label>Description</label>
+                  <textarea name="description" defaultValue={editingCoupon?.description || ''} rows="2" />
+                </div>
+                <div className="v2-modal-actions">
+                  <button type="submit" className="v2-btn-primary">{editingCoupon ? 'Update' : 'Create'}</button>
+                  <button type="button" className="v2-btn-secondary" onClick={() => { setCouponModalOpen(false); setEditingCoupon(null); }}>Cancel</button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ========== RETURN MODAL ========== */}
+      <AnimatePresence>
+        {returnModalOpen && selectedReturn && (
+          <motion.div
+            className="v2-modal-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="v2-modal"
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+            >
+              <div className="v2-modal-header">
+                <h3>Process Return Request</h3>
+                <button onClick={() => setReturnModalOpen(false)}>✕</button>
+              </div>
+              <div className="v2-return-preview">
+                <p><strong>Product:</strong> {selectedReturn.product?.name}</p>
+                <p><strong>Reason:</strong> {selectedReturn.reason}</p>
+                <p><strong>Refund Amount:</strong> Ksh {formatPrice(selectedReturn.refund_amount)}</p>
+                <p><strong>Buyer Receives:</strong> Ksh {formatPrice(selectedReturn.refund_amount * 0.95)} (95%)</p>
+              </div>
+              <div className="v2-form-group">
+                <label>Admin Notes</label>
+                <textarea id="adminNotes" rows="3" placeholder="Add notes about this decision..." />
+              </div>
+              <div className="v2-modal-actions">
+                <button className="v2-btn-success" onClick={() => processReturn(selectedReturn.id, 'approve', document.getElementById('adminNotes')?.value)}>✅ Approve & Refund</button>
+                <button className="v2-btn-danger" onClick={() => processReturn(selectedReturn.id, 'reject', document.getElementById('adminNotes')?.value)}>❌ Reject</button>
+                <button className="v2-btn-secondary" onClick={() => setReturnModalOpen(false)}>Cancel</button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ========== SELF DELIVERY CONFIRMATION MODAL ========== */}
+      <AnimatePresence>
+        {selfDeliveryModalOpen && (
+          <motion.div
+            className="v2-modal-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="v2-modal"
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+            >
+              <div className="v2-modal-header">
+                <h3>Confirm Self-Delivery Settings</h3>
+                <button onClick={() => setSelfDeliveryModalOpen(false)}>✕</button>
+              </div>
+              <div className="v2-delivery-summary">
+                <div className="v2-summary-row">
+                  <span>Fleet Size:</span>
+                  <strong>{selfDeliveryData.fleet_size} riders</strong>
+                </div>
+                <div className="v2-summary-row">
+                  <span>Coverage Radius:</span>
+                  <strong>{selfDeliveryData.coverage_radius} km</strong>
+                </div>
+                <div className="v2-summary-row">
+                  <span>Base Fee:</span>
+                  <strong>Ksh {formatPrice(selfDeliveryData.base_fee)}</strong>
+                </div>
+                <div className="v2-summary-row">
+                  <span>Rate per KM:</span>
+                  <strong>Ksh {formatPrice(selfDeliveryData.rate_per_km)}</strong>
+                </div>
+                <div className="v2-formula">
+                  <strong>Delivery Fee Formula:</strong>
+                  <p>Base Fee + (Distance × Rate per KM)</p>
+                  <p className="v2-example">
+                    Example: 5km delivery = Ksh {selfDeliveryData.base_fee} + (5 × {selfDeliveryData.rate_per_km}) = Ksh {selfDeliveryData.base_fee + (5 * selfDeliveryData.rate_per_km)}
+                  </p>
+                </div>
+              </div>
+              <div className="v2-modal-actions">
+                <button className="v2-btn-primary" onClick={() => {
+                  updateStoreSettings({
+                    delivery_type: 'self-delivery',
+                    has_delivery_fleet: true,
+                    delivery_fleet_size: selfDeliveryData.fleet_size,
+                    delivery_coverage_radius: selfDeliveryData.coverage_radius,
+                    delivery_base_fee: selfDeliveryData.base_fee,
+                    delivery_rate_per_km: selfDeliveryData.rate_per_km
+                  });
+                }}>Confirm & Save</button>
+                <button className="v2-btn-secondary" onClick={() => setSelfDeliveryModalOpen(false)}>Cancel</button>
               </div>
             </motion.div>
           </motion.div>

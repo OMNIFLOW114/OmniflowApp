@@ -1352,7 +1352,7 @@ const WithdrawMoneyModal = React.memo(({
     }
     
     const amountNum = Number(amount);
-    if (!amount || amountNum < 100) {
+    if (!amount || amountNum < 20) {
       setError("Minimum withdrawal amount is 100 KSH");
       return;
     }
@@ -1451,11 +1451,11 @@ const WithdrawMoneyModal = React.memo(({
               }}
               className="wallet-input"
               disabled={isProcessing}
-              min="100"
-              step="100"
+              min="20"
+              step="20"
             />
             
-            {amount && Number(amount) >= 100 && (
+            {amount && Number(amount) >= 20 && (
               <div style={{ 
                 marginTop: "12px", 
                 padding: "12px", 
@@ -1485,7 +1485,7 @@ const WithdrawMoneyModal = React.memo(({
           <button
             onClick={handleWithdrawMoney}
             className="wallet-confirm-btn"
-            disabled={isProcessing || !phoneNumber || !amount || Number(amount) < 100}
+            disabled={isProcessing || !phoneNumber || !amount || Number(amount) < 20}
             style={{ width: "100%", background: "#fa8c16" }}
           >
             {isProcessing ? (

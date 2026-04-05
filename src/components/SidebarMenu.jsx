@@ -1,3 +1,4 @@
+// src/components/SidebarMenu.jsx - UPDATED PREMIUM VERSION
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -10,23 +11,22 @@ import {
   FaWallet,
   FaGraduationCap,
   FaStore,
-  FaShoppingCart,
-  FaHeart,
-  FaInfoCircle
+  FaInfoCircle,
+  FaHome
 } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { useDarkMode } from "@/context/DarkModeContext";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/supabase";
 import { toast } from "react-hot-toast";
-import "./SidebarMenu.css";
+import styles from "./SidebarMenu.module.css";
 
 const menuVariants = {
   hidden: { opacity: 0, x: -20 },
   visible: (i) => ({
     opacity: 1,
     x: 0,
-    transition: { delay: i * 0.1, type: "spring", stiffness: 200 },
+    transition: { delay: i * 0.08, type: "spring", stiffness: 200 },
   }),
 };
 
@@ -35,41 +35,8 @@ const SidebarMenu = ({ onClose, onLogout }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [cartItemsCount, setCartItemsCount] = useState(0);
-  const [wishlistItemsCount, setWishlistItemsCount] = useState(0);
 
-  // Fetch cart and wishlist counts
-  useEffect(() => {
-    if (!user) return;
-
-    const fetchUserData = async () => {
-      try {
-        // Fetch cart items count
-        const { count: cartCount, error: cartError } = await supabase
-          .from("cart_items")
-          .select("*", { count: 'exact', head: true })
-          .eq("user_id", user.id);
-
-        if (!cartError && cartCount !== null) {
-          setCartItemsCount(cartCount);
-        }
-
-        // Fetch wishlist items count
-        const { count: wishlistCount, error: wishlistError } = await supabase
-          .from("wishlist_items")
-          .select("*", { count: 'exact', head: true })
-          .eq("user_id", user.id);
-
-        if (!wishlistError && wishlistCount !== null) {
-          setWishlistItemsCount(wishlistCount);
-        }
-      } catch (error) {
-        console.error("Error fetching user data:", error);
-      }
-    };
-
-    fetchUserData();
-  }, [user]);
+  // Removed cart and wishlist count fetching - not needed anymore
 
   const handleNavigation = (path, requiresAuth = false) => {
     if (requiresAuth && !user) {
@@ -82,8 +49,14 @@ const SidebarMenu = ({ onClose, onLogout }) => {
     onClose();
   };
 
-  // Updated menu items with About Us button
+  // Updated menu items - removed Cart and Wishlist, renamed My Store to Create a Store
   const menuItems = [
+    { 
+      icon: <FaHome size={18} />, 
+      text: "Home", 
+      link: "/",
+      requiresAuth: false
+    },
     { 
       icon: <FaUserCircle size={18} />, 
       text: "Profile", 
@@ -106,23 +79,9 @@ const SidebarMenu = ({ onClose, onLogout }) => {
     },
     { 
       icon: <FaStore size={18} />, 
-      text: "My Store", 
+      text: "Create a Store", 
       link: "/store/create",
       requiresAuth: true
-    },
-    { 
-      icon: <FaShoppingCart size={18} />, 
-      text: "Cart", 
-      link: "/cart",
-      requiresAuth: true,
-      count: cartItemsCount
-    },
-    { 
-      icon: <FaHeart size={18} />, 
-      text: "Wishlist", 
-      link: "/wishlist",
-      requiresAuth: true,
-      count: wishlistItemsCount
     },
     { 
       icon: <FaInfoCircle size={18} />, 
@@ -140,27 +99,28 @@ const SidebarMenu = ({ onClose, onLogout }) => {
     { 
       icon: <FaQuestionCircle size={18} />, 
       text: "Help Center", 
-      link: "/help" 
+      link: "/help",
+      requiresAuth: false
     },
   ];
 
   if (loading) {
     return (
       <>
-        <div className="sidebar-backdrop" onClick={onClose}></div>
+        <div className={styles.backdrop} onClick={onClose}></div>
         <motion.div
           initial={{ x: "-100%" }}
           animate={{ x: 0 }}
           exit={{ x: "-100%" }}
           transition={{ duration: 0.3 }}
-          className="sidebar-container"
+          className={styles.container}
         >
-          <div className="sidebar-header">
-            <h2 className="sidebar-title">Dashboard</h2>
+          <div className={styles.header}>
+            <h2 className={styles.title}>Dashboard</h2>
           </div>
-          <div className="sidebar-content">
-            <div className="sidebar-item">
-              <div className="loading-spinner-small"></div>
+          <div className={styles.content}>
+            <div className={styles.loadingItem}>
+              <div className={styles.loadingSpinner}></div>
               <span>Loading...</span>
             </div>
           </div>
@@ -171,35 +131,35 @@ const SidebarMenu = ({ onClose, onLogout }) => {
 
   return (
     <>
-      <div className="sidebar-backdrop" onClick={onClose}></div>
+      <div className={styles.backdrop} onClick={onClose}></div>
       <motion.div
         initial={{ x: "-100%" }}
         animate={{ x: 0 }}
         exit={{ x: "-100%" }}
         transition={{ duration: 0.3 }}
-        className="sidebar-container"
+        className={styles.container}
       >
-        <div className="sidebar-header">
-          <div className="user-info">
+        <div className={styles.header}>
+          <div className={styles.userInfo}>
             {user ? (
               <>
-                <div className="user-avatar">
-                  <FaUserCircle size={32} />
+                <div className={styles.userAvatar}>
+                  <FaUserCircle size={36} />
                 </div>
-                <div className="user-details">
-                  <h2 className="sidebar-title">
+                <div className={styles.userDetails}>
+                  <h2 className={styles.title}>
                     {user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'}
                   </h2>
-                  <p className="user-email">{user.email}</p>
+                  <p className={styles.userEmail}>{user.email}</p>
                 </div>
               </>
             ) : (
-              <h2 className="sidebar-title">Welcome</h2>
+              <h2 className={styles.title}>Welcome</h2>
             )}
           </div>
         </div>
 
-        <div className="sidebar-content">
+        <div className={styles.content}>
           {menuItems.map((item, index) => (
             <motion.div
               key={item.text}
@@ -210,17 +170,14 @@ const SidebarMenu = ({ onClose, onLogout }) => {
             >
               <button
                 onClick={() => handleNavigation(item.link, item.requiresAuth)}
-                className="sidebar-item"
+                className={styles.menuItem}
               >
-                <div className="sidebar-item-left">
+                <div className={styles.menuItemLeft}>
                   {item.icon}
                   <span>{item.text}</span>
                 </div>
-                <div className="sidebar-item-right">
-                  {item.badge && <span className="sidebar-badge">{item.badge}</span>}
-                  {item.count !== undefined && item.count > 0 && (
-                    <span className="sidebar-count">{item.count}</span>
-                  )}
+                <div className={styles.menuItemRight}>
+                  {item.badge && <span className={styles.badge}>{item.badge}</span>}
                 </div>
               </button>
             </motion.div>
@@ -235,9 +192,9 @@ const SidebarMenu = ({ onClose, onLogout }) => {
           >
             <button
               onClick={toggleDarkMode}
-              className="sidebar-item theme-toggle-button"
+              className={`${styles.menuItem} ${styles.themeToggle}`}
             >
-              <div className="sidebar-item-left">
+              <div className={styles.menuItemLeft}>
                 {darkMode ? <FaSun size={18} /> : <FaMoon size={18} />}
                 <span>{darkMode ? "Light Mode" : "Dark Mode"}</span>
               </div>
@@ -257,7 +214,7 @@ const SidebarMenu = ({ onClose, onLogout }) => {
                   onClose();
                   onLogout();
                 }}
-                className="sidebar-item logout-button"
+                className={`${styles.menuItem} ${styles.logoutBtn}`}
               >
                 <FaSignOutAlt size={18} /> 
                 <span>Logout</span>
@@ -268,7 +225,7 @@ const SidebarMenu = ({ onClose, onLogout }) => {
                   onClose();
                   navigate("/auth");
                 }}
-                className="sidebar-item login-button"
+                className={`${styles.menuItem} ${styles.loginBtn}`}
               >
                 <FaUserCircle size={18} /> 
                 <span>Login / Sign Up</span>
@@ -278,9 +235,9 @@ const SidebarMenu = ({ onClose, onLogout }) => {
         </div>
 
         {/* App Version */}
-        <div className="sidebar-footer">
-          <p className="app-version">OmniFlow v2.0</p>
-          <p className="app-tagline">Kenya's Powered E-Commerce</p>
+        <div className={styles.footer}>
+          <p className={styles.version}>OmniFlow v2.0</p>
+          <p className={styles.tagline}>Kenya's Powered E-Commerce</p>
         </div>
       </motion.div>
     </>

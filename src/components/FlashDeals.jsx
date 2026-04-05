@@ -1,37 +1,37 @@
+// src/components/FlashDeals.jsx - UPDATED WITH RETENTION & MINIMIZED SIZE
 import React, { useEffect, useState, useCallback, useRef, memo } from "react";
 import { supabase } from "@/supabase";
 import { useNavigate } from "react-router-dom";
-import { FaBolt, FaTags, FaStar, FaArrowRight } from "react-icons/fa";
+import { motion } from "framer-motion";
+import { FaBolt, FaTags, FaStar, FaArrowRight, FaClock, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import "./FlashDeals.css";
+
+// Kenyan Money Formatter
+const formatKenyanMoney = (amount) => {
+  if (!amount && amount !== 0) return "KSh 0";
+  return `KSh ${Number(amount).toLocaleString("en-KE")}`;
+};
 
 // Cache keys for localStorage
 const FLASH_CACHE_KEYS = {
-  PRODUCTS: 'flash_deals_products',
-  CACHE_TIMESTAMP: 'flash_cache_timestamp',
-  THEME: 'flash_theme',
-  CURRENT_TIME: 'flash_current_time'
+  PRODUCTS: 'flash_deals_products_v3',
+  CACHE_TIMESTAMP: 'flash_cache_timestamp_v3',
+  DATA_VERSION: 'flash_data_version'
 };
 
-// Cache expiry time (2 minutes for flash deals - they expire fast!)
-const FLASH_CACHE_EXPIRY = 2 * 60 * 1000;
+const FLASH_CACHE_EXPIRY = 5 * 60 * 1000; // 5 minutes cache
 
-// Cache utility functions
 const loadFlashFromCache = (key, defaultValue = null) => {
   try {
     const cached = localStorage.getItem(key);
     if (!cached) return defaultValue;
-    
     const { data, timestamp } = JSON.parse(cached);
-    
-    // Check if cache is expired
     if (Date.now() - timestamp > FLASH_CACHE_EXPIRY) {
       localStorage.removeItem(key);
       return defaultValue;
     }
-    
     return data;
   } catch (error) {
-    console.error(`Error loading flash cache ${key}:`, error);
     localStorage.removeItem(key);
     return defaultValue;
   }
@@ -39,64 +39,31 @@ const loadFlashFromCache = (key, defaultValue = null) => {
 
 const saveFlashToCache = (key, data) => {
   try {
-    const cacheData = {
-      data,
-      timestamp: Date.now()
-    };
-    localStorage.setItem(key, JSON.stringify(cacheData));
+    localStorage.setItem(key, JSON.stringify({ data, timestamp: Date.now() }));
   } catch (error) {
-    console.error(`Error saving flash cache ${key}:`, error);
+    console.error(`Error saving cache ${key}:`, error);
   }
 };
 
-const clearFlashCache = () => {
-  Object.values(FLASH_CACHE_KEYS).forEach(key => {
-    if (key !== FLASH_CACHE_KEYS.THEME) {
-      localStorage.removeItem(key);
-    }
-  });
-};
-
-// Theme detection function (outside component)
-const detectFlashTheme = () => {
-  const savedTheme = localStorage.getItem('theme');
-  if (savedTheme) return savedTheme;
-  
-  const htmlTheme = document.documentElement.getAttribute('data-theme');
-  if (htmlTheme) return htmlTheme;
-  
-  const htmlClass = document.documentElement.className;
-  if (htmlClass.includes('dark')) return 'dark';
-  if (htmlClass.includes('light')) return 'light';
-  
-  if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-    return 'dark';
-  }
-  
-  return 'light';
-};
-
-// Skeleton component
+// Skeleton Component - Minimized for homepage
 const FlashDealsSkeleton = () => (
-  <section className={`flash-deals-section loading`}>
-    <header className="flash-header">
-      <FaBolt className="flash-icon" />
-      <div className="flash-header-text">
-        <h2>Flash Deals</h2>
-        <p>Hurry up! Limited-time offers.</p>
+  <section className="flash-deals-section loading">
+    <div className="flash-header">
+      <div className="flash-header-left">
+        <div className="skeleton-icon"></div>
+        <div className="flash-header-text">
+          <div className="skeleton-title"></div>
+          <div className="skeleton-subtitle"></div>
+        </div>
       </div>
-    </header>
-
+    </div>
     <div className="flash-carousel">
-      {[...Array(6)].map((_, index) => (
+      {[...Array(4)].map((_, index) => (
         <div className="flash-card-skeleton" key={index}>
-          <div className="flash-img-skeleton"></div>
+          <div className="flash-image-skeleton"></div>
           <div className="flash-content-skeleton">
-            <div className="flash-name-skeleton"></div>
-            <div className="flash-rating-skeleton"></div>
-            <div className="flash-category-skeleton"></div>
-            <div className="flash-price-skeleton"></div>
-            <div className="flash-meta-skeleton"></div>
+            <div className="skeleton-name"></div>
+            <div className="skeleton-price"></div>
           </div>
         </div>
       ))}
@@ -104,60 +71,97 @@ const FlashDealsSkeleton = () => (
   </section>
 );
 
-// Main component
-const FlashDeals = memo(({ limit = 6, showViewMore = true }) => {
-  const navigate = useNavigate();
-  const [flashDeals, setFlashDeals] = useState(() => 
-    loadFlashFromCache(FLASH_CACHE_KEYS.PRODUCTS, [])
-  );
-  const [now, setNow] = useState(() => {
-    const cachedTime = loadFlashFromCache(FLASH_CACHE_KEYS.CURRENT_TIME);
-    return cachedTime ? new Date(cachedTime) : new Date();
-  });
-  const [theme, setTheme] = useState(() => 
-    loadFlashFromCache(FLASH_CACHE_KEYS.THEME, "light")
-  );
-  
-  const isMountedRef = useRef(false);
-  const cacheDataRef = useRef({
-    isFetching: false,
-    lastFetchTime: 0,
-    timerInterval: null,
-    isComponentVisible: true
-  });
+// Timer Component - Minimized
+const FlashTimer = ({ endTime, now }) => {
+  const [timeLeft, setTimeLeft] = useState("");
 
-  // Theme detection with caching
   useEffect(() => {
-    const currentTheme = detectFlashTheme();
-    setTheme(currentTheme);
-    saveFlashToCache(FLASH_CACHE_KEYS.THEME, currentTheme);
-
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    const handler = (e) => {
-      const newTheme = e.matches ? "dark" : "light";
-      setTheme(newTheme);
-      saveFlashToCache(FLASH_CACHE_KEYS.THEME, newTheme);
-    };
-    
-    mediaQuery.addEventListener("change", handler);
-
-    return () => mediaQuery.removeEventListener("change", handler);
-  }, []);
-
-  // Visibility change handler
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      cacheDataRef.current.isComponentVisible = !document.hidden;
-      if (!document.hidden) {
-        // Component is now visible, update time
-        setNow(new Date());
-        saveFlashToCache(FLASH_CACHE_KEYS.CURRENT_TIME, new Date().toISOString());
+    const calculateTimeLeft = () => {
+      const diff = new Date(endTime) - now;
+      if (diff <= 0) return null;
+      const hours = Math.floor(diff / 36e5);
+      const minutes = Math.floor((diff % 36e5) / 6e4);
+      const seconds = Math.floor((diff % 6e4) / 1e3);
+      
+      if (hours > 0) {
+        return `${hours}h ${minutes}m`;
       }
+      return `${minutes}m ${seconds}s`;
     };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    setTimeLeft(calculateTimeLeft());
+    const interval = setInterval(() => {
+      const newTime = calculateTimeLeft();
+      setTimeLeft(newTime);
+      if (!newTime) clearInterval(interval);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [endTime, now]);
+
+  if (!timeLeft) return null;
+
+  return (
+    <div className="flash-timer">
+      <FaClock />
+      <span>{timeLeft}</span>
+    </div>
+  );
+};
+
+// Main Component
+const FlashDeals = memo(({ limit = 4, showViewMore = true }) => {
+  const navigate = useNavigate();
+  const [flashDeals, setFlashDeals] = useState(() => loadFlashFromCache(FLASH_CACHE_KEYS.PRODUCTS, []));
+  const [loading, setLoading] = useState(() => loadFlashFromCache(FLASH_CACHE_KEYS.PRODUCTS, []).length === 0);
+  const [now, setNow] = useState(new Date());
+  const scrollContainerRef = useRef(null);
+  const [showLeftArrow, setShowLeftArrow] = useState(false);
+  const [showRightArrow, setShowRightArrow] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+  const [isMounted, setIsMounted] = useState(true);
+  const initialLoadDone = useRef(false);
+
+  // Check if mobile
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth <= 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // Check scroll position for arrows
+  const checkScrollPosition = useCallback(() => {
+    if (scrollContainerRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current;
+      setShowLeftArrow(scrollLeft > 0);
+      setShowRightArrow(scrollLeft + clientWidth < scrollWidth - 10);
+    }
+  }, []);
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      container.addEventListener('scroll', checkScrollPosition);
+      checkScrollPosition();
+      return () => container.removeEventListener('scroll', checkScrollPosition);
+    }
+  }, [checkScrollPosition, flashDeals]);
+
+  const scroll = (direction) => {
+    if (scrollContainerRef.current) {
+      const scrollAmount = direction === 'left' ? -250 : 250;
+      scrollContainerRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+  };
+
+  // Update current time every second
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (isMounted) setNow(new Date());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isMounted]);
 
   const getImageUrl = useCallback((path) => {
     if (!path) return "/placeholder.jpg";
@@ -165,34 +169,16 @@ const FlashDeals = memo(({ limit = 6, showViewMore = true }) => {
     return supabase.storage.from("product-images").getPublicUrl(path).data.publicUrl;
   }, []);
 
-  const fetchFlashDeals = useCallback(async (forceRefresh = false) => {
-    // Skip if already fetching
-    if (cacheDataRef.current.isFetching) return;
-    
-    // Check cache first if not forcing refresh
-    if (!forceRefresh && flashDeals.length > 0) {
-      // Still need to filter expired deals
-      const currentTime = new Date();
-      const activeDeals = flashDeals.filter(p => new Date(p.flash_sale_ends_at) > currentTime);
-      if (activeDeals.length > 0) {
-        setFlashDeals(activeDeals);
-        return;
-      }
-    }
-    
-    // Don't fetch if cache is still fresh (less than 30 seconds old for flash deals)
-    if (!forceRefresh && cacheDataRef.current.lastFetchTime > 0 && 
-        Date.now() - cacheDataRef.current.lastFetchTime < 30000) {
-      return;
-    }
-    
-    cacheDataRef.current.isFetching = true;
+  const fetchFlashDeals = useCallback(async () => {
+    // Skip if already loaded and not forcing refresh
+    if (initialLoadDone.current && flashDeals.length > 0) return;
     
     try {
+      setLoading(true);
       const { data, error } = await supabase
         .from("products")
         .select(`
-          id, name, price, discount, rating, category,
+          id, name, price, discount, category,
           stock_quantity, image_gallery, flash_sale_ends_at,
           stores(id, is_active)
         `)
@@ -200,233 +186,146 @@ const FlashDeals = memo(({ limit = 6, showViewMore = true }) => {
         .gt("flash_sale_ends_at", new Date().toISOString())
         .eq("visibility", "public")
         .eq("status", "active")
-        .order("flash_sale_ends_at", { ascending: true })
-        .limit(limit + 3);
+        .eq("stores.is_active", true)
+        .order("created_at", { ascending: false })
+        .limit(limit + 2);
 
-      if (error) {
-        console.error("Error fetching flash deals:", error);
-        return;
-      }
+      if (error) throw error;
 
       const active = data.filter((p) => p.stores?.is_active);
-      const withImg = active.map((p) => ({
+      const withDetails = active.map((p) => ({
         ...p,
         imageUrl: getImageUrl(p.image_gallery?.[0]),
-        flash_price: p.price * (1 - (p.discount || 0) / 100),
+        flash_price: p.price * (1 - (p.discount || 0) / 100)
       }));
 
-      setFlashDeals(withImg);
-      saveFlashToCache(FLASH_CACHE_KEYS.PRODUCTS, withImg);
-      cacheDataRef.current.lastFetchTime = Date.now();
-      
+      setFlashDeals(withDetails);
+      saveFlashToCache(FLASH_CACHE_KEYS.PRODUCTS, withDetails);
+      initialLoadDone.current = true;
     } catch (error) {
-      console.error("Error in flash deals fetch:", error);
-      // Keep cached data if fetch fails
-      if (flashDeals.length === 0) {
-        setFlashDeals([]);
-      }
+      console.error("Error fetching flash deals:", error);
     } finally {
-      cacheDataRef.current.isFetching = false;
+      setLoading(false);
     }
-  }, [flashDeals.length, getImageUrl, limit]);
+  }, [getImageUrl, limit, flashDeals.length]);
 
-  // Initial fetch only if no cached products
+  // Initial load - only if no cached data
   useEffect(() => {
-    if (flashDeals.length === 0 && !cacheDataRef.current.isFetching) {
+    if (flashDeals.length === 0 && !initialLoadDone.current) {
       fetchFlashDeals();
+    } else {
+      setLoading(false);
+      initialLoadDone.current = true;
     }
-    isMountedRef.current = true;
-  }, [flashDeals.length, fetchFlashDeals]);
-
-  // Real-time clock & auto-expire with caching
-  useEffect(() => {
-    const updateTimeAndFilter = () => {
-      if (!cacheDataRef.current.isComponentVisible) return;
-      
-      const currentTime = new Date();
-      setNow(currentTime);
-      saveFlashToCache(FLASH_CACHE_KEYS.CURRENT_TIME, currentTime.toISOString());
-      
-      // Filter expired deals
-      setFlashDeals(prev => {
-        const activeDeals = prev.filter(p => new Date(p.flash_sale_ends_at) > currentTime);
-        if (activeDeals.length !== prev.length) {
-          saveFlashToCache(FLASH_CACHE_KEYS.PRODUCTS, activeDeals);
-        }
-        return activeDeals;
-      });
-    };
-
-    // Initial update
-    updateTimeAndFilter();
-
-    // Set interval for updates
-    cacheDataRef.current.timerInterval = setInterval(updateTimeAndFilter, 1000);
-
-    // Cleanup interval on unmount
-    return () => {
-      if (cacheDataRef.current.timerInterval) {
-        clearInterval(cacheDataRef.current.timerInterval);
-      }
-    };
-  }, []);
-
-  // Background refresh every minute for flash deals
-  useEffect(() => {
-    const refreshInterval = setInterval(() => {
-      if (!cacheDataRef.current.isFetching) {
-        fetchFlashDeals(true);
-      }
-    }, 60 * 1000); // 1 minute
-    
-    return () => clearInterval(refreshInterval);
-  }, [fetchFlashDeals]);
-
-  // Handle pull-to-refresh for flash deals
-  useEffect(() => {
-    let startY = 0;
-    let isRefreshing = false;
-
-    const handleTouchStart = (e) => {
-      startY = e.touches[0].clientY;
-    };
-
-    const handleTouchMove = (e) => {
-      const flashSection = document.querySelector('.flash-deals-section');
-      if (!flashSection) return;
-      
-      const rect = flashSection.getBoundingClientRect();
-      const isAtTop = window.scrollY <= rect.top + 100;
-      
-      if (isAtTop && !isRefreshing) {
-        const currentY = e.touches[0].clientY;
-        const diff = currentY - startY;
-        
-        if (diff > 80) {
-          isRefreshing = true;
-          clearFlashCache();
-          fetchFlashDeals(true).finally(() => {
-            isRefreshing = false;
-          });
-        }
-      }
-    };
-
-    document.addEventListener('touchstart', handleTouchStart);
-    document.addEventListener('touchmove', handleTouchMove);
-
-    return () => {
-      document.removeEventListener('touchstart', handleTouchStart);
-      document.removeEventListener('touchmove', handleTouchMove);
-    };
-  }, [fetchFlashDeals]);
-
-  const getTimeLeft = useCallback((end) => {
-    const diff = new Date(end) - now;
-    if (diff <= 0) return null;
-    const h = String(Math.floor(diff / 36e5)).padStart(2, "0");
-    const m = String(Math.floor((diff % 36e5) / 6e4)).padStart(2, "0");
-    const s = String(Math.floor((diff % 6e4) / 1e3)).padStart(2, "0");
-    return `${h}:${m}:${s}`;
-  }, [now]);
+    setIsMounted(true);
+    return () => setIsMounted(false);
+  }, [fetchFlashDeals, flashDeals.length]);
 
   const handleClick = useCallback((id) => {
     navigate(`/product/${id}`);
   }, [navigate]);
 
-  const handleViewMore = useCallback(() => {
-    navigate("/flash-sales");
+  // Navigate to Flash Sales page
+  const handleViewAllFlashSales = useCallback(() => {
+    navigate('/flash-sales');
   }, [navigate]);
 
-  // Kenyan price formatter
-  const fmt = useCallback((num) =>
-    Number(num || 0).toLocaleString("en-KE", {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2,
-    }), []);
+  // Filter active deals and limit
+  const activeDeals = flashDeals.filter(p => new Date(p.flash_sale_ends_at) > now);
+  const displayDeals = activeDeals.slice(0, limit);
 
-  // Show skeleton only on initial load with no cache
-  if (flashDeals.length === 0 && cacheDataRef.current.lastFetchTime === 0) {
+  if (loading && flashDeals.length === 0) {
     return <FlashDealsSkeleton />;
   }
 
-  // Don't render anything if no flash deals
-  if (!flashDeals.length) return null;
-
-  // Limit to specified number for display
-  const displayDeals = flashDeals.slice(0, limit).filter(p => {
-    const timeLeft = getTimeLeft(p.flash_sale_ends_at);
-    return timeLeft !== null;
-  });
-
-  if (displayDeals.length === 0) return null;
+  if (displayDeals.length === 0) {
+    return null;
+  }
 
   return (
-    <section className={`flash-deals-section ${theme}`} data-theme={theme}>
-      <header className="flash-header">
-        <FaBolt className="flash-icon" />
-        <div className="flash-header-text">
-          <h2>Flash Deals</h2>
-          <p>Hurry up! Limited-time offers.</p>
+    <section className="flash-deals-section">
+      <div className="flash-header">
+        <div className="flash-header-left">
+          <div className="flash-icon-wrapper">
+            <FaBolt className="flash-icon" />
+          </div>
+          <div className="flash-header-text">
+            <h2>Flash Deals</h2>
+            <p>Limited-time offers</p>
+          </div>
         </div>
-        
-        {showViewMore && flashDeals.length > limit && (
-          <button className="view-more-btn" onClick={handleViewMore}>
-            View All Deals
-            <FaArrowRight className="arrow-icon" />
+
+        {showViewMore && activeDeals.length > limit && (
+          <button className="flash-view-more" onClick={handleViewAllFlashSales}>
+            See All <FaArrowRight />
           </button>
         )}
-      </header>
-
-      <div className="flash-carousel">
-        {displayDeals.map((p) => {
-          const timeLeft = getTimeLeft(p.flash_sale_ends_at);
-          if (!timeLeft) return null;
-
-          return (
-            <div key={p.id} className="flash-card" onClick={() => handleClick(p.id)}>
-              <div className="flash-img-wrapper">
-                <img src={p.imageUrl} alt={p.name} className="flash-img" />
-                {p.discount > 0 && (
-                  <span className="discount-badge">-{p.discount}%</span>
-                )}
-              </div>
-
-              <div className="flash-content">
-                <h3 className="flash-name">{p.name}</h3>
-
-                <div className="flash-rating">
-                  {[...Array(Math.round(p.rating || 0))].map((_, i) => (
-                    <FaStar key={i} className="star-filled" />
-                  ))}
-                </div>
-
-                <p className="flash-category">
-                  <FaTags /> {p.category}
-                </p>
-
-                <div className="flash-pricing">
-                  <span className="flash-price">KSH {fmt(p.flash_price)}</span>
-                  {p.discount > 0 && (
-                    <span className="original-price">KSH {fmt(p.price)}</span>
-                  )}
-                </div>
-
-                <div className="flash-meta">
-                  <span className="flash-stock">Stock: {p.stock_quantity}</span>
-                  <span className="flash-timer">Ends in {timeLeft}</span>
-                </div>
-              </div>
-            </div>
-          );
-        })}
       </div>
 
-      {showViewMore && flashDeals.length > limit && (
+      <div className="flash-carousel-wrapper">
+        {!isMobile && showLeftArrow && (
+          <button className="flash-scroll-btn left" onClick={() => scroll('left')}>
+            <FaChevronLeft />
+          </button>
+        )}
+
+        <div className="flash-carousel" ref={scrollContainerRef}>
+          {displayDeals.map((product, index) => (
+            <motion.div
+              className="flash-card"
+              key={product.id}
+              onClick={() => handleClick(product.id)}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.05 }}
+              whileHover={{ y: -2 }}
+            >
+              <div className="flash-image-container">
+                <img
+                  src={product.imageUrl}
+                  alt={product.name}
+                  className="flash-image"
+                  loading="lazy"
+                  onError={(e) => (e.target.src = "/placeholder.jpg")}
+                />
+                {product.discount > 0 && (
+                  <span className="flash-discount-badge">-{product.discount}%</span>
+                )}
+                <FlashTimer endTime={product.flash_sale_ends_at} now={now} />
+              </div>
+
+              <div className="flash-card-info">
+                <h3 className="flash-product-name" title={product.name}>
+                  {product.name.length > 30 ? product.name.substring(0, 27) + "..." : product.name}
+                </h3>
+
+                <div className="flash-price-container">
+                  <span className="flash-current-price">
+                    {formatKenyanMoney(product.flash_price)}
+                  </span>
+                  {product.discount > 0 && (
+                    <span className="flash-original-price">
+                      {formatKenyanMoney(product.price)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+
+        {!isMobile && showRightArrow && (
+          <button className="flash-scroll-btn right" onClick={() => scroll('right')}>
+            <FaChevronRight />
+          </button>
+        )}
+      </div>
+
+      {/* Bottom "See All" button */}
+      {showViewMore && activeDeals.length > limit && (
         <div className="flash-footer">
-          <button className="view-more-bottom-btn" onClick={handleViewMore}>
-            View All {flashDeals.length} Flash Sale Deals
-            <FaArrowRight className="arrow-icon" />
+          <button className="flash-view-all-btn" onClick={handleViewAllFlashSales}>
+            View All Flash Deals <FaArrowRight />
           </button>
         </div>
       )}
@@ -435,5 +334,4 @@ const FlashDeals = memo(({ limit = 6, showViewMore = true }) => {
 });
 
 FlashDeals.displayName = 'FlashDeals';
-
 export default FlashDeals;

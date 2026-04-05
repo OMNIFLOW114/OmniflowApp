@@ -1,36 +1,36 @@
+// src/components/FeaturedHighlights.jsx - MINIMIZED WITH CACHING
 import React, { useEffect, useState, useCallback, useRef, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/supabase";
-import { FaStar, FaUser, FaFire, FaCrown, FaEye, FaShoppingBag } from "react-icons/fa";
+import { motion } from "framer-motion";
+import { FaStar, FaCrown, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import "./FeaturedHighlights.css";
+
+// Kenyan Money Formatter
+const formatKenyanMoney = (amount) => {
+  if (!amount && amount !== 0) return "KSh 0";
+  return `KSh ${Number(amount).toLocaleString("en-KE")}`;
+};
 
 // Cache keys for localStorage
 const FEATURED_CACHE_KEYS = {
-  PRODUCTS: 'featured_products',
-  CACHE_TIMESTAMP: 'featured_cache_timestamp',
-  THEME: 'featured_theme'
+  PRODUCTS: 'featured_products_v3',
+  CACHE_TIMESTAMP: 'featured_cache_timestamp_v3',
 };
 
-// Cache expiry time (10 minutes for featured products)
-const FEATURED_CACHE_EXPIRY = 10 * 60 * 1000;
+const FEATURED_CACHE_EXPIRY = 10 * 60 * 1000; // 10 minutes cache
 
-// Cache utility functions
 const loadFeaturedFromCache = (key, defaultValue = null) => {
   try {
     const cached = localStorage.getItem(key);
     if (!cached) return defaultValue;
-    
     const { data, timestamp } = JSON.parse(cached);
-    
-    // Check if cache is expired
     if (Date.now() - timestamp > FEATURED_CACHE_EXPIRY) {
       localStorage.removeItem(key);
       return defaultValue;
     }
-    
     return data;
   } catch (error) {
-    console.error(`Error loading featured cache ${key}:`, error);
     localStorage.removeItem(key);
     return defaultValue;
   }
@@ -38,50 +38,26 @@ const loadFeaturedFromCache = (key, defaultValue = null) => {
 
 const saveFeaturedToCache = (key, data) => {
   try {
-    const cacheData = {
-      data,
-      timestamp: Date.now()
-    };
-    localStorage.setItem(key, JSON.stringify(cacheData));
+    localStorage.setItem(key, JSON.stringify({ data, timestamp: Date.now() }));
   } catch (error) {
-    console.error(`Error saving featured cache ${key}:`, error);
+    console.error(`Error saving cache ${key}:`, error);
   }
 };
 
-const clearFeaturedCache = () => {
-  Object.values(FEATURED_CACHE_KEYS).forEach(key => {
-    if (key !== FEATURED_CACHE_KEYS.THEME) {
-      localStorage.removeItem(key);
-    }
-  });
-};
-
-// Skeleton component
+// Minimized Skeleton Component
 const FeaturedSkeleton = () => (
   <section className="featured-highlights loading">
     <div className="featured-section-header">
-      <h2 className="featured-section-title">
-        <FaCrown className="featured-section-icon" /> Featured Products
-      </h2>
-      <p className="featured-section-subtitle">Handpicked quality products from verified sellers</p>
+      <div className="skeleton-icon"></div>
+      <div className="skeleton-title"></div>
     </div>
     <div className="featured-carousel">
-      {[...Array(6)].map((_, index) => (
+      {[...Array(4)].map((_, index) => (
         <div className="featured-card-skeleton" key={index}>
           <div className="featured-image-skeleton"></div>
-          <div className="featured-card-info">
-            <div className="featured-product-meta">
-              <div className="featured-category-tag"></div>
-              <div className="featured-stock-status"></div>
-            </div>
-            <h3 className="featured-product-name"></h3>
-            <div className="featured-rating-container">
-              <div className="featured-stars"></div>
-              <span className="featured-rating-text"></span>
-            </div>
-            <div className="featured-price-container">
-              <div className="featured-price-main"></div>
-            </div>
+          <div className="featured-card-info-skeleton">
+            <div className="skeleton-name"></div>
+            <div className="skeleton-price"></div>
           </div>
         </div>
       ))}
@@ -89,60 +65,49 @@ const FeaturedSkeleton = () => (
   </section>
 );
 
-// Theme detection function (outside component)
-const detectTheme = () => {
-  const savedTheme = localStorage.getItem('theme');
-  if (savedTheme) return savedTheme;
-  
-  const htmlTheme = document.documentElement.getAttribute('data-theme');
-  if (htmlTheme) return htmlTheme;
-  
-  const htmlClass = document.documentElement.className;
-  if (htmlClass.includes('dark')) return 'dark';
-  if (htmlClass.includes('light')) return 'light';
-  
-  if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-    return 'dark';
-  }
-  
-  return 'light';
-};
-
-// Main component
+// Main Component
 const FeaturedHighlights = memo(() => {
   const navigate = useNavigate();
-  const [products, setProducts] = useState(() => 
-    loadFeaturedFromCache(FEATURED_CACHE_KEYS.PRODUCTS, [])
-  );
-  const [loading, setLoading] = useState(() => 
-    loadFeaturedFromCache(FEATURED_CACHE_KEYS.PRODUCTS, []).length === 0
-  );
-  const [theme, setTheme] = useState(() => 
-    loadFeaturedFromCache(FEATURED_CACHE_KEYS.THEME, "light")
-  );
-  
-  const isMountedRef = useRef(false);
-  const cacheDataRef = useRef({
-    isFetching: false,
-    lastFetchTime: 0
-  });
+  const [products, setProducts] = useState(() => loadFeaturedFromCache(FEATURED_CACHE_KEYS.PRODUCTS, []));
+  const [loading, setLoading] = useState(() => loadFeaturedFromCache(FEATURED_CACHE_KEYS.PRODUCTS, []).length === 0);
+  const scrollContainerRef = useRef(null);
+  const [showLeftArrow, setShowLeftArrow] = useState(false);
+  const [showRightArrow, setShowRightArrow] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+  const initialLoadDone = useRef(false);
 
-  // Detect theme
+  // Check if mobile
   useEffect(() => {
-    const currentTheme = detectTheme();
-    setTheme(currentTheme);
-    saveFeaturedToCache(FEATURED_CACHE_KEYS.THEME, currentTheme);
-
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleThemeChange = (e) => {
-      const newTheme = e.matches ? 'dark' : 'light';
-      setTheme(newTheme);
-      saveFeaturedToCache(FEATURED_CACHE_KEYS.THEME, newTheme);
-    };
-
-    mediaQuery.addEventListener('change', handleThemeChange);
-    return () => mediaQuery.removeEventListener('change', handleThemeChange);
+    const checkMobile = () => setIsMobile(window.innerWidth <= 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // Check scroll position for arrows
+  const checkScrollPosition = useCallback(() => {
+    if (scrollContainerRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current;
+      setShowLeftArrow(scrollLeft > 0);
+      setShowRightArrow(scrollLeft + clientWidth < scrollWidth - 10);
+    }
+  }, []);
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      container.addEventListener('scroll', checkScrollPosition);
+      checkScrollPosition();
+      return () => container.removeEventListener('scroll', checkScrollPosition);
+    }
+  }, [checkScrollPosition, products]);
+
+  const scroll = (direction) => {
+    if (scrollContainerRef.current) {
+      const scrollAmount = direction === 'left' ? -250 : 250;
+      scrollContainerRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+  };
 
   const getImageUrl = useCallback((path) => {
     if (!path) return "/placeholder.jpg";
@@ -150,44 +115,18 @@ const FeaturedHighlights = memo(() => {
     return supabase.storage.from("product-images").getPublicUrl(path).data.publicUrl;
   }, []);
 
-  const fetchFeaturedProducts = useCallback(async (forceRefresh = false) => {
-    // Skip if already fetching
-    if (cacheDataRef.current.isFetching) return;
-    
-    // Check cache first if not forcing refresh
-    if (!forceRefresh && products.length > 0) {
-      setLoading(false);
-      return;
-    }
-    
-    // Don't fetch if cache is still fresh (less than 30 seconds old)
-    if (!forceRefresh && cacheDataRef.current.lastFetchTime > 0 && 
-        Date.now() - cacheDataRef.current.lastFetchTime < 30000) {
-      setLoading(false);
-      return;
-    }
-    
-    cacheDataRef.current.isFetching = true;
+  const fetchFeaturedProducts = useCallback(async () => {
+    // Skip if already loaded
+    if (initialLoadDone.current && products.length > 0) return;
     
     try {
       setLoading(true);
-      
       const { data, error } = await supabase
         .from("products")
         .select(`
-          id, 
-          name, 
-          price, 
-          discount, 
-          stock_quantity,
-          image_gallery, 
-          is_featured, 
-          is_rare_drop,
-          views, 
-          orders,
-          created_at,
-          sold_count,
-          stores(id, name, is_active, is_verified)
+          id, name, price, discount, stock_quantity,
+          image_gallery, is_featured,
+          stores(id, name, is_active)
         `)
         .eq("is_featured", true)
         .eq("visibility", "public")
@@ -199,124 +138,33 @@ const FeaturedHighlights = memo(() => {
       if (error) throw error;
 
       const validProducts = (data || []).filter(p => p.stores?.is_active);
+      const productsWithDetails = validProducts.map((p) => ({
+        ...p,
+        imageUrl: getImageUrl(p.image_gallery?.[0]),
+        hasDiscount: parseFloat(p.discount || 0) > 0,
+        discountedPrice: parseFloat(p.discount || 0) > 0
+          ? parseFloat(p.price) * (1 - parseFloat(p.discount) / 100)
+          : parseFloat(p.price)
+      }));
 
-      const productsWithRatings = await Promise.all(
-        validProducts.map(async (p) => {
-          try {
-            const { data: ratingsData } = await supabase
-              .from("ratings")
-              .select("rating")
-              .eq("product_id", p.id);
-
-            const ratings = ratingsData || [];
-            const ratingCount = ratings.length;
-            const avgRating = ratingCount > 0 
-              ? ratings.reduce((sum, r) => sum + (r.rating || 0), 0) / ratingCount
-              : 0;
-
-            return {
-              ...p,
-              avg_rating: parseFloat(avgRating.toFixed(1)),
-              rating_count: ratingCount,
-              imageUrl: getImageUrl(p.image_gallery?.[0]),
-              hasDiscount: parseFloat(p.discount || 0) > 0,
-              discountedPrice: parseFloat(p.discount || 0) > 0 
-                ? parseFloat(p.price) * (1 - parseFloat(p.discount) / 100)
-                : parseFloat(p.price),
-              sold_count: p.sold_count || p.orders || 0
-            };
-          } catch (ratingError) {
-            console.error("Error fetching ratings for product:", p.id, ratingError);
-            return {
-              ...p,
-              avg_rating: 0,
-              rating_count: 0,
-              imageUrl: getImageUrl(p.image_gallery?.[0]),
-              hasDiscount: parseFloat(p.discount || 0) > 0,
-              discountedPrice: parseFloat(p.discount || 0) > 0 
-                ? parseFloat(p.price) * (1 - parseFloat(p.discount) / 100)
-                : parseFloat(p.price),
-              sold_count: p.sold_count || p.orders || 0
-            };
-          }
-        })
-      );
-
-      setProducts(productsWithRatings);
-      saveFeaturedToCache(FEATURED_CACHE_KEYS.PRODUCTS, productsWithRatings);
-      cacheDataRef.current.lastFetchTime = Date.now();
-      
+      setProducts(productsWithDetails);
+      saveFeaturedToCache(FEATURED_CACHE_KEYS.PRODUCTS, productsWithDetails);
+      initialLoadDone.current = true;
     } catch (error) {
       console.error("Error fetching featured products:", error);
-      // Keep cached data if fetch fails
-      if (products.length === 0) {
-        setProducts([]);
-      }
     } finally {
       setLoading(false);
-      cacheDataRef.current.isFetching = false;
     }
-  }, [products.length, getImageUrl]);
+  }, [getImageUrl, products.length]);
 
-  // Initial fetch only if no cached products
   useEffect(() => {
-    if (products.length === 0 && !cacheDataRef.current.isFetching) {
+    if (products.length === 0 && !initialLoadDone.current) {
       fetchFeaturedProducts();
     } else {
       setLoading(false);
+      initialLoadDone.current = true;
     }
-    isMountedRef.current = true;
-  }, [products.length, fetchFeaturedProducts]);
-
-  // Background refresh every 5 minutes
-  useEffect(() => {
-    const refreshInterval = setInterval(() => {
-      if (!cacheDataRef.current.isFetching) {
-        fetchFeaturedProducts(true);
-      }
-    }, 5 * 60 * 1000); // 5 minutes
-    
-    return () => clearInterval(refreshInterval);
-  }, [fetchFeaturedProducts]);
-
-  // Handle pull-to-refresh for featured section
-  useEffect(() => {
-    let startY = 0;
-    let isRefreshing = false;
-
-    const handleTouchStart = (e) => {
-      startY = e.touches[0].clientY;
-    };
-
-    const handleTouchMove = (e) => {
-      const featuredSection = document.querySelector('.featured-highlights');
-      if (!featuredSection) return;
-      
-      const rect = featuredSection.getBoundingClientRect();
-      const isAtTop = window.scrollY <= rect.top + 100;
-      
-      if (isAtTop && !isRefreshing) {
-        const currentY = e.touches[0].clientY;
-        const diff = currentY - startY;
-        
-        if (diff > 80) {
-          isRefreshing = true;
-          clearFeaturedCache();
-          fetchFeaturedProducts(true).finally(() => {
-            isRefreshing = false;
-          });
-        }
-      }
-    };
-
-    document.addEventListener('touchstart', handleTouchStart);
-    document.addEventListener('touchmove', handleTouchMove);
-
-    return () => {
-      document.removeEventListener('touchstart', handleTouchStart);
-      document.removeEventListener('touchmove', handleTouchMove);
-    };
-  }, [fetchFeaturedProducts]);
+  }, [fetchFeaturedProducts, products.length]);
 
   const handleClick = useCallback((id) => {
     navigate(`/product/${id}`);
@@ -327,136 +175,78 @@ const FeaturedHighlights = memo(() => {
   }
 
   if (products.length === 0 && !loading) {
-    // Don't render anything if no featured products
     return null;
   }
 
   return (
-    <section 
-      className="featured-highlights"
-      data-theme={theme}
-    >
+    <section className="featured-highlights">
       <div className="featured-section-header">
-        <h2 className="featured-section-title">
-          <FaCrown className="featured-section-icon" /> Featured Products
-        </h2>
-        <p className="featured-section-subtitle">Handpicked quality products from verified sellers</p>
+        <div className="featured-title-wrapper">
+          <FaCrown className="featured-section-icon" />
+          <h2 className="featured-section-title">Featured</h2>
+        </div>
       </div>
-      
-      <div className="featured-carousel">
-        {products.map((product) => (
-          <div 
-            className="featured-card" 
-            key={product.id} 
-            onClick={() => handleClick(product.id)}
-            role="button"
-            tabIndex={0}
-            onKeyPress={(e) => e.key === 'Enter' && handleClick(product.id)}
-          >
-            <div className="featured-product-badges">
-              {product.is_rare_drop && (
-                <span className="featured-badge featured-badge-rare">
-                  <FaCrown size={8} /> Rare
-                </span>
-              )}
-              {product.hasDiscount && (
-                <span className="featured-badge featured-badge-discount">
-                  -{product.discount}%
-                </span>
-              )}
-              {product.views > 100 && (
-                <span className="featured-badge featured-badge-trending">
-                  <FaFire size={8} /> Trending
-                </span>
-              )}
-            </div>
 
-            <div className="featured-image-container">
-              <img
-                src={product.imageUrl}
-                alt={product.name}
-                className="featured-image"
-                loading="lazy"
-                onError={(e) => (e.target.src = "/placeholder.jpg")}
-              />
-            </div>
+      <div className="featured-carousel-wrapper">
+        {!isMobile && showLeftArrow && (
+          <button className="featured-scroll-btn left" onClick={() => scroll('left')}>
+            <FaChevronLeft />
+          </button>
+        )}
 
-            <div className="featured-card-info">
-              <div className="featured-product-meta">
-                <div className="featured-category-tag">
-                  <FaShoppingBag size={8} /> Featured
-                </div>
-                <div className="featured-stock-status">
-                  {product.stock_quantity > 0 ? (
-                    <span className="featured-in-stock">In Stock</span>
-                  ) : (
-                    <span className="featured-out-of-stock">Out of Stock</span>
-                  )}
-                </div>
+        <div className="featured-carousel" ref={scrollContainerRef}>
+          {products.map((product, index) => (
+            <motion.div
+              className="featured-card"
+              key={product.id}
+              onClick={() => handleClick(product.id)}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.05 }}
+              whileHover={{ y: -2 }}
+            >
+              <div className="featured-image-container">
+                <img
+                  src={product.imageUrl}
+                  alt={product.name}
+                  className="featured-image"
+                  loading="lazy"
+                  onError={(e) => (e.target.src = "/placeholder.jpg")}
+                />
+                {product.hasDiscount && (
+                  <span className="featured-discount-badge">-{product.discount}%</span>
+                )}
               </div>
 
-              <h3 className="featured-product-name" title={product.name}>
-                {product.name.length > 40 ? product.name.substring(0, 40) + "..." : product.name}
-              </h3>
+              <div className="featured-card-info">
+                <h3 className="featured-product-name" title={product.name}>
+                  {product.name.length > 30 ? product.name.substring(0, 27) + "..." : product.name}
+                </h3>
 
-              <div className="featured-rating-container">
-                <div className="featured-stars">
-                  {[...Array(5)].map((_, i) => (
-                    <FaStar
-                      key={i}
-                      className={i < Math.round(product.avg_rating || 0) ? "featured-star-filled" : "featured-star-empty"}
-                      size={10}
-                    />
-                  ))}
-                </div>
-                <span className="featured-rating-text">
-                  ({product.rating_count || 0})
-                </span>
-              </div>
-
-              <div className="featured-price-container">
-                <div className="featured-price-main">
+                <div className="featured-price-container">
                   <span className="featured-current-price">
-                    KSH {Number(product.discountedPrice).toLocaleString("en-KE")}
+                    {formatKenyanMoney(product.discountedPrice)}
                   </span>
                   {product.hasDiscount && (
                     <span className="featured-original-price">
-                      KSH {Number(product.price).toLocaleString("en-KE")}
+                      {formatKenyanMoney(product.price)}
                     </span>
                   )}
                 </div>
               </div>
+            </motion.div>
+          ))}
+        </div>
 
-              <div className="featured-seller-info">
-                <FaUser size={10} />
-                <span className="featured-seller-name">
-                  {product.stores?.name || "Verified Seller"}
-                </span>
-                {product.stores?.is_verified && (
-                  <span className="featured-verified-badge">✓</span>
-                )}
-              </div>
-
-              <div className="featured-product-stats">
-                <div className="featured-stat">
-                  <FaEye size={10} />
-                  <span>{product.views || 0}</span>
-                </div>
-                {product.sold_count > 0 && (
-                  <div className="featured-stat">
-                    <FaShoppingBag size={10} />
-                    <span>{product.sold_count}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        ))}
+        {!isMobile && showRightArrow && (
+          <button className="featured-scroll-btn right" onClick={() => scroll('right')}>
+            <FaChevronRight />
+          </button>
+        )}
       </div>
     </section>
   );
 });
 
 FeaturedHighlights.displayName = 'FeaturedHighlights';
-
 export default FeaturedHighlights;

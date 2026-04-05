@@ -1,8 +1,9 @@
-// Cart.jsx - Jumia Style Cart Page (Kenyan Money Format)
+// src/pages/Cart.jsx - PREMIUM UPDATED VERSION
 import React, { useEffect, useState, useCallback, useRef, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/supabase";
 import { useAuth } from "@/context/AuthContext";
+import { useDarkMode } from "@/context/DarkModeContext";
 import { toast } from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 import {
@@ -17,20 +18,24 @@ import {
   FaTag,
   FaTruck,
   FaClock,
-  FaPercent
+  FaPercent,
+  FaArrowLeft,
+  FaCheckCircle,
+  FaSpinner,
+  FaGift,
+  FaShieldAlt
 } from "react-icons/fa";
-import "./Cart.css";
+import styles from "./Cart.module.css";
 
 // Kenyan Money Formatter
 const formatKenyanMoney = (amount) => {
-  if (amount === undefined || amount === null) return "0.00";
+  if (amount === undefined || amount === null) return "KSh 0";
   const num = Number(amount);
-  if (isNaN(num)) return "0.00";
-  // Format: 1,234,567.89
-  return num.toLocaleString('en-KE', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  });
+  if (isNaN(num)) return "KSh 0";
+  return `KSh ${num.toLocaleString('en-KE', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  })}`;
 };
 
 // Cache keys for localStorage
@@ -48,17 +53,13 @@ const loadCartFromCache = (key, defaultValue = null) => {
   try {
     const cached = localStorage.getItem(key);
     if (!cached) return defaultValue;
-    
     const { data, timestamp } = JSON.parse(cached);
-    
     if (Date.now() - timestamp > CART_CACHE_EXPIRY) {
       localStorage.removeItem(key);
       return defaultValue;
     }
-    
     return data;
   } catch (error) {
-    console.error(`Error loading cart cache ${key}:`, error);
     localStorage.removeItem(key);
     return defaultValue;
   }
@@ -66,72 +67,203 @@ const loadCartFromCache = (key, defaultValue = null) => {
 
 const saveCartToCache = (key, data) => {
   try {
-    const cacheData = {
-      data,
-      timestamp: Date.now()
-    };
-    localStorage.setItem(key, JSON.stringify(cacheData));
+    localStorage.setItem(key, JSON.stringify({ data, timestamp: Date.now() }));
   } catch (error) {
     console.error(`Error saving cart cache ${key}:`, error);
   }
 };
 
 // Skeleton loading component
-const CartSkeleton = () => (
-  <div className="cart-page">
-    <div className="cart-container">
-      <div className="skeleton-header">
-        <div className="skeleton-title"></div>
-        <div className="skeleton-subtitle"></div>
+const CartSkeleton = () => {
+  const { darkMode } = useDarkMode();
+  
+  return (
+    <div className={`${styles.container} ${darkMode ? styles.darkMode : styles.lightMode}`}>
+      <div className={styles.skeletonHeader}>
+        <div className={styles.skeletonBackBtn}></div>
+        <div className={styles.skeletonTitle}></div>
+        <div className={styles.skeletonActions}></div>
       </div>
-      <div className="skeleton-store">
-        <div className="skeleton-store-header"></div>
-        {[...Array(2)].map((_, i) => (
-          <div key={i} className="skeleton-item">
-            <div className="skeleton-image"></div>
-            <div className="skeleton-info">
-              <div className="skeleton-line"></div>
-              <div className="skeleton-line short"></div>
-              <div className="skeleton-line price"></div>
+      <div className={styles.skeletonStore}>
+        <div className={styles.skeletonStoreHeader}></div>
+        {[1,2].map(i => (
+          <div key={i} className={styles.skeletonItem}>
+            <div className={styles.skeletonImage}></div>
+            <div className={styles.skeletonInfo}>
+              <div className={styles.skeletonLine}></div>
+              <div className={styles.skeletonLineShort}></div>
+              <div className={styles.skeletonPrice}></div>
             </div>
           </div>
         ))}
-        <div className="skeleton-footer"></div>
+        <div className={styles.skeletonFooter}></div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
-// Main component
+// Empty Cart Component
+const EmptyCart = () => {
+  const navigate = useNavigate();
+  const { darkMode } = useDarkMode();
+  
+  return (
+    <div className={`${styles.emptyCart} ${darkMode ? styles.darkMode : styles.lightMode}`}>
+      <div className={styles.emptyCartIcon}>
+        <FaShoppingCart />
+      </div>
+      <h2>Your cart is empty</h2>
+      <p>Browse our amazing products and add some items to your cart</p>
+      <button className={styles.shopBtn} onClick={() => navigate("/student/marketplace")}>
+        Start Shopping
+      </button>
+    </div>
+  );
+};
+
+// Cart Item Component
+const CartItem = memo(({ item, isUpdating, onUpdateQuantity, onRemove, onNavigate }) => {
+  const { darkMode } = useDarkMode();
+  const product = item.products;
+  
+  if (!product) return null;
+  
+  const price = Number(product.price) || 0;
+  const discount = Number(product.discount) || 0;
+  const discountedPrice = price - (price * discount / 100);
+  const itemTotal = discountedPrice * item.quantity;
+  const imageUrl = product.image_gallery?.[0] || product.image_url || "/placeholder.jpg";
+  const isLowStock = product.stock_quantity > 0 && product.stock_quantity <= 10;
+  const isOutOfStock = product.stock_quantity <= 0;
+  
+  return (
+    <motion.div
+      className={styles.cartItem}
+      initial={{ opacity: 0, x: -20 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 20 }}
+      layout
+    >
+      {/* Product Image */}
+      <div className={styles.itemImage} onClick={() => onNavigate(`/student/product/${product.id}`)}>
+        <img src={imageUrl} alt={product.name} loading="lazy" />
+        {discount > 0 && (
+          <div className={styles.discountBadge}>
+            <FaPercent /> {discount}% OFF
+          </div>
+        )}
+      </div>
+
+      {/* Product Details */}
+      <div className={styles.itemDetails}>
+        <h4 onClick={() => onNavigate(`/student/product/${product.id}`)}>
+          {product.name}
+        </h4>
+        
+        {item.variant && (
+          <div className={styles.variantInfo}>
+            {typeof item.variant === 'string' ? item.variant : JSON.stringify(item.variant)}
+          </div>
+        )}
+        
+        <div className={styles.priceSection}>
+          <div className={styles.currentPrice}>
+            {formatKenyanMoney(discountedPrice)}
+          </div>
+          {discount > 0 && (
+            <div className={styles.originalPrice}>
+              {formatKenyanMoney(price)}
+            </div>
+          )}
+        </div>
+
+        {/* Stock Status */}
+        <div className={styles.stockStatus}>
+          {isOutOfStock ? (
+            <span className={styles.outOfStock}>Out of Stock</span>
+          ) : isLowStock ? (
+            <span className={styles.lowStock}>⚠️ Only {product.stock_quantity} left</span>
+          ) : (
+            <span className={styles.inStock}>✓ In Stock</span>
+          )}
+        </div>
+
+        {/* Delivery Info */}
+        <div className={styles.deliveryInfo}>
+          <FaTruck className={styles.deliveryIcon} />
+          <span>Delivery in 2-5 days</span>
+        </div>
+      </div>
+
+      {/* Quantity and Actions */}
+      <div className={styles.itemActions}>
+        <div className={styles.quantityControl}>
+          <button
+            className={styles.qtyBtn}
+            onClick={() => onUpdateQuantity(item.id, product.id, item.quantity - 1, product.name)}
+            disabled={isUpdating || item.quantity <= 1 || isOutOfStock}
+          >
+            <FaMinus />
+          </button>
+          <span className={styles.qtyValue}>
+            {isUpdating ? <FaSpinner className={styles.spinning} /> : item.quantity}
+          </span>
+          <button
+            className={styles.qtyBtn}
+            onClick={() => onUpdateQuantity(item.id, product.id, item.quantity + 1, product.name)}
+            disabled={isUpdating || item.quantity >= product.stock_quantity || isOutOfStock}
+          >
+            <FaPlus />
+          </button>
+        </div>
+
+        <div className={styles.itemTotal}>
+          <span className={styles.totalLabel}>Total:</span>
+          <span className={styles.totalValue}>{formatKenyanMoney(itemTotal)}</span>
+        </div>
+
+        <div className={styles.itemActionsButtons}>
+          <button
+            className={styles.wishlistBtn}
+            onClick={() => toast.success("Added to wishlist")}
+          >
+            <FaHeart /> Save
+          </button>
+          <button
+            className={styles.removeBtn}
+            onClick={() => onRemove(item.id, product.name)}
+            disabled={isUpdating}
+          >
+            <FaTrash /> Remove
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  );
+});
+
+CartItem.displayName = 'CartItem';
+
+// Main Cart Component
 const Cart = memo(() => {
   const { user } = useAuth();
+  const { darkMode } = useDarkMode();
   const navigate = useNavigate();
-  const [cartItems, setCartItems] = useState(() => 
-    loadCartFromCache(CART_CACHE_KEYS.ITEMS, [])
-  );
-  const [loading, setLoading] = useState(() => 
-    loadCartFromCache(CART_CACHE_KEYS.ITEMS, []).length === 0
-  );
+  
+  const [cartItems, setCartItems] = useState(() => loadCartFromCache(CART_CACHE_KEYS.ITEMS, []));
+  const [loading, setLoading] = useState(() => loadCartFromCache(CART_CACHE_KEYS.ITEMS, []).length === 0);
   const [updatingItems, setUpdatingItems] = useState(new Set());
-  const [selectedItems, setSelectedItems] = useState(new Set());
   
   const isMountedRef = useRef(false);
   const cacheDataRef = useRef({
     isFetching: false,
-    lastFetchTime: 0,
-    syncInProgress: false
+    lastFetchTime: 0
   });
 
   const fetchCartItems = useCallback(async (forceRefresh = false) => {
     if (cacheDataRef.current.isFetching || !user?.id) return;
     
     if (!forceRefresh && cartItems.length > 0) {
-      setLoading(false);
-      return;
-    }
-    
-    if (!forceRefresh && cacheDataRef.current.lastFetchTime > 0 && 
-        Date.now() - cacheDataRef.current.lastFetchTime < 30000) {
       setLoading(false);
       return;
     }
@@ -156,7 +288,6 @@ const Cart = memo(() => {
             stock_quantity,
             image_gallery,
             image_url,
-            delivery_methods,
             stores!inner (
               id,
               name,
@@ -168,11 +299,7 @@ const Cart = memo(() => {
         .eq("user_id", user.id)
         .eq("products.stores.is_active", true);
 
-      if (error) {
-        console.error("Cart fetch error:", error);
-        toast.error("Failed to load cart.");
-        return;
-      }
+      if (error) throw error;
 
       const items = data || [];
       setCartItems(items);
@@ -182,7 +309,7 @@ const Cart = memo(() => {
     } catch (error) {
       console.error("Cart error:", error);
       if (cartItems.length === 0) {
-        toast.error("Failed to load cart.");
+        toast.error("Failed to load cart");
       }
     } finally {
       setLoading(false);
@@ -200,23 +327,12 @@ const Cart = memo(() => {
     isMountedRef.current = true;
   }, [cartItems.length, fetchCartItems]);
 
-  // Save cart items to cache
+  // Save to cache
   useEffect(() => {
     if (isMountedRef.current && cartItems.length > 0) {
       saveCartToCache(CART_CACHE_KEYS.ITEMS, cartItems);
     }
   }, [cartItems]);
-
-  // Background refresh
-  useEffect(() => {
-    const refreshInterval = setInterval(() => {
-      if (!cacheDataRef.current.isFetching && user?.id) {
-        fetchCartItems(true);
-      }
-    }, 2 * 60 * 1000);
-    
-    return () => clearInterval(refreshInterval);
-  }, [fetchCartItems, user]);
 
   const handleRemoveFromCart = useCallback(async (cartId, productName) => {
     setUpdatingItems(prev => new Set(prev).add(cartId));
@@ -226,10 +342,9 @@ const Cart = memo(() => {
         .from("cart_items")
         .delete()
         .eq("id", cartId);
-
       if (error) throw error;
 
-      setCartItems((prev) => prev.filter((item) => item.id !== cartId));
+      setCartItems(prev => prev.filter(item => item.id !== cartId));
       toast.success(`${productName} removed from cart`);
     } catch (error) {
       console.error("Remove error:", error);
@@ -253,15 +368,11 @@ const Cart = memo(() => {
         .from("cart_items")
         .update({ quantity: newQuantity })
         .eq("id", cartId);
-
       if (error) throw error;
 
       setCartItems(prev => 
-        prev.map(item => 
-          item.id === cartId ? { ...item, quantity: newQuantity } : item
-        )
+        prev.map(item => item.id === cartId ? { ...item, quantity: newQuantity } : item)
       );
-      
     } catch (error) {
       console.error("Update quantity error:", error);
       toast.error("Failed to update quantity");
@@ -280,11 +391,6 @@ const Cart = memo(() => {
       return;
     }
 
-    if (storeItems.length === 0) {
-      toast.error("No items found for this store");
-      return;
-    }
-
     const outOfStockItems = storeItems.filter(item => 
       item.products.stock_quantity < item.quantity
     );
@@ -295,12 +401,6 @@ const Cart = memo(() => {
       return;
     }
 
-    const store = storeItems[0].products.stores;
-    if (!store.is_active) {
-      toast.error("This store is currently inactive");
-      return;
-    }
-
     try {
       const { data: sellerData, error: sellerError } = await supabase
         .from("stores")
@@ -308,16 +408,9 @@ const Cart = memo(() => {
         .eq("id", storeId)
         .single();
 
-      if (sellerError) {
-        console.error("Error fetching seller:", sellerError);
-        toast.error("Failed to load store information");
-        return;
-      }
+      if (sellerError) throw sellerError;
 
-      toast.success(`Proceeding to checkout for ${storeName}`);
-      
       const firstProductId = storeItems[0].products.id;
-      
       navigate(`/checkout/${firstProductId}`, { 
         state: { 
           cartItems: storeItems,
@@ -326,9 +419,8 @@ const Cart = memo(() => {
           seller: sellerData
         } 
       });
-
     } catch (error) {
-      console.error("Checkout preparation error:", error);
+      console.error("Checkout error:", error);
       toast.error("Failed to prepare checkout");
     }
   }, [user, navigate]);
@@ -336,42 +428,15 @@ const Cart = memo(() => {
   const calculateItemTotal = useCallback((item) => {
     const product = item.products;
     if (!product) return 0;
-    
     const price = Number(product.price) || 0;
-    const quantity = item.quantity || 1;
     const discount = Number(product.discount) || 0;
     const discountedPrice = price - (price * discount / 100);
-    
-    return discountedPrice * quantity;
+    return discountedPrice * item.quantity;
   }, []);
 
   // Calculate totals
   const totalAmount = cartItems.reduce((acc, item) => acc + calculateItemTotal(item), 0);
   const totalItems = cartItems.reduce((acc, item) => acc + (item.quantity || 1), 0);
-
-  // Group items by store
-  const itemsByStore = cartItems.reduce((acc, item) => {
-    const store = item.products.stores;
-    const storeKey = `${store.id}-${store.name}`;
-    if (!acc[storeKey]) {
-      acc[storeKey] = {
-        store: store,
-        items: []
-      };
-    }
-    acc[storeKey].items.push(item);
-    return acc;
-  }, {});
-
-  // Calculate store-wise totals
-  Object.keys(itemsByStore).forEach(storeKey => {
-    const storeData = itemsByStore[storeKey];
-    storeData.totalAmount = storeData.items.reduce((acc, item) => acc + calculateItemTotal(item), 0);
-    storeData.totalItems = storeData.items.reduce((acc, item) => acc + item.quantity, 0);
-    storeData.finalAmount = storeData.totalAmount;
-  });
-
-  // Calculate total savings
   const totalSavings = cartItems.reduce((acc, item) => {
     const price = Number(item.products.price) || 0;
     const discount = Number(item.products.discount) || 0;
@@ -379,214 +444,88 @@ const Cart = memo(() => {
     return acc + ((price - discountedPrice) * item.quantity);
   }, 0);
 
+  // Group items by store
+  const itemsByStore = cartItems.reduce((acc, item) => {
+    const store = item.products.stores;
+    const storeKey = `${store.id}-${store.name}`;
+    if (!acc[storeKey]) {
+      acc[storeKey] = { store, items: [] };
+    }
+    acc[storeKey].items.push(item);
+    return acc;
+  }, {});
+
   if (loading && cartItems.length === 0) {
     return <CartSkeleton />;
   }
 
   return (
-    <div className="cart-page">
-      <div className="cart-container">
-        {/* Header */}
-        <div className="cart-header">
-          <div className="cart-header-left">
-            <h1>Shopping Cart</h1>
-            <span className="cart-item-count">{totalItems} {totalItems === 1 ? 'item' : 'items'}</span>
-          </div>
+    <div className={`${styles.container} ${darkMode ? styles.darkMode : styles.lightMode}`}>
+      {/* Header */}
+      <header className={styles.header}>
+        <button className={styles.backBtn} onClick={() => navigate(-1)}>
+          <FaArrowLeft />
+        </button>
+        <h1>Shopping Cart</h1>
+        <div className={styles.headerActions}>
+          <span className={styles.itemCount}>{totalItems} {totalItems === 1 ? 'item' : 'items'}</span>
         </div>
+      </header>
 
-        <div className="cart-layout">
-          {/* Main Cart Content */}
-          <div className="cart-content">
-            {cartItems.length === 0 ? (
-              <div className="empty-cart">
-                <div className="empty-cart-icon">
-                  <FaShoppingCart />
-                </div>
-                <h2>Your cart is empty</h2>
-                <p>Browse our amazing products and add some items to your cart</p>
-                <button className="btn-primary btn-large" onClick={() => navigate("/")}>
-                  Start Shopping
-                </button>
-              </div>
-            ) : (
+      {/* Main Content */}
+      <div className={styles.content}>
+        {cartItems.length === 0 ? (
+          <EmptyCart />
+        ) : (
+          <div className={styles.cartLayout}>
+            {/* Cart Items */}
+            <div className={styles.cartItems}>
               <AnimatePresence>
                 {Object.entries(itemsByStore).map(([storeKey, storeData]) => {
-                  const { store, items, totalAmount, totalItems, finalAmount } = storeData;
+                  const { store, items } = storeData;
+                  const storeTotal = items.reduce((acc, item) => acc + calculateItemTotal(item), 0);
+                  const storeItemCount = items.reduce((acc, item) => acc + item.quantity, 0);
                   
                   return (
                     <motion.div 
                       key={storeKey}
-                      className="store-section"
+                      className={styles.storeSection}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -20 }}
-                      transition={{ duration: 0.4 }}
                     >
                       {/* Store Header */}
-                      <div className="store-header">
-                        <FaStore className="store-icon" />
-                        <div className="store-info">
+                      <div className={styles.storeHeader}>
+                        <FaStore className={styles.storeIcon} />
+                        <div className={styles.storeInfo}>
                           <h3>{store.name}</h3>
-                          <span className="store-badge">Seller</span>
+                          <span className={styles.storeBadge}>Verified Seller</span>
                         </div>
-                        <span className="store-item-badge">{totalItems} {totalItems === 1 ? 'item' : 'items'}</span>
+                        <span className={styles.storeItemBadge}>{storeItemCount} items</span>
                       </div>
                       
                       {/* Items List */}
-                      <div className="store-items">
-                        {items.map((item) => {
-                          const product = item.products;
-                          const isUpdating = updatingItems.has(item.id);
-                          
-                          if (!product) return null;
-
-                          const price = Number(product.price) || 0;
-                          const discount = Number(product.discount) || 0;
-                          const discountedPrice = price - (price * discount / 100);
-                          const itemTotal = calculateItemTotal(item);
-                          const imageUrl = product.image_gallery?.[0] || product.image_url || "/placeholder.jpg";
-
-                          return (
-                            <motion.div
-                              key={item.id}
-                              className="cart-item"
-                              initial={{ opacity: 0, x: -20 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              exit={{ opacity: 0, x: 20 }}
-                              transition={{ duration: 0.3 }}
-                              layout
-                            >
-                              {/* Checkbox */}
-                              <div className="item-select">
-                                <input type="checkbox" className="item-checkbox" />
-                              </div>
-                              
-                              {/* Product Image */}
-                              <div className="item-image" onClick={() => navigate(`/product/${product.id}`)}>
-                                <img src={imageUrl} alt={product.name} loading="lazy" />
-                                {discount > 0 && (
-                                  <div className="discount-badge">
-                                    <FaPercent /> {discount}% OFF
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Product Details */}
-                              <div className="item-details">
-                                <h4 onClick={() => navigate(`/product/${product.id}`)}>
-                                  {product.name}
-                                </h4>
-                                
-                                {item.variant && (
-                                  <div className="variant-info">
-                                    {typeof item.variant === 'string' ? item.variant : JSON.stringify(item.variant)}
-                                  </div>
-                                )}
-                                
-                                <div className="price-section">
-                                  <div className="current-price">
-                                    KES {formatKenyanMoney(discountedPrice)}
-                                  </div>
-                                  {discount > 0 && (
-                                    <>
-                                      <div className="original-price">
-                                        KES {formatKenyanMoney(price)}
-                                      </div>
-                                      <div className="saved-price">
-                                        Save KES {formatKenyanMoney(price - discountedPrice)}
-                                      </div>
-                                    </>
-                                  )}
-                                </div>
-
-                                {/* Stock Status */}
-                                <div className="stock-status">
-                                  {product.stock_quantity > 10 ? (
-                                    <span className="in-stock">✓ In Stock</span>
-                                  ) : product.stock_quantity > 0 ? (
-                                    <span className="low-stock">⚠️ Only {product.stock_quantity} left</span>
-                                  ) : (
-                                    <span className="out-of-stock">✗ Out of Stock</span>
-                                  )}
-                                </div>
-
-                                {/* Delivery Info */}
-                                <div className="delivery-info">
-                                  <FaTruck className="delivery-icon" />
-                                  <span>Delivery in 2-5 days</span>
-                                  <FaClock className="delivery-icon clock" />
-                                  <span>Free shipping</span>
-                                </div>
-                              </div>
-
-                              {/* Quantity and Actions */}
-                              <div className="item-actions">
-                                <div className="quantity-control">
-                                  <button
-                                    className="qty-btn"
-                                    onClick={() => handleUpdateQuantity(
-                                      item.id, 
-                                      product.id, 
-                                      item.quantity - 1, 
-                                      product.name
-                                    )}
-                                    disabled={isUpdating || item.quantity <= 1}
-                                  >
-                                    <FaMinus />
-                                  </button>
-                                  <span className="qty-value">
-                                    {isUpdating ? "..." : item.quantity}
-                                  </span>
-                                  <button
-                                    className="qty-btn"
-                                    onClick={() => handleUpdateQuantity(
-                                      item.id, 
-                                      product.id, 
-                                      item.quantity + 1, 
-                                      product.name
-                                    )}
-                                    disabled={isUpdating || item.quantity >= product.stock_quantity}
-                                  >
-                                    <FaPlus />
-                                  </button>
-                                </div>
-
-                                <div className="item-total">
-                                  <span className="total-label">Total:</span>
-                                  <span className="total-value">KES {formatKenyanMoney(itemTotal)}</span>
-                                </div>
-
-                                <div className="item-actions-buttons">
-                                  <button
-                                    className="wishlist-btn"
-                                    onClick={() => toast.success("Added to wishlist")}
-                                  >
-                                    <FaHeart />
-                                    Save for later
-                                  </button>
-                                  <button
-                                    className="remove-btn"
-                                    onClick={() => handleRemoveFromCart(item.id, product.name)}
-                                    disabled={isUpdating}
-                                  >
-                                    <FaTrash />
-                                    Remove
-                                  </button>
-                                </div>
-                              </div>
-                            </motion.div>
-                          );
-                        })}
+                      <div className={styles.storeItems}>
+                        {items.map((item) => (
+                          <CartItem
+                            key={item.id}
+                            item={item}
+                            isUpdating={updatingItems.has(item.id)}
+                            onUpdateQuantity={handleUpdateQuantity}
+                            onRemove={handleRemoveFromCart}
+                            onNavigate={navigate}
+                          />
+                        ))}
                       </div>
 
                       {/* Store Footer */}
-                      <div className="store-footer">
-                        <div className="store-total">
-                          <span>Subtotal ({totalItems} items):</span>
-                          <span className="store-total-amount">KES {formatKenyanMoney(finalAmount)}</span>
+                      <div className={styles.storeFooter}>
+                        <div className={styles.storeTotal}>
+                          <span>Subtotal ({storeItemCount} items):</span>
+                          <span className={styles.storeTotalAmount}>{formatKenyanMoney(storeTotal)}</span>
                         </div>
                         <button
-                          className="checkout-btn"
+                          className={styles.checkoutBtn}
                           onClick={() => handleCheckout(store.id, store.name, items)}
                           disabled={items.some(item => item.products.stock_quantity < item.quantity)}
                         >
@@ -599,38 +538,52 @@ const Cart = memo(() => {
                   );
                 })}
               </AnimatePresence>
-            )}
-          </div>
+            </div>
 
-          {/* Horizontal Order Summary - Kenyan Style */}
-          {cartItems.length > 0 && (
-            <div className="order-summary-horizontal">
-              <div className="summary-horizontal-card">
-                <div className="summary-horizontal-item">
-                  <span className="summary-label">Subtotal</span>
-                  <span className="summary-value">KES {formatKenyanMoney(totalAmount)}</span>
+            {/* Order Summary */}
+            <div className={styles.orderSummary}>
+              <div className={styles.summaryCard}>
+                <h3>Order Summary</h3>
+                
+                <div className={styles.summaryRow}>
+                  <span>Subtotal ({totalItems} items)</span>
+                  <span>{formatKenyanMoney(totalAmount)}</span>
                 </div>
                 
                 {totalSavings > 0 && (
-                  <div className="summary-horizontal-item savings">
-                    <span className="summary-label">You save</span>
-                    <span className="summary-value savings-value">- KES {formatKenyanMoney(totalSavings)}</span>
+                  <div className={`${styles.summaryRow} ${styles.savings}`}>
+                    <span>You save</span>
+                    <span className={styles.savingsValue}>- {formatKenyanMoney(totalSavings)}</span>
                   </div>
                 )}
                 
-                <div className="summary-horizontal-item total">
-                  <span className="summary-label">Total to pay</span>
-                  <span className="summary-value total-value">KES {formatKenyanMoney(totalAmount)}</span>
+                <div className={styles.summaryDivider} />
+                
+                <div className={`${styles.summaryRow} ${styles.total}`}>
+                  <span>Total to pay</span>
+                  <span className={styles.totalValue}>{formatKenyanMoney(totalAmount)}</span>
+                </div>
+                
+                <div className={styles.shippingNote}>
+                  <FaTruck />
+                  <span>Shipping fees calculated at checkout</span>
+                </div>
+                
+                <div className={styles.securityNote}>
+                  <FaShieldAlt />
+                  <span>Secure payment guaranteed</span>
                 </div>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
+      
+      {/* Bottom Spacing for Navigation */}
+      <div className={styles.bottomSpacing} />
     </div>
   );
 });
 
 Cart.displayName = 'Cart';
-
 export default Cart;

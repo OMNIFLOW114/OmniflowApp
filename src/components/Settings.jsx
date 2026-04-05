@@ -1,19 +1,175 @@
+// src/pages/Settings.jsx - PREMIUM UPDATED VERSION
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useDarkMode } from '@/context/DarkModeContext';
 import { supabase } from '@/supabase';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   FaUser, FaLock, FaShoppingBag, FaMapMarkerAlt, FaCreditCard, 
   FaBell, FaCog, FaDownload, FaStore, FaEdit, FaChevronRight,
   FaEye, FaEyeSlash, FaQrcode, FaShieldAlt, FaTrash, FaClock, FaCheckCircle,
   FaTimesCircle, FaExclamationTriangle, FaBellSlash, FaEnvelope, FaMobileAlt,
-  FaFileExport, FaInfoCircle, FaBox, FaChartLine, FaStar, FaEye as FaEyeIcon
+  FaFileExport, FaInfoCircle, FaBox, FaChartLine, FaStar, FaEye as FaEyeIcon,
+  FaArrowLeft, FaSpinner, FaPlus, FaWallet, FaHeart, FaTag, FaTruck
 } from 'react-icons/fa';
-import './Settings.css';
+import styles from './Settings.module.css';
+
+// Kenyan Money Formatter
+const formatKenyanMoney = (amount) => {
+  if (amount === undefined || amount === null) return "KSh 0";
+  const num = Number(amount);
+  if (isNaN(num)) return "KSh 0";
+  return `KSh ${num.toLocaleString('en-KE', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  })}`;
+};
+
+// Skeleton Loader Component
+const SettingsSkeleton = () => {
+  const { darkMode } = useDarkMode();
+  
+  return (
+    <div className={`${styles.container} ${darkMode ? styles.darkMode : styles.lightMode}`}>
+      <div className={styles.skeletonHeader}>
+        <div className={styles.skeletonBackBtn}></div>
+        <div className={styles.skeletonTitle}></div>
+      </div>
+      <div className={styles.skeletonLayout}>
+        <div className={styles.skeletonSidebar}>
+          <div className={styles.skeletonUserCard}></div>
+          {[1,2,3,4,5,6].map(i => <div key={i} className={styles.skeletonTab}></div>)}
+        </div>
+        <div className={styles.skeletonContent}>
+          <div className={styles.skeletonForm}>
+            <div className={styles.skeletonInput}></div>
+            <div className={styles.skeletonInput}></div>
+            <div className={styles.skeletonButton}></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Notification Item Component
+const NotificationItem = ({ notification, onMarkRead, isMarking }) => {
+  const getIcon = () => {
+    switch (notification.type) {
+      case 'order': return <FaShoppingBag />;
+      case 'promotion': return <FaTag />;
+      case 'system': return <FaInfoCircle />;
+      case 'warning': return <FaExclamationTriangle />;
+      default: return <FaBell />;
+    }
+  };
+
+  const getStatusColor = () => {
+    if (notification.read) return styles.read;
+    return styles.unread;
+  };
+
+  return (
+    <div className={`${styles.notificationItem} ${getStatusColor()}`}>
+      <div className={styles.notificationIcon}>
+        {getIcon()}
+      </div>
+      <div className={styles.notificationContent}>
+        <h4>{notification.title}</h4>
+        <p>{notification.message}</p>
+        <span className={styles.notificationTime}>
+          {new Date(notification.created_at).toLocaleDateString()}
+        </span>
+      </div>
+      {!notification.read && (
+        <button 
+          className={styles.markReadBtn}
+          onClick={() => onMarkRead(notification.id)}
+          disabled={isMarking}
+        >
+          Mark Read
+        </button>
+      )}
+    </div>
+  );
+};
+
+// Order Card Component
+const OrderCard = ({ order }) => {
+  const navigate = useNavigate();
+  
+  const getStatusIcon = () => {
+    switch (order.status) {
+      case 'delivered': return <FaCheckCircle className={styles.statusDelivered} />;
+      case 'pending': return <FaClock className={styles.statusPending} />;
+      case 'cancelled': return <FaTimesCircle className={styles.statusCancelled} />;
+      default: return <FaClock className={styles.statusPending} />;
+    }
+  };
+
+  const getStatusText = () => {
+    switch (order.status) {
+      case 'delivered': return 'Delivered';
+      case 'pending': return 'Processing';
+      case 'cancelled': return 'Cancelled';
+      default: return order.status || 'Processing';
+    }
+  };
+
+  return (
+    <div className={styles.orderCard} onClick={() => navigate(`/order/${order.id}`)}>
+      <div className={styles.orderImage}>
+        {order.products?.image_url ? (
+          <img src={order.products.image_url} alt={order.products?.name} />
+        ) : (
+          <FaBox />
+        )}
+      </div>
+      <div className={styles.orderInfo}>
+        <h4>{order.products?.name || 'Product'}</h4>
+        <p className={styles.orderId}>Order #{order.id.slice(0, 8)}</p>
+        <div className={styles.orderMeta}>
+          <span className={styles.orderDate}>
+            {new Date(order.created_at).toLocaleDateString()}
+          </span>
+          <span className={styles.orderStatus}>
+            {getStatusIcon()}
+            {getStatusText()}
+          </span>
+        </div>
+        <p className={styles.orderTotal}>{formatKenyanMoney(order.total_price)}</p>
+      </div>
+    </div>
+  );
+};
+
+// Address Card Component
+const AddressCard = ({ address, onEdit, onDelete }) => {
+  return (
+    <div className={styles.addressCard}>
+      <div className={styles.addressContent}>
+        <h4>{address.title || 'Primary Address'}</h4>
+        <p>{address.address_line1}</p>
+        {address.address_line2 && <p>{address.address_line2}</p>}
+        <p>{address.city}, {address.postal_code}</p>
+      </div>
+      <div className={styles.addressActions}>
+        <button className={styles.editBtn} onClick={() => onEdit(address)}>
+          <FaEdit /> Edit
+        </button>
+        <button className={styles.deleteBtn} onClick={() => onDelete(address.id)}>
+          <FaTrash /> Delete
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const Settings = () => {
   const { user, logout } = useAuth();
+  const { darkMode } = useDarkMode();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('profile');
   const [isSeller, setIsSeller] = useState(false);
@@ -25,8 +181,9 @@ const Settings = () => {
   const [notifications, setNotifications] = useState([]);
   const [storeStats, setStoreStats] = useState({ total_orders: 0, successful_orders: 0, products_count: 0 });
   const [markingAsRead, setMarkingAsRead] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   
-  // User data from users & profiles
+  // User data
   const [userData, setUserData] = useState({
     full_name: '',
     email: '',
@@ -36,14 +193,14 @@ const Settings = () => {
     avatar_url: ''
   });
 
-  // Store data (for sellers)
+  // Store data
   const [storeData, setStoreData] = useState({
     name: '',
     description: '',
     theme: 'default'
   });
 
-  // Preferences & Notifications
+  // Preferences
   const [preferences, setPreferences] = useState({
     language: 'English',
     notifications: true,
@@ -57,7 +214,7 @@ const Settings = () => {
     confirmPassword: ''
   });
 
-  // Wallet (payments)
+  // Wallet
   const [wallet, setWallet] = useState({ balance: 0 });
 
   // New address form
@@ -69,20 +226,26 @@ const Settings = () => {
     postal_code: '',
     is_default: false
   });
+  const [showAddressForm, setShowAddressForm] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      navigate('/auth');
+      return;
+    }
     loadData();
     loadAddresses();
     loadOrders();
     loadNotifications();
+  }, [user]);
+
+  useEffect(() => {
     if (isSeller) loadStoreStats();
-  }, [user, isSeller]);
+  }, [isSeller]);
 
   const loadData = async () => {
     setLoading(true);
     try {
-      // Load user/profile
       const [{ data: u }, { data: p }] = await Promise.all([
         supabase.from('users').select('*').eq('id', user.id).single(),
         supabase.from('profiles').select('phone, city, country').eq('id', user.id).single()
@@ -104,7 +267,6 @@ const Settings = () => {
         sms_notifications: u?.sms_notifications || false
       });
 
-      // Check if seller
       const { data: store } = await supabase.from('stores').select('*').eq('owner_id', user.id).single();
       setIsSeller(!!store);
       if (store) {
@@ -113,10 +275,8 @@ const Settings = () => {
           description: store.description || '',
           theme: store.theme || 'default'
         });
-        loadStoreStats(); // Load stats after confirming seller
       }
 
-      // Load wallet
       const { data: w } = await supabase.from('wallets').select('balance').eq('user_id', user.id).single();
       setWallet({ balance: w?.balance || 0 });
 
@@ -280,11 +440,12 @@ const Settings = () => {
   };
 
   const deleteAccount = async () => {
-    if (!window.confirm('Are you sure you want to delete your account? This action cannot be undone.')) return;
+    setShowDeleteConfirm(false);
     try {
       await supabase.from('users').update({ is_banned: true }).eq('id', user.id);
       toast.success('Account deleted successfully');
       logout();
+      navigate('/auth');
     } catch (error) {
       toast.error('Failed to delete account');
     }
@@ -335,6 +496,7 @@ const Settings = () => {
         postal_code: '',
         is_default: false
       });
+      setShowAddressForm(false);
       loadAddresses();
     } catch (error) {
       toast.error('Failed to add address');
@@ -353,74 +515,62 @@ const Settings = () => {
   ];
 
   if (loading) {
-    return (
-      <div className="loading-container">
-        <div className="loading-spinner"></div>
-        <p>Loading your settings...</p>
-      </div>
-    );
+    return <SettingsSkeleton />;
   }
 
   return (
-    <div className="settings-container">
+    <div className={`${styles.container} ${darkMode ? styles.darkMode : styles.lightMode}`}>
       {/* Header */}
-      <header className="settings-header">
-        <div className="header-content">
-          <h1>Account Settings</h1>
-          <p>Manage your profile, security, and preferences</p>
-        </div>
+      <header className={styles.header}>
+        <button className={styles.backBtn} onClick={() => navigate(-1)}>
+          <FaArrowLeft />
+        </button>
+        <h1>Settings</h1>
       </header>
 
-      <div className="settings-layout">
-        {/* Mobile Tab Bar */}
-        <div className="mobile-tab-bar">
-          <div className="tab-scroll">
-            {tabs.map(tab => {
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  className={`mobile-tab ${activeTab === tab.id ? 'active' : ''}`}
-                  onClick={() => setActiveTab(tab.id)}
-                >
-                  <Icon />
-                  <span>{tab.label}</span>
-                </button>
-              );
-            })}
-          </div>
+      <div className={styles.settingsLayout}>
+        {/* Mobile Tab Select */}
+        <div className={styles.mobileTabBar}>
+          <select 
+            value={activeTab} 
+            onChange={(e) => setActiveTab(e.target.value)}
+            className={styles.mobileSelect}
+          >
+            {tabs.map(tab => (
+              <option key={tab.id} value={tab.id}>{tab.label}</option>
+            ))}
+          </select>
         </div>
 
         {/* Desktop Sidebar */}
-        <nav className="settings-sidebar">
-          <div className="user-card">
-            <div className="avatar-section">
+        <nav className={styles.sidebar}>
+          <div className={styles.userCard}>
+            <div className={styles.avatarSection}>
               <img 
                 src={userData.avatar_url || '/default-avatar.png'} 
                 alt="Profile" 
-                className="avatar" 
+                className={styles.avatar} 
+                onError={(e) => { e.target.src = '/default-avatar.png'; }}
               />
-              <div className="user-info">
+              <div className={styles.userInfo}>
                 <h3>{userData.full_name || 'User'}</h3>
                 <p>{userData.email}</p>
               </div>
             </div>
           </div>
           
-          <div className="sidebar-tabs">
+          <div className={styles.sidebarTabs}>
             {tabs.map(tab => {
               const Icon = tab.icon;
               return (
                 <button 
                   key={tab.id} 
-                  className={`sidebar-tab ${activeTab === tab.id ? 'active' : ''}`}
+                  className={`${styles.sidebarTab} ${activeTab === tab.id ? styles.active : ''}`}
                   onClick={() => setActiveTab(tab.id)}
                 >
-                  <div className="tab-content">
-                    <Icon className="tab-icon" />
-                    <span>{tab.label}</span>
-                  </div>
-                  <FaChevronRight className="tab-arrow" />
+                  <Icon className={styles.tabIcon} />
+                  <span>{tab.label}</span>
+                  <FaChevronRight className={styles.tabArrow} />
                 </button>
               );
             })}
@@ -428,19 +578,18 @@ const Settings = () => {
         </nav>
 
         {/* Main Content */}
-        <main className="settings-content">
-          <div className="content-wrapper">
-
+        <main className={styles.content}>
+          <div className={styles.contentWrapper}>
             {/* Profile Section */}
             {activeTab === 'profile' && (
-              <section className="tab-section">
-                <div className="section-header">
+              <section className={styles.tabSection}>
+                <div className={styles.sectionHeader}>
                   <h2>Profile Information</h2>
                   <p>Update your personal details</p>
                 </div>
                 
-                <div className="form-card">
-                  <div className="form-group">
+                <div className={styles.formCard}>
+                  <div className={styles.formGroup}>
                     <label>Full Name</label>
                     <input 
                       type="text" 
@@ -450,18 +599,18 @@ const Settings = () => {
                     />
                   </div>
                   
-                  <div className="form-group">
+                  <div className={styles.formGroup}>
                     <label>Email Address</label>
                     <input 
                       type="email" 
                       value={userData.email} 
                       disabled 
-                      className="disabled-input"
+                      className={styles.disabledInput}
                     />
                   </div>
                   
-                  <div className="form-row">
-                    <div className="form-group">
+                  <div className={styles.formRow}>
+                    <div className={styles.formGroup}>
                       <label>Phone Number</label>
                       <input 
                         type="tel" 
@@ -471,7 +620,7 @@ const Settings = () => {
                       />
                     </div>
                     
-                    <div className="form-group">
+                    <div className={styles.formGroup}>
                       <label>City</label>
                       <input 
                         type="text" 
@@ -483,11 +632,11 @@ const Settings = () => {
                   </div>
                   
                   <button 
-                    className="save-button primary"
+                    className={styles.saveBtn}
                     onClick={saveProfile}
                     disabled={saving}
                   >
-                    {saving ? 'Saving...' : 'Save Changes'}
+                    {saving ? <FaSpinner className={styles.spinning} /> : 'Save Changes'}
                   </button>
                 </div>
               </section>
@@ -495,26 +644,26 @@ const Settings = () => {
 
             {/* Security Section */}
             {activeTab === 'security' && (
-              <section className="tab-section">
-                <div className="section-header">
+              <section className={styles.tabSection}>
+                <div className={styles.sectionHeader}>
                   <h2>Login & Security</h2>
                   <p>Manage your password and account security</p>
                 </div>
                 
-                <div className="form-card">
-                  <div className="form-group">
+                <div className={styles.formCard}>
+                  <div className={styles.formGroup}>
                     <label>Email Address</label>
                     <input 
                       type="email" 
                       value={userData.email} 
                       disabled 
-                      className="disabled-input"
+                      className={styles.disabledInput}
                     />
                   </div>
                   
-                  <div className="form-group">
+                  <div className={styles.formGroup}>
                     <label>New Password</label>
-                    <div className="password-input">
+                    <div className={styles.passwordInput}>
                       <input 
                         type={showPassword ? "text" : "password"}
                         value={security.newPassword}
@@ -523,7 +672,7 @@ const Settings = () => {
                       />
                       <button 
                         type="button"
-                        className="password-toggle"
+                        className={styles.passwordToggle}
                         onClick={() => setShowPassword(!showPassword)}
                       >
                         {showPassword ? <FaEyeSlash /> : <FaEye />}
@@ -531,7 +680,7 @@ const Settings = () => {
                     </div>
                   </div>
                   
-                  <div className="form-group">
+                  <div className={styles.formGroup}>
                     <label>Confirm Password</label>
                     <input 
                       type={showPassword ? "text" : "password"}
@@ -542,128 +691,172 @@ const Settings = () => {
                   </div>
                   
                   <button 
-                    className="save-button primary"
+                    className={styles.saveBtn}
                     onClick={changePassword}
                     disabled={saving}
                   >
-                    {saving ? 'Updating...' : 'Update Password'}
+                    {saving ? <FaSpinner className={styles.spinning} /> : 'Update Password'}
                   </button>
                 </div>
                 
-                <div className="danger-zone">
+                <div className={styles.dangerZone}>
                   <h3>Danger Zone</h3>
                   <p>Once you delete your account, there is no going back. Please be certain.</p>
                   <button 
-                    className="delete-button"
-                    onClick={deleteAccount}
+                    className={styles.deleteBtn}
+                    onClick={() => setShowDeleteConfirm(true)}
                   >
                     <FaTrash />
                     Delete Account
                   </button>
                 </div>
+
+                {/* Delete Confirmation Modal */}
+                <AnimatePresence>
+                  {showDeleteConfirm && (
+                    <motion.div 
+                      className={styles.modalOverlay}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      onClick={() => setShowDeleteConfirm(false)}
+                    >
+                      <motion.div 
+                        className={styles.confirmModal}
+                        initial={{ scale: 0.9 }}
+                        animate={{ scale: 1 }}
+                        exit={{ scale: 0.9 }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <FaExclamationTriangle className={styles.warningIcon} />
+                        <h3>Delete Account</h3>
+                        <p>Are you sure you want to delete your account? This action cannot be undone.</p>
+                        <div className={styles.modalActions}>
+                          <button className={styles.cancelBtn} onClick={() => setShowDeleteConfirm(false)}>
+                            Cancel
+                          </button>
+                          <button className={styles.confirmDeleteBtn} onClick={deleteAccount}>
+                            Delete
+                          </button>
+                        </div>
+                      </motion.div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </section>
             )}
 
             {/* Addresses Section */}
             {activeTab === 'addresses' && (
-              <section className="tab-section">
-                <div className="section-header">
+              <section className={styles.tabSection}>
+                <div className={styles.sectionHeader}>
                   <h2>Your Addresses</h2>
                   <p>Manage your delivery addresses</p>
                 </div>
                 
-                <div className="form-card">
-                  <h3>Add New Address</h3>
-                  <div className="form-group">
-                    <label>Address Title (Home, Work, etc.)</label>
-                    <input 
-                      type="text"
-                      value={newAddress.title}
-                      onChange={e => setNewAddress({...newAddress, title: e.target.value})}
-                      placeholder="e.g., Home, Office"
-                    />
-                  </div>
-                  
-                  <div className="form-group">
-                    <label>Address Line 1 *</label>
-                    <input 
-                      type="text"
-                      value={newAddress.address_line1}
-                      onChange={e => setNewAddress({...newAddress, address_line1: e.target.value})}
-                      placeholder="Street address, P.O. box"
-                    />
-                  </div>
-                  
-                  <div className="form-group">
-                    <label>Address Line 2</label>
-                    <input 
-                      type="text"
-                      value={newAddress.address_line2}
-                      onChange={e => setNewAddress({...newAddress, address_line2: e.target.value})}
-                      placeholder="Apartment, suite, unit, building, floor, etc."
-                    />
-                  </div>
-                  
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label>City *</label>
-                      <input 
-                        type="text"
-                        value={newAddress.city}
-                        onChange={e => setNewAddress({...newAddress, city: e.target.value})}
-                        placeholder="City"
-                      />
-                    </div>
-                    
-                    <div className="form-group">
-                      <label>Postal Code</label>
-                      <input 
-                        type="text"
-                        value={newAddress.postal_code}
-                        onChange={e => setNewAddress({...newAddress, postal_code: e.target.value})}
-                        placeholder="Postal code"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="form-group checkbox-group">
-                    <label className="checkbox-label">
-                      <input 
-                        type="checkbox"
-                        checked={newAddress.is_default}
-                        onChange={e => setNewAddress({...newAddress, is_default: e.target.checked})}
-                      />
-                      Set as default address
-                    </label>
-                  </div>
-                  
-                  <button 
-                    className="save-button primary"
-                    onClick={addAddress}
-                  >
-                    Add Address
-                  </button>
-                </div>
+                <button 
+                  className={styles.addAddressBtn}
+                  onClick={() => setShowAddressForm(!showAddressForm)}
+                >
+                  <FaPlus /> Add New Address
+                </button>
                 
-                <div className="addresses-list">
+                <AnimatePresence>
+                  {showAddressForm && (
+                    <motion.div 
+                      className={styles.addressForm}
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                    >
+                      <div className={styles.formGroup}>
+                        <label>Address Title</label>
+                        <input 
+                          type="text"
+                          value={newAddress.title}
+                          onChange={e => setNewAddress({...newAddress, title: e.target.value})}
+                          placeholder="e.g., Home, Office"
+                        />
+                      </div>
+                      
+                      <div className={styles.formGroup}>
+                        <label>Address Line 1 *</label>
+                        <input 
+                          type="text"
+                          value={newAddress.address_line1}
+                          onChange={e => setNewAddress({...newAddress, address_line1: e.target.value})}
+                          placeholder="Street address, P.O. box"
+                        />
+                      </div>
+                      
+                      <div className={styles.formGroup}>
+                        <label>Address Line 2</label>
+                        <input 
+                          type="text"
+                          value={newAddress.address_line2}
+                          onChange={e => setNewAddress({...newAddress, address_line2: e.target.value})}
+                          placeholder="Apartment, suite, unit, building, floor, etc."
+                        />
+                      </div>
+                      
+                      <div className={styles.formRow}>
+                        <div className={styles.formGroup}>
+                          <label>City *</label>
+                          <input 
+                            type="text"
+                            value={newAddress.city}
+                            onChange={e => setNewAddress({...newAddress, city: e.target.value})}
+                            placeholder="City"
+                          />
+                        </div>
+                        
+                        <div className={styles.formGroup}>
+                          <label>Postal Code</label>
+                          <input 
+                            type="text"
+                            value={newAddress.postal_code}
+                            onChange={e => setNewAddress({...newAddress, postal_code: e.target.value})}
+                            placeholder="Postal code"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className={styles.formGroup}>
+                        <label className={styles.checkboxLabel}>
+                          <input 
+                            type="checkbox"
+                            checked={newAddress.is_default}
+                            onChange={e => setNewAddress({...newAddress, is_default: e.target.checked})}
+                          />
+                          Set as default address
+                        </label>
+                      </div>
+                      
+                      <div className={styles.formActions}>
+                        <button className={styles.cancelBtn} onClick={() => setShowAddressForm(false)}>
+                          Cancel
+                        </button>
+                        <button className={styles.saveBtn} onClick={addAddress}>
+                          Save Address
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+                
+                <div className={styles.addressesList}>
                   <h3>Saved Addresses</h3>
                   {addresses.length > 0 ? (
                     addresses.map((address, index) => (
-                      <div key={index} className="address-card">
-                        <div className="address-content">
-                          <h4>{address.city || 'Primary Address'}</h4>
-                          <p>{address.address_line1}</p>
-                          {address.address_line2 && <p>{address.address_line2}</p>}
-                          <p>{address.city}, {address.postal_code}</p>
-                        </div>
-                        <div className="address-actions">
-                          <button className="edit-button">Edit</button>
-                          <button className="delete-button small">Delete</button>
-                        </div>
-                      </div>
+                      <AddressCard 
+                        key={index} 
+                        address={address} 
+                        onEdit={() => {}}
+                        onDelete={() => {}}
+                      />
                     ))
                   ) : (
-                    <p className="no-data">No addresses saved yet.</p>
+                    <p className={styles.noData}>No addresses saved yet.</p>
                   )}
                 </div>
               </section>
@@ -671,41 +864,41 @@ const Settings = () => {
 
             {/* Payments Section */}
             {activeTab === 'payments' && (
-              <section className="tab-section">
-                <div className="section-header">
+              <section className={styles.tabSection}>
+                <div className={styles.sectionHeader}>
                   <h2>Payment Methods</h2>
                   <p>Manage your wallet and payment options</p>
                 </div>
                 
-                <div className="wallet-card premium">
-                  <div className="wallet-header">
-                    <FaQrcode className="wallet-icon" />
+                <div className={styles.walletCard}>
+                  <div className={styles.walletHeader}>
+                    <FaWallet className={styles.walletIcon} />
                     <div>
                       <h3>Wallet Balance</h3>
-                      <p className="balance">KES {wallet.balance.toFixed(2)}</p>
+                      <p className={styles.balance}>{formatKenyanMoney(wallet.balance)}</p>
                     </div>
                   </div>
-                  <div className="wallet-actions">
-                    <button className="action-button primary">Add Funds</button>
-                    <button className="action-button secondary">Withdraw</button>
+                  <div className={styles.walletActions}>
+                    <button className={styles.addFundsBtn}>Add Funds</button>
+                    <button className={styles.withdrawBtn}>Withdraw</button>
                   </div>
                 </div>
                 
-                <div className="payment-methods">
+                <div className={styles.paymentMethods}>
                   <h3>Payment Methods</h3>
-                  <div className="payment-card">
-                    <div className="payment-info">
-                      <div className="payment-icon">M-Pesa</div>
+                  <div className={styles.paymentCard}>
+                    <div className={styles.paymentInfo}>
+                      <div className={styles.paymentIcon}>M-Pesa</div>
                       <div>
                         <h4>M-Pesa</h4>
                         <p>Primary • • • • 2547</p>
                       </div>
                     </div>
-                    <button className="edit-button">Edit</button>
+                    <button className={styles.editBtn}>Edit</button>
                   </div>
                   
-                  <button className="add-payment-button">
-                    + Add Payment Method
+                  <button className={styles.addPaymentBtn}>
+                    <FaPlus /> Add Payment Method
                   </button>
                 </div>
               </section>
@@ -713,57 +906,23 @@ const Settings = () => {
 
             {/* Orders Section */}
             {activeTab === 'orders' && (
-              <section className="tab-section">
-                <div className="section-header">
+              <section className={styles.tabSection}>
+                <div className={styles.sectionHeader}>
                   <h2>Your Orders</h2>
                   <p>Track and manage your recent purchases</p>
                 </div>
 
-                <div className="orders-list">
+                <div className={styles.ordersList}>
                   {orders.length > 0 ? (
                     orders.map(order => (
-                      <div key={order.id} className="address-card">
-                        <div className="address-content">
-                          <div className="flex items-center gap-3 mb-2">
-                            {order.products?.image_url ? (
-                              <img src={order.products.image_url} alt={order.products.name} className="w-12 h-12 object-cover rounded-md" />
-                            ) : (
-                              <div className="w-12 h-12 bg-gray-200 rounded-md flex items-center justify-center">
-                                <FaBox />
-                              </div>
-                            )}
-                            <div>
-                              <h4 className="font-semibold">{order.products?.name || 'Product'}</h4>
-                              <p className="text-sm text-gray-500">Order #{order.id.slice(0, 8)}</p>
-                            </div>
-                          </div>
-                          <div className="mt-2">
-                            <p className="text-lg font-bold">KES {order.total_price?.toFixed(2)}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                              {order.status === 'delivered' && <FaCheckCircle className="text-green-600" />}
-                              {order.status === 'pending' && <FaClock className="text-yellow-600" />}
-                              {order.status === 'cancelled' && <FaTimesCircle className="text-red-600" />}
-                              <span className="capitalize text-sm font-medium">
-                                {order.status || 'Processing'}
-                              </span>
-                            </div>
-                            <p className="text-xs text-gray-500 mt-1">
-                              {new Date(order.created_at).toLocaleDateString()}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="address-actions">
-                          <button className="edit-button">View</button>
-                          <button className="delete-button small">Track</button>
-                        </div>
-                      </div>
+                      <OrderCard key={order.id} order={order} />
                     ))
                   ) : (
-                    <p className="no-data">No orders yet. Start shopping!</p>
+                    <p className={styles.noData}>No orders yet. Start shopping!</p>
                   )}
                 </div>
 
-                <button className="save-button primary w-full mt-6">
+                <button className={styles.viewAllBtn}>
                   View All Orders
                 </button>
               </section>
@@ -771,16 +930,16 @@ const Settings = () => {
 
             {/* Notifications Section */}
             {activeTab === 'notifications' && (
-              <section className="tab-section">
-                <div className="section-header">
+              <section className={styles.tabSection}>
+                <div className={styles.sectionHeader}>
                   <h2>Notifications</h2>
                   <p>Manage your notification preferences and history</p>
                 </div>
 
-                <div className="form-card">
+                <div className={styles.formCard}>
                   <h3>Notification Preferences</h3>
-                  <div className="checkbox-group">
-                    <label className="checkbox-label">
+                  <div className={styles.checkboxGroup}>
+                    <label className={styles.checkboxLabel}>
                       <input 
                         type="checkbox"
                         checked={preferences.notifications}
@@ -788,13 +947,13 @@ const Settings = () => {
                       />
                       <div>
                         <strong>Push Notifications</strong>
-                        <p className="text-sm text-gray-600">Receive alerts on your device</p>
+                        <p>Receive alerts on your device</p>
                       </div>
                     </label>
                   </div>
 
-                  <div className="checkbox-group">
-                    <label className="checkbox-label">
+                  <div className={styles.checkboxGroup}>
+                    <label className={styles.checkboxLabel}>
                       <input 
                         type="checkbox"
                         checked={preferences.marketing_emails}
@@ -802,13 +961,13 @@ const Settings = () => {
                       />
                       <div>
                         <strong>Marketing Emails</strong>
-                        <p className="text-sm text-gray-600">Get updates on deals and promotions</p>
+                        <p>Get updates on deals and promotions</p>
                       </div>
                     </label>
                   </div>
 
-                  <div className="checkbox-group">
-                    <label className="checkbox-label">
+                  <div className={styles.checkboxGroup}>
+                    <label className={styles.checkboxLabel}>
                       <input 
                         type="checkbox"
                         checked={preferences.sms_notifications}
@@ -816,90 +975,67 @@ const Settings = () => {
                       />
                       <div>
                         <strong>SMS Alerts</strong>
-                        <p className="text-sm text-gray-600">Receive order updates via SMS</p>
+                        <p>Receive order updates via SMS</p>
                       </div>
                     </label>
                   </div>
 
                   <button 
-                    className="save-button primary"
+                    className={styles.saveBtn}
                     onClick={savePreferences}
                     disabled={saving}
                   >
-                    {saving ? 'Saving...' : 'Save Preferences'}
+                    {saving ? <FaSpinner className={styles.spinning} /> : 'Save Preferences'}
                   </button>
                 </div>
 
-                <div className="addresses-list">
+                <div className={styles.notificationsList}>
                   <h3>Recent Notifications</h3>
                   {notifications.length > 0 ? (
                     notifications.map(notif => (
-                      <div key={notif.id} className={`address-card ${notif.read ? '' : 'bg-blue-50 border-blue-300'}`}>
-                        <div className="address-content">
-                          <div className="flex items-start gap-3">
-                            <div className={`p-2 rounded-full ${notif.color || 'bg-gray-200'}`}>
-                              {notif.type === 'order' && <FaShoppingBag className="text-white" />}
-                              {notif.type === 'promotion' && <FaStar className="text-white" />}
-                              {notif.type === 'system' && <FaInfoCircle className="text-white" />}
-                            </div>
-                            <div className="flex-1">
-                              <h4 className="font-semibold">{notif.title}</h4>
-                              <p className="text-sm text-gray-600">{notif.message}</p>
-                              <p className="text-xs text-gray-500 mt-1">
-                                {new Date(notif.created_at).toLocaleString()}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                        {!notif.read && (
-                          <button 
-                            className="edit-button"
-                            onClick={() => markNotificationAsRead(notif.id)}
-                            disabled={markingAsRead}
-                          >
-                            Mark Read
-                          </button>
-                        )}
-                      </div>
+                      <NotificationItem 
+                        key={notif.id} 
+                        notification={notif} 
+                        onMarkRead={markNotificationAsRead}
+                        isMarking={markingAsRead}
+                      />
                     ))
                   ) : (
-                    <p className="no-data">No notifications yet.</p>
+                    <p className={styles.noData}>No notifications yet.</p>
                   )}
                 </div>
               </section>
             )}
 
-            {/* Your Store Section (Sellers Only) */}
+            {/* Store Section */}
             {activeTab === 'store' && isSeller && (
-              <section className="tab-section">
-                <div className="section-header">
+              <section className={styles.tabSection}>
+                <div className={styles.sectionHeader}>
                   <h2>Your Store</h2>
                   <p>Manage your seller dashboard and performance</p>
                 </div>
 
-                {/* Store Stats */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                  <div className="form-card p-4 text-center">
-                    <FaShoppingBag className="text-3xl text-blue-600 mx-auto mb-2" />
-                    <p className="text-2xl font-bold">{storeStats.total_orders}</p>
-                    <p className="text-sm text-gray-600">Total Orders</p>
+                <div className={styles.statsGrid}>
+                  <div className={styles.statCard}>
+                    <FaShoppingBag className={styles.statIcon} />
+                    <p className={styles.statValue}>{storeStats.total_orders}</p>
+                    <p className={styles.statLabel}>Total Orders</p>
                   </div>
-                  <div className="form-card p-4 text-center">
-                    <FaCheckCircle className="text-3xl text-green-600 mx-auto mb-2" />
-                    <p className="text-2xl font-bold">{storeStats.successful_orders}</p>
-                    <p className="text-sm text-gray-600">Completed</p>
+                  <div className={styles.statCard}>
+                    <FaCheckCircle className={styles.statIcon} />
+                    <p className={styles.statValue}>{storeStats.successful_orders}</p>
+                    <p className={styles.statLabel}>Completed</p>
                   </div>
-                  <div className="form-card p-4 text-center">
-                    <FaBox className="text-3xl text-purple-600 mx-auto mb-2" />
-                    <p className="text-2xl font-bold">{storeStats.products_count}</p>
-                    <p className="text-sm text-gray-600">Products</p>
+                  <div className={styles.statCard}>
+                    <FaBox className={styles.statIcon} />
+                    <p className={styles.statValue}>{storeStats.products_count}</p>
+                    <p className={styles.statLabel}>Products</p>
                   </div>
                 </div>
 
-                {/* Store Settings */}
-                <div className="form-card">
+                <div className={styles.formCard}>
                   <h3>Store Information</h3>
-                  <div className="form-group">
+                  <div className={styles.formGroup}>
                     <label>Store Name</label>
                     <input 
                       type="text"
@@ -907,7 +1043,7 @@ const Settings = () => {
                       onChange={e => setStoreData({...storeData, name: e.target.value})}
                     />
                   </div>
-                  <div className="form-group">
+                  <div className={styles.formGroup}>
                     <label>Description</label>
                     <textarea 
                       rows="3"
@@ -917,81 +1053,76 @@ const Settings = () => {
                     />
                   </div>
                   <button 
-                    className="save-button primary"
+                    className={styles.saveBtn}
                     onClick={saveStore}
                     disabled={saving}
                   >
-                    {saving ? 'Saving...' : 'Update Store'}
+                    {saving ? <FaSpinner className={styles.spinning} /> : 'Update Store'}
                   </button>
                 </div>
 
-                <div className="wallet-card premium mt-6">
-                  <div className="wallet-header">
-                    <FaChartLine className="wallet-icon" />
+                <div className={styles.dashboardCard}>
+                  <div className={styles.dashboardHeader}>
+                    <FaChartLine className={styles.dashboardIcon} />
                     <div>
                       <h3>Seller Dashboard</h3>
-                      <p className="text-sm opacity-90">Manage products, orders, and analytics</p>
+                      <p>Manage products, orders, and analytics</p>
                     </div>
                   </div>
-                  <div className="wallet-actions">
-                    <button className="action-button primary" onClick={() => navigate('/seller')}>
-                      Open Dashboard
-                    </button>
-                  </div>
+                  <button className={styles.dashboardBtn} onClick={() => navigate('/seller')}>
+                    Open Dashboard
+                  </button>
                 </div>
               </section>
             )}
 
             {/* Data & Privacy Section */}
             {activeTab === 'data' && (
-              <section className="tab-section">
-                <div className="section-header">
+              <section className={styles.tabSection}>
+                <div className={styles.sectionHeader}>
                   <h2>Data & Privacy</h2>
                   <p>Control your data and account privacy</p>
                 </div>
 
-                <div className="form-card">
+                <div className={styles.formCard}>
                   <h3>Export Your Data</h3>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Download a copy of all your account data including orders, messages, and profile information.
-                  </p>
+                  <p>Download a copy of all your account data including orders, messages, and profile information.</p>
                   <button 
-                    className="save-button primary"
+                    className={styles.exportBtn}
                     onClick={exportData}
                   >
-                    <FaFileExport className="mr-2" />
-                    Export Data
+                    <FaFileExport /> Export Data
                   </button>
                 </div>
 
-                <div className="form-card">
+                <div className={styles.formCard}>
                   <h3>Privacy Settings</h3>
-                  <div className="checkbox-group">
-                    <label className="checkbox-label">
+                  <div className={styles.checkboxGroup}>
+                    <label className={styles.checkboxLabel}>
                       <input type="checkbox" defaultChecked />
                       <div>
                         <strong>Profile Visibility</strong>
-                        <p className="text-sm text-gray-600">Allow others to find your profile</p>
+                        <p>Allow others to find your profile</p>
                       </div>
                     </label>
                   </div>
-                  <div className="checkbox-group">
-                    <label className="checkbox-label">
+                  <div className={styles.checkboxGroup}>
+                    <label className={styles.checkboxLabel}>
                       <input type="checkbox" defaultChecked />
                       <div>
                         <strong>Order History Sharing</strong>
-                        <p className="text-sm text-gray-600">Share order stats with sellers</p>
+                        <p>Share order stats with sellers</p>
                       </div>
                     </label>
                   </div>
                 </div>
 
-                <div className="danger-zone">
+                <div className={styles.dangerZone}>
                   <h3>Delete Account</h3>
                   <p>This action is permanent and cannot be undone.</p>
                   <button 
-                    className="delete-button"
-                    onClick={deleteAccount}
+                    className={styles.deleteBtn}
+                    onClick={() => setShowDeleteConfirm(true)}
                   >
                     <FaTrash />
                     Delete My Account
@@ -999,10 +1130,12 @@ const Settings = () => {
                 </div>
               </section>
             )}
-
           </div>
         </main>
       </div>
+      
+      {/* Bottom Spacing for Navigation */}
+      <div className={styles.bottomSpacing} />
     </div>
   );
 };

@@ -1,9 +1,13 @@
+// src/components/NotificationsPage.jsx - PREMIUM UPDATED VERSION
 import React, { useState, useEffect, useCallback, useRef, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { useNotificationBadge } from "@/context/NotificationBadgeContext";
 import { useAuth } from "@/context/AuthContext";
-import { 
+import { useDarkMode } from "@/context/DarkModeContext";
+import { useNavigate } from "react-router-dom";
+import { toast } from "react-hot-toast";
+import {
   FaBell, 
   FaCheck, 
   FaCheckDouble, 
@@ -19,14 +23,13 @@ import {
   FaTimes,
   FaEye,
   FaBellSlash,
-  FaEllipsisV,
   FaRegCheckCircle,
   FaRegCircle,
   FaCalendar,
-  FaArrowLeft
+  FaArrowLeft,
+  FaSpinner
 } from "react-icons/fa";
-import { toast } from "react-hot-toast";
-import "./Notifications.css";
+import styles from "./Notifications.module.css";
 
 // Cache keys for localStorage
 const NOTIFICATIONS_CACHE_KEYS = {
@@ -36,62 +39,49 @@ const NOTIFICATIONS_CACHE_KEYS = {
   LAST_VIEWED: 'notifications_last_viewed'
 };
 
-// Cache expiry time (5 minutes)
 const NOTIFICATIONS_CACHE_EXPIRY = 5 * 60 * 1000;
-
-// Cache utility functions
-const loadNotificationsFromCache = (key, defaultValue = null) => {
-  try {
-    const cached = localStorage.getItem(key);
-    if (!cached) return defaultValue;
-    
-    const { data, timestamp } = JSON.parse(cached);
-    
-    // Check if cache is expired
-    if (Date.now() - timestamp > NOTIFICATIONS_CACHE_EXPIRY) {
-      localStorage.removeItem(key);
-      return defaultValue;
-    }
-    
-    return data;
-  } catch (error) {
-    console.error(`Error loading notifications cache ${key}:`, error);
-    localStorage.removeItem(key);
-    return defaultValue;
-  }
-};
-
-const saveNotificationsToCache = (key, data) => {
-  try {
-    const cacheData = {
-      data,
-      timestamp: Date.now()
-    };
-    localStorage.setItem(key, JSON.stringify(cacheData));
-  } catch (error) {
-    console.error(`Error saving notifications cache ${key}:`, error);
-  }
-};
-
-const clearNotificationsCache = () => {
-  Object.values(NOTIFICATIONS_CACHE_KEYS).forEach(key => {
-    localStorage.removeItem(key);
-  });
-};
 
 // Notification type configurations
 const NOTIFICATION_TYPES = {
-  announcement: { icon: FaBell, color: 'info', label: 'Announcement' },
-  order: { icon: FaShoppingCart, color: 'success', label: 'Order' },
-  wishlist: { icon: FaHeart, color: 'pink', label: 'Wishlist' },
-  rating: { icon: FaStar, color: 'warning', label: 'Rating' },
-  promotion: { icon: FaTag, color: 'purple', label: 'Promotion' },
-  message: { icon: FaEnvelope, color: 'blue', label: 'Message' },
-  system: { icon: FaCog, color: 'gray', label: 'System' },
-  alert: { icon: FaExclamationTriangle, color: 'danger', label: 'Alert' }
+  announcement: { icon: FaBell, color: '#8B5CF6', label: 'Announcement' },
+  order: { icon: FaShoppingCart, color: '#10B981', label: 'Order' },
+  wishlist: { icon: FaHeart, color: '#EC4899', label: 'Wishlist' },
+  rating: { icon: FaStar, color: '#F59E0B', label: 'Rating' },
+  promotion: { icon: FaTag, color: '#8B5CF6', label: 'Promotion' },
+  message: { icon: FaEnvelope, color: '#3B82F6', label: 'Message' },
+  system: { icon: FaCog, color: '#6B7280', label: 'System' },
+  alert: { icon: FaExclamationTriangle, color: '#EF4444', label: 'Alert' }
 };
 
-// Individual Notification Card Component
+// Skeleton Loader Component
+const NotificationsSkeleton = () => {
+  const { darkMode } = useDarkMode();
+  
+  return (
+    <div className={`${styles.container} ${darkMode ? styles.darkMode : styles.lightMode}`}>
+      <div className={styles.skeletonHeader}>
+        <div className={styles.skeletonTitle}></div>
+        <div className={styles.skeletonActions}></div>
+      </div>
+      <div className={styles.skeletonTabs}>
+        {[1,2,3].map(i => <div key={i} className={styles.skeletonTab}></div>)}
+      </div>
+      <div className={styles.skeletonList}>
+        {[1,2,3,4].map(i => (
+          <div key={i} className={styles.skeletonItem}>
+            <div className={styles.skeletonIcon}></div>
+            <div className={styles.skeletonContent}>
+              <div className={styles.skeletonLine}></div>
+              <div className={styles.skeletonLineShort}></div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// Notification Card Component
 const NotificationCard = memo(({ 
   notification, 
   index, 
@@ -109,10 +99,10 @@ const NotificationCard = memo(({
 
   return (
     <motion.div
-      className={`notification-card ${notification.read ? 'read' : 'unread'} ${config.color}`}
+      className={`${styles.notificationCard} ${!notification.read ? styles.unread : ''}`}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.05, duration: 0.3 }}
+      transition={{ delay: index * 0.03 }}
       onClick={onClick}
       onTouchStart={onLongPressStart}
       onTouchEnd={onLongPressEnd}
@@ -121,41 +111,27 @@ const NotificationCard = memo(({
       onMouseLeave={onLongPressEnd}
     >
       {isSelectMode && (
-        <div className="selection-checkbox" onClick={(e) => { e.stopPropagation(); onSelect(); }}>
-          {isSelected ? <FaRegCheckCircle className="checked" /> : <FaRegCircle className="unchecked" />}
+        <div className={styles.selectionCheckbox} onClick={(e) => { e.stopPropagation(); onSelect(); }}>
+          {isSelected ? <FaRegCheckCircle className={styles.checked} /> : <FaRegCircle className={styles.unchecked} />}
         </div>
       )}
 
-      <div className="notification-content">
-        <div className="notification-icon-wrapper">
-          <IconComponent className={`notification-icon ${config.color}`} />
-          {!notification.read && !isSelectMode && <div className="unread-indicator"></div>}
+      <div className={styles.notificationIcon} style={{ background: `${config.color}15`, color: config.color }}>
+        <IconComponent />
+        {!notification.read && !isSelectMode && <div className={styles.unreadDot}></div>}
+      </div>
+
+      <div className={styles.notificationContent}>
+        <div className={styles.notificationHeader}>
+          <h4>{notification.title}</h4>
+          <span className={styles.notificationTime}>{formatTime(notification.created_at)}</span>
         </div>
-
-        <div className="notification-details">
-          <div className="notification-header">
-            <h3 className="notification-title">{notification.title}</h3>
-            <span className="notification-time">
-              {formatTime(notification.created_at)}
-            </span>
-          </div>
-
-          <p className="notification-message">
-            {notification.message}
-          </p>
-
-          <div className="notification-meta">
-            <span className={`notification-type ${notification.type}`}>
-              {config.label}
-            </span>
-          </div>
+        <p className={styles.notificationMessage}>{notification.message}</p>
+        <div className={styles.notificationFooter}>
+          <span className={styles.notificationType} style={{ color: config.color }}>
+            {config.label}
+          </span>
         </div>
-
-        {!isSelectMode && !notification.read && (
-          <div className="notification-actions">
-            <div className="unread-dot"></div>
-          </div>
-        )}
       </div>
     </motion.div>
   );
@@ -163,7 +139,54 @@ const NotificationCard = memo(({
 
 NotificationCard.displayName = 'NotificationCard';
 
-// Main component
+// Detail View Component
+const NotificationDetail = ({ notification, onBack, onDelete, onMarkRead, getNotificationConfig, formatTime }) => {
+  const config = getNotificationConfig(notification);
+  const IconComponent = config.icon;
+
+  return (
+    <div className={styles.detailView}>
+      <div className={styles.detailHeader}>
+        <button className={styles.backBtn} onClick={onBack}>
+          <FaArrowLeft />
+        </button>
+        <h2>Notification</h2>
+        <button className={styles.deleteBtn} onClick={() => onDelete(notification.id)}>
+          <FaTrash />
+        </button>
+      </div>
+
+      <div className={styles.detailCard}>
+        <div className={styles.detailIcon} style={{ background: `${config.color}15`, color: config.color }}>
+          <IconComponent />
+        </div>
+        
+        <div className={styles.detailInfo}>
+          <h3>{notification.title}</h3>
+          <div className={styles.detailTime}>
+            <FaCalendar />
+            <span>{formatTime(notification.created_at, true)}</span>
+          </div>
+          <span className={styles.detailType} style={{ color: config.color }}>{config.label}</span>
+        </div>
+
+        <div className={styles.detailMessage}>
+          <p>{notification.message}</p>
+        </div>
+
+        <div className={styles.detailActions}>
+          {!notification.read && (
+            <button className={styles.markReadBtn} onClick={() => onMarkRead(notification.id)}>
+              <FaCheck /> Mark as read
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Main Component
 const NotificationsPage = memo(() => {
   const { 
     notifications, 
@@ -176,99 +199,36 @@ const NotificationsPage = memo(() => {
   } = useNotificationBadge();
   
   const { user } = useAuth();
+  const { darkMode } = useDarkMode();
+  const navigate = useNavigate();
+  
   const [activeFilter, setActiveFilter] = useState(() => 
     localStorage.getItem('notifications_filter') || 'all'
   );
   const [selectedNotifications, setSelectedNotifications] = useState(new Set());
   const [isSelectMode, setIsSelectMode] = useState(false);
-  const [expandedNotification, setExpandedNotification] = useState(null);
-  const [viewMode, setViewMode] = useState('list');
+  const [selectedNotification, setSelectedNotification] = useState(null);
   const [longPressTimer, setLongPressTimer] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   const isMountedRef = useRef(false);
-  const cacheDataRef = useRef({
-    isSyncing: false,
-    lastSyncTime: 0,
-    backgroundSyncInterval: null
-  });
 
   // Load cached notifications on mount
   useEffect(() => {
-    const cachedNotifications = loadNotificationsFromCache(NOTIFICATIONS_CACHE_KEYS.LIST, []);
-    const cachedUnreadCount = loadNotificationsFromCache(NOTIFICATIONS_CACHE_KEYS.UNREAD_COUNT, 0);
-    
-    if (cachedNotifications.length > 0) {
-      // We can't directly set the context state, but we can show cached data
-      console.log('Loaded notifications from cache:', cachedNotifications.length);
-    }
-    
     isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
   }, []);
-
-  // Save notifications to cache when they change
-  useEffect(() => {
-    if (isMountedRef.current && notifications.length > 0) {
-      saveNotificationsToCache(NOTIFICATIONS_CACHE_KEYS.LIST, notifications);
-      saveNotificationsToCache(NOTIFICATIONS_CACHE_KEYS.UNREAD_COUNT, unreadCount);
-      saveNotificationsToCache(NOTIFICATIONS_CACHE_KEYS.LAST_VIEWED, Date.now());
-    }
-  }, [notifications, unreadCount]);
 
   // Save filter preference
   useEffect(() => {
     localStorage.setItem('notifications_filter', activeFilter);
   }, [activeFilter]);
 
-  // Background sync every 2 minutes
-  useEffect(() => {
-    const syncNotifications = async () => {
-      if (cacheDataRef.current.isSyncing || !user?.id) return;
-      
-      // Don't sync if we just synced less than 30 seconds ago
-      if (cacheDataRef.current.lastSyncTime > 0 && 
-          Date.now() - cacheDataRef.current.lastSyncTime < 30000) {
-        return;
-      }
-      
-      cacheDataRef.current.isSyncing = true;
-      
-      try {
-        await fetchNotifications();
-        cacheDataRef.current.lastSyncTime = Date.now();
-      } catch (error) {
-        console.error('Background sync failed:', error);
-      } finally {
-        cacheDataRef.current.isSyncing = false;
-      }
-    };
-
-    // Initial sync
-    if (user?.id) {
-      syncNotifications();
-    }
-
-    // Set up interval for background sync
-    cacheDataRef.current.backgroundSyncInterval = setInterval(syncNotifications, 2 * 60 * 1000);
-    
-    return () => {
-      if (cacheDataRef.current.backgroundSyncInterval) {
-        clearInterval(cacheDataRef.current.backgroundSyncInterval);
-      }
-    };
-  }, [fetchNotifications, user]);
-
-  // Infinite scroll hook
-  const { loadMore, hasMore, loadingMore } = useInfiniteScroll(
-    fetchNotifications,
-    15
-  );
-
-  // Filter notifications based on active filter
+  // Filter notifications
   const filteredNotifications = notifications.filter(notification => {
     const statusMatch = activeFilter === 'all' || 
       (activeFilter === 'unread' && !notification.read) ||
       (activeFilter === 'read' && notification.read);
-
     return statusMatch;
   });
 
@@ -277,9 +237,7 @@ const NotificationsPage = memo(() => {
     const groups = {};
     notifications.forEach(notification => {
       const date = new Date(notification.created_at).toDateString();
-      if (!groups[date]) {
-        groups[date] = [];
-      }
+      if (!groups[date]) groups[date] = [];
       groups[date].push(notification);
     });
     return groups;
@@ -287,17 +245,14 @@ const NotificationsPage = memo(() => {
 
   const groupedNotifications = groupNotificationsByDate(filteredNotifications);
 
-  // Get notification icon and color
   const getNotificationConfig = useCallback((notification) => {
-    const { type, color } = notification;
-    return NOTIFICATION_TYPES[type] || { 
+    return NOTIFICATION_TYPES[notification.type] || { 
       icon: FaInfoCircle, 
-      color: color || 'info', 
-      label: type || 'Notification' 
+      color: '#6B7280', 
+      label: notification.type || 'Notification' 
     };
   }, []);
 
-  // Handle mark as read
   const handleMarkAsRead = useCallback(async (notificationId) => {
     try {
       await markAsRead(notificationId);
@@ -307,7 +262,6 @@ const NotificationsPage = memo(() => {
     }
   }, [markAsRead]);
 
-  // Handle mark all as read
   const handleMarkAllAsRead = useCallback(async () => {
     try {
       await markAsRead();
@@ -317,28 +271,20 @@ const NotificationsPage = memo(() => {
     }
   }, [markAsRead]);
 
-  // Handle delete notification
   const handleDeleteNotification = useCallback(async (notificationId) => {
     try {
       await deleteNotification(notificationId);
-      if (expandedNotification === notificationId) {
-        setExpandedNotification(null);
-        setViewMode('list');
-      }
+      if (selectedNotification?.id === notificationId) setSelectedNotification(null);
       toast.success('Notification deleted');
     } catch (error) {
       toast.error('Failed to delete notification');
     }
-  }, [deleteNotification, expandedNotification]);
+  }, [deleteNotification, selectedNotification]);
 
-  // Handle clear all
   const handleClearAll = useCallback(async () => {
     if (window.confirm('Are you sure you want to delete all notifications? This action cannot be undone.')) {
       try {
         await clearAllNotifications();
-        setViewMode('list');
-        setExpandedNotification(null);
-        clearNotificationsCache();
         toast.success('All notifications cleared');
       } catch (error) {
         toast.error('Failed to clear notifications');
@@ -346,11 +292,11 @@ const NotificationsPage = memo(() => {
     }
   }, [clearAllNotifications]);
 
-  // Long press handlers
+  // Long press handlers for select mode
   const handleLongPressStart = useCallback((notificationId) => {
     const timer = setTimeout(() => {
       setIsSelectMode(true);
-      toggleSelectNotification(notificationId);
+      setSelectedNotifications(prev => new Set(prev).add(notificationId));
     }, 500);
     setLongPressTimer(timer);
   }, []);
@@ -362,7 +308,15 @@ const NotificationsPage = memo(() => {
     }
   }, [longPressTimer]);
 
-  // Selection handlers
+  const toggleSelectNotification = useCallback((notificationId) => {
+    setSelectedNotifications(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(notificationId)) newSet.delete(notificationId);
+      else newSet.add(notificationId);
+      return newSet;
+    });
+  }, []);
+
   const toggleSelectAll = useCallback(() => {
     if (selectedNotifications.size === filteredNotifications.length) {
       setSelectedNotifications(new Set());
@@ -371,21 +325,9 @@ const NotificationsPage = memo(() => {
     }
   }, [filteredNotifications, selectedNotifications.size]);
 
-  const toggleSelectNotification = useCallback((notificationId) => {
-    const newSelected = new Set(selectedNotifications);
-    if (newSelected.has(notificationId)) {
-      newSelected.delete(notificationId);
-    } else {
-      newSelected.add(notificationId);
-    }
-    setSelectedNotifications(newSelected);
-  }, [selectedNotifications]);
-
   const handleBulkMarkAsRead = useCallback(async () => {
     try {
-      for (const id of selectedNotifications) {
-        await markAsRead(id);
-      }
+      for (const id of selectedNotifications) await markAsRead(id);
       setSelectedNotifications(new Set());
       setIsSelectMode(false);
       toast.success(`Marked ${selectedNotifications.size} notifications as read`);
@@ -395,11 +337,9 @@ const NotificationsPage = memo(() => {
   }, [selectedNotifications, markAsRead]);
 
   const handleBulkDelete = useCallback(async () => {
-    if (window.confirm(`Are you sure you want to delete ${selectedNotifications.size} notifications?`)) {
+    if (window.confirm(`Delete ${selectedNotifications.size} notifications?`)) {
       try {
-        for (const id of selectedNotifications) {
-          await deleteNotification(id);
-        }
+        for (const id of selectedNotifications) await deleteNotification(id);
         setSelectedNotifications(new Set());
         setIsSelectMode(false);
         toast.success(`Deleted ${selectedNotifications.size} notifications`);
@@ -409,14 +349,21 @@ const NotificationsPage = memo(() => {
     }
   }, [selectedNotifications, deleteNotification]);
 
-  // Format time for mobile
-  const formatTime = useCallback((timestamp) => {
+  const exitSelectMode = useCallback(() => {
+    setIsSelectMode(false);
+    setSelectedNotifications(new Set());
+  }, []);
+
+  const formatTime = useCallback((timestamp, full = false) => {
     const now = new Date();
     const notificationTime = new Date(timestamp);
     const diffInMinutes = Math.floor((now - notificationTime) / (1000 * 60));
     const diffInHours = Math.floor(diffInMinutes / 60);
     const diffInDays = Math.floor(diffInHours / 24);
 
+    if (full) {
+      return notificationTime.toLocaleString();
+    }
     if (diffInMinutes < 1) return 'Now';
     if (diffInMinutes < 60) return `${diffInMinutes}m`;
     if (diffInHours < 24) return `${diffInHours}h`;
@@ -424,7 +371,6 @@ const NotificationsPage = memo(() => {
     return notificationTime.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }, []);
 
-  // Format date for groups
   const formatGroupDate = useCallback((dateString) => {
     const date = new Date(dateString);
     const today = new Date();
@@ -433,403 +379,203 @@ const NotificationsPage = memo(() => {
 
     if (date.toDateString() === today.toDateString()) return 'Today';
     if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
-    
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'long', 
-      month: 'short', 
-      day: 'numeric' 
-    });
+    return date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
   }, []);
 
-  // Handle notification click
-  const handleNotificationClick = useCallback((notification) => {
-    if (isSelectMode) {
-      toggleSelectNotification(notification.id);
-    } else {
-      setExpandedNotification(notification.id);
-      setViewMode('detail');
-      if (!notification.read) {
-        handleMarkAsRead(notification.id);
-      }
-    }
-  }, [isSelectMode, toggleSelectNotification, handleMarkAsRead]);
-
-  // Exit select mode
-  const exitSelectMode = useCallback(() => {
-    setIsSelectMode(false);
-    setSelectedNotifications(new Set());
-  }, []);
-
-  // Handle pull-to-refresh
+  // Pull to refresh
   useEffect(() => {
     let startY = 0;
-    let isRefreshing = false;
-
-    const handleTouchStart = (e) => {
-      startY = e.touches[0].clientY;
-    };
-
-    const handleTouchMove = (e) => {
-      const notificationsSection = document.querySelector('.notifications-container');
-      if (!notificationsSection) return;
-      
-      const rect = notificationsSection.getBoundingClientRect();
-      const isAtTop = window.scrollY <= rect.top + 100;
-      
-      if (isAtTop && !isRefreshing) {
-        const currentY = e.touches[0].clientY;
-        const diff = currentY - startY;
-        
+    const handleTouchStart = (e) => { startY = e.touches[0].clientY; };
+    const handleTouchMove = async (e) => {
+      if (window.scrollY === 0 && !isRefreshing) {
+        const diff = e.touches[0].clientY - startY;
         if (diff > 80) {
-          isRefreshing = true;
-          clearNotificationsCache();
-          fetchNotifications(true).finally(() => {
-            isRefreshing = false;
-            toast.success('Notifications refreshed!');
-          });
+          setIsRefreshing(true);
+          await fetchNotifications(true);
+          setIsRefreshing(false);
+          toast.success('Notifications refreshed!');
         }
       }
     };
-
     document.addEventListener('touchstart', handleTouchStart);
     document.addEventListener('touchmove', handleTouchMove);
-
     return () => {
       document.removeEventListener('touchstart', handleTouchStart);
       document.removeEventListener('touchmove', handleTouchMove);
     };
-  }, [fetchNotifications]);
+  }, [fetchNotifications, isRefreshing]);
 
   if (!user) {
     return (
-      <div className="notifications-container">
-        <div className="notifications-header">
-          <div className="header-content">
-            <div className="header-main">
-              <h1>Notifications</h1>
-            </div>
-          </div>
-        </div>
-        <div className="notifications-login-prompt">
-          <div className="login-prompt-icon">
-            <FaBell />
-          </div>
+      <div className={`${styles.container} ${darkMode ? styles.darkMode : styles.lightMode}`}>
+        <div className={styles.loginPrompt}>
+          <FaBell className={styles.promptIcon} />
           <h3>Please log in to view notifications</h3>
           <p>Sign in to see your alerts and updates</p>
+          <button className={styles.loginBtn} onClick={() => navigate('/auth')}>Login</button>
         </div>
       </div>
     );
   }
 
-  // Detail View
-  if (viewMode === 'detail' && expandedNotification) {
-    const notification = notifications.find(n => n.id === expandedNotification);
-    if (!notification) {
-      setViewMode('list');
-      return null;
-    }
-
-    const config = getNotificationConfig(notification);
-    const IconComponent = config.icon;
-
+  if (selectedNotification) {
     return (
-      <div className="notifications-container detail-view">
-        <div className="notifications-header">
-          <div className="header-content">
-            <div className="header-main">
-              <button 
-                className="back-button"
-                onClick={() => setViewMode('list')}
-              >
-                <FaArrowLeft />
-              </button>
-              <div className="header-title-section">
-                <h1>Notification</h1>
-              </div>
-              <button 
-                className="action-btn delete-btn"
-                onClick={() => handleDeleteNotification(notification.id)}
-              >
-                <FaTrash />
-              </button>
-            </div>
-          </div>
+      <div className={`${styles.container} ${darkMode ? styles.darkMode : styles.lightMode}`}>
+        <NotificationDetail
+          notification={selectedNotification}
+          onBack={() => setSelectedNotification(null)}
+          onDelete={handleDeleteNotification}
+          onMarkRead={handleMarkAsRead}
+          getNotificationConfig={getNotificationConfig}
+          formatTime={formatTime}
+        />
+        <div className={styles.bottomSpacing} />
+      </div>
+    );
+  }
+
+  if (isLoading && notifications.length === 0) {
+    return <NotificationsSkeleton />;
+  }
+
+  return (
+    <div className={`${styles.container} ${darkMode ? styles.darkMode : styles.lightMode}`}>
+      {/* Header */}
+      <header className={styles.header}>
+        <h1>
+          Notifications
+          {unreadCount > 0 && (
+            <span className={styles.unreadBadge}>{unreadCount > 99 ? '99+' : unreadCount}</span>
+          )}
+        </h1>
+        <div className={styles.headerActions}>
+          {isSelectMode ? (
+            <button className={styles.cancelBtn} onClick={exitSelectMode}>
+              <FaTimes /> Cancel
+            </button>
+          ) : (
+            <button className={styles.clearBtn} onClick={handleClearAll}>
+              <FaTrash /> Clear All
+            </button>
+          )}
         </div>
+      </header>
 
-        <div className="notification-detail-view">
+      {/* Filter Tabs */}
+      <div className={styles.tabsContainer}>
+        <div className={styles.tabs}>
+          {[
+            { key: 'all', label: 'All', count: notifications.length },
+            { key: 'unread', label: 'Unread', count: unreadCount },
+            { key: 'read', label: 'Read', count: notifications.length - unreadCount }
+          ].map(filter => (
+            <button
+              key={filter.key}
+              className={`${styles.tab} ${activeFilter === filter.key ? styles.active : ''}`}
+              onClick={() => setActiveFilter(filter.key)}
+            >
+              <span>{filter.label}</span>
+              {filter.count > 0 && <span className={styles.tabCount}>{filter.count}</span>}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Bulk Actions Bar */}
+      <AnimatePresence>
+        {isSelectMode && selectedNotifications.size > 0 && (
           <motion.div 
-            className="notification-detail-card"
-            initial={{ opacity: 0, y: 20 }}
+            className={styles.bulkBar}
+            initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
+            exit={{ opacity: 0, y: -20 }}
           >
-            <div className="detail-header">
-              <div className={`detail-icon ${config.color}`}>
-                <IconComponent />
-              </div>
-              <div className="detail-meta">
-                <h2 className="detail-title">{notification.title}</h2>
-                <div className="detail-time">
-                  <FaCalendar />
-                  {new Date(notification.created_at).toLocaleString()}
-                </div>
-                <span className={`notification-type ${notification.type}`}>
-                  {config.label}
-                </span>
-              </div>
-            </div>
-
-            <div className="detail-content">
-              <p className="detail-message">{notification.message}</p>
-            </div>
-
-            <div className="detail-actions">
-              {!notification.read && (
-                <button 
-                  className="action-btn mark-read-btn"
-                  onClick={() => handleMarkAsRead(notification.id)}
-                >
-                  <FaCheck />
-                  Mark as read
-                </button>
-              )}
-              <button 
-                className="action-btn delete-btn"
-                onClick={() => handleDeleteNotification(notification.id)}
-              >
-                <FaTrash />
-                Delete
-              </button>
+            <span className={styles.bulkCount}>{selectedNotifications.size} selected</span>
+            <div className={styles.bulkActions}>
+              <button onClick={handleBulkMarkAsRead}><FaCheck /> Mark Read</button>
+              <button onClick={handleBulkDelete}><FaTrash /> Delete</button>
             </div>
           </motion.div>
-        </div>
-      </div>
-    );
-  }
-
-  // List View
-  return (
-    <div className="notifications-container list-view">
-      {/* Header Section */}
-      <motion.div 
-        className="notifications-header"
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        <div className="header-content">
-          <div className="header-main">
-            <div className="header-title-section">
-              <h1>
-                Notifications
-                {unreadCount > 0 && (
-                  <motion.span 
-                    className="unread-count-badge"
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: "spring", stiffness: 500, damping: 15 }}
-                  >
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </motion.span>
-                )}
-              </h1>
-            </div>
-
-            <div className="header-actions">
-              {isSelectMode ? (
-                <button 
-                  className="action-btn cancel-btn"
-                  onClick={exitSelectMode}
-                >
-                  <FaTimes />
-                </button>
-              ) : (
-                <button 
-                  className="action-btn menu-btn"
-                  onClick={handleClearAll}
-                >
-                  <FaTrash />
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Filter Tabs */}
-          <div className="filter-tabs-scroll">
-            <div className="filter-tabs">
-              {[
-                { key: 'all', label: 'All', count: notifications.length },
-                { key: 'unread', label: 'Unread', count: unreadCount },
-                { key: 'read', label: 'Read', count: notifications.length - unreadCount }
-              ].map(filter => (
-                <button
-                  key={filter.key}
-                  className={`filter-tab ${activeFilter === filter.key ? 'active' : ''}`}
-                  onClick={() => setActiveFilter(filter.key)}
-                >
-                  <span className="filter-label">{filter.label}</span>
-                  {filter.count > 0 && (
-                    <span className="filter-count">{filter.count}</span>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Bulk Actions */}
-          <AnimatePresence>
-            {isSelectMode && selectedNotifications.size > 0 && (
-              <motion.div 
-                className="bulk-actions-bar"
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-              >
-                <div className="bulk-actions-content">
-                  <span className="selected-count">
-                    {selectedNotifications.size} selected
-                  </span>
-                  <div className="bulk-actions">
-                    <button 
-                      className="bulk-action-btn bulk-mark-read-btn"
-                      onClick={handleBulkMarkAsRead}
-                    >
-                      <FaCheck />
-                      Mark read
-                    </button>
-                    <button 
-                      className="bulk-action-btn bulk-delete-btn"
-                      onClick={handleBulkDelete}
-                    >
-                      <FaTrash />
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Notifications List */}
-      <div className="notifications-content">
-        <AnimatePresence mode="wait">
-          {isLoading && notifications.length === 0 ? (
-            <motion.div
-              className="loading-state"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+      <div className={styles.content}>
+        <AnimatePresence>
+          {filteredNotifications.length === 0 ? (
+            <motion.div 
+              className={styles.emptyState}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
             >
-              <div className="loading-spinner"></div>
-              <p>Loading notifications...</p>
-            </motion.div>
-          ) : filteredNotifications.length === 0 ? (
-            <motion.div
-              className="empty-state"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-            >
-              <div className="empty-icon">
-                <FaBellSlash />
-              </div>
+              <FaBellSlash className={styles.emptyIcon} />
               <h3>No notifications yet</h3>
               <p>You're all caught up! We'll notify you when something new arrives.</p>
             </motion.div>
           ) : (
-            <motion.div
-              className="notifications-list"
+            <motion.div 
+              className={styles.notificationsList}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
+              {/* Select All Bar */}
               {isSelectMode && (
-                <div className="select-all-bar">
-                  <label className="select-all-checkbox">
+                <div className={styles.selectAllBar}>
+                  <label className={styles.selectAllLabel}>
                     <input
                       type="checkbox"
                       checked={selectedNotifications.size === filteredNotifications.length}
                       onChange={toggleSelectAll}
                     />
-                    <span className="checkmark"></span>
                     <span>Select all ({filteredNotifications.length})</span>
                   </label>
                 </div>
               )}
 
+              {/* Grouped Notifications */}
               {Object.entries(groupedNotifications).map(([date, dayNotifications]) => (
-                <div key={date} className="notification-group">
-                  <div className="group-header">
-                    <span className="group-date">{formatGroupDate(date)}</span>
-                    <span className="group-count">{dayNotifications.length}</span>
+                <div key={date} className={styles.notificationGroup}>
+                  <div className={styles.groupHeader}>
+                    <span className={styles.groupDate}>{formatGroupDate(date)}</span>
+                    <span className={styles.groupCount}>{dayNotifications.length}</span>
                   </div>
                   
-                  <div className="group-notifications">
-                    {dayNotifications.map((notification, index) => (
-                      <NotificationCard
-                        key={notification.id}
-                        notification={notification}
-                        index={index}
-                        isSelectMode={isSelectMode}
-                        isSelected={selectedNotifications.has(notification.id)}
-                        onSelect={() => toggleSelectNotification(notification.id)}
-                        onClick={() => handleNotificationClick(notification)}
-                        onLongPressStart={() => handleLongPressStart(notification.id)}
-                        onLongPressEnd={handleLongPressEnd}
-                        formatTime={formatTime}
-                        getNotificationConfig={getNotificationConfig}
-                      />
-                    ))}
-                  </div>
+                  {dayNotifications.map((notification, index) => (
+                    <NotificationCard
+                      key={notification.id}
+                      notification={notification}
+                      index={index}
+                      isSelectMode={isSelectMode}
+                      isSelected={selectedNotifications.has(notification.id)}
+                      onSelect={() => toggleSelectNotification(notification.id)}
+                      onClick={() => setSelectedNotification(notification)}
+                      onLongPressStart={() => handleLongPressStart(notification.id)}
+                      onLongPressEnd={handleLongPressEnd}
+                      formatTime={formatTime}
+                      getNotificationConfig={getNotificationConfig}
+                    />
+                  ))}
                 </div>
               ))}
 
-              {/* Mark All as Read Button - At the bottom */}
+              {/* Mark All as Read Button */}
               {unreadCount > 0 && !isSelectMode && (
-                <div className="mark-all-read-section">
-                  <button 
-                    className="mark-all-read-btn"
-                    onClick={handleMarkAllAsRead}
-                  >
-                    <FaCheckDouble />
-                    Mark all as read
-                  </button>
-                </div>
-              )}
-
-              {/* Load More */}
-              {hasMore && (
-                <div className="load-more-section">
-                  <button 
-                    onClick={loadMore} 
-                    disabled={loadingMore}
-                    className="load-more-btn"
-                  >
-                    {loadingMore ? (
-                      <>
-                        <div className="loading-dots">
-                          <span></span>
-                          <span></span>
-                          <span></span>
-                        </div>
-                        Loading...
-                      </>
-                    ) : (
-                      'Load more notifications'
-                    )}
-                  </button>
-                </div>
+                <button className={styles.markAllBtn} onClick={handleMarkAllAsRead}>
+                  <FaCheckDouble /> Mark all as read
+                </button>
               )}
             </motion.div>
           )}
         </AnimatePresence>
       </div>
+
+      {/* Bottom Spacing for Navigation */}
+      <div className={styles.bottomSpacing} />
     </div>
   );
 });
 
 NotificationsPage.displayName = 'NotificationsPage';
-
 export default NotificationsPage;

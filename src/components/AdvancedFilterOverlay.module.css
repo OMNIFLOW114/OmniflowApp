@@ -1,0 +1,687 @@
+/* src/components/AdvancedFilterOverlay.module.css - COMPLETELY FIXED */
+
+/* ========== LIGHT MODE ========== */
+.lightMode {
+  --bg-overlay: rgba(0, 0, 0, 0.5);
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8fafc;
+  --bg-tertiary: #f1f5f9;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-tertiary: #94a3b8;
+  --border-color: #e2e8f0;
+  --accent-primary: #4F46E5;
+  --accent-secondary: #7C3AED;
+  --success: #10B981;
+  --error: #EF4444;
+  --warning: #F59E0B;
+  --shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* ========== DARK MODE - PURE BLACK ========== */
+.darkMode {
+  --bg-overlay: rgba(0, 0, 0, 0.8);
+  --bg-primary: #0a0a0a;
+  --bg-secondary: #111111;
+  --bg-tertiary: #1a1a1a;
+  --text-primary: #ffffff;
+  --text-secondary: #a3a3a3;
+  --text-tertiary: #6b7280;
+  --border-color: #1f1f1f;
+  --accent-primary: #6366F1;
+  --accent-secondary: #8B5CF6;
+  --success: #34d399;
+  --error: #f87171;
+  --warning: #fbbf24;
+  --shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
+}
+
+/* Overlay */
+.filterOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--bg-overlay);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+}
+
+/* Container */
+.filterContainer {
+  background: var(--bg-primary);
+  border-radius: 24px 24px 0 0;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  animation: slideUp 0.3s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+/* Header - Sticky */
+.filterHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid var(--border-color);
+  position: sticky;
+  top: 0;
+  background: var(--bg-primary);
+  z-index: 10;
+}
+
+.filterTitle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.titleIcon {
+  width: 40px;
+  height: 40px;
+  background: var(--accent-primary)15;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-primary);
+}
+
+.filterTitle h2 {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.productCount {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  display: block;
+  margin-top: 2px;
+}
+
+.closeBtn {
+  background: var(--bg-secondary);
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-primary);
+  transition: all 0.2s;
+}
+
+.closeBtn:hover {
+  background: var(--error);
+  color: white;
+}
+
+/* Tabs - Sticky */
+.filterTabs {
+  display: flex;
+  gap: 8px;
+  padding: 12px 20px;
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border-color);
+  position: sticky;
+  top: 81px;
+  z-index: 10;
+}
+
+.tabBtn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 30px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--text-secondary);
+}
+
+.tabBtn.active {
+  background: var(--accent-primary);
+  color: white;
+  border-color: var(--accent-primary);
+}
+
+/* Content - Scrollable */
+.filterContent {
+  padding: 20px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* Filter Groups */
+.filterGroup {
+  margin-bottom: 24px;
+}
+
+.filterGroup h4 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--text-primary);
+}
+
+/* Quick Filters Grid */
+.quickFilterGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.quickFilterBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border: 2px solid transparent;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  position: relative;
+}
+
+.quickFilterBtn.active {
+  border-color: var(--accent-primary);
+}
+
+.quickFilterBtn svg:first-child {
+  font-size: 16px;
+}
+
+.checkIcon {
+  margin-left: auto;
+  color: var(--success);
+  font-size: 14px;
+}
+
+/* Price Grid */
+.priceGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.priceBtn {
+  width: 100%;
+  padding: 10px 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.priceBtn.active {
+  border-color: var(--accent-primary);
+  background: var(--accent-primary)10;
+}
+
+.priceLabel {
+  font-weight: 500;
+}
+
+/* ========== CATEGORY SECTION - FIXED RADIO BUTTONS ========== */
+.categoryGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.categoryItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.categoryItem:hover {
+  border-color: var(--accent-primary);
+  background: var(--accent-primary)05;
+}
+
+.categoryItem.selected {
+  border-color: var(--accent-primary);
+  background: var(--accent-primary)10;
+}
+
+/* Custom Radio Button */
+.radioCustom {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.categoryItem.selected .radioCustom {
+  border-color: var(--accent-primary);
+}
+
+.radioInner {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  opacity: 0;
+  transform: scale(0);
+  transition: all 0.2s;
+}
+
+.categoryItem.selected .radioInner {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Hide default radio input */
+.categoryItem input {
+  display: none;
+}
+
+.categoryContent {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.categoryIcon {
+  font-size: 20px;
+  color: var(--accent-primary);
+}
+
+.categoryLabel {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.categoryCount {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-left: auto;
+}
+
+/* ========== RATING SECTION - FIXED RADIO BUTTONS ========== */
+.ratingGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ratingItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ratingItem:hover {
+  border-color: var(--accent-primary);
+  background: var(--accent-primary)05;
+}
+
+.ratingItem.selected {
+  border-color: var(--accent-primary);
+  background: var(--accent-primary)10;
+}
+
+/* Hide default radio input */
+.ratingItem input {
+  display: none;
+}
+
+.ratingContent {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.stars {
+  display: flex;
+  gap: 3px;
+}
+
+.starFilled {
+  color: #F59E0B;
+  font-size: 14px;
+}
+
+.starEmpty {
+  color: var(--border-color);
+  font-size: 14px;
+}
+
+.ratingText {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+/* Custom Price Range */
+.customPriceRange {
+  background: var(--bg-secondary);
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.priceInputs {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.priceInput {
+  flex: 1;
+  padding: 12px 14px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  color: var(--text-primary);
+  font-size: 14px;
+  outline: none;
+}
+
+.priceInput:focus {
+  border-color: var(--accent-primary);
+}
+
+.separator {
+  color: var(--text-tertiary);
+  font-size: 14px;
+}
+
+/* Sort Select */
+.sortSelect {
+  width: 100%;
+  padding: 12px 14px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+  outline: none;
+}
+
+.sortSelect:focus {
+  border-color: var(--accent-primary);
+}
+
+/* ========== CHECKBOX SECTION - FIXED ========== */
+.checkboxItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-primary);
+  margin-top: 16px;
+  padding: 14px 16px;
+  background: var(--bg-secondary);
+  border-radius: 14px;
+  transition: all 0.2s;
+}
+
+.checkboxItem:hover {
+  background: var(--bg-tertiary);
+}
+
+.checkboxItem input {
+  display: none;
+}
+
+.checkboxCustom {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  border: 2px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.checkboxItem.selected .checkboxCustom {
+  border-color: var(--accent-primary);
+  background: var(--accent-primary);
+}
+
+.checkboxInner {
+  width: 10px;
+  height: 10px;
+  background: white;
+  clip-path: polygon(28% 38%, 41% 53%, 75% 24%, 86% 38%, 41% 75%, 17% 51%);
+  opacity: 0;
+  transform: scale(0);
+  transition: all 0.2s;
+}
+
+.checkboxItem.selected .checkboxInner {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Footer Actions - Sticky */
+.filterActions {
+  display: flex;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+}
+
+.resetBtn, .applyBtn {
+  flex: 1;
+  padding: 14px;
+  border-radius: 30px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: none;
+}
+
+.resetBtn {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.applyBtn {
+  background: var(--accent-primary);
+  color: white;
+}
+
+.resetBtn:hover, .applyBtn:hover {
+  transform: scale(1.02);
+}
+
+.applyBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Bottom Spacing for Navigation Bar */
+.bottomSpacing {
+  height: 70px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .bottomSpacing {
+    height: 60px;
+  }
+}
+
+/* Spinning Animation */
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Responsive */
+@media (min-width: 768px) {
+  .filterContainer {
+    max-width: 500px;
+    margin: 0 auto;
+    border-radius: 24px 24px 0 0;
+  }
+  
+  .quickFilterGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .bottomSpacing {
+    height: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .filterHeader {
+    padding: 16px;
+  }
+  
+  .filterTitle h2 {
+    font-size: 16px;
+  }
+  
+  .filterContent {
+    padding: 16px;
+  }
+  
+  .filterTabs {
+    padding: 10px 16px;
+    top: 73px;
+  }
+  
+  .tabBtn {
+    padding: 8px;
+    font-size: 13px;
+  }
+  
+  .quickFilterBtn {
+    padding: 10px;
+    font-size: 12px;
+  }
+  
+  .categoryItem, .ratingItem {
+    padding: 10px 14px;
+  }
+  
+  .categoryIcon {
+    font-size: 18px;
+  }
+  
+  .categoryLabel {
+    font-size: 13px;
+  }
+  
+  .ratingText {
+    font-size: 13px;
+  }
+  
+  .starFilled, .starEmpty {
+    font-size: 12px;
+  }
+  
+  .filterActions {
+    padding: 12px 16px;
+  }
+  
+  .resetBtn, .applyBtn {
+    padding: 12px;
+  }
+  
+  .bottomSpacing {
+    height: 50px;
+  }
+}
+
+/* Scrollbar Styling */
+.filterContainer::-webkit-scrollbar {
+  width: 4px;
+}
+
+.filterContainer::-webkit-scrollbar-track {
+  background: var(--bg-tertiary);
+}
+
+.filterContainer::-webkit-scrollbar-thumb {
+  background: var(--accent-primary);
+  border-radius: 4px;
+}
+
+.filterContent::-webkit-scrollbar {
+  width: 4px;
+}
+
+.filterContent::-webkit-scrollbar-track {
+  background: var(--bg-tertiary);
+}
+
+.filterContent::-webkit-scrollbar-thumb {
+  background: var(--accent-primary);
+  border-radius: 4px;
+}
