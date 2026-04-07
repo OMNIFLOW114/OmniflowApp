@@ -59,7 +59,6 @@ const SetupModal = React.memo(({
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentStepError, setCurrentStepError] = useState("");
   
-  // Security questions options
   const securityQuestions = [
     "What was your first pet's name?",
     "What is your mother's maiden name?",
@@ -69,7 +68,6 @@ const SetupModal = React.memo(({
     "What was your childhood nickname?"
   ];
 
-  // Reset setup state when modal opens
   useEffect(() => {
     if (showSetupModal && missingData.length > 0) {
       setSetupStep(0);
@@ -86,7 +84,6 @@ const SetupModal = React.memo(({
     }
   }, [showSetupModal]);
 
-  // Focus management
   useEffect(() => {
     if (!showSetupModal || missingData.length === 0 || setupStep >= missingData.length) return;
    
@@ -117,7 +114,6 @@ const SetupModal = React.memo(({
     setIsProcessing(true);
     setCurrentStepError("");
 
-    // Validate current step
     if (currentMissing.type === 'phone') {
       const phone = setupData.phone.trim();
       if (!phone) {
@@ -168,7 +164,6 @@ const SetupModal = React.memo(({
         return;
       }
 
-      // Validate security question
       if (!setupData.securityQuestion || !setupData.securityAnswer.trim()) {
         setCurrentStepError("Please select and answer a security question for PIN recovery");
         setIsProcessing(false);
@@ -178,7 +173,6 @@ const SetupModal = React.memo(({
    
     let success = true;
    
-    // Save current step data
     try {
       if (currentMissing.type === 'phone') {
         success = await updateUserData('phone', setupData.phone);
@@ -200,11 +194,9 @@ const SetupModal = React.memo(({
       return;
     }
    
-    // Move to next step or finish
     if (setupStep < missingData.length - 1) {
       setSetupStep(setupStep + 1);
     } else {
-      // All steps completed
       setTimeout(() => {
         onClose();
         toast.success("Profile setup completed!", { duration: 3000 });
@@ -226,7 +218,6 @@ const SetupModal = React.memo(({
       [field]: newArray
     }));
    
-    // Auto-focus next input
     if (value && index < 5) {
       setTimeout(() => {
         const nextRef = isConfirm ? confirmPinRefs.current[index + 1] : setupPinRefs.current[index + 1];
@@ -362,7 +353,6 @@ const SetupModal = React.memo(({
               </div>
             </div>
 
-            {/* Security Question for PIN Recovery */}
             <div style={{ marginBottom: '24px' }}>
               <p style={{ fontSize: '14px', color: 'var(--wallet-text-secondary)', marginBottom: '12px' }}>
                 Security Question (For PIN Recovery):
@@ -543,7 +533,7 @@ SetupModal.displayName = 'SetupModal';
 
 // PIN Reset Modal Component
 const PinResetModal = React.memo(({ show, onClose, userEmail, onResetSuccess }) => {
-  const [step, setStep] = useState(1); // 1: Verify Email, 2: Security Question, 3: New PIN
+  const [step, setStep] = useState(1);
   const [email, setEmail] = useState("");
   const [securityQuestion, setSecurityQuestion] = useState("");
   const [securityAnswer, setSecurityAnswer] = useState("");
@@ -574,7 +564,6 @@ const PinResetModal = React.memo(({ show, onClose, userEmail, onResetSuccess }) 
     setError("");
     
     try {
-      // Check if email exists in users table
       const { data: userData, error: userError } = await supabase
         .from("users")
         .select("id, email")
@@ -587,7 +576,6 @@ const PinResetModal = React.memo(({ show, onClose, userEmail, onResetSuccess }) 
         return;
       }
 
-      // Get security question for this user
       const { data: pinData, error: pinError } = await supabase
         .from("wallet_pin_security")
         .select("security_questions")
@@ -634,7 +622,6 @@ const PinResetModal = React.memo(({ show, onClose, userEmail, onResetSuccess }) 
         return;
       }
 
-      // Verify security answer (in production, you'd hash this)
       const { data: pinData } = await supabase
         .from("wallet_pin_security")
         .select("security_questions")
@@ -647,7 +634,6 @@ const PinResetModal = React.memo(({ show, onClose, userEmail, onResetSuccess }) 
         return;
       }
 
-      // Simple case-insensitive comparison (in production, use proper comparison)
       const storedAnswer = pinData.security_questions[0].answer.toLowerCase().trim();
       const providedAnswer = securityAnswer.toLowerCase().trim();
       
@@ -703,7 +689,6 @@ const PinResetModal = React.memo(({ show, onClose, userEmail, onResetSuccess }) 
         return;
       }
 
-      // Update PIN - Use same hashing method as setup
       const pinHash = btoa(pinStr);
       
       const { error: updateError } = await supabase
@@ -749,7 +734,6 @@ const PinResetModal = React.memo(({ show, onClose, userEmail, onResetSuccess }) 
       setNewPin(newArray);
     }
     
-    // Auto-focus next input
     if (value && index < 5) {
       setTimeout(() => {
         const refs = isConfirm ? confirmPinRefs.current : pinRefs.current;
@@ -798,7 +782,6 @@ const PinResetModal = React.memo(({ show, onClose, userEmail, onResetSuccess }) 
           </div>
         )}
 
-        {/* Step 1: Email Verification */}
         {step === 1 && (
           <div>
             <p className="wallet-pin-subtitle" style={{ marginBottom: "20px" }}>
@@ -838,7 +821,6 @@ const PinResetModal = React.memo(({ show, onClose, userEmail, onResetSuccess }) 
           </div>
         )}
 
-        {/* Step 2: Security Question */}
         {step === 2 && (
           <div>
             <p className="wallet-pin-subtitle" style={{ marginBottom: "20px" }}>
@@ -882,7 +864,6 @@ const PinResetModal = React.memo(({ show, onClose, userEmail, onResetSuccess }) 
           </div>
         )}
 
-        {/* Step 3: Set New PIN */}
         {step === 3 && (
           <div>
             <p className="wallet-pin-subtitle" style={{ marginBottom: "20px" }}>
@@ -1087,7 +1068,6 @@ BiometricPromptModal.displayName = 'BiometricPromptModal';
 // Wallet Skeleton Loading Component
 const WalletSkeletonLoading = () => (
   <div className="wallet-container">
-    {/* Header Skeleton */}
     <div className="wallet-header" style={{ marginBottom: "20px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
         <div className="wallet-skeleton" style={{ width: "28px", height: "28px", borderRadius: "8px" }}></div>
@@ -1099,7 +1079,6 @@ const WalletSkeletonLoading = () => (
       </div>
     </div>
 
-    {/* Balance Card Skeleton */}
     <div className="wallet-balance-card" style={{ marginBottom: "20px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "16px" }}>
         <div className="wallet-skeleton" style={{ width: "120px", height: "20px", borderRadius: "6px" }}></div>
@@ -1114,17 +1093,14 @@ const WalletSkeletonLoading = () => (
       </div>
     </div>
 
-    {/* Search Bar Skeleton */}
     <div className="wallet-skeleton" style={{ width: "100%", height: "52px", borderRadius: "12px", marginBottom: "20px" }}></div>
 
-    {/* Quick Actions Skeleton */}
     <div className="wallet-quick-actions" style={{ marginBottom: "20px" }}>
       {[1, 2, 3, 4].map((i) => (
         <div key={i} className="wallet-skeleton" style={{ width: "100%", height: "80px", borderRadius: "12px" }}></div>
       ))}
     </div>
 
-    {/* Transactions Skeleton */}
     <div style={{ marginBottom: "100px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "20px" }}>
         <div className="wallet-skeleton" style={{ width: "150px", height: "24px", borderRadius: "8px" }}></div>
@@ -1322,38 +1298,53 @@ const SendMoneyModal = React.memo(({
 
 SendMoneyModal.displayName = 'SendMoneyModal';
 
-// Withdraw Money Modal Component - Updated with transaction fee display
+// Withdraw Money Modal Component - Shows phone input always, pre-fills saved number
 const WithdrawMoneyModal = React.memo(({ 
   show, 
   onClose, 
   balance, 
   onWithdraw,
-  formatKSH 
+  formatKSH,
+  savedPhoneNumber 
 }) => {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [amount, setAmount] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState("");
 
-  const transactionFee = (Number(amount) || 0) * 0.014;
+  const transactionFee = Math.floor((Number(amount) || 0) * 0.014);
   const netAmount = (Number(amount) || 0) - transactionFee;
+
+  // Pre-fill with saved phone number when modal opens
+  useEffect(() => {
+    if (show && savedPhoneNumber) {
+      setPhoneNumber(savedPhoneNumber);
+    }
+  }, [show, savedPhoneNumber]);
 
   const handleWithdrawMoney = async () => {
     setError("");
     
-    if (!phoneNumber.trim()) {
+    let finalPhoneNumber = phoneNumber;
+    
+    // If user has a saved phone and didn't change it, use that
+    if (!finalPhoneNumber && savedPhoneNumber) {
+      finalPhoneNumber = savedPhoneNumber;
+    }
+    
+    if (!finalPhoneNumber || !finalPhoneNumber.trim()) {
       setError("Please enter M-Pesa phone number");
       return;
     }
     
-    if (!/^0[17]\d{8}$/.test(phoneNumber)) {
+    if (!/^0[17]\d{8}$/.test(finalPhoneNumber)) {
       setError("Please enter a valid M-Pesa phone number (e.g., 0712345678)");
       return;
     }
     
     const amountNum = Number(amount);
     if (!amount || amountNum < 20) {
-      setError("Minimum withdrawal amount is 100 KSH");
+      setError("Minimum withdrawal amount is 20 KSH");
       return;
     }
     
@@ -1365,7 +1356,7 @@ const WithdrawMoneyModal = React.memo(({
     setIsProcessing(true);
     
     try {
-      await onWithdraw(amountNum, phoneNumber);
+      await onWithdraw(amountNum, finalPhoneNumber);
       onClose();
     } catch (err) {
       setError(err.message || "Withdrawal failed. Please try again.");
@@ -1435,6 +1426,22 @@ const WithdrawMoneyModal = React.memo(({
             <p className="wallet-input-hint">
               Enter your M-Pesa registered phone number
             </p>
+            {savedPhoneNumber && savedPhoneNumber !== phoneNumber && (
+              <button
+                onClick={() => setPhoneNumber(savedPhoneNumber)}
+                style={{
+                  marginTop: "8px",
+                  fontSize: "12px",
+                  color: "var(--wallet-primary)",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  textDecoration: "underline"
+                }}
+              >
+                Use saved number: {savedPhoneNumber}
+              </button>
+            )}
           </div>
 
           <div style={{ marginBottom: "32px" }}>
@@ -1485,7 +1492,7 @@ const WithdrawMoneyModal = React.memo(({
           <button
             onClick={handleWithdrawMoney}
             className="wallet-confirm-btn"
-            disabled={isProcessing || !phoneNumber || !amount || Number(amount) < 20}
+            disabled={isProcessing || !amount || Number(amount) < 20 || !phoneNumber}
             style={{ width: "100%", background: "#fa8c16" }}
           >
             {isProcessing ? (
@@ -1795,6 +1802,8 @@ const OmniPayWallet = () => {
   const [processing, setProcessing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [showSkeleton, setShowSkeleton] = useState(true);
+  const [withdrawInProgress, setWithdrawInProgress] = useState(false);
+  const [walletPhone, setWalletPhone] = useState("");
  
   // View State
   const [view, setView] = useState("home");
@@ -1829,7 +1838,7 @@ const OmniPayWallet = () => {
     biometricEnabled: false,
     sessionTimeout: 30,
     maxPinAttempts: 5,
-    lockDuration: 900 // 15 minutes in seconds
+    lockDuration: 900
   });
   
   const ADMIN_ID = "755ed9e9-69f6-459c-ad44-d1b93b80a4c6";
@@ -1892,15 +1901,13 @@ const OmniPayWallet = () => {
     if (!user) return;
     
     try {
-      // Fetch wallet balance
       const { data: walletData, error: walletError } = await supabase
         .from("wallets")
-        .select("balance, security_settings, last_transaction_at")
+        .select("balance, security_settings, last_transaction_at, contact_phone")
         .eq("user_id", user.id)
         .maybeSingle();
         
       if (walletError || !walletData) {
-        // Create wallet if doesn't exist
         const { error: createError } = await supabase
           .from("wallets")
           .insert({
@@ -1917,11 +1924,11 @@ const OmniPayWallet = () => {
         }
        
         setBalance(0);
-       
-        // Remove wallet from missing data if it was there
+        setWalletPhone("");
         setMissingData(prev => prev.filter(item => item.type !== 'wallet'));
       } else if (walletData) {
         setBalance(walletData.balance || 0);
+        setWalletPhone(walletData.contact_phone || "");
         if (walletData.security_settings) {
           setSecuritySettings(prev => ({
             ...prev,
@@ -1929,11 +1936,9 @@ const OmniPayWallet = () => {
           }));
         }
        
-        // Remove wallet from missing data
         setMissingData(prev => prev.filter(item => item.type !== 'wallet'));
       }
       
-      // Fetch transactions
       await fetchTransactions();
     } catch (err) {
       console.error("Fetch wallet error:", err);
@@ -1962,10 +1967,8 @@ const OmniPayWallet = () => {
           checkBiometricAvailability();
           resetSessionTimeout();
           
-          // Fetch wallet data
           await fetchWalletData();
           
-          // Show skeleton for at least 1.5 seconds for smooth UX
           skeletonTimeout = setTimeout(() => {
             setShowSkeleton(false);
           }, 1500);
@@ -1986,7 +1989,6 @@ const OmniPayWallet = () => {
    
     fetchUser();
     
-    // Cleanup on unmount
     return () => {
       mounted = false;
       if (sessionTimeout) clearTimeout(sessionTimeout);
@@ -1998,7 +2000,6 @@ const OmniPayWallet = () => {
   useEffect(() => {
     if (!user) return;
     
-    // Set up real-time balance updates
     const walletChannel = supabase
       .channel(`wallet_balance_${user.id}`)
       .on(
@@ -2013,11 +2014,13 @@ const OmniPayWallet = () => {
           if (payload.new?.balance !== undefined) {
             setBalance(payload.new.balance);
           }
+          if (payload.new?.contact_phone !== undefined) {
+            setWalletPhone(payload.new.contact_phone || "");
+          }
         }
       )
       .subscribe();
       
-    // Set up real-time transaction updates
     const transactionsChannel = supabase
       .channel(`wallet_transactions_${user.id}`)
       .on(
@@ -2040,7 +2043,26 @@ const OmniPayWallet = () => {
     };
   }, [user, fetchTransactions]);
   
-  // Fetch transactions when search query changes
+  useEffect(() => {
+    if (user) {
+      fetchWalletData();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && user) {
+        fetchWalletData();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [user]);
+  
   useEffect(() => {
     if (user) {
       const timer = setTimeout(() => {
@@ -2051,12 +2073,10 @@ const OmniPayWallet = () => {
     }
   }, [searchQuery, user, fetchTransactions]);
   
-  // Check if user has missing data
   const checkUserDataCompleteness = async (userId) => {
     try {
       const missing = [];
      
-      // Check user profile
       const { data: userData, error: userError } = await supabase
         .from("users")
         .select("phone, name, email, full_name, profile_completed")
@@ -2067,8 +2087,7 @@ const OmniPayWallet = () => {
         console.error("Error checking user profile:", userError);
       }
      
-      // Always check required fields even if user exists
-      if (!userData || !userData?.phone || userData.phone.trim() === "") {
+      if (!userData?.phone || userData.phone === null || userData.phone === "" || userData.phone === "null") {
         missing.push({
           type: "phone",
           label: "Phone Number",
@@ -2078,7 +2097,6 @@ const OmniPayWallet = () => {
         });
       }
      
-      // Check both name and full_name fields
       const hasName = userData?.name && userData.name.trim() !== "";
       const hasFullName = userData?.full_name && userData.full_name.trim() !== "";
      
@@ -2092,7 +2110,6 @@ const OmniPayWallet = () => {
         });
       }
      
-      // Check wallet setup
       const { data: walletData, error: walletError } = await supabase
         .from("wallets")
         .select("wallet_tier, security_settings")
@@ -2109,7 +2126,6 @@ const OmniPayWallet = () => {
         });
       }
      
-      // Check PIN setup
       const { data: pinData, error: pinError } = await supabase
         .from("wallet_pin_security")
         .select("pin_hash, biometric_prompted")
@@ -2125,7 +2141,6 @@ const OmniPayWallet = () => {
           required: true
         });
       } else {
-        // Check if biometric prompt should be shown
         if (biometricAvailable && !pinData.biometric_prompted) {
           setBiometricPrompted(true);
         }
@@ -2141,7 +2156,6 @@ const OmniPayWallet = () => {
      
     } catch (error) {
       console.error("Error checking user data:", error);
-      // Set default missing data on error
       setMissingData([
         {
           type: "phone",
@@ -2172,7 +2186,6 @@ const OmniPayWallet = () => {
     }
   };
   
-  // Initialize user security
   const initializeUserSecurity = async (userId) => {
     try {
       const { data: pinData, error } = await supabase
@@ -2193,7 +2206,6 @@ const OmniPayWallet = () => {
           biometricEnabled: pinData.biometric_enabled || false
         }));
         
-        // Check for locked PIN
         if (pinData.is_locked && pinData.locked_until) {
           const lockedUntil = new Date(pinData.locked_until);
           if (lockedUntil > new Date()) {
@@ -2207,14 +2219,12 @@ const OmniPayWallet = () => {
     }
   };
   
-  // Check biometric availability
   const checkBiometricAvailability = () => {
     if (window.PublicKeyCredential) {
       PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
         .then((available) => {
           setBiometricAvailable(available);
           
-          // Show prompt if available and not yet prompted
           if (available && biometricPrompted) {
             setTimeout(() => {
               setShowBiometricPrompt(true);
@@ -2229,14 +2239,12 @@ const OmniPayWallet = () => {
     }
   };
   
-  // Refresh all data
   const handleRefresh = async () => {
     setRefreshing(true);
     await fetchWalletData();
     toast.success("Wallet refreshed", { duration: 2000 });
   };
   
-  // Enhanced PIN Verification
   const verifyPin = async (pin) => {
     if (!user) return false;
     
@@ -2253,7 +2261,6 @@ const OmniPayWallet = () => {
         return false;
       }
       
-      // Check if PIN is locked
       if (pinData?.is_locked && pinData.locked_until) {
         const lockedUntil = new Date(pinData.locked_until);
         if (lockedUntil > new Date()) {
@@ -2331,7 +2338,6 @@ const OmniPayWallet = () => {
     }
   };
   
-  // Reset session timeout
   const resetSessionTimeout = () => {
     if (sessionTimeout) clearTimeout(sessionTimeout);
    
@@ -2346,7 +2352,6 @@ const OmniPayWallet = () => {
     setSessionTimeout(timeout);
   };
   
-  // Handle PIN input
   const handlePinInput = (index, value) => {
     if (!/^\d?$/.test(value)) return;
    
@@ -2366,7 +2371,6 @@ const OmniPayWallet = () => {
     }
   };
   
-  // Handle keydown in PIN input
   const handlePinKeyDown = (index, e) => {
     if (e.key === "Backspace" && !pinInput[index] && index > 0) {
       setTimeout(() => {
@@ -2375,7 +2379,6 @@ const OmniPayWallet = () => {
     }
   };
   
-  // Handle biometric authentication
   const handleBiometricAuth = async () => {
     try {
       setPinVerified(true);
@@ -2389,7 +2392,6 @@ const OmniPayWallet = () => {
     }
   };
   
-  // Handle biometric prompt acceptance
   const handleBiometricAccept = async () => {
     try {
       setShowBiometricPrompt(false);
@@ -2415,7 +2417,6 @@ const OmniPayWallet = () => {
     }
   };
   
-  // Handle biometric prompt decline
   const handleBiometricDecline = async () => {
     setShowBiometricPrompt(false);
     
@@ -2427,7 +2428,6 @@ const OmniPayWallet = () => {
       .eq("user_id", user.id);
   };
   
-  // Handle "Don't ask again"
   const handleBiometricDontAskAgain = async () => {
     setShowBiometricPrompt(false);
     
@@ -2439,7 +2439,6 @@ const OmniPayWallet = () => {
       .eq("user_id", user.id);
   };
   
-  // Check if PIN is required for action
   const requiresPin = (action) => {
     if (!pinEnabled) return false;
     if (pinVerified) return false;
@@ -2454,7 +2453,6 @@ const OmniPayWallet = () => {
     }
   };
   
-  // Secure action handler
   const handleSecureAction = async (action, callback) => {
     if (requiresPin(action)) {
       setShowPinModal(true);
@@ -2468,7 +2466,6 @@ const OmniPayWallet = () => {
     await callback();
   };
   
-  // Update user data function
   const updateUserData = async (field, value) => {
     if (!user) return false;
    
@@ -2478,12 +2475,10 @@ const OmniPayWallet = () => {
       let result;
      
       if (field === 'phone') {
-        // Validate Kenyan phone number format
         if (!/^0[17]\d{8}$/.test(value)) {
           throw new Error("Please enter a valid Kenyan phone number (e.g., 0712345678)");
         }
        
-        // Check if phone already exists
         const { data: existingPhone } = await supabase
           .from("users")
           .select("id")
@@ -2496,7 +2491,6 @@ const OmniPayWallet = () => {
         }
       }
      
-      // Update the specific field in users table
       const updateField = field === 'name' ? 'full_name' : field;
       const { error: updateError } = await supabase
         .from("users")
@@ -2508,7 +2502,6 @@ const OmniPayWallet = () => {
         
       if (updateError) throw updateError;
       
-      // If updating phone number, also update the wallet's contact_phone
       if (field === 'phone') {
         const { error: walletUpdateError } = await supabase
           .from("wallets")
@@ -2520,8 +2513,8 @@ const OmniPayWallet = () => {
         
         if (walletUpdateError) {
           console.error("Error updating wallet contact phone:", walletUpdateError);
-          // Don't throw - user update succeeded, wallet update is secondary
         }
+        setWalletPhone(value);
       }
      
       result = true;
@@ -2552,7 +2545,6 @@ const OmniPayWallet = () => {
     }
   };
   
-  // Setup wallet PIN with security questions
   const setupWalletPin = async (pin, securityQuestion, securityAnswer) => {
     if (!user) return false;
    
@@ -2602,20 +2594,18 @@ const OmniPayWallet = () => {
     }
   };
   
-  // Handle PIN reset success
   const handlePinResetSuccess = () => {
     toast.success("PIN reset successful! You can now use your new PIN.", { duration: 4000 });
     setShowPinModal(false);
     setPinVerified(false);
   };
   
-  // Handle send money
   const handleSendMoney = async (recipientEmail, amount) => {
     setProcessing(true);
     
     try {
-      const commission = +(amount * 0.014).toFixed(2);
-      const net = +(amount - commission).toFixed(2);
+      const commission = Math.floor(amount * 0.014);
+      const net = amount - commission;
       
       if (recipientEmail.toLowerCase() === user.email.toLowerCase()) {
         throw new Error("Cannot send money to yourself.");
@@ -2640,7 +2630,7 @@ const OmniPayWallet = () => {
         throw new Error("User not found. Please check the email address.");
       }
       
-      const senderNewBalance = +(balance - amount).toFixed(2);
+      const senderNewBalance = balance - amount;
       
       const { error: senderUpdateError } = await supabase
         .from("wallets")
@@ -2660,7 +2650,7 @@ const OmniPayWallet = () => {
         .maybeSingle();
         
       const receiverCurrentBalance = receiverWallet?.balance || 0;
-      const receiverFinalBalance = +(receiverCurrentBalance + net).toFixed(2);
+      const receiverFinalBalance = receiverCurrentBalance + net;
       
       const { error: receiverUpdateError } = await supabase
         .from("wallets")
@@ -2675,7 +2665,6 @@ const OmniPayWallet = () => {
         
       if (receiverUpdateError) throw receiverUpdateError;
       
-      // Credit admin commission
       if (ADMIN_ID && commission > 0) {
         const { data: adminWallet } = await supabase
           .from("wallets")
@@ -2684,7 +2673,7 @@ const OmniPayWallet = () => {
           .maybeSingle();
           
         const adminCurrentBalance = adminWallet?.balance || 0;
-        const adminNewBalance = +(adminCurrentBalance + commission).toFixed(2);
+        const adminNewBalance = adminCurrentBalance + commission;
         
         await supabase
           .from("wallets")
@@ -2754,23 +2743,27 @@ const OmniPayWallet = () => {
     }
   };
   
-  // Handle withdraw money - UPDATED to call B2C API
+  // FIXED: Handle withdraw money - NO duplicate transaction, balance updates via real-time
   const handleWithdrawMoney = async (amount, phoneNumber) => {
+    if (withdrawInProgress) {
+      console.log('Withdrawal already in progress, skipping duplicate call');
+      return;
+    }
+    
     setProcessing(true);
+    setWithdrawInProgress(true);
     
     try {
-      const commission = +(amount * 0.014).toFixed(2);
-      const net = +(amount - commission).toFixed(2);
+      const roundedAmount = Math.floor(amount);
       
       if (!/^0[17]\d{8}$/.test(phoneNumber)) {
         throw new Error("Please enter a valid M-Pesa phone number (e.g., 0712345678)");
       }
       
-      if (amount > balance) {
+      if (roundedAmount > balance) {
         throw new Error("Insufficient balance.");
       }
       
-      // Call the B2C API for seller withdrawal
       const { data: session } = await supabase.auth.getSession();
       const token = session?.session?.access_token;
       
@@ -2781,7 +2774,7 @@ const OmniPayWallet = () => {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          amount: amount,
+          amount: roundedAmount,
           phoneNumber: phoneNumber,
           orderId: null
         })
@@ -2793,59 +2786,28 @@ const OmniPayWallet = () => {
         throw new Error(result.error || 'Withdrawal failed');
       }
       
-      // Optimistically update balance (will be confirmed when callback arrives)
-      const newBalance = balance - amount;
-      setBalance(newBalance);
-      
-      // Update wallet locally (optimistic)
-      await supabase
-        .from("wallets")
-        .update({ 
-          balance: newBalance,
-          updated_at: new Date().toISOString(),
-          last_transaction_at: new Date().toISOString()
-        })
-        .eq("user_id", user.id);
-      
-      // Record withdrawal transaction (pending)
-      const withdrawalTransaction = {
-        user_id: user.id,
-        type: "withdraw",
-        gross_amount: amount,
-        amount: net,
-        commission_paid: commission,
-        payment_method: "Mpesa",
-        phone: phoneNumber,
-        reference: result.conversationID,
-        status: "pending",
-        description: `Withdrawal of ${formatKSH(net)} to ${phoneNumber} via M-Pesa. Transaction fee: ${formatKSH(commission)}.`,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-      
-      const { error: txError } = await supabase
-        .from("wallet_transactions")
-        .insert(withdrawalTransaction);
-        
-      if (txError) console.error("Transaction record error:", txError);
-      
       toast.success(
-        `Withdrawal of ${formatKSH(net)} initiated! Funds will be sent to ${phoneNumber} shortly.`,
+        `Withdrawal of ${formatKSH(result.netAmount || roundedAmount)} initiated! Funds will be sent to ${phoneNumber} shortly.`,
         { duration: 5000 }
       );
       
-      // Refresh transactions
+      // Refresh transactions and balance via real-time subscription (no manual update needed)
       await fetchTransactions();
+      
+      // Force a wallet balance refresh
+      setTimeout(() => {
+        fetchWalletData();
+      }, 5000);
       
     } catch (err) {
       console.error("Withdraw error:", err);
-      throw new Error(err.message || "Withdrawal failed. Please try again.");
+      toast.error(err.message || "Withdrawal failed. Please try again.");
     } finally {
       setProcessing(false);
+      setWithdrawInProgress(false);
     }
   };
   
-  // Handle deposit via M-Pesa
   const handleDepositMoney = async (amount, phoneNumber) => {
     try {
       await fetchWalletData();
@@ -2854,7 +2816,6 @@ const OmniPayWallet = () => {
     }
   };
   
-  // Quick action buttons configuration
   const quickActions = useMemo(() => [
     { 
       id: "send", 
@@ -2889,7 +2850,6 @@ const OmniPayWallet = () => {
     },
   ], []);
   
-  // Security status indicator
   const SecurityStatus = useMemo(() => () => (
     <div className="wallet-security-status">
       {pinEnabled && (
@@ -2908,7 +2868,6 @@ const OmniPayWallet = () => {
     </div>
   ), [pinEnabled, biometricAvailable, securitySettings.biometricEnabled]);
   
-  // Filtered transactions - memoized
   const filteredTransactions = useMemo(() => {
     return transactions.filter(txn => {
       if (!searchQuery) return true;
@@ -2924,7 +2883,6 @@ const OmniPayWallet = () => {
     });
   }, [transactions, searchQuery]);
   
-  // Handle scroll for pull-to-refresh
   const handleScroll = (e) => {
     const position = e.target.scrollTop;
     if (position < -100 && !refreshing) {
@@ -2932,7 +2890,6 @@ const OmniPayWallet = () => {
     }
   };
   
-  // Enhanced transaction message formatting with M-Pesa receipt display
   const formatTransactionMessage = useCallback((txn) => {
     const amount = formatKSH(txn.amount);
     
@@ -2978,7 +2935,6 @@ const OmniPayWallet = () => {
     };
   }, [formatKSH]);
   
-  // Show skeleton loading initially
   if (showSkeleton) {
     return <WalletSkeletonLoading />;
   }
@@ -3022,7 +2978,6 @@ const OmniPayWallet = () => {
       ref={containerRef}
       onScroll={handleScroll}
     >
-      {/* Setup Modal */}
       <SetupModal
         showSetupModal={showSetupModal}
         missingData={missingData}
@@ -3035,7 +2990,6 @@ const OmniPayWallet = () => {
         onClose={() => setShowSetupModal(false)}
       />
       
-      {/* PIN Reset Modal */}
       <PinResetModal
         show={showPinResetModal}
         onClose={() => setShowPinResetModal(false)}
@@ -3043,7 +2997,6 @@ const OmniPayWallet = () => {
         onResetSuccess={handlePinResetSuccess}
       />
       
-      {/* Biometric Prompt Modal */}
       <BiometricPromptModal
         show={showBiometricPrompt}
         onAccept={handleBiometricAccept}
@@ -3051,7 +3004,6 @@ const OmniPayWallet = () => {
         onDontAskAgain={handleBiometricDontAskAgain}
       />
       
-      {/* Send Money Modal */}
       <SendMoneyModal
         show={showSendModal}
         onClose={() => setShowSendModal(false)}
@@ -3060,16 +3012,15 @@ const OmniPayWallet = () => {
         formatKSH={formatKSH}
       />
       
-      {/* Withdraw Money Modal - Updated with transaction fee display */}
       <WithdrawMoneyModal
         show={showWithdrawModal}
         onClose={() => setShowWithdrawModal(false)}
         balance={balance}
         onWithdraw={handleWithdrawMoney}
         formatKSH={formatKSH}
+        savedPhoneNumber={walletPhone}
       />
       
-      {/* Deposit Money Modal */}
       <DepositMoneyModal
         show={showDepositModal}
         onClose={() => setShowDepositModal(false)}
@@ -3077,7 +3028,6 @@ const OmniPayWallet = () => {
         formatKSH={formatKSH}
       />
       
-      {/* Header */}
       <div className="wallet-header">
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
@@ -3108,7 +3058,6 @@ const OmniPayWallet = () => {
         </div>
       </div>
       
-      {/* Balance Card */}
       <div className="wallet-balance-card">
         <div className="wallet-balance-header">
           <span className="wallet-balance-label">Available Balance</span>
@@ -3158,7 +3107,6 @@ const OmniPayWallet = () => {
         </div>
       </div>
       
-      {/* Search Bar */}
       <div style={{
         position: "relative",
         marginBottom: "16px",
@@ -3210,7 +3158,6 @@ const OmniPayWallet = () => {
         )}
       </div>
       
-      {/* Quick Actions Grid */}
       <div className="wallet-quick-actions">
         {quickActions.map((action) => (
           <button
@@ -3231,7 +3178,6 @@ const OmniPayWallet = () => {
         ))}
       </div>
       
-      {/* Transactions Section */}
       <div className="wallet-transactions-section" style={{ marginBottom: "100px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
           <h2 className="wallet-section-title">Recent Transactions</h2>
@@ -3440,7 +3386,6 @@ const OmniPayWallet = () => {
         )}
       </div>
       
-      {/* PIN Modal */}
       {showPinModal && (
         <div className="wallet-pin-modal">
           <div className="wallet-pin-content" ref={pinModalRef}>
@@ -3471,7 +3416,6 @@ const OmniPayWallet = () => {
               ))}
             </div>
             
-            {/* Forgot PIN link */}
             <div style={{ textAlign: "center", margin: "20px 0" }}>
               <button
                 onClick={() => {
@@ -3550,7 +3494,6 @@ const OmniPayWallet = () => {
         </div>
       )}
       
-      {/* Processing Overlay */}
       {processing && (
         <div className="wallet-loading-overlay" aria-live="polite">
           <div style={{
@@ -3574,7 +3517,6 @@ const OmniPayWallet = () => {
         </div>
       )}
       
-      {/* Bottom spacing for navigation */}
       <div style={{ height: "60px" }}></div>
     </div>
   );
