@@ -10,11 +10,21 @@ import "./Auth.css";
 // Get the correct base URL - remove trailing slash and ensure consistency
 const getBaseUrl = () => {
   const url = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
-  // Remove trailing slash if present
   return url.replace(/\/$/, '');
 };
 
 const APP_URL = getBaseUrl();
+
+// Detect system preference for dark mode
+const isSystemDarkMode = () => {
+  if (typeof window !== 'undefined') {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  }
+  return false;
+};
+
+// Data URI fallback logo (base64 encoded simple logo - will always work)
+const FALLBACK_LOGO_DATA_URI = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='44' viewBox='0 0 44 44'%3E%3Crect width='44' height='44' rx='12' fill='%23667eea'/%3E%3Cpath d='M22 12L12 17V27L22 32L32 27V17L22 12Z' stroke='white' stroke-width='2' fill='none'/%3E%3Ccircle cx='22' cy='22' r='3' fill='white'/%3E%3Cpath d='M12 17L22 22L32 17' stroke='white' stroke-width='2' fill='none'/%3E%3C/svg%3E";
 
 // Error Boundary Component
 class AuthErrorBoundary extends Component {
@@ -59,6 +69,69 @@ export default function Auth() {
   const [envError, setEnvError] = useState(null);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [logoUrl, setLogoUrl] = useState(FALLBACK_LOGO_DATA_URI);
+  const [logoLoading, setLogoLoading] = useState(true);
+
+  // Try to load the actual logo file
+  useEffect(() => {
+    const tryLoadLogo = async () => {
+      const logoPaths = [
+        '/icons/logo.png',
+        '/logo.png',
+        '/images/logo.png',
+        '/assets/logo.png'
+      ];
+
+      for (const path of logoPaths) {
+        try {
+          const img = new Image();
+          img.crossOrigin = "Anonymous";
+          
+          await new Promise((resolve, reject) => {
+            img.onload = () => resolve(true);
+            img.onerror = () => reject(false);
+            img.src = path;
+          });
+          
+          setLogoUrl(path);
+          setLogoLoading(false);
+          return;
+        } catch (err) {
+          console.log(`Logo not found at ${path}`);
+        }
+      }
+      
+      setLogoLoading(false);
+    };
+    
+    tryLoadLogo();
+  }, []);
+
+  // Check and apply dark mode based on system preference
+  useEffect(() => {
+    const darkModePreference = isSystemDarkMode();
+    setIsDarkMode(darkModePreference);
+    
+    if (darkModePreference) {
+      document.body.classList.add('dark-mode');
+    } else {
+      document.body.classList.remove('dark-mode');
+    }
+
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = (e) => {
+      setIsDarkMode(e.matches);
+      if (e.matches) {
+        document.body.classList.add('dark-mode');
+      } else {
+        document.body.classList.remove('dark-mode');
+      }
+    };
+    
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
 
   // Hidden Developer Shortcut — ALT + A → Admin Login
   useEffect(() => {
@@ -100,7 +173,6 @@ export default function Auth() {
       const searchParamsObj = new URLSearchParams(window.location.search);
       const code = searchParamsObj.get("code");
 
-      // Handle OAuth success
       if (code) {
         try {
           setLoading(true);
@@ -128,13 +200,11 @@ export default function Auth() {
         return;
       }
 
-      // Handle password recovery
       if (tokenHash && type === "recovery") {
         navigate("/reset-password", { replace: true });
         return;
       }
       
-      // Handle email confirmation
       if (tokenHash && type === "signup") {
         try {
           const { data, error } = await supabase.auth.verifyOtp({
@@ -208,7 +278,6 @@ export default function Auth() {
   const getErrorMessage = (error) => {
     const message = error?.message?.toLowerCase() || "";
     
-    // Handle specific Supabase errors
     if (message.includes("database error") || message.includes("relation") || message.includes("column")) {
       return {
         message: "System error. Please contact support.",
@@ -315,7 +384,6 @@ export default function Auth() {
       return;
     }
 
-    // Validate all fields
     if (!formData.name || formData.name.length < 2) {
       toast.error("Please enter your full name");
       return;
@@ -340,7 +408,6 @@ export default function Auth() {
     setLoading(true);
     
     try {
-      // Check if email already exists in your users table
       const emailExists = await checkEmailExists(formData.email);
       if (emailExists) {
         toast.error("Account already exists. Please sign in.");
@@ -348,7 +415,6 @@ export default function Auth() {
         return;
       }
 
-      // Use window.location.origin for redirect to ensure consistency
       const redirectUrl = `${window.location.origin}/auth`;
       console.log("Redirect URL:", redirectUrl);
 
@@ -370,7 +436,6 @@ export default function Auth() {
         throw error;
       }
 
-      // Check if user was created but has no identities (already exists)
       if (data?.user && (!data.user.identities || data.user.identities.length === 0)) {
         toast.error("Account already exists. Please sign in.");
         setMode("login");
@@ -514,7 +579,6 @@ export default function Auth() {
     }
   };
 
-  // Reset attempt count after 1 minute
   useEffect(() => {
     if (attemptCount >= 5) {
       const timer = setTimeout(() => setAttemptCount(0), 60000);
@@ -522,7 +586,6 @@ export default function Auth() {
     }
   }, [attemptCount]);
 
-  // Clear success message after 5 seconds
   useEffect(() => {
     if (successMessage) {
       const timer = setTimeout(() => setSuccessMessage(""), 5000);
@@ -734,7 +797,7 @@ export default function Auth() {
   return (
     <AuthErrorBoundary>
       <motion.div
-        className="auth-container"
+        className={`auth-container ${isDarkMode ? 'dark-mode' : ''}`}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3 }}
@@ -757,12 +820,14 @@ export default function Auth() {
         <div className="auth-card">
           <div className="auth-header">
             <div className="brand">
-              <img 
-                src="/icons/logo.png" 
-                alt="Omniflow Logo" 
-                className="logo"
-              />
-              <span className="brand-name">Omniflow</span>
+              {!logoLoading && (
+                <img 
+                  src={logoUrl}
+                  alt="Omniflow Logo" 
+                  className="auth-logo"
+                />
+              )}
+              <span className="auth-brand-name">Omniflow</span>
             </div>
 
             <h1 className="auth-title">
