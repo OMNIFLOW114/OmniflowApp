@@ -1,4 +1,4 @@
-// src/supabaseClient.js
+// src/lib/supabaseClient.js
 import { createClient } from "@supabase/supabase-js"
 
 // Pull values from Vite environment variables
@@ -14,3 +14,6 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 // Export a single shared Supabase client
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+
+// Remove the console.log entirely - never expose config
+// The console.log is gone - this is secure for production

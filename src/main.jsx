@@ -6,18 +6,22 @@ import { AuthProvider } from "./context/AuthContext";
 import { NotificationBadgeProvider } from "./context/NotificationBadgeContext";
 import './i18n'; // Initialize i18next before anything else
 import "./index.css";
-import { supabase } from "./lib/supabaseClient";
-import { Toaster } from "react-hot-toast"; // ✅ Use react-hot-toast instead
+import { Toaster } from "react-hot-toast";
 
-window.supabase = supabase;
+// DO NOT expose supabase to window - this is a security risk
+// Remove this line: window.supabase = supabase;
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <BrowserRouter>
+    <BrowserRouter
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true,
+      }}
+    >
       <AuthProvider>
         <NotificationBadgeProvider>
           <App />
-          {/* ✅ Global toast provider */}
           <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
         </NotificationBadgeProvider>
       </AuthProvider>

@@ -7,7 +7,14 @@ import toast, { Toaster } from "react-hot-toast";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import "./Auth.css";
 
-const APP_URL = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
+// Get the correct base URL - remove trailing slash and ensure consistency
+const getBaseUrl = () => {
+  const url = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
+  // Remove trailing slash if present
+  return url.replace(/\/$/, '');
+};
+
+const APP_URL = getBaseUrl();
 
 // Error Boundary Component
 class AuthErrorBoundary extends Component {
@@ -26,20 +33,8 @@ class AuthErrorBoundary extends Component {
       return (
         <div className="error-container">
           <h2>Oops, Something Went Wrong</h2>
-          <p>
-            {this.state.error?.message || "An unexpected error occurred."}
-            {this.state.error?.message?.includes("VITE_SUPABASE_URL") ||
-            this.state.error?.message?.includes("VITE_SUPABASE_ANON_KEY")
-              ? " Please check your environment variables (VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY) in your .env file."
-              : ""}
-          </p>
-          <Button
-            onClick={() => window.location.reload()}
-            className="auth-button"
-            aria-label="Reload the page"
-          >
-            Reload Page
-          </Button>
+          <p>{this.state.error?.message || "An unexpected error occurred."}</p>
+          <Button onClick={() => window.location.reload()}>Reload Page</Button>
         </div>
       );
     }
@@ -65,7 +60,7 @@ export default function Auth() {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
 
-  // 🧩 Hidden Developer Shortcut — ALT + A → Admin Login
+  // Hidden Developer Shortcut — ALT + A → Admin Login
   useEffect(() => {
     const handleKeyShortcut = (e) => {
       if (e.altKey && e.key.toLowerCase() === "a") {
@@ -83,10 +78,10 @@ export default function Auth() {
     const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
     
     if (!supabaseUrl || !supabaseKey) {
-      const errorMessage = "Missing Supabase configuration. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file.";
+      const errorMessage = "Missing Supabase configuration. Please check your .env file.";
       setEnvError(errorMessage);
       toast.error(errorMessage);
-      console.error("Environment variables missing:", { supabaseUrl, supabaseKey });
+      console.error("Missing environment variables");
     } else {
       setEnvError(null);
     }
@@ -104,26 +99,15 @@ export default function Auth() {
 
       const searchParamsObj = new URLSearchParams(window.location.search);
       const code = searchParamsObj.get("code");
-      const errorParam = searchParamsObj.get("error");
-      const errorDescription = searchParamsObj.get("error_description");
 
-      // Handle OAuth error response from Google
-      if (errorParam) {
-        toast.error(
-          `Google Sign-In failed: ${errorParam}${errorDescription ? ` - ${errorDescription}` : ""}. Try again or use incognito mode.`
-        );
-        window.history.replaceState({}, document.title, window.location.pathname);
-        return;
-      }
-
-      // Handle OAuth success (Google login redirect with ?code=...)
+      // Handle OAuth success
       if (code) {
         try {
           setLoading(true);
           const { data, error } = await supabase.auth.exchangeCodeForSession(code);
           if (error) {
             if (error.message.includes("already registered")) {
-              toast.error("This email is already registered. Please sign in with email/password or link your Google account.");
+              toast.error("This email is already registered. Please sign in.");
               setMode("login");
               return;
             }
@@ -132,47 +116,41 @@ export default function Auth() {
 
           if (data?.session?.user) {
             await syncUserData(data.session.user);
-            setSuccessMessage("Successfully signed in with Google");
-            window.history.replaceState({}, document.title, window.location.pathname);
+            toast.success("Successfully signed in!");
             navigate("/home");
-          } else {
-            toast.error("No valid user session after Google sign-in. Please try again.");
-            window.history.replaceState({}, document.title, window.location.pathname);
           }
         } catch (err) {
-          console.error("OAuth callback error:", err);
-          toast.error(err.message || "Google authentication failed. Try incognito mode or check OAuth setup.");
-          window.history.replaceState({}, document.title, window.location.pathname);
+          console.error("OAuth error:", err);
+          toast.error(err.message || "Authentication failed");
         } finally {
           setLoading(false);
         }
         return;
       }
 
-      // Handle password recovery or email confirmation from email link
-      if (tokenHash && type) {
-        if (type === "recovery") {
-          console.log("Password recovery detected, redirecting to reset page...");
-          navigate("/reset-password", { replace: true });
-          return;
-        }
-        if (type === "signup") {
-          try {
-            const { data, error } = await supabase.auth.verifyOtp({
-              type: 'signup',
-              token_hash: tokenHash,
-            });
-            if (error) throw error;
-            if (data.session) {
-              await syncUserData(data.session.user);
-              setSuccessMessage("Email confirmed successfully!");
-              navigate("/home");
-            }
-          } catch (err) {
-            toast.error("Error confirming email: " + err.message);
+      // Handle password recovery
+      if (tokenHash && type === "recovery") {
+        navigate("/reset-password", { replace: true });
+        return;
+      }
+      
+      // Handle email confirmation
+      if (tokenHash && type === "signup") {
+        try {
+          const { data, error } = await supabase.auth.verifyOtp({
+            type: 'signup',
+            token_hash: tokenHash,
+          });
+          if (error) throw error;
+          if (data.session) {
+            await syncUserData(data.session.user);
+            toast.success("Email confirmed successfully!");
+            navigate("/home");
           }
-          return;
+        } catch (err) {
+          toast.error("Error confirming email: " + err.message);
         }
+        return;
       }
     };
 
@@ -184,11 +162,8 @@ export default function Auth() {
     const checkSession = async () => {
       if (envError) return;
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        if (error) throw error;
-        const isResetFlow =
-          window.location.pathname.includes("/reset-password") ||
-          searchParams.get("type") === "recovery";
+        const { data: { session } } = await supabase.auth.getSession();
+        const isResetFlow = window.location.pathname.includes("/reset-password");
         if (session?.user && !isResetFlow) {
           navigate("/home");
         }
@@ -218,53 +193,48 @@ export default function Auth() {
     return () => subscription.unsubscribe();
   }, [navigate, searchParams, envError]);
 
-  // Input validation and sanitization
-  const validatePhone = (phone) => /^\+254\d{9}$/.test(phone);
+  // Validation functions
+  const validatePhone = (phone) => {
+    if (!phone) return true;
+    return /^(\+254|0)[17]\d{8}$/.test(phone);
+  };
   const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  const isValidPassword = (pwd) =>
-    /[a-z]/.test(pwd) && /[A-Z]/.test(pwd) && /[0-9]/.test(pwd) && pwd.length >= 8;
-  const sanitizeInput = (input) => input.replace(/[<>{}]/g, "").trim();
+  const isValidPassword = (pwd) => {
+    if (!pwd) return false;
+    return /[a-z]/.test(pwd) && /[A-Z]/.test(pwd) && /[0-9]/.test(pwd) && pwd.length >= 8;
+  };
+  const sanitizeInput = (input) => input?.replace(/[<>{}]/g, "").trim() || "";
 
-  // Enhanced error message handler
   const getErrorMessage = (error) => {
     const message = error?.message?.toLowerCase() || "";
-    if (
-      message.includes("already registered") ||
-      message.includes("user already exists") ||
-      message.includes("email already in use") ||
-      error?.code === "user_already_exists" ||
-      error?.status === 422
-    ) {
+    
+    // Handle specific Supabase errors
+    if (message.includes("database error") || message.includes("relation") || message.includes("column")) {
       return {
-        message: "This email is already registered. Redirecting to login...",
+        message: "System error. Please contact support.",
+        type: "database_error",
+      };
+    }
+    if (message.includes("already registered") || message.includes("user already exists")) {
+      return {
+        message: "This email is already registered. Please sign in.",
         type: "user_exists",
       };
     }
-    if (
-      message.includes("invalid login credentials") ||
-      message.includes("user not found") ||
-      message.includes("email not confirmed") ||
-      message.includes("invalid email or password")
-    ) {
+    if (message.includes("invalid login credentials")) {
       return {
-        message: "Invalid email or password. Please check your credentials.",
-        type: "user_not_found",
+        message: "Invalid email or password. Please try again.",
+        type: "invalid_credentials",
       };
     }
-    if (message.includes("rate limit") || message.includes("too many requests")) {
+    if (message.includes("rate limit")) {
       return {
-        message: "Too many attempts. Please wait a minute and try again.",
+        message: "Too many attempts. Please wait a moment.",
         type: "rate_limit",
       };
     }
-    if (message.includes("password recovery")) {
-      return {
-        message: "Password reset failed. Please try again.",
-        type: "recovery_error",
-      };
-    }
     return {
-      message: error?.message || "An unexpected error occurred",
+      message: error?.message || "Something went wrong. Please try again.",
       type: "generic",
     };
   };
@@ -273,38 +243,24 @@ export default function Auth() {
     const { name, value } = e.target;
     const sanitizedValue = sanitizeInput(value);
     setFormData((prev) => ({ ...prev, [name]: sanitizedValue }));
-    
-    // Clear specific error when user starts typing
-    setErrors((prev) => ({
-      ...prev,
-      [name]: "",
-    }));
-
-    // Real-time validation
-    if (name === "email" && value && !validateEmail(sanitizedValue)) {
-      setErrors((prev) => ({ 
-        ...prev, 
-        [name]: "Please enter a valid email address" 
-      }));
-    } else if (name === "phone" && value && !validatePhone(sanitizedValue)) {
-      setErrors((prev) => ({ 
-        ...prev, 
-        [name]: "Phone must be in +254XXXXXXXXX format" 
-      }));
-    } else if (name === "password" && value && !isValidPassword(sanitizedValue)) {
-      setErrors((prev) => ({ 
-        ...prev, 
-        [name]: "Password must include uppercase, lowercase, number, and be 8+ characters" 
-      }));
-    } else if (name === "name" && value && sanitizedValue.length < 2) {
-      setErrors((prev) => ({ 
-        ...prev, 
-        [name]: "Name must be at least 2 characters" 
-      }));
-    }
+    setErrors((prev) => ({ ...prev, [name]: "" }));
   }, []);
 
-  // Check if email exists in users table
+  const handleBlur = useCallback((field) => {
+    const value = formData[field];
+    if (!value) return;
+    
+    if (field === "email" && !validateEmail(value)) {
+      setErrors(prev => ({ ...prev, email: "Please enter a valid email address" }));
+    } else if (field === "phone" && value && !validatePhone(value)) {
+      setErrors(prev => ({ ...prev, phone: "Enter valid phone (e.g., 0712345678 or +254712345678)" }));
+    } else if (field === "password" && mode === "signup" && value && !isValidPassword(value)) {
+      setErrors(prev => ({ ...prev, password: "Must contain uppercase, lowercase, number, and be 8+ characters" }));
+    } else if (field === "name" && mode === "signup" && value && value.length < 2) {
+      setErrors(prev => ({ ...prev, name: "Name must be at least 2 characters" }));
+    }
+  }, [formData, mode]);
+
   const checkEmailExists = async (email) => {
     try {
       const { data, error } = await supabase
@@ -312,7 +268,7 @@ export default function Auth() {
         .select("email")
         .eq("email", email)
         .maybeSingle();
-      if (error) throw error;
+      if (error && error.code !== "PGRST116") throw error;
       return !!data;
     } catch (err) {
       console.error("Error checking email:", err);
@@ -320,7 +276,6 @@ export default function Auth() {
     }
   };
 
-  // Sync user data after sign-in/sign-up using upsert
   const syncUserData = async (user) => {
     try {
       if (!user?.id) return;
@@ -335,66 +290,67 @@ export default function Auth() {
 
       if (mode === "signup" && acceptedTerms) {
         userData.accepted_terms = acceptedTerms;
+        userData.accepted_terms_at = new Date().toISOString();
       }
 
       const { error } = await supabase
         .from("users")
         .upsert(userData, { onConflict: 'id' });
 
-      if (error) {
-        console.error("Error upserting user data:", error);
-      }
+      if (error) console.error("Error syncing user:", error);
     } catch (err) {
-      console.error("Unexpected error syncing user data:", err);
+      console.error("Sync error:", err);
     }
   };
 
   const handleSignup = async (e) => {
     e.preventDefault();
+    
     if (envError) {
-      toast.error("Cannot sign up due to missing Supabase configuration.");
+      toast.error("Service unavailable. Please try again later.");
       return;
     }
     if (attemptCount >= 5) {
-      toast.error("Too many attempts. Please wait a minute and try again.");
+      toast.error("Too many attempts. Please wait a minute.");
       return;
     }
 
     // Validate all fields
     if (!formData.name || formData.name.length < 2) {
-      toast.error("Please enter your full name (at least 2 characters).");
+      toast.error("Please enter your full name");
       return;
     }
     if (!validateEmail(formData.email)) {
-      toast.error("Please enter a valid email address.");
+      toast.error("Please enter a valid email address");
       return;
     }
     if (!isValidPassword(formData.password)) {
-      toast.error("Password must include uppercase, lowercase, number, and be 8+ characters.");
+      toast.error("Password must be 8+ characters with uppercase, lowercase, and number");
       return;
     }
     if (formData.phone && !validatePhone(formData.phone)) {
-      toast.error("Phone must be in +254XXXXXXXXX format.");
+      toast.error("Phone must be in valid Kenyan format (e.g., 0712345678)");
       return;
     }
-
-    // Check if terms are accepted
     if (!acceptedTerms) {
-      toast.error("Please accept the Terms & Conditions to continue.");
+      toast.error("Please accept the Terms & Conditions");
       return;
     }
 
     setLoading(true);
+    
     try {
+      // Check if email already exists in your users table
       const emailExists = await checkEmailExists(formData.email);
       if (emailExists) {
-        toast.error("This email is already registered. Redirecting to login...");
-        setTimeout(() => {
-          setMode("login");
-          setFormData((prev) => ({ ...prev, password: "" }));
-        }, 2000);
+        toast.error("Account already exists. Please sign in.");
+        setTimeout(() => setMode("login"), 2000);
         return;
       }
+
+      // Use window.location.origin for redirect to ensure consistency
+      const redirectUrl = `${window.location.origin}/auth`;
+      console.log("Redirect URL:", redirectUrl);
 
       const { data, error } = await supabase.auth.signUp({
         email: formData.email,
@@ -405,41 +361,34 @@ export default function Auth() {
             phone: formData.phone,
             accepted_terms: acceptedTerms,
           },
-          emailRedirectTo: `${APP_URL}/auth`,
+          emailRedirectTo: redirectUrl,
         },
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase signup error:", error);
+        throw error;
+      }
 
-      // Check for fake user (existing email)
-      if (!data.user?.identities || data.user.identities.length === 0) {
-        toast.error("This account already exists. Proceed to login page.");
-        setTimeout(() => {
-          setMode("login");
-          setFormData((prev) => ({ ...prev, password: "" }));
-        }, 2000);
+      // Check if user was created but has no identities (already exists)
+      if (data?.user && (!data.user.identities || data.user.identities.length === 0)) {
+        toast.error("Account already exists. Please sign in.");
+        setMode("login");
         return;
       }
 
-      if (data.user) {
-        // Rely on trigger for insert, no sync here
-        setSuccessMessage("Account created successfully! Please check your email to confirm your account.");
+      if (data?.user) {
+        toast.success("Account created! Please check your email to confirm.");
         setMode("login");
         setFormData({ name: "", phone: "", email: "", password: "" });
-        setErrors({});
-        setAttemptCount(0);
         setAcceptedTerms(false);
+        setAttemptCount(0);
       }
     } catch (err) {
+      console.error("Signup error:", err);
       const errorInfo = getErrorMessage(err);
       toast.error(errorInfo.message);
-      if (errorInfo.type === "user_exists") {
-        setTimeout(() => {
-          setMode("login");
-          setFormData((prev) => ({ ...prev, password: "" }));
-        }, 2000);
-      }
-      setAttemptCount((prev) => prev + 1);
+      setAttemptCount(prev => prev + 1);
     } finally {
       setLoading(false);
     }
@@ -447,24 +396,26 @@ export default function Auth() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    
     if (envError) {
-      toast.error("Cannot sign in due to missing Supabase configuration.");
+      toast.error("Service unavailable. Please try again later.");
       return;
     }
     if (attemptCount >= 5) {
-      toast.error("Too many attempts. Please wait a minute and try again.");
+      toast.error("Too many attempts. Please wait a minute.");
       return;
     }
     if (!validateEmail(formData.email)) {
-      toast.error("Please enter a valid email address.");
+      toast.error("Please enter a valid email address");
       return;
     }
     if (!formData.password) {
-      toast.error("Please enter your password.");
+      toast.error("Please enter your password");
       return;
     }
 
     setLoading(true);
+    
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email: formData.email,
@@ -473,12 +424,12 @@ export default function Auth() {
       
       if (error) {
         const errorInfo = getErrorMessage(error);
-        if (errorInfo.type === "user_not_found") {
-          toast.error("Invalid email or password. Please check your credentials.");
+        if (errorInfo.type === "invalid_credentials") {
+          toast.error("Invalid email or password");
           setTimeout(() => {
-            if (window.confirm("No account found with this email. Would you like to create a new account?")) {
+            if (window.confirm("No account found? Create one?")) {
               setMode("signup");
-              setFormData((prev) => ({ ...prev, password: "" }));
+              setFormData(prev => ({ ...prev, password: "" }));
             }
           }, 1500);
           return;
@@ -488,16 +439,15 @@ export default function Auth() {
 
       if (data?.user) {
         await syncUserData(data.user);
-        setSuccessMessage("Welcome back! 👋");
+        toast.success("Welcome back!");
         navigate("/home");
-        setFormData({ name: "", phone: "", email: "", password: "" });
-        setErrors({});
         setAttemptCount(0);
       }
     } catch (err) {
+      console.error("Login error:", err);
       const errorInfo = getErrorMessage(err);
       toast.error(errorInfo.message);
-      setAttemptCount((prev) => prev + 1);
+      setAttemptCount(prev => prev + 1);
     } finally {
       setLoading(false);
     }
@@ -505,43 +455,32 @@ export default function Auth() {
 
   const handleForgotPassword = async (e) => {
     e.preventDefault();
+    
     if (envError) {
-      toast.error("Cannot reset password due to missing Supabase configuration.");
-      return;
-    }
-    if (attemptCount >= 5) {
-      toast.error("Too many attempts. Please wait a minute and try again.");
+      toast.error("Service unavailable. Please try again later.");
       return;
     }
     if (!formData.email || !validateEmail(formData.email)) {
-      toast.error("Please enter a valid email address.");
+      toast.error("Please enter a valid email address");
       return;
     }
 
     setLoading(true);
+    
     try {
+      const redirectUrl = `${window.location.origin}/auth`;
       const { error } = await supabase.auth.resetPasswordForEmail(formData.email, {
-        redirectTo: `${APP_URL}/auth`,
+        redirectTo: redirectUrl,
       });
       
-      if (error) {
-        const errorInfo = getErrorMessage(error);
-        if (errorInfo.type === "user_not_found") {
-          toast.error("No account found with this email address.");
-          return;
-        }
-        throw error;
-      }
+      if (error) throw error;
       
-      setSuccessMessage("Password reset link sent! Check your email for instructions.");
+      toast.success("Password reset link sent! Check your email.");
       setMode("login");
-      setFormData((prev) => ({ ...prev, password: "" }));
-      setErrors({});
-      setAttemptCount(0);
+      setFormData(prev => ({ ...prev, password: "" }));
     } catch (err) {
-      const errorInfo = getErrorMessage(err);
-      toast.error(errorInfo.message);
-      setAttemptCount((prev) => prev + 1);
+      console.error("Reset password error:", err);
+      toast.error(err.message || "Failed to send reset link");
     } finally {
       setLoading(false);
     }
@@ -549,28 +488,28 @@ export default function Auth() {
 
   const handleGoogle = async () => {
     if (envError) {
-      toast.error("Cannot sign in with Google due to missing Supabase configuration.");
+      toast.error("Service unavailable. Please try again later.");
       return;
     }
+    
     setLoading(true);
+    
     try {
+      const redirectUrl = `${window.location.origin}/auth`;
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${APP_URL}/auth`,
+          redirectTo: redirectUrl,
           queryParams: {
             access_type: "offline",
             prompt: "select_account",
           },
         },
       });
-      
       if (error) throw error;
     } catch (err) {
       console.error("Google OAuth error:", err);
-      toast.error(
-        err.message || "Google login failed. Try again or use incognito mode."
-      );
+      toast.error(err.message || "Google login failed. Please try again.");
       setLoading(false);
     }
   };
@@ -578,8 +517,8 @@ export default function Auth() {
   // Reset attempt count after 1 minute
   useEffect(() => {
     if (attemptCount >= 5) {
-      const resetTimer = setTimeout(() => setAttemptCount(0), 60000);
-      return () => clearTimeout(resetTimer);
+      const timer = setTimeout(() => setAttemptCount(0), 60000);
+      return () => clearTimeout(timer);
     }
   }, [attemptCount]);
 
@@ -604,6 +543,7 @@ export default function Auth() {
                 type="text"
                 placeholder="Enter your full name"
                 onChange={handleChange}
+                onBlur={() => handleBlur("name")}
                 value={formData.name}
                 required
               />
@@ -618,6 +558,7 @@ export default function Auth() {
                 type="email"
                 placeholder="Enter your email"
                 onChange={handleChange}
+                onBlur={() => handleBlur("email")}
                 value={formData.email}
                 required
               />
@@ -630,11 +571,13 @@ export default function Auth() {
                 id="phone"
                 name="phone"
                 type="tel"
-                placeholder="+254 700 000000"
+                placeholder="0712345678"
                 onChange={handleChange}
+                onBlur={() => handleBlur("phone")}
                 value={formData.phone}
               />
               {errors.phone && <span className="error-text">{errors.phone}</span>}
+              <small className="input-hint">Format: 0712345678 or +254712345678</small>
             </div>
 
             <div className="form-group">
@@ -646,6 +589,7 @@ export default function Auth() {
                   type={showPassword ? "text" : "password"}
                   placeholder="Create a password"
                   onChange={handleChange}
+                  onBlur={() => handleBlur("password")}
                   value={formData.password}
                   required
                 />
@@ -658,17 +602,20 @@ export default function Auth() {
                 </button>
               </div>
               {errors.password && <span className="error-text">{errors.password}</span>}
+              <small className="input-hint">Must contain uppercase, lowercase, number, and be 8+ characters</small>
             </div>
 
             <div className="terms-checkbox">
-              <input
-                type="checkbox"
-                id="terms"
-                checked={acceptedTerms}
-                onChange={(e) => setAcceptedTerms(e.target.checked)}
-              />
-              <label htmlFor="terms">
-                I agree to the <button type="button" className="terms-link" onClick={() => navigate('/terms')}>Terms</button> and <button type="button" className="terms-link" onClick={() => navigate('/privacy')}>Privacy Policy</button>
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={acceptedTerms}
+                  onChange={(e) => setAcceptedTerms(e.target.checked)}
+                />
+                <span className="checkbox-custom"></span>
+                <span className="checkbox-text">
+                  I agree to the <button type="button" className="terms-link" onClick={() => navigate('/terms')}>Terms</button> and <button type="button" className="terms-link" onClick={() => navigate('/privacy')}>Privacy Policy</button>
+                </span>
               </label>
             </div>
 
@@ -693,6 +640,7 @@ export default function Auth() {
                 type="email"
                 placeholder="Enter your email"
                 onChange={handleChange}
+                onBlur={() => handleBlur("email")}
                 value={formData.email}
                 required
               />
@@ -717,6 +665,7 @@ export default function Auth() {
                   type={showPassword ? "text" : "password"}
                   placeholder="Enter your password"
                   onChange={handleChange}
+                  onBlur={() => handleBlur("password")}
                   value={formData.password}
                   required
                 />
@@ -752,6 +701,7 @@ export default function Auth() {
                 type="email"
                 placeholder="Enter your email"
                 onChange={handleChange}
+                onBlur={() => handleBlur("email")}
                 value={formData.email}
                 required
               />

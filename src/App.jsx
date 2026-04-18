@@ -1,4 +1,4 @@
-// App.jsx - UPDATED: Clean White/Dark Mode Compatible Layout with Toast Fixes
+// App.jsx - FULLY UPDATED: Secure, Production-Ready with React Router v7 Future Flags
 import React from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -86,7 +86,7 @@ import DashboardOverview from '@/pages/admin/DashboardOverview';
 import AdminAuth from "@/pages/admin/AdminAuth";
 import ProtectedAdminRoute from "@/pages/admin/ProtectedAdminRoute";
 
-// Create a client for React Query
+// Create a client for React Query - Optimized for production
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -94,10 +94,12 @@ const queryClient = new QueryClient({
       gcTime: 10 * 60 * 1000, // 10 minutes
       retry: 1,
       refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
     },
   },
 });
 
+// Scroll to top component - preserves scroll position on navigation
 function ScrollToTop() {
   const { pathname } = useLocation();
   React.useEffect(() => {
@@ -106,6 +108,7 @@ function ScrollToTop() {
   return null;
 }
 
+// Protected Route - requires authentication
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) return <div className="flex items-center justify-center min-h-screen text-lg">Loading...</div>;
@@ -113,6 +116,7 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
+// Admin Route - requires admin privileges
 function AdminRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) return <div className="flex items-center justify-center min-h-screen text-lg">Loading...</div>;
@@ -120,222 +124,99 @@ function AdminRoute({ children }) {
   return children;
 }
 
+// Main Routes Component
 function AppRoutes() {
-  const { user:User } = useAuth();
+  const { user: User } = useAuth();
 
   return (
     <>
       <ScrollToTop />
       <Routes>
-        {/* NEW: TradeStore is now the PUBLIC landing page */}
+        {/* Public Routes */}
         <Route path="/" element={<TradeStore />} />
-        
         <Route path="/auth" element={<Auth />} />
+        <Route path="/about" element={<AboutUs />} />
+        <Route path="/terms" element={<TermsPage />} />
+        <Route path="/search" element={<SearchPage />} />
+        <Route path="/product/:id" element={<ProductDetail />} />
+        <Route path="/flash-sales" element={<FlashSalesPage />} />
+        <Route path="/checkout/:id" element={<Checkout />} />
         
+        {/* Protected User Routes */}
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         <Route path="/help" element={<ProtectedRoute><HelpCenter /></ProtectedRoute>} />
         <Route path="/wallet" element={<ProtectedRoute><OmniPayWallet /></ProtectedRoute>} />
         <Route path="/convert-currency" element={<ProtectedRoute><CurrencyConverter /></ProtectedRoute>} />
-        <Route path="/messages" element={<NewMessages />} />
-        <Route path="/trade" element={<TradeStore />} />
-        <Route path="/seller/dashboard" element={<StoreDashboardV2 />} />
-        <Route path="/flash-sales" element={<FlashSalesPage />} />
-        <Route path="/store/create" element={<ProtectedRoute><CreateStore /></ProtectedRoute>} />
-        <Route path="/dashboard/store/:storeId" element={<ProtectedRoute><StoreDashboard /></ProtectedRoute>} />
-        <Route path="/product/:id" element={<ProductDetail />} />
+        <Route path="/messages" element={<ProtectedRoute><NewMessages /></ProtectedRoute>} />
+        <Route path="/trade" element={<ProtectedRoute><TradeStore /></ProtectedRoute>} />
         <Route path="/wishlist" element={<ProtectedRoute><Wishlist /></ProtectedRoute>} />
         <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
-        <Route path="/about" element={<AboutUs />} />
+        <Route path="/orders" element={<ProtectedRoute><BuyerOrders /></ProtectedRoute>} />
+        <Route path="/my-installments" element={<ProtectedRoute><MyInstallments user={User} /></ProtectedRoute>} />
+        
+        {/* Seller Routes */}
+        <Route path="/seller/dashboard" element={<ProtectedRoute><StoreDashboardV2 /></ProtectedRoute>} />
+        <Route path="/store/create" element={<ProtectedRoute><CreateStore /></ProtectedRoute>} />
+        <Route path="/dashboard/store/:storeId" element={<ProtectedRoute><StoreDashboard /></ProtectedRoute>} />
+        <Route path="/store/premium" element={<ProtectedRoute><Premium /></ProtectedRoute>} />
+        
+        {/* Student Routes */}
         <Route path="/student" element={<ProtectedRoute><StudentDashboard /></ProtectedRoute>} />
-        <Route path="/orders" element={<BuyerOrders />} />
-        <Route path="/admin/ratings" element={<Ratings />} />
-        <Route path="/checkout/:id" element={<Checkout />} />
-        <Route path="/student/sell-product" element={<SellProductPage />} />
-        <Route path="/student/start-restaurant" element={<StartRestaurantPage />} />
-        <Route path="/student/service/:id" element={<ServiceDetailPage />} />
-        <Route path="/student/restaurant/:id" element={<RestaurantDetailPage />} />
-        <Route path="/student/product/:id" element={<ProductDetailPage />} />
-        <Route path="/student/become-delivery-agent" element={<BecomeDeliveryAgentPage />} />
-        <Route path="/student/chat/:chatId" element={<StudentChatPage />} />
-        <Route path="/student/orders" element={<OrderTrackingPage />} />
-        <Route path="/student/earnings" element={<StudentEarningsPage />} />
-        <Route path="/terms" element={<TermsPage />} />
-        <Route path="/search" element={<SearchPage />} />
-        <Route path="/student/category/:categoryId" element={<CategoryPage />} />
-        <Route path="/student/campus-search" element={<CampusSearchPage />} />
-        <Route path="/student/campus-flash-sales" element={<CampusFlashSales />} />
-        <Route path="/student/campus-trending-now" element={<CampusTrendingNow />} />
-        <Route path="/student/campus-recommended" element={<CampusRecommendedForYou />} />
-        <Route path="/student/campus-nearby-restaurants" element={<CampusNearbyRestaurants />} />
-        <Route path="/student/campus-popular-services" element={<CampusPopularServices />} />
-        <Route path="/student/offer-service" element={<OfferServicePage />} />
-        <Route path="/student/profile" element={<StudentProfilePage />} />
-        <Route path="/student/notifications" element={<StudentNotificationsPage />} />
-        <Route path="/student/report-product/:id" element={<ReportProductPage />} />
+        <Route path="/student/sell-product" element={<ProtectedRoute><SellProductPage /></ProtectedRoute>} />
+        <Route path="/student/start-restaurant" element={<ProtectedRoute><StartRestaurantPage /></ProtectedRoute>} />
+        <Route path="/student/service/:id" element={<ProtectedRoute><ServiceDetailPage /></ProtectedRoute>} />
+        <Route path="/student/restaurant/:id" element={<ProtectedRoute><RestaurantDetailPage /></ProtectedRoute>} />
+        <Route path="/student/product/:id" element={<ProtectedRoute><ProductDetailPage /></ProtectedRoute>} />
+        <Route path="/student/become-delivery-agent" element={<ProtectedRoute><BecomeDeliveryAgentPage /></ProtectedRoute>} />
+        <Route path="/student/chat/:chatId" element={<ProtectedRoute><StudentChatPage /></ProtectedRoute>} />
+        <Route path="/student/orders" element={<ProtectedRoute><OrderTrackingPage /></ProtectedRoute>} />
+        <Route path="/student/earnings" element={<ProtectedRoute><StudentEarningsPage /></ProtectedRoute>} />
+        <Route path="/student/category/:categoryId" element={<ProtectedRoute><CategoryPage /></ProtectedRoute>} />
+        <Route path="/student/campus-search" element={<ProtectedRoute><CampusSearchPage /></ProtectedRoute>} />
+        <Route path="/student/campus-flash-sales" element={<ProtectedRoute><CampusFlashSales /></ProtectedRoute>} />
+        <Route path="/student/campus-trending-now" element={<ProtectedRoute><CampusTrendingNow /></ProtectedRoute>} />
+        <Route path="/student/campus-recommended" element={<ProtectedRoute><CampusRecommendedForYou /></ProtectedRoute>} />
+        <Route path="/student/campus-nearby-restaurants" element={<ProtectedRoute><CampusNearbyRestaurants /></ProtectedRoute>} />
+        <Route path="/student/campus-popular-services" element={<ProtectedRoute><CampusPopularServices /></ProtectedRoute>} />
+        <Route path="/student/offer-service" element={<ProtectedRoute><OfferServicePage /></ProtectedRoute>} />
+        <Route path="/student/profile" element={<ProtectedRoute><StudentProfilePage /></ProtectedRoute>} />
+        <Route path="/student/notifications" element={<ProtectedRoute><StudentNotificationsPage /></ProtectedRoute>} />
+        <Route path="/student/report-product/:id" element={<ProtectedRoute><ReportProductPage /></ProtectedRoute>} />
 
-        {/* ===================== ADMIN ROUTES ===================== */}
+        {/* Admin Routes - Protected by AdminRoute */}
         <Route path="/admin" element={<AdminAuth />} />
-
-        <Route
-          path="/admin-dashboard"
-          element={
-            <ProtectedAdminRoute>
-              <AdminDashboard />
-            </ProtectedAdminRoute>
-          }
-        />
-
-        <Route
-          path="/admin/users"
-          element={
-            <ProtectedAdminRoute>
-              <UserManagement />
-            </ProtectedAdminRoute>
-          }
-        />
-
-        <Route
-          path="/admin/stores"
-          element={
-            <ProtectedAdminRoute>
-              <StoreOversight />
-            </ProtectedAdminRoute>
-          }
-        />
-
-        <Route
-          path="/admin/products"
-          element={
-            <ProtectedAdminRoute>
-              <ProductModeration />
-            </ProtectedAdminRoute>
-          }
-        />
-
-        <Route
-          path="/admin/messages"
-          element={
-            <ProtectedAdminRoute>
-              <MessageMonitoring />
-            </ProtectedAdminRoute>
-          }
-        />
-
-        <Route
-          path="/admin/ratings"
-          element={
-            <ProtectedAdminRoute>
-              <Ratings />
-            </ProtectedAdminRoute>
-          }
-        />
-
-        <Route
-          path="/admin/installments"
-          element={
-            <ProtectedAdminRoute>
-              <AdminInstallmentsPage />
-            </ProtectedAdminRoute>
-          }
-        />
-
-        <Route
-          path="/admin/categories"
-          element={
-            <ProtectedAdminRoute>
-              <CategoryManagement />
-            </ProtectedAdminRoute>
-          }
-        />
-
-        <Route
-          path="/admin/finance"
-          element={
-            <ProtectedAdminRoute>
-              <FinancialControl />
-            </ProtectedAdminRoute>
-          }
-        />
-
-        <Route
-          path="/admin/reports"
-          element={
-            <ProtectedAdminRoute>
-              <ReportsAnalytics />
-            </ProtectedAdminRoute>
-          }
-        />
-
-        <Route
-          path="/admin/admins"
-          element={
-            <ProtectedAdminRoute>
-              <AdminManagement />
-            </ProtectedAdminRoute>
-          }
-        />
-
-        <Route
-          path="/admin/promotions"
-          element={
-            <ProtectedAdminRoute>
-              <PromotionsOffers />
-            </ProtectedAdminRoute>
-          }
-        />
-
-        <Route
-          path="/admin/overview"
-          element={
-            <ProtectedAdminRoute>
-              <DashboardOverview />
-            </ProtectedAdminRoute>
-          }
-        />
-
-        <Route
-          path="/admin/database"
-          element={
-            <ProtectedAdminRoute>
-              <DatabaseManagement />
-            </ProtectedAdminRoute>
-          }
-        />
-
-        <Route
-          path="/admin/settings"
-          element={
-            <ProtectedAdminRoute>
-              <SystemSettings />
-            </ProtectedAdminRoute>
-          }
-        />
-
-        <Route
-          path="/admin/wallet"
-          element={
-            <ProtectedAdminRoute>
-              <AdminWallet />
-            </ProtectedAdminRoute>
-          }
-        />
-
-        {/* Admin Invitation Link (for Phase 3) */}
+        <Route path="/admin-dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+        <Route path="/admin/users" element={<AdminRoute><UserManagement /></AdminRoute>} />
+        <Route path="/admin/stores" element={<AdminRoute><StoreOversight /></AdminRoute>} />
+        <Route path="/admin/products" element={<AdminRoute><ProductModeration /></AdminRoute>} />
+        <Route path="/admin/messages" element={<AdminRoute><MessageMonitoring /></AdminRoute>} />
+        <Route path="/admin/ratings" element={<AdminRoute><Ratings /></AdminRoute>} />
+        <Route path="/admin/installments" element={<AdminRoute><AdminInstallmentsPage /></AdminRoute>} />
+        <Route path="/admin/categories" element={<AdminRoute><CategoryManagement /></AdminRoute>} />
+        <Route path="/admin/finance" element={<AdminRoute><FinancialControl /></AdminRoute>} />
+        <Route path="/admin/reports" element={<AdminRoute><ReportsAnalytics /></AdminRoute>} />
+        <Route path="/admin/admins" element={<AdminRoute><AdminManagement /></AdminRoute>} />
+        <Route path="/admin/promotions" element={<AdminRoute><PromotionsOffers /></AdminRoute>} />
+        <Route path="/admin/overview" element={<AdminRoute><DashboardOverview /></AdminRoute>} />
+        <Route path="/admin/database" element={<AdminRoute><DatabaseManagement /></AdminRoute>} />
+        <Route path="/admin/settings" element={<AdminRoute><SystemSettings /></AdminRoute>} />
+        <Route path="/admin/wallet" element={<AdminRoute><AdminWallet /></AdminRoute>} />
         <Route path="/admin/invite/:token" element={<AdminAuth mode="invite" />} />
 
-        <Route path="/my-installments" element={<MyInstallments user={User} />} />
+        {/* Auth Utility Routes */}
         <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/verify-otp" element={<VerifyOtp />} />   
-        <Route path="/store/premium" element={<Premium />} />
+        <Route path="/verify-otp" element={<VerifyOtp />} />
 
+        {/* Catch all - redirect to home */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>
   );
 }
 
+// Main App Component
 export default function App() {
   const PAYPAL_CLIENT_ID = "AafXEhKIfb17UbunbfNiv5e_h1mtg3fpjx_7c-1EFLnTxHQsJF-a_l1q-W7exOKcfcBafNvKTjJOkrt2";
   Modal.setAppElement("#root");
@@ -354,33 +235,51 @@ export default function App() {
             }}
           >
             <div className="bg-white dark:bg-gray-900 min-h-screen flex flex-col text-black dark:text-white transition-colors">
+              {/* Global Toast Notifications - Single Instance */}
               <Toaster
                 position="top-right"
                 reverseOrder={false}
                 toastOptions={{
+                  duration: 4000,
                   style: {
                     background: "#ffffff",
                     color: "#000000",
-                    border: "1px solid #ddd",
-                    boxShadow: "0 2px 10px rgba(0, 0, 0, 0.08)",
-                    fontWeight: "normal",
+                    border: "1px solid #e5e7eb",
+                    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+                    borderRadius: "12px",
+                    padding: "12px 16px",
+                    fontSize: "14px",
+                    fontWeight: "500",
                   },
                   success: {
+                    duration: 3000,
+                    iconTheme: {
+                      primary: "#10b981",
+                      secondary: "#ffffff",
+                    },
                     style: {
-                      background: "#e6ffed",
-                      borderColor: "#a2f5bf",
+                      background: "#ecfdf5",
+                      borderColor: "#a7f3d0",
                       color: "#065f46",
                     },
                   },
                   error: {
+                    duration: 4000,
+                    iconTheme: {
+                      primary: "#ef4444",
+                      secondary: "#ffffff",
+                    },
                     style: {
-                      background: "#ffe6e6",
-                      borderColor: "#ff9999",
+                      background: "#fef2f2",
+                      borderColor: "#fecaca",
                       color: "#991b1b",
                     },
                   },
-                  progressStyle: {
-                    background: "#4ade80",
+                  loading: {
+                    style: {
+                      background: "#f3f4f6",
+                      color: "#374151",
+                    },
                   },
                 }}
               />
