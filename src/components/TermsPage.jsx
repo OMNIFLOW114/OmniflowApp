@@ -1,401 +1,654 @@
 // src/pages/TermsPage.jsx
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   ChevronRight,
   Home,
   FileText,
   Shield,
-  Users,
-  CreditCard,
   AlertCircle,
   Clock,
   Mail,
   Phone,
   MapPin,
-  ExternalLink,
-  ArrowLeft
+  ArrowLeft,
+  Truck,
+  DollarSign,
+  BookOpen,
+  Lock,
+  Award,
+  HelpCircle,
+  Globe,
+  Menu,
+  X
 } from 'lucide-react';
 import './TermsPage.css';
 
 export default function TermsPage() {
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [activeTab, setActiveTab] = useState('definitions');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Detect dark mode from system preference
+  useEffect(() => {
+    const checkDarkMode = () => {
+      const isDark = document.body.classList.contains('dark-mode') || 
+                     (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      setIsDarkMode(isDark);
+    };
+
+    checkDarkMode();
+
+    const observer = new MutationObserver(checkDarkMode);
+    observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = () => checkDarkMode();
+    mediaQuery.addEventListener('change', handleChange);
+
+    return () => {
+      observer.disconnect();
+      mediaQuery.removeEventListener('change', handleChange);
+    };
+  }, []);
+
   const termsData = {
-    lastUpdated: 'December 2, 2025',
-    effectiveDate: 'January 1, 2026',
-    version: '2.0'
+    lastUpdated: 'April 2026',
+    effectiveDate: 'April 2026',
+    version: '1.0'
   };
 
+  const companyInfo = {
+    name: 'OMNIFLOW GROUP LTD',
+    regNo: 'BN-L3SD8Y27',
+    address: 'Nairobi, Kenya, 00100',
+    phone: '+254 745 456 476',
+    email: 'info@omniflowapp.co.ke',
+    website: 'omniflowapp.co.ke'
+  };
+
+  const tabs = [
+    { id: 'definitions', label: 'Definitions' },
+    { id: 'scope', label: 'Appointment' },
+    { id: 'obligations', label: 'Obligations' },
+    { id: 'listings', label: 'Listings' },
+    { id: 'pricing', label: 'Pricing' },
+    { id: 'delivery', label: 'Delivery' },
+    { id: 'payments', label: 'Payments' },
+    { id: 'escrow', label: 'Escrow' },
+    { id: 'returns', label: 'Returns' },
+    { id: 'intellectual', label: 'IP Rights' },
+    { id: 'data', label: 'Data Protection' },
+    { id: 'prohibited', label: 'Prohibited' },
+    { id: 'termination', label: 'Termination' },
+    { id: 'liability', label: 'Liability' },
+    { id: 'disputes', label: 'Disputes' },
+    { id: 'general', label: 'General' },
+    { id: 'contact', label: 'Contact' }
+  ];
+
   const scrollToSection = (id) => {
+    setActiveTab(id);
+    setMobileMenuOpen(false);
     const element = document.getElementById(id);
     if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
+      const offset = 80;
+      const elementPosition = element.offsetTop - offset;
+      window.scrollTo({ top: elementPosition, behavior: 'smooth' });
     }
   };
 
+  // Update active tab on scroll
+  useEffect(() => {
+    const handleScroll = () => {
+      const sections = tabs.map(tab => document.getElementById(tab.id));
+      const scrollPosition = window.scrollY + 100;
+      
+      for (let i = sections.length - 1; i >= 0; i--) {
+        const section = sections[i];
+        if (section && section.offsetTop <= scrollPosition) {
+          setActiveTab(tabs[i].id);
+          break;
+        }
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   return (
-    <div className="terms-page">
+    <div className={`terms-page ${isDarkMode ? 'dark-mode' : ''}`}>
       {/* Breadcrumb Navigation */}
-      <div className="breadcrumb-nav">
-        <div className="container">
-          <div className="breadcrumb">
-            <Link to="/" className="breadcrumb-link">
+      <div className="terms-breadcrumb">
+        <div className="terms-container">
+          <div className="terms-breadcrumb-wrapper">
+            <Link to="/" className="terms-breadcrumb-link">
               <Home size={16} />
               <span>Home</span>
             </Link>
-            <ChevronRight size={16} />
-            <Link to="/legal" className="breadcrumb-link">Legal</Link>
-            <ChevronRight size={16} />
-            <span className="breadcrumb-current">Terms & Conditions</span>
+            <ChevronRight size={14} />
+            <span className="terms-breadcrumb-current">Merchant Agreement</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Horizontal Scrollable Tabs */}
+      <div className="terms-tabs-wrapper">
+        <div className="terms-container">
+          <div className="terms-tabs-container">
+            <button 
+              className={`terms-tabs-mobile-toggle ${mobileMenuOpen ? 'active' : ''}`}
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            >
+              {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+              <span>Quick Navigation</span>
+            </button>
+            <div className={`terms-tabs-scroll ${mobileMenuOpen ? 'open' : ''}`}>
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => scrollToSection(tab.id)}
+                  className={`terms-tab ${activeTab === tab.id ? 'active' : ''}`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="container">
+      <div className="terms-main">
         <div className="terms-container">
-          {/* Sidebar */}
-          <aside className="terms-sidebar">
-            <div className="sidebar-header">
-              <h3>Quick Links</h3>
-            </div>
-            <nav className="sidebar-nav">
-              <button onClick={() => scrollToSection('introduction')} className="nav-link">
-                <span>1. Introduction</span>
-              </button>
-              <button onClick={() => scrollToSection('account')} className="nav-link">
-                <span>2. Account Registration</span>
-              </button>
-              <button onClick={() => scrollToSection('orders')} className="nav-link">
-                <span>3. Orders & Payments</span>
-              </button>
-              <button onClick={() => scrollToSection('delivery')} className="nav-link">
-                <span>4. Delivery & Returns</span>
-              </button>
-              <button onClick={() => scrollToSection('prohibited')} className="nav-link">
-                <span>5. Prohibited Activities</span>
-              </button>
-              <button onClick={() => scrollToSection('intellectual')} className="nav-link">
-                <span>6. Intellectual Property</span>
-              </button>
-              <button onClick={() => scrollToSection('liability')} className="nav-link">
-                <span>7. Limitation of Liability</span>
-              </button>
-              <button onClick={() => scrollToSection('governing')} className="nav-link">
-                <span>8. Governing Law</span>
-              </button>
-              <button onClick={() => scrollToSection('contact')} className="nav-link">
-                <span>9. Contact Us</span>
-              </button>
-            </nav>
-
-            <div className="sidebar-help">
-              <div className="help-header">
-                <AlertCircle size={18} />
-                <span>Need Help?</span>
-              </div>
-              <div className="help-links">
-                <Link to="/help-center" className="help-link">
-                  <ExternalLink size={14} />
-                  <span>Help Center</span>
-                </Link>
-                <Link to="/privacy" className="help-link">
-                  <Shield size={14} />
-                  <span>Privacy Policy</span>
-                </Link>
-              </div>
-            </div>
-          </aside>
-
-          {/* Main Content */}
-          <main className="terms-content">
+          <div className="terms-content-wrapper">
             {/* Header */}
             <header className="terms-header">
-              <h1>Terms and Conditions</h1>
+              <div className="terms-company-badge">
+                <Globe size={24} />
+                <span className="terms-company-name">{companyInfo.name}</span>
+              </div>
+              <h1>Merchant Seller Agreement</h1>
               <div className="terms-meta">
-                <div className="meta-item">
+                <div className="terms-meta-item">
                   <Clock size={16} />
-                  <span>Last Updated: {termsData.lastUpdated}</span>
+                  <span>Version {termsData.version}</span>
                 </div>
-                <div className="meta-item">
+                <div className="terms-meta-item">
                   <FileText size={16} />
-                  <span>Version: {termsData.version}</span>
+                  <span>Effective: {termsData.effectiveDate}</span>
                 </div>
               </div>
               <div className="terms-notice">
                 <AlertCircle size={20} />
                 <p>
-                  Welcome to OmniFlow. These Terms and Conditions govern your use of our website and services. 
-                  By accessing or using OmniFlow, you agree to be bound by these terms.
+                  This Merchant Agreement governs the relationship between Omniflow Group Ltd. and Sellers 
+                  using the Omniflow Platform. By registering as a seller, you agree to be bound by these terms.
                 </p>
               </div>
             </header>
 
-            {/* Introduction */}
-            <section id="introduction" className="terms-section">
-              <h2>1. Introduction</h2>
-              <p>
-                These Terms and Conditions ("Terms") govern your use of the OmniFlow e-commerce platform 
-                available at <a href="https://omniflowapp.co.ke">omniflowapp.co.ke</a> and related mobile 
-                applications (collectively, the "Platform"). The Platform is operated by OmniFlow Technologies 
-                Ltd., a company registered in Kenya.
-              </p>
-              <p>
-                By accessing, browsing, or using the Platform, you acknowledge that you have read, understood, 
-                and agree to be bound by these Terms. If you do not agree to these Terms, you must not use 
-                the Platform.
-              </p>
-            </section>
-
-            {/* Account Registration */}
-            <section id="account" className="terms-section">
-              <h2>2. Account Registration</h2>
+            {/* 1. Definitions */}
+            <section id="definitions" className="terms-section">
+              <h2>1. Definitions and Interpretation</h2>
+              <p>In this Agreement, unless the context otherwise requires:</p>
               
-              <h3>2.1 Eligibility</h3>
-              <p>To use the Platform, you must:</p>
-              <ul>
-                <li>Be at least 18 years of age</li>
-                <li>Have the legal capacity to enter into a binding contract</li>
-                <li>Provide accurate and complete registration information</li>
-                <li>Maintain the confidentiality of your account credentials</li>
-              </ul>
-
-              <h3>2.2 Account Security</h3>
-              <p>
-                You are responsible for all activities that occur under your account. You must immediately 
-                notify us of any unauthorized use of your account or any other security breach.
-              </p>
-
-              <h3>2.3 Account Suspension</h3>
-              <p>
-                We reserve the right to suspend or terminate your account if we suspect fraudulent activity, 
-                violation of these Terms, or for any other reason at our sole discretion.
-              </p>
-            </section>
-
-            {/* Orders & Payments */}
-            <section id="orders" className="terms-section">
-              <h2>3. Orders & Payments</h2>
-              
-              <h3>3.1 Order Placement</h3>
-              <p>
-                When you place an order through the Platform, you are making an offer to purchase the product(s) 
-                at the listed price. All orders are subject to acceptance by the seller and availability.
-              </p>
-
-              <h3>3.2 Pricing</h3>
-              <p>
-                All prices are displayed in Kenyan Shillings (KES) and include VAT where applicable. 
-                We reserve the right to change prices at any time without prior notice.
-              </p>
-
-              <h3>3.3 Payment Methods</h3>
-              <p>We accept the following payment methods:</p>
-              <ul>
-                <li>M-Pesa</li>
-                <li>Visa/MasterCard credit/debit cards</li>
-                <li>Bank transfers</li>
-                <li>OmniFlow Wallet (where available)</li>
-              </ul>
-
-              <h3>3.4 Payment Processing</h3>
-              <p>
-                Payment is processed at the time of order placement. For card payments, we use secure 
-                payment gateways that comply with PCI DSS standards.
-              </p>
-            </section>
-
-            {/* Delivery & Returns */}
-            <section id="delivery" className="terms-section">
-              <h2>4. Delivery & Returns</h2>
-              
-              <h3>4.1 Delivery</h3>
-              <p>
-                Delivery times vary depending on the seller's location and the delivery method selected. 
-                Standard delivery within major Kenyan cities is 3-7 business days.
-              </p>
-              <p>
-                Delivery fees are calculated based on the delivery location and displayed at checkout. 
-                You are responsible for providing accurate delivery information.
-              </p>
-
-              <h3>4.2 Returns Policy</h3>
-              <p>You may return products within 7 days of delivery if:</p>
-              <ul>
-                <li>The product is defective or damaged</li>
-                <li>The product is not as described</li>
-                <li>You received the wrong product</li>
-              </ul>
-              <p>
-                Returns must be in original packaging with all accessories. Some items (e.g., perishable goods, 
-                personal care items) are not eligible for return.
-              </p>
-
-              <h3>4.3 Refunds</h3>
-              <p>
-                Refunds are processed within 7-14 business days after we receive and inspect the returned product. 
-                Refunds will be issued to the original payment method.
-              </p>
-            </section>
-
-            {/* Prohibited Activities */}
-            <section id="prohibited" className="terms-section">
-              <h2>5. Prohibited Activities</h2>
-              <p>You agree not to:</p>
-              <ul>
-                <li>Use the Platform for any illegal purpose</li>
-                <li>Sell counterfeit or stolen goods</li>
-                <li>List prohibited items including but not limited to:
-                  <ul>
-                    <li>Illegal drugs and substances</li>
-                    <li>Weapons and firearms</li>
-                    <li>Stolen property</li>
-                    <li>Counterfeit products</li>
-                    <li>Pornographic material</li>
-                    <li>Hazardous materials</li>
-                  </ul>
-                </li>
-                <li>Engage in fraudulent activities</li>
-                <li>Circumvent Platform fees</li>
-                <li>Harass other users or Platform staff</li>
-                <li>Use automated systems to access the Platform</li>
-              </ul>
-            </section>
-
-            {/* Intellectual Property */}
-            <section id="intellectual" className="terms-section">
-              <h2>6. Intellectual Property</h2>
-              
-              <h3>6.1 Platform Content</h3>
-              <p>
-                All content on the Platform, including text, graphics, logos, images, and software, is the 
-                property of OmniFlow Technologies Ltd. or its licensors and is protected by copyright and 
-                trademark laws.
-              </p>
-
-              <h3>6.2 User Content</h3>
-              <p>
-                By posting content on the Platform, you grant us a non-exclusive, worldwide, royalty-free 
-                license to use, display, and distribute that content in connection with the Platform.
-              </p>
-
-              <h3>6.3 Trademarks</h3>
-              <p>
-                "OmniFlow", the OmniFlow logo, and related marks are trademarks of OmniFlow Technologies Ltd. 
-                You may not use these marks without our prior written permission.
-              </p>
-            </section>
-
-            {/* Limitation of Liability */}
-            <section id="liability" className="terms-section">
-              <h2>7. Limitation of Liability</h2>
-              
-              <h3>7.1 Platform Services</h3>
-              <p>
-                The Platform is provided "as is" and "as available". We do not warrant that the Platform 
-                will be uninterrupted, error-free, or completely secure.
-              </p>
-
-              <h3>7.2 Third-Party Sellers</h3>
-              <p>
-                OmniFlow acts as a marketplace connecting buyers and sellers. We are not responsible for:
-              </p>
-              <ul>
-                <li>The quality, safety, or legality of products sold by third-party sellers</li>
-                <li>The accuracy of product descriptions</li>
-                <li>Seller fulfillment of orders</li>
-                <li>Disputes between buyers and sellers</li>
-              </ul>
-
-              <h3>7.3 Liability Cap</h3>
-              <p>
-                To the maximum extent permitted by law, OmniFlow's total liability to you for any claims 
-                arising from your use of the Platform shall not exceed the total amount paid by you to 
-                OmniFlow in the 6 months preceding the claim.
-              </p>
-            </section>
-
-            {/* Governing Law */}
-            <section id="governing" className="terms-section">
-              <h2>8. Governing Law</h2>
-              
-              <h3>8.1 Applicable Law</h3>
-              <p>
-                These Terms shall be governed by and construed in accordance with the laws of Kenya, 
-                without regard to its conflict of law principles.
-              </p>
-
-              <h3>8.2 Dispute Resolution</h3>
-              <p>
-                Any disputes arising from these Terms shall first be attempted to be resolved through 
-                negotiation. If unresolved, disputes shall be submitted to the exclusive jurisdiction 
-                of the courts of Nairobi, Kenya.
-              </p>
-
-              <h3>8.3 Changes to Terms</h3>
-              <p>
-                We reserve the right to modify these Terms at any time. Changes will be effective upon 
-                posting to the Platform. Your continued use of the Platform after changes constitutes 
-                acceptance of the modified Terms.
-              </p>
-            </section>
-
-            {/* Contact Us */}
-            <section id="contact" className="terms-section">
-              <h2>9. Contact Us</h2>
-              <p>For questions about these Terms, please contact us:</p>
-              
-              <div className="contact-info">
-                <div className="contact-item">
-                  <Mail size={18} />
-                  <div>
-                    <strong>Email:</strong>
-                    <a href="mailto:legal@omniflowapp.co.ke">legal@omniflowapp.co.ke</a>
-                  </div>
+              <div className="terms-definition-grid">
+                <div className="terms-definition-item">
+                  <strong>"Omniflow" / "Company" / "We" / "Us" / "Our"</strong>
+                  <p>Omniflow Group Ltd., the operator of the online marketplace platform.</p>
                 </div>
-                
-                <div className="contact-item">
-                  <Phone size={18} />
-                  <div>
-                    <strong>Phone:</strong>
-                    <a href="tel:+254700000000">+254 700 000 000</a>
-                  </div>
+                <div className="terms-definition-item">
+                  <strong>"Seller" / "Merchant" / "You" / "Your"</strong>
+                  <p>The individual or entity registered to sell products/services through the Omniflow Platform.</p>
                 </div>
-                
-                <div className="contact-item">
-                  <MapPin size={18} />
-                  <div>
-                    <strong>Address:</strong>
-                    <span>OmniFlow Technologies Ltd.<br />Nairobi, Kenya</span>
-                  </div>
+                <div className="terms-definition-item">
+                  <strong>"Platform"</strong>
+                  <p>The Omniflow website, mobile application, and associated infrastructure enabling online transactions.</p>
+                </div>
+                <div className="terms-definition-item">
+                  <strong>"Buyer" / "Customer"</strong>
+                  <p>A user who purchases products or services through the Platform.</p>
+                </div>
+                <div className="terms-definition-item">
+                  <strong>"Escrow"</strong>
+                  <p>The secure holding of funds by Omniflow pending successful completion of an Order.</p>
+                </div>
+                <div className="terms-definition-item">
+                  <strong>"Wallet"</strong>
+                  <p>The Seller's digital account on the Platform where earnings are held.</p>
                 </div>
               </div>
             </section>
 
-            {/* Acceptance Section */}
+            {/* 2. Appointment and Scope */}
+            <section id="scope" className="terms-section">
+              <h2>2. Appointment and Scope</h2>
+              <h3>2.1 Appointment</h3>
+              <p>
+                Omniflow hereby appoints the Seller as an independent merchant on the Platform, and the Seller 
+                accepts such appointment, to list and sell Products to Buyers through the Platform.
+              </p>
+
+              <h3>2.2 Non-Exclusivity</h3>
+              <p>
+                This Agreement is non-exclusive. The Seller retains the right to sell their Products through 
+                any other channel, platform, or physical store.
+              </p>
+
+              <h3>2.3 Platform Purpose</h3>
+              <p>
+                The Platform serves as a marketplace connecting Sellers with potential Buyers. Omniflow does 
+                not take ownership of Products at any time and is not a party to the direct transaction between 
+                Seller and Buyer beyond facilitating payment processing and dispute resolution.
+              </p>
+
+              <h3>2.4 Relationship of Parties</h3>
+              <p>
+                The Seller is an independent contractor and not an employee, agent, joint venturer, or partner 
+                of Omniflow. Nothing in this Agreement shall be construed to create any employment relationship.
+              </p>
+            </section>
+
+            {/* 3. Seller Obligations */}
+            <section id="obligations" className="terms-section">
+              <h2>3. Seller Obligations and Representations</h2>
+              
+              <h3>3.1 Eligibility</h3>
+              <p>The Seller represents and warrants that:</p>
+              <ul>
+                <li>The Seller is at least 18 years of age</li>
+                <li>The Seller has the legal capacity to enter into this Agreement</li>
+                <li>The Seller is properly registered as a business entity in Kenya (if applicable)</li>
+                <li>The Seller possesses a valid KRA PIN and Tax Compliance Certificate</li>
+                <li>The Seller has obtained all necessary permits, licenses, and approvals to sell the Products</li>
+              </ul>
+
+              <h3>3.2 Registration Information</h3>
+              <p>The Seller agrees to provide accurate, current, and complete information during registration, including:</p>
+              <ul>
+                <li>Legal name and business name (if different)</li>
+                <li>Physical address and contact information</li>
+                <li>KRA PIN certificate</li>
+                <li>Certificate of Incorporation or Business Registration (if applicable)</li>
+                <li>Valid National ID Card or Passport</li>
+                <li>Valid bank account or M-Pesa details for payouts</li>
+              </ul>
+
+              <h3>3.3 Ongoing Obligations</h3>
+              <p>The Seller agrees to:</p>
+              <ul>
+                <li>Promptly update any registration information that changes</li>
+                <li>Maintain all necessary licenses and permits throughout the term of this Agreement</li>
+                <li>Comply with all applicable laws and regulations of the Republic of Kenya</li>
+                <li>File and pay all applicable taxes, including but not limited to Income Tax and VAT</li>
+                <li>Respond to Buyer inquiries within 24 hours</li>
+                <li>Process Orders within 24 hours of receipt</li>
+                <li>Maintain adequate stock levels of listed Products</li>
+              </ul>
+            </section>
+
+            {/* 4. Product Listings */}
+            <section id="listings" className="terms-section">
+              <h2>4. Product Listing and Content Guidelines</h2>
+              
+              <h3>4.1 Listing Requirements</h3>
+              <p>All Product listings must include:</p>
+              <ul>
+                <li>Accurate and truthful Product name and description</li>
+                <li>Clear, high-quality images (minimum 3 per Product)</li>
+                <li>Exact price in Kenyan Shillings (KSH)</li>
+                <li>Stock quantity</li>
+                <li>Product category (for correct commission application)</li>
+                <li>Weight class (Small, Medium, or Heavy)</li>
+                <li>Warranty information (if applicable)</li>
+                <li>Return policy</li>
+              </ul>
+
+              <h3>4.2 Prohibited Content</h3>
+              <p>Sellers shall not include in any Product listing:</p>
+              <ul>
+                <li>False, misleading, or deceptive information</li>
+                <li>Images containing watermarks from other marketplaces</li>
+                <li>Contact information (phone numbers, email addresses, or website URLs)</li>
+                <li>Content that infringes any third-party intellectual property rights</li>
+                <li>Obscene, offensive, or inappropriate content</li>
+                <li>Price manipulation or artificially inflated original prices</li>
+              </ul>
+            </section>
+
+            {/* 5. Pricing and Commissions */}
+            <section id="pricing" className="terms-section">
+              <h2>5. Pricing, Commissions, and Fees</h2>
+              
+              <h3>5.1 Commission Structure</h3>
+              <div className="terms-table-responsive">
+                <table className="terms-table">
+                  <thead>
+                    <tr>
+                      <th>Category</th>
+                      <th>Commission Rate</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr><td>Electronics & Phones</td><td>3% - 5%</td></tr>
+                    <tr><td>Fashion & Apparel</td><td>10% - 12%</td></tr>
+                    <tr><td>Home & Kitchen</td><td>8%</td></tr>
+                    <tr><td>Beauty & Health</td><td>10%</td></tr>
+                    <tr><td>Groceries / FMCG</td><td>2.5%</td></tr>
+                    <tr><td>Digital Services</td><td>12%</td></tr>
+                    <tr><td>All Other Items</td><td>9%</td></tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <h3>5.2 Delivery Fee Commission</h3>
+              <ul>
+                <li><strong>Self-Delivery Sellers:</strong> Omniflow retains 5% of delivery fees collected</li>
+                <li><strong>Omniflow-Managed Delivery Sellers:</strong> Omniflow retains 10% of delivery fees collected</li>
+              </ul>
+
+              <h3>5.3 No Other Fees</h3>
+              <p>Omniflow does not charge:</p>
+              <ul>
+                <li>Listing fees</li>
+                <li>Monthly subscription fees</li>
+                <li>Account maintenance fees</li>
+                <li>Withdrawal fees</li>
+                <li>Any hidden fees</li>
+              </ul>
+            </section>
+
+            {/* 6. Delivery */}
+            <section id="delivery" className="terms-section">
+              <h2>6. Delivery and Logistics</h2>
+              
+              <h3>6.1 Delivery Options</h3>
+              <p>The Seller must select one of two delivery options:</p>
+              
+              <div className="terms-delivery-options">
+                <div className="terms-delivery-option">
+                  <Truck size={24} />
+                  <h4>Option A: Self-Delivery</h4>
+                  <p>Seller arranges delivery using own riders or courier services</p>
+                  <ul>
+                    <li>Seller receives 95% of delivery fees</li>
+                    <li>Seller sets own delivery rates</li>
+                    <li>Seller bears all delivery-related costs</li>
+                    <li>Seller is responsible for delivery disputes</li>
+                  </ul>
+                </div>
+                <div className="terms-delivery-option">
+                  <Truck size={24} />
+                  <h4>Option B: Omniflow-Managed Delivery</h4>
+                  <p>Omniflow arranges delivery using professional riders</p>
+                  <ul>
+                    <li>Seller receives 90% of delivery fees</li>
+                    <li>Omniflow sets delivery rates based on zone pricing</li>
+                    <li>Omniflow manages delivery disputes</li>
+                    <li>Seller benefits from nationwide coverage</li>
+                  </ul>
+                </div>
+              </div>
+
+              <h3>6.2 Delivery Timeframes</h3>
+              <ul>
+                <li>Sellers must dispatch Orders within 24 hours of receipt</li>
+                <li>Estimated delivery times must be clearly communicated to Buyers</li>
+                <li>Sellers are responsible for updating Order status accurately</li>
+              </ul>
+            </section>
+
+            {/* 7. Payment Terms */}
+            <section id="payments" className="terms-section">
+              <h2>7. Payment Terms and Settlement</h2>
+              
+              <h3>7.1 Deposit Structure</h3>
+              <ul>
+                <li>Buyer pays 25% deposit upon Order placement</li>
+                <li>Deposit is held in Omniflow Escrow Account</li>
+                <li>Buyer pays remaining 75% upon delivery confirmation</li>
+              </ul>
+
+              <h3>7.2 Settlement Timeline</h3>
+              <div className="terms-table-responsive">
+                <table className="terms-table">
+                  <thead><tr><th>Event</th><th>Timing</th></tr></thead>
+                  <tbody>
+                    <tr><td>Deposit received</td><td>Held in escrow</td></tr>
+                    <tr><td>Order delivered</td><td>Awaiting confirmation</td></tr>
+                    <tr><td>Buyer confirms delivery</td><td>Within 24 hours typically</td></tr>
+                    <tr><td>Funds released to Seller Wallet</td><td>24-48 hours after confirmation</td></tr>
+                    <tr><td>Seller may withdraw</td><td>Immediately upon Wallet credit</td></tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <h3>7.3 Withdrawals</h3>
+              <div className="terms-table-responsive">
+                <table className="terms-table">
+                  <thead><tr><th>Withdrawal Method</th><th>Processing Time</th><th>Minimum</th></tr></thead>
+                  <tbody>
+                    <tr><td>M-Pesa</td><td>Instant</td><td>KSH 100</td></tr>
+                    <tr><td>Bank Transfer</td><td>1-2 hours</td><td>KSH 500</td></tr>
+                    <tr><td>PayPal</td><td>Instant</td><td>$10 equivalent</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            {/* 8. Escrow */}
+            <section id="escrow" className="terms-section">
+              <h2>8. Escrow Protection and Fund Holding</h2>
+              
+              <h3>8.1 Escrow Release Conditions</h3>
+              <p>Funds shall be released from escrow only when:</p>
+              <ul>
+                <li>Buyer confirms delivery via OTP verification</li>
+                <li>7 days have passed since delivery without any dispute</li>
+                <li>Omniflow determines in its sole discretion that release is appropriate</li>
+              </ul>
+
+              <h3>8.2 Escrow Refunds to Buyer</h3>
+              <p>Funds shall be refunded to the Buyer if:</p>
+              <ul>
+                <li>The Seller fails to deliver within the stated timeframe</li>
+                <li>The Product is significantly different from description</li>
+                <li>The Product is defective or damaged</li>
+                <li>Omniflow determines refund is appropriate</li>
+              </ul>
+            </section>
+
+            {/* 9. Returns */}
+            <section id="returns" className="terms-section">
+              <h2>9. Returns, Refunds, and Cancellations</h2>
+              
+              <h3>9.1 Buyer's Right to Cancel</h3>
+              <ul>
+                <li>Buyer may cancel an Order before dispatch without penalty</li>
+                <li>Buyer may cancel after dispatch but before delivery, subject to a 50% cancellation fee</li>
+                <li>Buyer may not cancel after delivery confirmation</li>
+              </ul>
+
+              <h3>9.2 Return Policy Requirements</h3>
+              <ul>
+                <li>Sellers must clearly state their return policy for each Product</li>
+                <li>Minimum return period: 7 days for defective products</li>
+                <li>Recommended return period: 14-30 days for customer satisfaction</li>
+                <li>Return policies must comply with Kenyan consumer protection laws</li>
+              </ul>
+
+              <h3>9.3 Non-Returnable Items</h3>
+              <ul>
+                <li>Perishable goods (food, flowers)</li>
+                <li>Personalized or customized items</li>
+                <li>Digital products after download</li>
+                <li>Intimate items (underwear, swimwear)</li>
+                <li>Health and personal care items (opened)</li>
+                <li>Hazardous materials</li>
+              </ul>
+            </section>
+
+            {/* 10. Intellectual Property */}
+            <section id="intellectual" className="terms-section">
+              <h2>10. Intellectual Property Rights</h2>
+              
+              <h3>10.1 Seller's IP</h3>
+              <ul>
+                <li>The Seller retains all intellectual property rights in their Product images, descriptions, and branding</li>
+                <li>The Seller grants Omniflow a non-exclusive, royalty-free license to display Seller content on the Platform</li>
+                <li>The Seller warrants that they own or have license to all intellectual property in their listings</li>
+              </ul>
+
+              <h3>10.2 Omniflow's IP</h3>
+              <ul>
+                <li>Omniflow owns all intellectual property in the Platform, including software, design, and content</li>
+                <li>The Seller may not copy, modify, or reverse engineer the Platform</li>
+                <li>The Seller may not use Omniflow's trademarks without written permission</li>
+              </ul>
+            </section>
+
+            {/* 11. Data Protection */}
+            <section id="data" className="terms-section">
+              <h2>11. Data Protection and Privacy</h2>
+              
+              <h3>11.1 Compliance with Kenyan Law</h3>
+              <p>Both parties shall comply with the Data Protection Act, 2019 of Kenya.</p>
+
+              <h3>11.2 Data Collection</h3>
+              <ul>
+                <li>Omniflow collects Buyer and Seller data necessary for Platform operation</li>
+                <li>The Seller may only use Buyer data for Order fulfillment purposes</li>
+                <li>The Seller may not use Buyer data for direct marketing without Buyer consent</li>
+              </ul>
+            </section>
+
+            {/* 12. Prohibited Activities */}
+            <section id="prohibited" className="terms-section">
+              <h2>12. Prohibited Activities and Restricted Items</h2>
+              
+              <h3>12.1 Prohibited Products</h3>
+              <div className="terms-table-responsive">
+                <table className="terms-table">
+                  <thead><tr><th>Category</th><th>Examples</th></tr></thead>
+                  <tbody>
+                    <tr><td>Illegal Items</td><td>Any product illegal under Kenyan law</td></tr>
+                    <tr><td>Weapons</td><td>Firearms, knives, explosives, ammunition</td></tr>
+                    <tr><td>Counterfeit Goods</td><td>Fake brand-name products</td></tr>
+                    <tr><td>Stolen Property</td><td>Items without proof of legitimate origin</td></tr>
+                    <tr><td>Adult Content</td><td>Pornography, adult toys, sexually explicit materials</td></tr>
+                    <tr><td>Tobacco & Nicotine</td><td>Cigarettes, vaping products, nicotine</td></tr>
+                    <tr><td>Alcohol</td><td>Beer, wine, spirits (without license)</td></tr>
+                    <tr><td>Prescription Drugs</td><td>Medications requiring prescription</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            {/* 13. Termination */}
+            <section id="termination" className="terms-section">
+              <h2>13. Term and Termination</h2>
+              
+              <h3>13.1 Termination by Seller</h3>
+              <p>The Seller may terminate this Agreement at any time by:</p>
+              <ul>
+                <li>Deleting all Product listings</li>
+                <li>Providing 7 days' written notice to Omniflow</li>
+                <li>Withdrawing all funds from the Seller Wallet</li>
+              </ul>
+
+              <h3>13.2 Termination by Omniflow</h3>
+              <p>Omniflow may terminate this Agreement immediately upon notice if:</p>
+              <ul>
+                <li>The Seller violates any material term of this Agreement</li>
+                <li>The Seller engages in fraudulent activity</li>
+                <li>The Seller's actions harm Omniflow's reputation</li>
+                <li>Required by law or regulatory authority</li>
+              </ul>
+            </section>
+
+            {/* 14. Liability */}
+            <section id="liability" className="terms-section">
+              <h2>14. Liability and Indemnification</h2>
+              
+              <h3>14.1 Limitation of Liability</h3>
+              <p>To the maximum extent permitted by Kenyan law, Omniflow's total liability to the Seller shall not exceed the total commissions paid by the Seller in the preceding 12 months.</p>
+
+              <h3>14.2 No Warranty</h3>
+              <p>The Platform is provided "AS IS" and "AS AVAILABLE" without warranties of any kind.</p>
+            </section>
+
+            {/* 15. Dispute Resolution */}
+            <section id="disputes" className="terms-section">
+              <h2>15. Dispute Resolution</h2>
+              
+              <h3>15.1 Governing Law</h3>
+              <p>This Agreement shall be governed by and construed in accordance with the laws of the Republic of Kenya.</p>
+
+              <h3>15.2 Arbitration</h3>
+              <p>If mediation fails, disputes shall be resolved by binding arbitration under the Arbitration Act, 1995 of Kenya.</p>
+            </section>
+
+            {/* 16. General Provisions */}
+            <section id="general" className="terms-section">
+              <h2>16. General Provisions</h2>
+              
+              <h3>16.1 Entire Agreement</h3>
+              <p>This Agreement constitutes the entire agreement between the parties.</p>
+
+              <h3>16.2 Amendments</h3>
+              <p>Omniflow may amend this Agreement upon 30 days' written notice.</p>
+            </section>
+
+            {/* Contact Information */}
+            <section id="contact" className="terms-section">
+              <h2>Contact Information</h2>
+              
+              <div className="terms-contact-grid">
+                <div className="terms-contact-item">
+                  <div className="terms-contact-icon"><Globe size={20} /></div>
+                  <div><strong>Company Name</strong><span>{companyInfo.name}</span></div>
+                </div>
+                <div className="terms-contact-item">
+                  <div className="terms-contact-icon"><FileText size={20} /></div>
+                  <div><strong>Registration Number</strong><span>{companyInfo.regNo}</span></div>
+                </div>
+                <div className="terms-contact-item">
+                  <div className="terms-contact-icon"><MapPin size={20} /></div>
+                  <div><strong>Physical Address</strong><span>{companyInfo.address}</span></div>
+                </div>
+                <div className="terms-contact-item">
+                  <div className="terms-contact-icon"><Phone size={20} /></div>
+                  <div><strong>Phone Number</strong><a href={`tel:${companyInfo.phone}`}>{companyInfo.phone}</a></div>
+                </div>
+                <div className="terms-contact-item">
+                  <div className="terms-contact-icon"><Mail size={20} /></div>
+                  <div><strong>Email Address</strong><a href={`mailto:${companyInfo.email}`}>{companyInfo.email}</a></div>
+                </div>
+                <div className="terms-contact-item">
+                  <div className="terms-contact-icon"><Globe size={20} /></div>
+                  <div><strong>Website</strong><a href={`https://${companyInfo.website}`}>{companyInfo.website}</a></div>
+                </div>
+              </div>
+            </section>
+
+            {/* Footer */}
             <footer className="terms-footer">
-              <div className="acceptance-box">
-                <h3>Acceptance of Terms</h3>
-                <p>
-                  By using the OmniFlow Platform, you acknowledge that you have read, understood, and agree 
-                  to be bound by these Terms and Conditions.
-                </p>
-                <div className="footer-meta">
-                  <div className="meta-item">
-                    <strong>Effective Date:</strong> {termsData.effectiveDate}
-                  </div>
-                  <div className="meta-item">
-                    <strong>Version:</strong> {termsData.version}
-                  </div>
+              <div className="terms-acceptance">
+                <h3>Acceptance of Agreement</h3>
+                <p>By registering as a seller on the Omniflow Platform, you acknowledge that you have read, understood, and agree to be bound by this Merchant Agreement.</p>
+                <div className="terms-footer-meta">
+                  <div className="terms-meta-item"><strong>Effective Date:</strong> {termsData.effectiveDate}</div>
+                  <div className="terms-meta-item"><strong>Version:</strong> {termsData.version}</div>
                 </div>
-                <div className="footer-actions">
-                  <Link to="/" className="btn-back">
-                    <ArrowLeft size={18} />
-                    <span>Back to Home</span>
-                  </Link>
-                </div>
+                <Link to="/" className="terms-back-btn">
+                  <ArrowLeft size={18} />
+                  <span>Back to Home</span>
+                </Link>
               </div>
             </footer>
-          </main>
+          </div>
         </div>
       </div>
     </div>

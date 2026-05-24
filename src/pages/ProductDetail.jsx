@@ -1,4 +1,4 @@
-// src/pages/ProductDetail.jsx - FIXED VERSION
+// src/pages/ProductDetail.jsx - FIXED RATING DISPLAY
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -8,6 +8,7 @@ import { useDarkMode } from "@/context/DarkModeContext";
 import { toast } from "react-hot-toast";
 import {
   FaStar,
+  FaStarHalfAlt,
   FaUser,
   FaHeart,
   FaShoppingCart,
@@ -16,19 +17,13 @@ import {
   FaTruck,
   FaUndo,
   FaShieldAlt,
-  FaMobileAlt,
   FaChevronLeft,
   FaChevronRight,
   FaPaperPlane,
   FaShare,
   FaFlag,
-  FaCheck,
-  FaClock,
-  FaEye,
   FaStore,
-  FaWhatsapp,
   FaSpinner,
-  FaTimes
 } from "react-icons/fa";
 import styles from "./ProductDetail.module.css";
 
@@ -39,6 +34,36 @@ const formatKenyanPrice = (price) => {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0
   })}`;
+};
+
+// Helper function to format rating without .0 for whole numbers
+const formatRating = (rating) => {
+  if (rating === undefined || rating === null) return '0';
+  // Check if it's a whole number (e.g., 4.0, 5.0)
+  if (rating % 1 === 0) {
+    return Math.floor(rating).toString();
+  }
+  // Show one decimal for non-whole numbers
+  return rating.toFixed(1);
+};
+
+// Star Rating Component with half stars for decimal ratings
+const StarRating = ({ rating }) => {
+  const fullStars = Math.floor(rating);
+  const hasHalfStar = rating % 1 >= 0.5;
+  const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
+  
+  return (
+    <div className={styles.stars}>
+      {[...Array(fullStars)].map((_, i) => (
+        <FaStar key={`full-${i}`} className={styles.starFilled} />
+      ))}
+      {hasHalfStar && <FaStarHalfAlt className={styles.starFilled} />}
+      {[...Array(emptyStars)].map((_, i) => (
+        <FaStar key={`empty-${i}`} className={styles.starEmpty} />
+      ))}
+    </div>
+  );
 };
 
 // Skeleton Loader Component
@@ -76,6 +101,7 @@ export default function ProductDetail() {
   const [storeId, setStoreId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [relatedProducts, setRelatedProducts] = useState([]);
 
   // UI state
   const [activeInfoButton, setActiveInfoButton] = useState(null);
@@ -94,18 +120,16 @@ export default function ProductDetail() {
   const [selectedVariant, setSelectedVariant] = useState(null);
 
   // Ratings & reviews
-  const [hasRated, setHasRated] = useState(false);
-  const [selectedRating, setSelectedRating] = useState(0);
   const [reviews, setReviews] = useState([]);
   const [sellerScore, setSellerScore] = useState({ avgRating: 0, totalSales: 0 });
   const [averageRating, setAverageRating] = useState(0);
   const [totalRatings, setTotalRatings] = useState(0);
 
-  // Refs
+  // Refs for caching
   const touchStartX = useRef(0);
   const touchEndX = useRef(0);
   const autoPlayTimer = useRef(null);
-  const hasLoaded = useRef(false);
+  const cachedData = useRef(null);
 
   // Check if mobile on mount
   useEffect(() => {
@@ -118,7 +142,6 @@ export default function ProductDetail() {
   }, []);
 
   useEffect(() => {
-    if (hasLoaded.current) return;
     loadProductData();
     return () => {
       if (autoPlayTimer.current) {
@@ -128,14 +151,30 @@ export default function ProductDetail() {
   }, [id, user]);
 
   const loadProductData = async () => {
+    // Check cache first
+    if (cachedData.current && cachedData.current.productId === id) {
+      setProduct(cachedData.current.product);
+      setSeller(cachedData.current.seller);
+      setStoreId(cachedData.current.storeId);
+      setAverageRating(cachedData.current.averageRating);
+      setTotalRatings(cachedData.current.totalRatings);
+      setReviews(cachedData.current.reviews);
+      setSellerScore(cachedData.current.sellerScore);
+      setRelatedProducts(cachedData.current.relatedProducts || []);
+      const safeVariants = cachedData.current.product?.variants || [];
+      setSelectedVariant(safeVariants[0] || null);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
-      // Product details
       const { data: p, error: pErr } = await supabase
         .from("products")
         .select(`
           *,
+          variants,
           variant_options,
           image_gallery,
           delivery_methods,
@@ -152,9 +191,48 @@ export default function ProductDetail() {
         return;
       }
       
-      // Ensure arrays are properly formatted
+      // Parse variants from the 'variants' column
+      let parsedVariants = [];
+      
+      if (p.variants) {
+        try {
+          if (typeof p.variants === 'string') {
+            if (p.variants.startsWith('[') || p.variants.startsWith('{')) {
+              parsedVariants = JSON.parse(p.variants);
+            } else {
+              parsedVariants = p.variants.split(',').map(v => ({ 
+                name: v.trim(),
+                value: v.trim()
+              }));
+            }
+          } else if (Array.isArray(p.variants)) {
+            parsedVariants = p.variants;
+          }
+        } catch (e) {
+          if (typeof p.variants === 'string' && p.variants.trim()) {
+            parsedVariants = [{ name: p.variants, value: p.variants }];
+          }
+        }
+      }
+      
+      // If no variants found, try variant_options
+      if (parsedVariants.length === 0 && p.variant_options) {
+        try {
+          if (Array.isArray(p.variant_options)) {
+            parsedVariants = p.variant_options;
+          } else if (typeof p.variant_options === 'string') {
+            parsedVariants = JSON.parse(p.variant_options);
+          } else if (typeof p.variant_options === 'object') {
+            parsedVariants = Object.values(p.variant_options);
+          }
+        } catch (e) {
+          // Silent fail
+        }
+      }
+      
       const safeProduct = {
         ...p,
+        variants: parsedVariants,
         variant_options: Array.isArray(p.variant_options) ? p.variant_options : [],
         image_gallery: Array.isArray(p.image_gallery) ? p.image_gallery : (p.image_url ? [p.image_url] : []),
         tags: Array.isArray(p.tags) ? p.tags : [],
@@ -164,19 +242,28 @@ export default function ProductDetail() {
       
       setProduct(safeProduct);
       
-      const safeVariants = safeProduct.variant_options || [];
-      setSelectedVariant(safeVariants[0] || null);
-
-      // Calculate average rating
-      if (safeProduct.total_ratings > 0) {
-        setAverageRating(safeProduct.rating || 0);
-        setTotalRatings(safeProduct.total_ratings || 0);
+      if (parsedVariants.length > 0) {
+        setSelectedVariant(parsedVariants[0]);
       }
 
-      // Seller info - using users table directly
+      // Calculate average rating from ratings table
+      const { data: ratingsData } = await supabase
+        .from("ratings")
+        .select("rating")
+        .eq("product_id", safeProduct.id);
+      
+      const avgRating = ratingsData && ratingsData.length > 0
+        ? ratingsData.reduce((sum, r) => sum + r.rating, 0) / ratingsData.length
+        : (p.rating || 0);
+      const totalRatingsCount = ratingsData?.length || p.total_ratings || 0;
+      
+      setAverageRating(avgRating);
+      setTotalRatings(totalRatingsCount);
+
+      // Seller info - WITHOUT contact phone number
       const { data: s, error: sErr } = await supabase
         .from("stores")
-        .select("id, name, contact_phone, contact_email, location, is_verified, owner_id")
+        .select("id, name, contact_email, location, is_verified, owner_id")
         .eq("owner_id", safeProduct.owner_id)
         .single();
 
@@ -184,7 +271,6 @@ export default function ProductDetail() {
         setSeller(s);
         setStoreId(s?.id);
         
-        // Get seller name from users table
         const { data: userData } = await supabase
           .from("users")
           .select("full_name, email")
@@ -202,33 +288,16 @@ export default function ProductDetail() {
         .select("id")
         .eq("seller_id", safeProduct.owner_id);
 
-      const inIds = safeVariants.length > 0
-        ? safeVariants.map(v => v.product_id).concat(safeProduct.id)
-        : [safeProduct.id];
-
-      const { data: ratingsAll } = await supabase
-        .from("ratings")
-        .select("rating")
-        .in("product_id", inIds);
-
       const totalSales = orders?.length || 0;
-      const avgRating = ratingsAll && ratingsAll.length
-        ? (ratingsAll.reduce((sum, r) => sum + r.rating, 0) / ratingsAll.length).toFixed(1)
-        : "0.0";
-      setSellerScore({ avgRating, totalSales });
+      setSellerScore({ avgRating: avgRating.toFixed(1), totalSales });
 
       // User-specific flags
       if (user?.id) {
-        const [{ data: r }, { data: c }, { data: w }] = await Promise.all([
-          supabase.from("ratings").select("rating").eq("product_id", safeProduct.id).eq("user_id", user.id).maybeSingle(),
+        const [{ data: c }, { data: w }] = await Promise.all([
           supabase.from("cart_items").select("id").eq("product_id", safeProduct.id).eq("user_id", user.id).maybeSingle(),
           supabase.from("wishlist_items").select("id").eq("product_id", safeProduct.id).eq("user_id", user.id).maybeSingle(),
         ]);
 
-        if (r) {
-          setHasRated(true);
-          setSelectedRating(r.rating);
-        }
         setIsInCart(!!c);
         setIsInWishlist(!!w);
       }
@@ -242,8 +311,9 @@ export default function ProductDetail() {
         .order("created_at", { ascending: false })
         .limit(5);
 
+      let enrichedReviews = [];
       if (rawRatings?.length) {
-        const enriched = await Promise.all(
+        enrichedReviews = await Promise.all(
           rawRatings.map(async (r) => {
             const { data: userData } = await supabase
               .from("users")
@@ -256,10 +326,37 @@ export default function ProductDetail() {
             };
           })
         );
-        setReviews(enriched);
+        setReviews(enrichedReviews);
+      }
+
+      // Load related products from same category
+      if (safeProduct.category) {
+        const { data: related } = await supabase
+          .from("products")
+          .select("id, name, price, discount, rating, image_url, image_gallery")
+          .eq("category", safeProduct.category)
+          .neq("id", id)
+          .eq("status", "active")
+          .limit(10);
+        
+        if (related) {
+          setRelatedProducts(related);
+        }
       }
       
-      hasLoaded.current = true;
+      // Cache the data
+      cachedData.current = {
+        productId: id,
+        product: safeProduct,
+        seller: s,
+        storeId: s?.id,
+        averageRating: avgRating,
+        totalRatings: totalRatingsCount,
+        reviews: enrichedReviews,
+        sellerScore: { avgRating: avgRating.toFixed(1), totalSales },
+        relatedProducts: relatedProducts || []
+      };
+      
     } catch (error) {
       console.error("Error loading product:", error);
       setError("Failed to load product details");
@@ -284,7 +381,6 @@ export default function ProductDetail() {
     };
   }, [product?.image_gallery?.length, isAutoPlaying, loading]);
 
-  // Touch handlers for mobile swipe
   const handleTouchStart = (e) => {
     if (!isMobile) return;
     touchStartX.current = e.touches[0].clientX;
@@ -311,7 +407,6 @@ export default function ProductDetail() {
     setTimeout(() => setIsAutoPlaying(true), 5000);
   };
 
-  // Desktop navigation buttons (only shown on desktop)
   const handlePrevImage = () => {
     if (!product?.image_gallery?.length) return;
     setIsAutoPlaying(false);
@@ -353,7 +448,6 @@ export default function ProductDetail() {
       return;
     }
     
-    // Navigate to report page
     navigate(`/student/report-product/${product.id}`, { 
       state: { 
         productName: product.name,
@@ -394,30 +488,6 @@ export default function ProductDetail() {
     }
   };
 
-  const handleRateProduct = async () => {
-    if (!user?.id) {
-      toast.error("Login to rate");
-      return;
-    }
-    if (hasRated || selectedRating === 0) {
-      toast.error("Already rated or select stars");
-      return;
-    }
-    const { error } = await supabase.from("ratings").insert([{
-      user_id: user.id,
-      product_id: product.id,
-      rating: selectedRating,
-    }]);
-    if (error) {
-      toast.error("Rating failed");
-    } else {
-      setHasRated(true);
-      toast.success("Thanks for rating!");
-      // Refresh to update average rating
-      loadProductData();
-    }
-  };
-
   const handleAddToCart = async () => {
     if (!user?.id) {
       toast.error("Login to add to cart");
@@ -428,6 +498,7 @@ export default function ProductDetail() {
       user_id: user.id,
       product_id: product.id,
       quantity: 1,
+      variant: selectedVariant
     }]);
     setIsProcessing(false);
     if (error) {
@@ -459,7 +530,19 @@ export default function ProductDetail() {
       toast.error("Login to checkout");
       return;
     }
-    navigate(`/checkout/${product.id}`, { state: { productId: product.id, variant: selectedVariant, seller, storeId } });
+    navigate(`/checkout/${product.id}`, { 
+      state: { 
+        productId: product.id, 
+        variant: selectedVariant, 
+        seller, 
+        storeId 
+      } 
+    });
+  };
+
+  const handleRelatedProductClick = (productId) => {
+    navigate(`/product/${productId}`);
+    window.scrollTo(0, 0);
   };
 
   if (loading) return <ProductDetailSkeleton />;
@@ -479,15 +562,14 @@ export default function ProductDetail() {
     );
   }
 
-  // Calculate stock percentage and determine color
   const stockPercent = product.initial_stock && product.initial_stock > 0
     ? Math.min(100, Math.max(0, (Number(product.stock_quantity || 0) / Number(product.initial_stock)) * 100))
     : 0;
   
   const getStockBarColor = () => {
-    if (stockPercent <= 10) return "#EF4444"; // Red for low stock
-    if (stockPercent <= 30) return "#F59E0B"; // Orange for medium low
-    return "#10B981"; // Green for good stock
+    if (stockPercent <= 10) return "#EF4444";
+    if (stockPercent <= 30) return "#F59E0B";
+    return "#10B981";
   };
 
   const hasDiscount = product.discount > 0;
@@ -501,12 +583,13 @@ export default function ProductDetail() {
   const pickupInfoText = typeof dm.pickup === "string" && !["Yes", "No"].includes(dm.pickup) ? dm.pickup : "Pickup available at seller's location.";
   const doorInfoText = typeof dm.door === "string" && !["Yes", "No"].includes(dm.door) ? dm.door : "Door delivery available. Cost calculated at checkout.";
 
-  // Safely get variant options array
-  const variantOptions = Array.isArray(product.variant_options) ? product.variant_options : [];
+  const variantOptions = product.variants && Array.isArray(product.variants) ? product.variants : [];
+
+  // Format rating for display (removes .0 for whole numbers)
+  const displayRating = formatRating(averageRating);
 
   return (
     <div className={`${styles.container} ${darkMode ? styles.darkMode : styles.lightMode}`}>
-      {/* Header - No Back Button */}
       <header className={styles.header}>
         <div className={styles.headerLeft}></div>
         <h1>Product Details</h1>
@@ -520,7 +603,6 @@ export default function ProductDetail() {
         </div>
       </header>
 
-      {/* Share Modal */}
       <AnimatePresence>
         {showShareOptions && (
           <motion.div className={styles.shareModal} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowShareOptions(false)}>
@@ -537,7 +619,6 @@ export default function ProductDetail() {
         )}
       </AnimatePresence>
 
-      {/* Image Carousel */}
       <div className={styles.imageCarouselSection}>
         <div 
           className={styles.imageCarousel} 
@@ -548,7 +629,6 @@ export default function ProductDetail() {
           <img src={product.image_gallery?.[currentImageIndex] || product.image_url} alt={product.name} className={styles.carouselImage} />
           {product.image_gallery?.length > 1 && (
             <>
-              {/* Desktop navigation buttons - only visible on desktop */}
               {!isMobile && (
                 <>
                   <button className={styles.carouselNavPrev} onClick={handlePrevImage}><FaChevronLeft /></button>
@@ -557,7 +637,15 @@ export default function ProductDetail() {
               )}
               <div className={styles.carouselDots}>
                 {product.image_gallery.map((_, idx) => (
-                  <button key={idx} className={`${styles.dot} ${idx === currentImageIndex ? styles.active : ''}`} onClick={() => { setCurrentImageIndex(idx); setIsAutoPlaying(false); setTimeout(() => setIsAutoPlaying(true), 5000); }} />
+                  <button 
+                    key={idx} 
+                    className={`${styles.dot} ${idx === currentImageIndex ? styles.active : ''}`} 
+                    onClick={() => { 
+                      setCurrentImageIndex(idx); 
+                      setIsAutoPlaying(false); 
+                      setTimeout(() => setIsAutoPlaying(true), 5000); 
+                    }} 
+                  />
                 ))}
               </div>
             </>
@@ -565,7 +653,6 @@ export default function ProductDetail() {
         </div>
       </div>
 
-      {/* Product Content */}
       <div className={styles.content}>
         <div className={styles.productHeader}>
           <h1 className={styles.productTitle}>{product.name}</h1>
@@ -580,18 +667,14 @@ export default function ProductDetail() {
               <span className={styles.regularPrice}>{currentPriceDisplay}</span>
             )}
           </div>
+          
           <div className={styles.productRating}>
-            <div className={styles.stars}>
-              {[1, 2, 3, 4, 5].map((n) => (
-                <FaStar key={n} className={n <= (selectedRating || averageRating) ? styles.starFilled : styles.starEmpty} onClick={() => !hasRated && setSelectedRating(n)} style={{ cursor: !hasRated ? 'pointer' : 'default' }} />
-              ))}
-            </div>
-            <span className={styles.ratingCount}>({totalRatings || product.review_count || 0} reviews)</span>
-            {!hasRated && selectedRating > 0 && <button onClick={handleRateProduct} className={styles.rateButton}>Submit Rating</button>}
+            <StarRating rating={averageRating} />
+            <span className={styles.ratingCount}>({totalRatings} {totalRatings === 1 ? 'review' : 'reviews'})</span>
+            <span className={styles.ratingValue}>{displayRating}</span>
           </div>
         </div>
 
-        {/* Info Buttons */}
         <div className={styles.infoButtons}>
           {offersPickup && <button className={`${styles.infoBtn} ${activeInfoButton === "pickup" ? styles.active : ''}`} onClick={() => setActiveInfoButton(activeInfoButton === "pickup" ? null : "pickup")}><FaMapMarkerAlt /><span>Pickup</span></button>}
           {offersDoor && <button className={`${styles.infoBtn} ${activeInfoButton === "delivery" ? styles.active : ''}`} onClick={() => setActiveInfoButton(activeInfoButton === "delivery" ? null : "delivery")}><FaTruck /><span>Delivery</span></button>}
@@ -599,7 +682,6 @@ export default function ProductDetail() {
           {product.return_policy && <button className={`${styles.infoBtn} ${activeInfoButton === "return" ? styles.active : ''}`} onClick={() => setActiveInfoButton(activeInfoButton === "return" ? null : "return")}><FaUndo /><span>Returns</span></button>}
         </div>
 
-        {/* Info Panels */}
         <AnimatePresence>
           {activeInfoButton === "pickup" && <motion.div className={styles.infoPanel} initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}><h4><FaMapMarkerAlt /> Pickup Information</h4><p>{pickupInfoText}</p>{seller?.location && <p className={styles.infoDetail}><strong>Location:</strong> {seller.location}</p>}</motion.div>}
           {activeInfoButton === "delivery" && <motion.div className={styles.infoPanel} initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}><h4><FaTruck /> Delivery Information</h4><p>{doorInfoText}</p>{dm.fee && <p className={styles.deliveryFee}>Typical fee: {dm.fee}</p>}</motion.div>}
@@ -607,22 +689,35 @@ export default function ProductDetail() {
           {activeInfoButton === "return" && <motion.div className={styles.infoPanel} initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}><h4><FaUndo /> Return Policy</h4><p>{product.return_policy}</p></motion.div>}
         </AnimatePresence>
 
-        {/* Variants - Fixed with safe array check */}
         {variantOptions.length > 0 && (
           <div className={styles.variantsSection}>
             <h4>Select Variant:</h4>
             <div className={styles.variantOptions}>
-              {variantOptions.map((variant, idx) => (
-                <button key={idx} className={`${styles.variantBtn} ${selectedVariant === variant ? styles.selected : ''}`} onClick={() => setSelectedVariant(variant)}>
-                  {variant.color || variant.name || `Option ${idx + 1}`}
-                  {variant.price && <span className={styles.variantPrice}>+{formatKenyanPrice(variant.price)}</span>}
-                </button>
-              ))}
+              {variantOptions.map((variant, idx) => {
+                const variantName = variant.name || variant.size || variant.color || variant.type || variant.value || `Option ${idx + 1}`;
+                const variantPrice = variant.price || 0;
+                const variantStock = variant.stock || variant.quantity || 0;
+                
+                return (
+                  <button 
+                    key={idx} 
+                    className={`${styles.variantBtn} ${selectedVariant === variant ? styles.selected : ''}`} 
+                    onClick={() => setSelectedVariant(variant)}
+                  >
+                    <span className={styles.variantName}>{variantName}</span>
+                    {variantPrice > 0 && (
+                      <span className={styles.variantPrice}>+{formatKenyanPrice(variantPrice)}</span>
+                    )}
+                    {variantStock > 0 && variantStock < 10 && (
+                      <span className={styles.variantStockLow}>Only {variantStock} left</span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
 
-        {/* Stock Status - Enhanced Progress Bar with Dynamic Color */}
         <div className={styles.stockStatus}>
           <div className={styles.stockLabel}>
             <span>Stock Available</span>
@@ -644,13 +739,15 @@ export default function ProductDetail() {
           </div>
         </div>
 
-        {/* Seller Card */}
         {seller && (
           <div className={styles.sellerCard}>
             <div className={styles.sellerHeader}>
               <div className={styles.sellerAvatar}><FaUser /></div>
               <div className={styles.sellerDetails}>
-                <h4>{seller.name || seller.full_name}{seller.is_verified && <span className={styles.verifiedBadge}>✓</span>}</h4>
+                <h4>
+                  {seller.name || seller.full_name}
+                  {seller.is_verified && <span className={styles.verifiedBadge}>✓</span>}
+                </h4>
                 <div className={styles.sellerStats}>
                   <span><FaStar /> {sellerScore.avgRating}</span>
                   <span><FaStore /> {sellerScore.totalSales} sales</span>
@@ -658,14 +755,22 @@ export default function ProductDetail() {
               </div>
             </div>
             <div className={styles.sellerContact}>
-              {seller.contact_phone && <div className={styles.contactItem}><FaMobileAlt /><a href={`tel:${seller.contact_phone}`}>{seller.contact_phone}</a></div>}
-              {seller.contact_email && <div className={styles.contactItem}><FaComment /><a href={`mailto:${seller.contact_email}`}>{seller.contact_email}</a></div>}
-              {seller.location && <div className={styles.contactItem}><FaMapMarkerAlt /><span>{seller.location}</span></div>}
+              {seller.location && (
+                <div className={styles.contactItem}>
+                  <FaMapMarkerAlt />
+                  <span>{seller.location}</span>
+                </div>
+              )}
+              {seller.contact_email && (
+                <div className={styles.contactItem}>
+                  <FaComment />
+                  <a href={`mailto:${seller.contact_email}`}>{seller.contact_email}</a>
+                </div>
+              )}
             </div>
           </div>
         )}
 
-        {/* Description */}
         {product.description && (
           <div className={styles.descriptionSection}>
             <h4>Description</h4>
@@ -673,7 +778,6 @@ export default function ProductDetail() {
           </div>
         )}
 
-        {/* Usage Guide */}
         {product.usage_guide && (
           <div className={styles.usageGuide}>
             <h4>How to Use</h4>
@@ -681,18 +785,28 @@ export default function ProductDetail() {
           </div>
         )}
 
-        {/* Action Buttons */}
         <div className={styles.actionButtons}>
-          <button className={styles.buyBtn} onClick={handleCheckout} disabled={isProcessing}><FaShoppingCart /> Buy Now</button>
-          <button className={styles.cartBtn} onClick={handleAddToCart} disabled={isInCart || isProcessing}><FaShoppingCart /> {isInCart ? "In Cart" : "Add to Cart"}</button>
-          <button className={styles.wishlistBtn} onClick={handleAddToWishlist} disabled={isInWishlist || isProcessing}><FaHeart /> {isInWishlist ? "Wishlisted" : "Wishlist"}</button>
+          <button className={styles.buyBtn} onClick={handleCheckout} disabled={isProcessing}>
+            <FaShoppingCart /> Buy Now
+          </button>
+          <button className={styles.cartBtn} onClick={handleAddToCart} disabled={isInCart || isProcessing}>
+            <FaShoppingCart /> {isInCart ? "In Cart" : "Add to Cart"}
+          </button>
+          <button className={styles.wishlistBtn} onClick={handleAddToWishlist} disabled={isInWishlist || isProcessing}>
+            <FaHeart /> {isInWishlist ? "Wishlisted" : "Wishlist"}
+          </button>
         </div>
 
-        {/* Ask Seller */}
         <div className={styles.askSeller}>
           <h4>Ask a Question</h4>
           <div className={styles.messageComposer}>
-            <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder={`Ask ${seller?.name || 'the seller'} about this product...`} rows={3} disabled={sending} />
+            <textarea 
+              value={message} 
+              onChange={(e) => setMessage(e.target.value)} 
+              placeholder={`Ask ${seller?.name || 'the seller'} about this product...`} 
+              rows={3} 
+              disabled={sending} 
+            />
             <button className={styles.sendBtn} onClick={handleSendMessage} disabled={sending || !message.trim()}>
               {sending ? <FaSpinner className={styles.spinning} /> : <FaPaperPlane />}
               <span>{sending ? "Sending..." : "Send Message"}</span>
@@ -700,7 +814,46 @@ export default function ProductDetail() {
           </div>
         </div>
 
-        {/* Reviews */}
+        {relatedProducts.length > 0 && (
+          <div className={styles.relatedProductsSection}>
+            <h3>Related Products</h3>
+            <div className={styles.relatedProductsGrid}>
+              {relatedProducts.map((relatedProduct) => (
+                <div 
+                  key={relatedProduct.id} 
+                  className={styles.relatedCard}
+                  onClick={() => handleRelatedProductClick(relatedProduct.id)}
+                >
+                  <div className={styles.relatedImageContainer}>
+                    <img 
+                      src={relatedProduct.image_gallery?.[0] || relatedProduct.image_url} 
+                      alt={relatedProduct.name}
+                      className={styles.relatedImage}
+                    />
+                    {relatedProduct.discount > 0 && (
+                      <span className={styles.relatedDiscount}>-{relatedProduct.discount}%</span>
+                    )}
+                  </div>
+                  <div className={styles.relatedInfo}>
+                    <h4 className={styles.relatedName}>{relatedProduct.name}</h4>
+                    <div className={styles.relatedPrice}>
+                      <span className={styles.relatedCurrentPrice}>
+                        {formatKenyanPrice(relatedProduct.discount > 0 
+                          ? relatedProduct.price * (1 - relatedProduct.discount / 100)
+                          : relatedProduct.price)}
+                      </span>
+                    </div>
+                    <div className={styles.relatedRating}>
+                      <StarRating rating={relatedProduct.rating || 0} />
+                      <span>{formatRating(relatedProduct.rating || 0)}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {reviews.length > 0 && (
           <div className={styles.reviewsSection}>
             <h3>Customer Reviews</h3>
@@ -708,7 +861,7 @@ export default function ProductDetail() {
               <div key={review.id} className={styles.reviewCard}>
                 <div className={styles.reviewHeader}>
                   <strong>{review.user_name}</strong>
-                  <div className={styles.reviewStars}>{[...Array(5)].map((_, i) => (<FaStar key={i} className={i < review.rating ? styles.starFilled : styles.starEmpty} />))}</div>
+                  <StarRating rating={review.rating} />
                 </div>
                 <p className={styles.reviewComment}>"{review.comment}"</p>
                 <span className={styles.reviewDate}>{new Date(review.created_at).toLocaleDateString()}</span>

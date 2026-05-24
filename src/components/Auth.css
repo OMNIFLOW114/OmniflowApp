@@ -1,4 +1,4 @@
-/* Auth.css - Professional Mobile App Design with Dark Mode Support */
+/* Auth.css - Pure Black/White Theme */
 
 * {
   margin: 0;
@@ -12,14 +12,14 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* Light Mode (Default) */
+/* Light Mode (White Background) */
 body:not(.dark-mode) {
-  background: #f8fafc;
+  background: #ffffff;
 }
 
-/* Dark Mode */
+/* Dark Mode (Pure Black Background) */
 body.dark-mode {
-  background: #0f172a;
+  background: #000000;
 }
 
 .auth-container {
@@ -28,35 +28,39 @@ body.dark-mode {
   align-items: center;
   justify-content: center;
   padding: 16px;
-  transition: background-color 0.3s ease;
 }
 
 /* Light Mode Container */
 .auth-container:not(.dark-mode) {
-  background: #f8fafc;
+  background: #ffffff;
 }
 
 /* Dark Mode Container */
 .auth-container.dark-mode {
-  background: #0f172a;
+  background: #000000;
 }
 
 /* Auth Card - Light Mode */
 .auth-card {
-  background: white;
   border-radius: 32px;
   padding: 32px 24px;
   width: 100%;
   max-width: 400px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.05);
   transition: all 0.3s ease;
   animation: fadeIn 0.3s ease;
 }
 
-/* Auth Card - Dark Mode */
+/* Auth Card - Light Mode */
+.auth-container:not(.dark-mode) .auth-card {
+  background: #ffffff;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.05);
+}
+
+/* Auth Card - Dark Mode (Pure Black) */
 body.dark-mode .auth-card {
-  background: #1e293b;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  background: #000000;
+  box-shadow: none;
+  border: 1px solid #1a1a1a;
 }
 
 @keyframes fadeIn {
@@ -76,7 +80,7 @@ body.dark-mode .auth-card {
   text-align: center;
 }
 
-/* Brand Section - Fixed Logo Issue */
+/* Brand Section */
 .brand {
   display: flex;
   align-items: center;
@@ -85,7 +89,7 @@ body.dark-mode .auth-card {
   margin-bottom: 24px;
 }
 
-/* Auth Logo - Specific class to avoid conflicts with app logo */
+/* Auth Logo */
 .auth-logo {
   width: 44px;
   height: 44px;
@@ -93,60 +97,57 @@ body.dark-mode .auth-card {
   display: block;
 }
 
-/* Auth Logo - Dark Mode */
+/* Dark Mode Logo Filter */
 body.dark-mode .auth-logo {
   filter: brightness(1);
 }
 
-/* Brand Name */
-.auth-brand-name {
+/* Brand Name - Light Mode */
+.auth-container:not(.dark-mode) .auth-brand-name {
+  color: #000000;
   font-size: 26px;
   font-weight: 700;
   letter-spacing: -0.3px;
 }
 
-/* Brand Name - Light Mode */
-.auth-container:not(.dark-mode) .auth-brand-name {
-  color: #1a1a1a;
-}
-
 /* Brand Name - Dark Mode */
 body.dark-mode .auth-brand-name {
-  color: #f3f4f6;
+  color: #ffffff;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
 }
 
-/* Auth Title */
-.auth-title {
+/* Auth Title - Light Mode */
+.auth-container:not(.dark-mode) .auth-title {
+  color: #000000;
   font-size: 28px;
   font-weight: 700;
   margin-bottom: 8px;
   line-height: 1.2;
 }
 
-/* Auth Title - Light Mode */
-.auth-container:not(.dark-mode) .auth-title {
-  color: #1a1a1a;
-}
-
 /* Auth Title - Dark Mode */
 body.dark-mode .auth-title {
-  color: #f3f4f6;
-}
-
-/* Auth Subtitle */
-.auth-subtitle {
-  font-size: 15px;
-  line-height: 1.5;
+  color: #ffffff;
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  line-height: 1.2;
 }
 
 /* Auth Subtitle - Light Mode */
 .auth-container:not(.dark-mode) .auth-subtitle {
-  color: #666;
+  color: #666666;
+  font-size: 15px;
+  line-height: 1.5;
 }
 
 /* Auth Subtitle - Dark Mode */
 body.dark-mode .auth-subtitle {
-  color: #94a3b8;
+  color: #999999;
+  font-size: 15px;
+  line-height: 1.5;
 }
 
 /* Form */
@@ -171,17 +172,17 @@ body.dark-mode .auth-subtitle {
 
 /* Label - Light Mode */
 .auth-container:not(.dark-mode) .form-group label {
-  color: #1a1a1a;
+  color: #000000;
 }
 
 /* Label - Dark Mode */
 body.dark-mode .form-group label {
-  color: #e5e7eb;
+  color: #ffffff;
 }
 
 .form-group input {
   padding: 16px;
-  border: 1.5px solid #e5e7eb;
+  border: 1.5px solid;
   border-radius: 16px;
   font-size: 16px;
   transition: all 0.2s;
@@ -191,15 +192,15 @@ body.dark-mode .form-group label {
 /* Input - Light Mode */
 .auth-container:not(.dark-mode) .form-group input {
   background: #ffffff;
-  color: #1a1a1a;
-  border-color: #e5e7eb;
+  color: #000000;
+  border-color: #e5e5e5;
 }
 
 /* Input - Dark Mode */
 body.dark-mode .form-group input {
-  background: #334155;
-  color: #f3f4f6;
-  border-color: #475569;
+  background: #000000;
+  color: #ffffff;
+  border-color: #2a2a2a;
 }
 
 .form-group input::placeholder {
@@ -208,12 +209,12 @@ body.dark-mode .form-group input {
 
 /* Placeholder - Light Mode */
 .auth-container:not(.dark-mode) .form-group input::placeholder {
-  color: #9ca3af;
+  color: #999999;
 }
 
 /* Placeholder - Dark Mode */
 body.dark-mode .form-group input::placeholder {
-  color: #94a3b8;
+  color: #666666;
 }
 
 .form-group input:hover {
@@ -226,21 +227,20 @@ body.dark-mode .form-group input::placeholder {
   box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
 }
 
-/* Input Hint */
-.input-hint {
+/* Input Hint - Light Mode */
+.auth-container:not(.dark-mode) .input-hint {
+  color: #888888;
   display: block;
   font-size: 11px;
   margin-top: 4px;
 }
 
-/* Input Hint - Light Mode */
-.auth-container:not(.dark-mode) .input-hint {
-  color: #6c757d;
-}
-
 /* Input Hint - Dark Mode */
 body.dark-mode .input-hint {
-  color: #94a3b8;
+  color: #666666;
+  display: block;
+  font-size: 11px;
+  margin-top: 4px;
 }
 
 /* Password Header */
@@ -303,12 +303,12 @@ body.dark-mode .forgot-link {
 
 /* Password Toggle - Light Mode */
 .auth-container:not(.dark-mode) .password-toggle {
-  color: #9ca3af;
+  color: #999999;
 }
 
 /* Password Toggle - Dark Mode */
 body.dark-mode .password-toggle {
-  color: #94a3b8;
+  color: #666666;
 }
 
 .password-toggle:hover {
@@ -331,12 +331,12 @@ body.dark-mode .password-toggle {
 
 /* Checkbox Label - Light Mode */
 .auth-container:not(.dark-mode) .checkbox-label {
-  color: #4b5563;
+  color: #444444;
 }
 
 /* Checkbox Label - Dark Mode */
 body.dark-mode .checkbox-label {
-  color: #cbd5e1;
+  color: #cccccc;
 }
 
 .checkbox-label input {
@@ -346,7 +346,7 @@ body.dark-mode .checkbox-label {
 .checkbox-custom {
   width: 20px;
   height: 20px;
-  border: 2px solid #cbd5e0;
+  border: 2px solid;
   border-radius: 6px;
   display: inline-flex;
   align-items: center;
@@ -355,9 +355,14 @@ body.dark-mode .checkbox-label {
   flex-shrink: 0;
 }
 
+/* Checkbox Custom - Light Mode */
+.auth-container:not(.dark-mode) .checkbox-custom {
+  border-color: #cccccc;
+}
+
 /* Checkbox Custom - Dark Mode */
 body.dark-mode .checkbox-custom {
-  border-color: #64748b;
+  border-color: #444444;
 }
 
 .checkbox-label input:checked + .checkbox-custom {
@@ -423,14 +428,14 @@ body.dark-mode .terms-link {
 
 /* Auth Button - Light Mode */
 .auth-container:not(.dark-mode) .auth-button {
-  background: #667eea;
-  color: white;
+  background: #000000;
+  color: #ffffff;
 }
 
 /* Auth Button - Dark Mode */
 body.dark-mode .auth-button {
-  background: #5b6fd8;
-  color: white;
+  background: #ffffff;
+  color: #000000;
 }
 
 .auth-button:hover:not(:disabled) {
@@ -439,12 +444,12 @@ body.dark-mode .auth-button {
 
 /* Auth Button Hover - Light Mode */
 .auth-container:not(.dark-mode) .auth-button:hover:not(:disabled) {
-  background: #5a67d8;
+  background: #1a1a1a;
 }
 
 /* Auth Button Hover - Dark Mode */
 body.dark-mode .auth-button:hover:not(:disabled) {
-  background: #4f63c7;
+  background: #e5e5e5;
 }
 
 .auth-button:active:not(:disabled) {
@@ -468,12 +473,12 @@ body.dark-mode .auth-button:hover:not(:disabled) {
 
 /* Divider - Light Mode */
 .auth-container:not(.dark-mode) .divider {
-  color: #9ca3af;
+  color: #999999;
 }
 
 /* Divider - Dark Mode */
 body.dark-mode .divider {
-  color: #64748b;
+  color: #666666;
 }
 
 .divider::before,
@@ -486,13 +491,13 @@ body.dark-mode .divider {
 /* Divider Line - Light Mode */
 .auth-container:not(.dark-mode) .divider::before,
 .auth-container:not(.dark-mode) .divider::after {
-  background: #e5e7eb;
+  background: #e5e5e5;
 }
 
 /* Divider Line - Dark Mode */
 body.dark-mode .divider::before,
 body.dark-mode .divider::after {
-  background: #334155;
+  background: #2a2a2a;
 }
 
 .divider span {
@@ -519,16 +524,16 @@ body.dark-mode .divider::after {
 
 /* Google Button - Light Mode */
 .auth-container:not(.dark-mode) .google-btn {
-  background: white;
-  border-color: #e5e7eb;
-  color: #1a1a1a;
+  background: #ffffff;
+  border-color: #e5e5e5;
+  color: #000000;
 }
 
 /* Google Button - Dark Mode */
 body.dark-mode .google-btn {
-  background: #334155;
-  border-color: #475569;
-  color: #f3f4f6;
+  background: #000000;
+  border-color: #2a2a2a;
+  color: #ffffff;
 }
 
 .google-btn:hover:not(:disabled) {
@@ -537,13 +542,13 @@ body.dark-mode .google-btn {
 
 /* Google Button Hover - Light Mode */
 .auth-container:not(.dark-mode) .google-btn:hover:not(:disabled) {
-  background: #f9fafb;
+  background: #f5f5f5;
   border-color: #667eea;
 }
 
 /* Google Button Hover - Dark Mode */
 body.dark-mode .google-btn:hover:not(:disabled) {
-  background: #3b465e;
+  background: #111111;
   border-color: #818cf8;
 }
 
@@ -565,12 +570,12 @@ body.dark-mode .google-btn:hover:not(:disabled) {
 
 /* Auth Footer - Light Mode */
 .auth-container:not(.dark-mode) .auth-footer {
-  color: #666;
+  color: #666666;
 }
 
 /* Auth Footer - Dark Mode */
 body.dark-mode .auth-footer {
-  color: #94a3b8;
+  color: #999999;
 }
 
 .toggle-mode {
@@ -656,30 +661,33 @@ body.dark-mode .error-text {
   font-size: 12px;
 }
 
-/* Environment Error */
-.env-error {
+/* Environment Error - Light Mode */
+.auth-container:not(.dark-mode) .env-error {
+  background: #fef2f2;
+  border: 1px solid #fee2e2;
+  color: #b91c1c;
   border-radius: 16px;
   padding: 16px;
   margin-bottom: 24px;
   font-size: 14px;
 }
 
-/* Environment Error - Light Mode */
-.auth-container:not(.dark-mode) .env-error {
-  background: #fef2f2;
-  border: 1px solid #fee2e2;
-  color: #b91c1c;
-}
-
 /* Environment Error - Dark Mode */
 body.dark-mode .env-error {
-  background: #3b1f1f;
-  border: 1px solid #7f2e2e;
+  background: #1a0000;
+  border: 1px solid #3a0000;
   color: #fca5a5;
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 24px;
+  font-size: 14px;
 }
 
-/* Success Message */
-.success-message {
+/* Success Message - Light Mode */
+.auth-container:not(.dark-mode) .success-message {
+  background: #f0fdf4;
+  border: 1px solid #dcfce7;
+  color: #166534;
   border-radius: 16px;
   padding: 12px 16px;
   margin-bottom: 24px;
@@ -689,23 +697,23 @@ body.dark-mode .env-error {
   gap: 10px;
 }
 
-/* Success Message - Light Mode */
-.auth-container:not(.dark-mode) .success-message {
-  background: #f0fdf4;
-  border: 1px solid #dcfce7;
-  color: #166534;
-}
-
 /* Success Message - Dark Mode */
 body.dark-mode .success-message {
-  background: #1a3a2a;
-  border: 1px solid #2d6a4f;
+  background: #0a1a0a;
+  border: 1px solid #1a3a1a;
   color: #86efac;
+  border-radius: 16px;
+  padding: 12px 16px;
+  margin-bottom: 24px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-/* Error Container */
+/* Error Container - Light Mode */
 .error-container {
-  background: white;
+  background: #ffffff;
   border-radius: 24px;
   padding: 32px 24px;
   max-width: 400px;
@@ -716,8 +724,9 @@ body.dark-mode .success-message {
 
 /* Error Container - Dark Mode */
 body.dark-mode .error-container {
-  background: #1e293b;
-  color: #f3f4f6;
+  background: #000000;
+  color: #ffffff;
+  border: 1px solid #1a1a1a;
 }
 
 .error-container h2 {
@@ -742,31 +751,12 @@ body.dark-mode .error-container h2 {
 
 /* Error Container P - Light Mode */
 .auth-container:not(.dark-mode) .error-container p {
-  color: #666;
+  color: #666666;
 }
 
 /* Error Container P - Dark Mode */
 body.dark-mode .error-container p {
-  color: #94a3b8;
-}
-
-/* ========== LOGO FALLBACK STYLES ========== */
-.auth-logo-fallback {
-  width: 44px;
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.auth-logo-fallback svg {
-  width: 100%;
-  height: 100%;
-}
-
-/* Dark mode adjustments for fallback logo */
-body.dark-mode .auth-logo-fallback svg rect {
-  fill: #818cf8;
+  color: #999999;
 }
 
 /* Animations */
@@ -787,11 +777,15 @@ body.dark-mode .auth-logo-fallback svg rect {
     padding: 28px 22px;
   }
   
-  .auth-title {
+  .auth-title,
+  body.dark-mode .auth-title,
+  .auth-container:not(.dark-mode) .auth-title {
     font-size: 26px;
   }
   
-  .auth-brand-name {
+  .auth-brand-name,
+  body.dark-mode .auth-brand-name,
+  .auth-container:not(.dark-mode) .auth-brand-name {
     font-size: 24px;
   }
 }
@@ -802,16 +796,19 @@ body.dark-mode .auth-logo-fallback svg rect {
     padding: 24px 20px;
   }
 
-  .auth-title {
+  .auth-title,
+  body.dark-mode .auth-title,
+  .auth-container:not(.dark-mode) .auth-title {
     font-size: 24px;
   }
 
-  .auth-brand-name {
+  .auth-brand-name,
+  body.dark-mode .auth-brand-name,
+  .auth-container:not(.dark-mode) .auth-brand-name {
     font-size: 22px;
   }
 
-  .auth-logo,
-  .auth-logo-fallback {
+  .auth-logo {
     width: 36px;
     height: 36px;
   }
@@ -842,21 +839,26 @@ body.dark-mode .auth-logo-fallback svg rect {
     gap: 8px;
   }
 
-  .auth-brand-name {
+  .auth-brand-name,
+  body.dark-mode .auth-brand-name,
+  .auth-container:not(.dark-mode) .auth-brand-name {
     font-size: 20px;
   }
 
-  .auth-logo,
-  .auth-logo-fallback {
+  .auth-logo {
     width: 32px;
     height: 32px;
   }
 
-  .auth-title {
+  .auth-title,
+  body.dark-mode .auth-title,
+  .auth-container:not(.dark-mode) .auth-title {
     font-size: 22px;
   }
 
-  .auth-subtitle {
+  .auth-subtitle,
+  body.dark-mode .auth-subtitle,
+  .auth-container:not(.dark-mode) .auth-subtitle {
     font-size: 13px;
   }
 
@@ -918,16 +920,20 @@ body.dark-mode .auth-logo-fallback svg rect {
 /* Dark Mode Scrollbar */
 body.dark-mode::-webkit-scrollbar {
   width: 8px;
-  background: #1e293b;
+  background: #000000;
+}
+
+body.dark-mode::-webkit-scrollbar-track {
+  background: #000000;
 }
 
 body.dark-mode::-webkit-scrollbar-thumb {
-  background: #475569;
+  background: #2a2a2a;
   border-radius: 4px;
 }
 
 body.dark-mode::-webkit-scrollbar-thumb:hover {
-  background: #64748b;
+  background: #444444;
 }
 
 /* Print Styles */
