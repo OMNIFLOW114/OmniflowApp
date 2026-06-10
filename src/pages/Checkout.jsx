@@ -1,4 +1,4 @@
-// src/pages/Checkout.jsx - UPDATED PREMIUM VERSION
+// src/pages/Checkout.jsx - FULLY FIXED PRODUCTION READY VERSION
 import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -43,6 +43,30 @@ const formatKSH = (amount) => {
     minimumFractionDigits: 2, 
     maximumFractionDigits: 2 
   })}`;
+};
+
+// Helper function to check delivery options (handles multiple formats)
+const getDeliveryOptions = (product) => {
+  if (!product || !product.delivery_methods) {
+    return { offersPickup: false, offersDoor: false };
+  }
+  
+  const dm = product.delivery_methods;
+  
+  // Handle different possible formats
+  const offersPickup = 
+    dm.pickup === "Yes" || 
+    dm.pickup === true || 
+    dm.pickup === "true" ||
+    (typeof dm.pickup === 'string' && dm.pickup.toLowerCase() === 'yes');
+  
+  const offersDoor = 
+    dm.door === "Yes" || 
+    dm.door === true || 
+    dm.door === "true" ||
+    (typeof dm.door === 'string' && dm.door.toLowerCase() === 'yes');
+  
+  return { offersPickup, offersDoor };
 };
 
 // Skeleton Loader Component
@@ -513,9 +537,7 @@ export default function Checkout() {
             });
           }
 
-          const dm = flashProduct.delivery_methods || {};
-          const offersPickup = dm?.pickup === "Yes" || dm?.pickup === true;
-          const offersDoor = dm?.door === "Yes" || dm?.door === true;
+          const { offersPickup, offersDoor } = getDeliveryOptions(flashProduct);
           setDeliveryMethod(offersDoor ? "door" : offersPickup ? "pickup" : "");
 
           setLoading(false);
@@ -525,12 +547,17 @@ export default function Checkout() {
         // Cart Flow
         if (fromCart && location.state?.cartItems) {
           const cartItems = location.state.cartItems;
-          setProducts(cartItems.map(item => ({
+          
+          // Enhanced products with delivery methods properly mapped
+          const enhancedProducts = cartItems.map(item => ({
             ...item.products,
             cartItemId: item.id,
             quantity: item.quantity,
-            variant: item.variant
-          })));
+            variant: item.variant,
+            delivery_methods: item.products.delivery_methods || { pickup: "Yes", door: "Yes" } // Fallback
+          }));
+          
+          setProducts(enhancedProducts);
 
           if (location.state.seller) {
             setSeller(location.state.seller);
@@ -547,10 +574,8 @@ export default function Checkout() {
           }
 
           const firstItem = cartItems[0];
-          if (firstItem) {
-            const dm = firstItem.products.delivery_methods || {};
-            const offersPickup = dm?.pickup === "Yes" || dm?.pickup === true;
-            const offersDoor = dm?.door === "Yes" || dm?.door === true;
+          if (firstItem && firstItem.products) {
+            const { offersPickup, offersDoor } = getDeliveryOptions(firstItem.products);
             setDeliveryMethod(offersDoor ? "door" : offersPickup ? "pickup" : "");
           }
         } else {
@@ -565,6 +590,11 @@ export default function Checkout() {
               .single();
             if (error) throw error;
             p = data;
+          }
+
+          // Ensure delivery_methods exists
+          if (!p.delivery_methods) {
+            p.delivery_methods = { pickup: "Yes", door: "Yes" };
           }
 
           setProducts([{ ...p, quantity: 1 }]);
@@ -592,9 +622,7 @@ export default function Checkout() {
             });
           }
 
-          const dm = p.delivery_methods || {};
-          const offersPickup = dm?.pickup === "Yes" || dm?.pickup === true;
-          const offersDoor = dm?.door === "Yes" || dm?.door === true;
+          const { offersPickup, offersDoor } = getDeliveryOptions(p);
           setDeliveryMethod(offersDoor ? "door" : offersPickup ? "pickup" : "");
         }
       } catch (err) {
@@ -1221,6 +1249,12 @@ export default function Checkout() {
     );
   };
 
+  // Get delivery options for the current product
+  const currentDeliveryOptions = useMemo(() => {
+    if (products.length === 0) return { offersPickup: false, offersDoor: false };
+    return getDeliveryOptions(products[0]);
+  }, [products]);
+
   if (loading) return <CheckoutSkeleton />;
   if (!products.length) return (
     <div className={`${styles.container} ${darkMode ? styles.darkMode : styles.lightMode}`}>
@@ -1381,7 +1415,7 @@ export default function Checkout() {
           {/* Installment Section */}
           {hasInstallmentPlan && !fromCart && !isFlashSale && (
             <div className={styles.card}>
-              <h4 onClick={() => setShowInstallmentInfo(!showInstallmentInfo)}>
+              <h4 onClick={() => setShowInstallmentInfo(!showInstallmentInfo)} style={{ cursor: 'pointer' }}>
                 Special Offer: Buy in Installments{" "}
                 {showInstallmentInfo ? <FaChevronUp /> : <FaChevronDown />}
               </h4>
@@ -1402,38 +1436,57 @@ export default function Checkout() {
             </div>
           )}
 
-          {/* Delivery Section */}
+          {/* Delivery Section - FIXED */}
           <div className={styles.card}>
             <h4>Delivery & Options</h4>
             <div className={styles.deliveryMethods}>
-              {products[0]?.delivery_methods?.pickup && (
+              {currentDeliveryOptions.offersPickup && (
                 <label className={styles.radioLabel}>
                   <input
                     type="radio"
                     name="dm"
                     value="pickup"
                     checked={deliveryMethod === "pickup"}
-                    onChange={() => setDeliveryMethod("pickup")}
+                    onChange={() => {
+                      setDeliveryMethod("pickup");
+                      setPickupStation("");
+                    }}
                   />
-                  <span>Pickup Station</span>
+                  <span> Pickup Station</span>
                 </label>
               )}
-              {products[0]?.delivery_methods?.door && (
+              
+              {currentDeliveryOptions.offersDoor && (
                 <label className={styles.radioLabel}>
                   <input
                     type="radio"
                     name="dm"
                     value="door"
                     checked={deliveryMethod === "door"}
-                    onChange={() => setDeliveryMethod("door")}
+                    onChange={() => {
+                      setDeliveryMethod("door");
+                      setDeliveryAddress("");
+                      setDeliveryDistance(null);
+                      setDeliveryBreakdown(null);
+                    }}
                   />
-                  <span>Door Delivery</span>
+                  <span> Door Delivery</span>
                 </label>
+              )}
+              
+              {!currentDeliveryOptions.offersPickup && !currentDeliveryOptions.offersDoor && (
+                <div className={styles.noDeliveryOptions}>
+                  <FaInfoCircle />
+                  <div>
+                    <strong>No delivery options available</strong>
+                    <p>Please contact the seller to arrange delivery or pickup.</p>
+                  </div>
+                </div>
               )}
             </div>
 
             {/* Door Delivery */}
-            {deliveryMethod === "door" && (
+            {deliveryMethod === "door" && currentDeliveryOptions.offersDoor && (
               <>
                 <div className={styles.formGroup}>
                   <label>Delivery Address:</label>
@@ -1540,20 +1593,20 @@ export default function Checkout() {
                 <div className={styles.formGroup}>
                   <label>Delivery speed:</label>
                   <select value={deliverySpeed} onChange={(e) => setDeliverySpeed(e.target.value)}>
-                    <option value="standard">Standard</option>
-                    <option value="express">Express (+{formatKSH(200)})</option>
+                    <option value="standard">Standard (2-5 days)</option>
+                    <option value="express">Express (1-2 days) +{formatKSH(200)}</option>
                   </select>
                 </div>
 
                 <label className={styles.checkboxLabel}>
                   <input type="checkbox" checked={fragile} onChange={(e) => setFragile(e.target.checked)} />
-                  <span>Fragile item (extra handling)</span>
+                  <span> Fragile item (extra handling)</span>
                 </label>
               </>
             )}
 
             {/* Pickup Station */}
-            {deliveryMethod === "pickup" && (
+            {deliveryMethod === "pickup" && currentDeliveryOptions.offersPickup && (
               <div className={styles.formGroup}>
                 <label>Pickup Station Address:</label>
                 <input
@@ -1581,7 +1634,7 @@ export default function Checkout() {
           {hasInstallmentPlan && !fromCart && !isFlashSale && (
             <button
               onClick={handleStartInstallment}
-              disabled={processingInstallment || (deliveryMethod === "door" && !deliveryAddress) || (deliveryMethod === "pickup" && !pickupStation)}
+              disabled={processingInstallment || (deliveryMethod === "door" && !deliveryAddress) || (deliveryMethod === "pickup" && !pickupStation) || !deliveryMethod}
               className={styles.installmentBtn}
             >
               {processingInstallment ? <FaSpinner className={styles.spinning} /> : <FaPercent />}
@@ -1661,7 +1714,7 @@ export default function Checkout() {
               <button 
                 className={styles.walletBtn} 
                 onClick={handlePayWithWallet} 
-                disabled={buying || mpesaLoading || (deliveryMethod === "door" && !deliveryAddress) || (deliveryMethod === "pickup" && !pickupStation)}
+                disabled={buying || mpesaLoading || (deliveryMethod === "door" && !deliveryAddress) || (deliveryMethod === "pickup" && !pickupStation) || !deliveryMethod}
               >
                 <FaWallet /> Pay 25% Deposit
               </button>
@@ -1669,7 +1722,7 @@ export default function Checkout() {
               <button 
                 className={styles.mpesaBtn} 
                 onClick={handleMpesaPayment} 
-                disabled={buying || mpesaLoading || (deliveryMethod === "door" && !deliveryAddress) || (deliveryMethod === "pickup" && !pickupStation)}
+                disabled={buying || mpesaLoading || (deliveryMethod === "door" && !deliveryAddress) || (deliveryMethod === "pickup" && !pickupStation) || !deliveryMethod}
               >
                 <FaMobileAlt /> {mpesaLoading ? "Processing..." : "Pay via M-Pesa"}
               </button>
@@ -1677,7 +1730,7 @@ export default function Checkout() {
               <button 
                 className={styles.paypalBtn} 
                 onClick={() => handlePayExternal("paypal")} 
-                disabled={buying || (deliveryMethod === "door" && !deliveryAddress) || (deliveryMethod === "pickup" && !pickupStation)}
+                disabled={buying || (deliveryMethod === "door" && !deliveryAddress) || (deliveryMethod === "pickup" && !pickupStation) || !deliveryMethod}
               >
                 <FaPaypal /> Pay via PayPal
               </button>

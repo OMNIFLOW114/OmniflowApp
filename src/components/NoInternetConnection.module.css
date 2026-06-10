@@ -1,0 +1,135 @@
+/* src/components/NoInternetConnection.module.css */
+
+/* Light Mode */
+.lightMode {
+  --bg-color: #ffffff;
+  --text-primary: #1a1a2e;
+  --text-secondary: #64748b;
+  --text-muted: #94a3b8;
+  --button-bg: #4f46e5;
+  --button-hover: #4338ca;
+  --button-text: #ffffff;
+}
+
+/* Dark Mode */
+.darkMode {
+  --bg-color: #000000;
+  --text-primary: #ffffff;
+  --text-secondary: #a0a0a0;
+  --text-muted: #666666;
+  --button-bg: #6366f1;
+  --button-hover: #4f46e5;
+  --button-text: #ffffff;
+}
+
+.container {
+  min-height: calc(100vh - 65px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-color);
+  padding: 20px;
+}
+
+.content {
+  text-align: center;
+  max-width: 450px;
+  width: 100%;
+}
+
+/* Illustration */
+.illustrationWrapper {
+  margin-bottom: 32px;
+  display: flex;
+  justify-content: center;
+}
+
+/* Title */
+.title {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+  letter-spacing: -0.3px;
+}
+
+/* Message */
+.message {
+  font-size: 15px;
+  color: var(--text-secondary);
+  margin-bottom: 32px;
+  line-height: 1.5;
+}
+
+/* Retry Button */
+.retryButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 32px;
+  background: var(--button-bg);
+  color: var(--button-text);
+  border: none;
+  border-radius: 50px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  margin-bottom: 20px;
+  width: 100%;
+  max-width: 200px;
+}
+
+.retryButton:hover:not(:disabled) {
+  background: var(--button-hover);
+  transform: translateY(-1px);
+}
+
+.retryButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Hint */
+.hint {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .illustrationWrapper {
+    margin-bottom: 24px;
+  }
+  
+  .title {
+    font-size: 20px;
+  }
+  
+  .message {
+    font-size: 14px;
+    margin-bottom: 28px;
+  }
+  
+  .retryButton {
+    padding: 12px 28px;
+    font-size: 14px;
+    max-width: 180px;
+  }
+}

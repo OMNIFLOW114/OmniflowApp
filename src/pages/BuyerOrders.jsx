@@ -1,5 +1,5 @@
-// src/pages/BuyerOrders.jsx - PREMIUM UPDATED VERSION
-import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
+// src/pages/BuyerOrders.jsx - FINAL WITH HORIZONTAL PROGRESS BAR
+import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/supabase";
@@ -27,8 +27,8 @@ import {
   FaInfoCircle,
   FaArrowLeft,
   FaSpinner,
-  FaEye,
-  FaCircle
+  FaCircle,
+  FaImage
 } from "react-icons/fa";
 import styles from "./BuyerOrders.module.css";
 
@@ -44,32 +44,8 @@ const formatKSH = (amount) => {
   })}`;
 };
 
-// Skeleton Loader Component
-const OrderCardSkeleton = () => {
-  const { darkMode } = useDarkMode();
-  
-  return (
-    <div className={`${styles.orderCard} ${styles.skeleton}`}>
-      <div className={styles.orderRow}>
-        <div className={styles.skeletonImage}></div>
-        <div className={styles.orderDetails}>
-          <div className={styles.orderHeaderRow}>
-            <div className={styles.skeletonTitle}></div>
-            <div className={styles.skeletonBadge}></div>
-          </div>
-          <div className={styles.skeletonStore}></div>
-          <div className={styles.skeletonMeta}></div>
-          <div className={styles.skeletonProgress}></div>
-          <div className={styles.skeletonPrice}></div>
-          <div className={styles.skeletonActions}></div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Progress Steps
-const steps = [
+// Progress Steps - Complete set with full labels
+const STEPS = [
   { key: "pending", label: "Pending", icon: <FaHourglassHalf /> },
   { key: "processing", label: "Processing", icon: <FaBox /> },
   { key: "shipped", label: "Shipped", icon: <FaShippingFast /> },
@@ -109,17 +85,87 @@ const getStatusStep = (status) => {
   return statusMap[status?.toLowerCase()] || 0;
 };
 
+// Function to create notification in the notifications table
+const createOrderStatusNotification = async (userId, orderId, productName, oldStatus, newStatus) => {
+  try {
+    let title = "";
+    let message = "";
+    let type = "order";
+    
+    switch (newStatus) {
+      case "processing":
+        title = "Order Being Processed";
+        message = `Your order "${productName.substring(0, 50)}" is now being processed by the seller.`;
+        break;
+      case "shipped":
+        title = "Order Shipped! 🚚";
+        message = `Great news! Your order "${productName.substring(0, 50)}" has been shipped and is on its way to you.`;
+        break;
+      case "out_for_delivery":
+        title = "Out for Delivery! 🚚";
+        message = `Your order "${productName.substring(0, 50)}" is out for delivery. Get ready to receive your package!`;
+        break;
+      case "delivered":
+        title = "Order Delivered! ✅";
+        message = `Your order "${productName.substring(0, 50)}" has been marked as delivered by the seller. Please confirm delivery with OTP to complete.`;
+        break;
+      case "completed":
+        title = "Order Completed! 🎉";
+        message = `Congratulations! Your order "${productName.substring(0, 50)}" is now complete. Thank you for shopping with us!`;
+        break;
+      default:
+        return;
+    }
+    
+    const { error } = await supabase
+      .from("notifications")
+      .insert({
+        user_id: userId,
+        title: title,
+        message: message,
+        type: type,
+        read: false,
+        metadata: {
+          order_id: orderId,
+          old_status: oldStatus,
+          new_status: newStatus
+        }
+      });
+    
+    if (error) console.error("Error creating notification:", error);
+    
+  } catch (error) {
+    console.error("Failed to create notification:", error);
+  }
+};
+
+// Skeleton Loader Component
+const OrderCardSkeleton = () => {
+  const { darkMode } = useDarkMode();
+  
+  return (
+    <div className={`${styles.orderCard} ${styles.skeleton}`}>
+      <div className={styles.skeletonImage}></div>
+      <div className={styles.orderDetails}>
+        <div className={styles.skeletonTitle}></div>
+        <div className={styles.skeletonStore}></div>
+        <div className={styles.skeletonMeta}></div>
+        <div className={styles.skeletonProgress}></div>
+        <div className={styles.skeletonPrice}></div>
+        <div className={styles.skeletonActions}></div>
+      </div>
+    </div>
+  );
+};
+
 const BuyerOrders = () => {
   const { user } = useAuth();
   const { darkMode } = useDarkMode();
   const navigate = useNavigate();
   
-  // M-Pesa payment hook
-  const { initiateWalletDeposit, loading: mpesaLoading, pollingActive, currentCheckoutId, cancelPolling } = useMpesaPayment();
+  const { initiateWalletDeposit, loading: mpesaLoading, cancelPolling } = useMpesaPayment();
   
-  const [tab, setTab] = useState(() => {
-    return sessionStorage.getItem('buyerOrdersTab') || "all";
-  });
+  const [tab, setTab] = useState(() => sessionStorage.getItem('buyerOrdersTab') || "all");
   const [orders, setOrders] = useState([]);
   const [installments, setInstallments] = useState([]);
   const [walletBalance, setWalletBalance] = useState(0);
@@ -128,7 +174,6 @@ const BuyerOrders = () => {
   const [submittingRating, setSubmittingRating] = useState(false);
   const [processingAction, setProcessingAction] = useState(false);
 
-  // Modal states
   const [otpOpen, setOtpOpen] = useState(false);
   const [otpValue, setOtpValue] = useState("");
   const [otpOrderId, setOtpOrderId] = useState(null);
@@ -139,37 +184,19 @@ const BuyerOrders = () => {
   const [paymentMethod, setPaymentMethod] = useState("");
   const [processingPayment, setProcessingPayment] = useState(false);
   
-  // M-Pesa payment state
   const [mpesaPaymentStep, setMpesaPaymentStep] = useState(1);
-  const [mpesaOrderId, setMpesaOrderId] = useState(null);
   const [mpesaPaymentCheckoutId, setMpesaPaymentCheckoutId] = useState(null);
   const [mpesaPaymentAmount, setMpesaPaymentAmount] = useState(0);
   const [mpesaPhoneNumber, setMpesaPhoneNumber] = useState("");
 
-  // Rating state
   const [hoveredRating, setHoveredRating] = useState({});
-
-  // Admin constants
-  const ADMIN_EMAIL = "omniflow718@gmail.com";
-  const ADMIN_UUID = "755ed9e9-69f6-459c-ad44-d1b93b80a4c6";
-
-  // Helper functions
-  const isUuid = (v) =>
-    typeof v === "string" &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
-
-  const showError = (err, fallback = "Something went wrong") => {
-    const msg = err?.message || err?.hint || err?.details || fallback;
-    toast.error(msg);
-    console.error("[Error]", err);
-  };
 
   // Save tab to sessionStorage
   useEffect(() => {
     sessionStorage.setItem('buyerOrdersTab', tab);
   }, [tab]);
 
-  // ===== REALTIME ORDER UPDATES =====
+  // ===== REALTIME ORDER UPDATES WITH NOTIFICATIONS =====
   useEffect(() => {
     if (!user?.id) return;
 
@@ -186,24 +213,28 @@ const BuyerOrders = () => {
         (payload) => {
           console.log('Order updated:', payload.new);
           
+          const oldOrder = orders.find(o => o.id === payload.new.id);
+          const oldStatus = oldOrder?.status;
+          const newStatus = payload.new?.status;
+          
           setOrders(prevOrders => 
             prevOrders.map(order => 
-              order.id === payload.new.id 
-                ? { ...order, ...payload.new }
-                : order
+              order.id === payload.new.id ? { ...order, ...payload.new } : order
             )
           );
 
-          const oldStatus = payload.old?.status;
-          const newStatus = payload.new?.status;
-
-          if (oldStatus !== newStatus) {
+          if (oldStatus !== newStatus && newStatus) {
+            const productName = oldOrder?.product?.name || "your order";
+            createOrderStatusNotification(user.id, payload.new.id, productName, oldStatus, newStatus);
+            
             if (newStatus === 'shipped') {
-              toast.success('Your order has been shipped! 🚚');
-            } else if (newStatus === 'out for delivery') {
-              toast.success('Your order is out for delivery! 📦');
+              toast.success('Your order has been shipped! 🚚', { duration: 5000 });
+            } else if (newStatus === 'out_for_delivery') {
+              toast.success('Your order is out for delivery! 📦', { duration: 5000 });
             } else if (newStatus === 'delivered') {
-              toast.success('Seller marked order as delivered! Please confirm delivery.', { icon: '✅' });
+              toast.success('Seller marked order as delivered! Please confirm delivery.', { duration: 6000 });
+            } else if (newStatus === 'processing') {
+              toast.success('Seller is processing your order!', { duration: 4000 });
             }
           }
         }
@@ -219,7 +250,8 @@ const BuyerOrders = () => {
         (payload) => {
           console.log('New order:', payload.new);
           fetchOrders();
-          toast.success('New order created!');
+          createOrderStatusNotification(user.id, payload.new.id, "your order", null, "created");
+          toast.success('New order created!', { duration: 4000 });
         }
       )
       .subscribe();
@@ -227,12 +259,11 @@ const BuyerOrders = () => {
     return () => {
       supabase.removeChannel(orderChannel);
     };
-  }, [user]);
+  }, [user, orders]);
 
   // ===== FETCHERS =====
   const fetchData = useCallback(async () => {
     if (!user?.id) return;
-    
     setRefreshing(true);
     try {
       await Promise.all([fetchWallet(), fetchOrders(), fetchInstallments()]);
@@ -261,45 +292,27 @@ const BuyerOrders = () => {
     if (!user?.id) return [];
     const { data: ordersData, error } = await supabase
       .from("orders")
-      .select(
-        `*, 
-         product:products!orders_product_id_fkey(
-           id, name, image_gallery, store_id, category, owner_id
-         )`
-      )
+      .select(`*, product:products!orders_product_id_fkey(id, name, image_gallery, image_url, store_id, category, owner_id)`)
       .eq("buyer_id", user.id)
       .order("created_at", { ascending: false });
     
     if (error) {
-      showError(error, "Failed to load orders");
+      toast.error("Failed to load orders");
       return [];
     }
 
-    const storeIds = [
-      ...new Set(ordersData.map((o) => o.product?.store_id).filter(Boolean)),
-    ];
-
+    const storeIds = [...new Set(ordersData.map((o) => o.product?.store_id).filter(Boolean))];
     let storesData = [];
     if (storeIds.length) {
-      const { data, error: storesError } = await supabase
-        .from("stores")
-        .select("id, name, location, delivery_type, owner_id")
-        .in("id", storeIds);
-      if (!storesError) storesData = data || [];
+      const { data } = await supabase.from("stores").select("id, name, location, delivery_type, owner_id").in("id", storeIds);
+      if (data) storesData = data;
     }
 
     const productIds = ordersData.map(o => o.product?.id).filter(Boolean);
     let ratingsData = [];
     if (productIds.length > 0 && user?.id) {
-      const { data, error: ratingsError } = await supabase
-        .from("ratings")
-        .select("product_id, rating")
-        .eq("user_id", user.id)
-        .in("product_id", productIds);
-      
-      if (!ratingsError && data) {
-        ratingsData = data;
-      }
+      const { data } = await supabase.from("ratings").select("product_id, rating").eq("user_id", user.id).in("product_id", productIds);
+      if (data) ratingsData = data;
     }
 
     const enriched = (ordersData || []).map((o) => {
@@ -308,13 +321,21 @@ const BuyerOrders = () => {
       const deliveryInfo = getDeliveryTypeInfo(deliveryType);
       const existingRating = ratingsData.find(r => r.product_id === o.product?.id);
       
+      let imageUrl = "/placeholder.png";
+      if (o.product?.image_gallery?.length > 0 && o.product.image_gallery[0]) {
+        imageUrl = o.product.image_gallery[0];
+      } else if (o.product?.image_url) {
+        imageUrl = o.product.image_url;
+      }
+      
       return { 
         ...o, 
-        store,
-        delivery_type: deliveryType,
-        delivery_info: deliveryInfo,
-        has_rated: !!existingRating,
-        user_rating: existingRating?.rating || null
+        store, 
+        delivery_type: deliveryType, 
+        delivery_info: deliveryInfo, 
+        has_rated: !!existingRating, 
+        user_rating: existingRating?.rating || null, 
+        product_image: imageUrl 
       };
     });
 
@@ -326,45 +347,57 @@ const BuyerOrders = () => {
     if (!user?.id) return [];
     const { data, error } = await supabase
       .from("installment_orders")
-      .select(
-        `
-        *,
-        products:product_id (id, name, image_gallery),
-        seller:seller_id (id, full_name, email)
-      `
-      )
+      .select(`*, products:product_id(id, name, image_gallery, image_url), seller:seller_id(id, full_name, email)`)
       .eq("buyer_id", user.id)
       .order("created_at", { ascending: false });
     
     if (error) {
-      showError(error, "Failed to load installment plans");
+      toast.error("Failed to load installment plans");
       return [];
     }
     setInstallments(data || []);
     return data || [];
   }
 
-  // Initial load
   useEffect(() => {
     fetchData();
   }, [user, fetchData]);
 
-  // ===== PROGRESS BAR =====
-  const renderHorizontalProgress = (status, delivered) => {
+  // ===== HORIZONTAL PROGRESS BAR - FIXED HORIZONTAL LAYOUT =====
+  const renderHorizontalProgressBar = (status, delivered) => {
     const currentStep = delivered ? 4 : getStatusStep(status);
     
     return (
-      <div className={styles.orderProgressHorizontal}>
-        {steps.map((step, index) => (
-          <div key={step.key} className={styles.progressStepContainer}>
-            <div className={`${styles.progressStep} ${index <= currentStep ? styles.active : ''}`}>
-              <div className={styles.stepIcon}>{step.icon}</div>
-            </div>
-            {index < steps.length - 1 && (
-              <div className={`${styles.progressLine} ${index < currentStep ? styles.active : ''}`} />
-            )}
-          </div>
-        ))}
+      <div className={styles.horizontalProgressWrapper}>
+        <div className={styles.horizontalProgressContainer}>
+          {STEPS.map((step, index) => {
+            const isActive = index <= currentStep;
+            const isCurrent = index === currentStep;
+            
+            return (
+              <div key={step.key} className={styles.horizontalProgressStep}>
+                <div className={styles.horizontalProgressContent}>
+                  <div className={`${styles.horizontalProgressIcon} ${isActive ? styles.active : ''} ${isCurrent ? styles.current : ''}`}>
+                    {step.icon}
+                  </div>
+                  <div className={styles.horizontalProgressLabel}>
+                    <span className={`${styles.horizontalProgressText} ${isActive ? styles.activeText : ''}`}>
+                      {step.label}
+                    </span>
+                  </div>
+                </div>
+                {index < STEPS.length - 1 && (
+                  <div className={`${styles.horizontalProgressLine} ${index < currentStep ? styles.activeLine : ''}`} />
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <div className={styles.horizontalProgressStatus}>
+          <span className={styles.horizontalProgressBadge}>
+            {delivered ? "✓ Order Completed" : `${STEPS[currentStep].label} in Progress`}
+          </span>
+        </div>
       </div>
     );
   };
@@ -387,19 +420,11 @@ const BuyerOrders = () => {
           product_id: order.product.id,
           rating: Number(rating),
           created_at: new Date().toISOString()
-        }, {
-          onConflict: 'user_id, product_id'
-        });
+        }, { onConflict: 'user_id, product_id' });
 
       if (error) throw error;
 
-      setOrders(prev =>
-        prev.map(o =>
-          o.id === order.id
-            ? { ...o, has_rated: true, user_rating: rating }
-            : o
-        )
-      );
+      setOrders(prev => prev.map(o => o.id === order.id ? { ...o, has_rated: true, user_rating: rating } : o));
 
       toast.dismiss(loadingToast);
       toast.success("Thank you for rating!", { icon: '⭐' });
@@ -407,7 +432,7 @@ const BuyerOrders = () => {
     } catch (err) {
       console.error("Rating error:", err);
       toast.dismiss(loadingToast);
-      showError(err, "Failed to submit rating");
+      toast.error("Failed to submit rating");
     } finally {
       setSubmittingRating(false);
     }
@@ -425,25 +450,15 @@ const BuyerOrders = () => {
           {[1, 2, 3, 4, 5].map((star) => (
             <span
               key={star}
-              className={`${styles.star} ${
-                (hoverRating >= star || (!hoverRating && currentRating >= star)) 
-                  ? styles.active 
-                  : ''
-              }`}
+              className={`${styles.star} ${(hoverRating >= star || (!hoverRating && currentRating >= star)) ? styles.active : ''}`}
               onMouseEnter={() => !isRated && !submittingRating && setHoveredRating(prev => ({ ...prev, [order.id]: star }))}
               onMouseLeave={() => !isRated && !submittingRating && setHoveredRating(prev => ({ ...prev, [order.id]: 0 }))}
               onClick={() => !isRated && !submittingRating && handleSubmitRating(order, star)}
-              style={{ 
-                cursor: isRated || submittingRating ? 'default' : 'pointer',
-                opacity: submittingRating ? 0.5 : 1 
-              }}
             >
               <FaStar />
             </span>
           ))}
-          {isRated && (
-            <span className={styles.ratedText}>✓ Rated</span>
-          )}
+          {isRated && <span className={styles.ratedText}>✓ Rated</span>}
         </div>
       </div>
     );
@@ -469,22 +484,11 @@ const BuyerOrders = () => {
 
     setSubmittingOtp(true);
     try {
-      const { data, error } = await supabase.rpc("mark_order_delivered", {
-        p_order: otpOrderId,
-        p_otp: otpValue,
-      });
-      
+      const { data, error } = await supabase.rpc("mark_order_delivered", { p_order: otpOrderId, p_otp: otpValue });
       if (error) throw error;
-      
       if (!data?.success) throw new Error(data?.error || 'Failed to confirm delivery');
 
-      setOrders(prev =>
-        prev.map(order =>
-          order.id === otpOrderId
-            ? { ...order, delivered: true, status: data.needs_payment ? 'delivered' : 'completed' }
-            : order
-        )
-      );
+      setOrders(prev => prev.map(order => order.id === otpOrderId ? { ...order, delivered: true, status: data.needs_payment ? 'delivered' : 'completed' } : order));
 
       if (data.needs_payment) {
         toast.success("Delivery confirmed! You can now pay the remaining balance.");
@@ -495,11 +499,10 @@ const BuyerOrders = () => {
       setOtpOpen(false);
       setOtpOrderId(null);
       setOtpValue("");
-      
       await fetchData();
       
     } catch (err) {
-      showError(err, "Failed to confirm delivery");
+      toast.error("Failed to confirm delivery");
     } finally {
       setSubmittingOtp(false);
     }
@@ -509,7 +512,6 @@ const BuyerOrders = () => {
   const handleMpesaPayment = async (order, phoneNumber) => {
     setProcessingPayment(true);
     setMpesaPaymentStep(2);
-    setMpesaOrderId(order.id);
     setMpesaPaymentAmount(order.balance_due);
     setMpesaPhoneNumber(phoneNumber);
     
@@ -521,52 +523,17 @@ const BuyerOrders = () => {
         order.balance_due,
         user.id,
         async (receipt, paidAmount) => {
-          console.log('M-Pesa payment successful:', { receipt, paidAmount });
-          
-          const { data, error } = await supabase.rpc("pay_remaining_balance", {
-            p_order: order.id,
-            p_buyer: user.id,
-          });
-          
+          const { data, error } = await supabase.rpc("pay_remaining_balance", { p_order: order.id, p_buyer: user.id });
           if (error) throw error;
-          
           if (!data?.success) throw new Error(data?.error || "Payment processing failed");
           
-          await supabase
-            .from("orders")
-            .update({
-              mpesa_receipt: receipt,
-              updated_at: new Date().toISOString()
-            })
-            .eq("id", order.id);
+          await supabase.from("orders").update({ mpesa_receipt: receipt, updated_at: new Date().toISOString() }).eq("id", order.id);
           
-          setOrders(prev =>
-            prev.map(o =>
-              o.id === order.id
-                ? { 
-                    ...o, 
-                    balance_paid: true, 
-                    balance_due: 0,
-                    status: o.delivered ? 'completed' : 'balance_paid',
-                    escrow_released: o.delivered ? true : o.escrow_released
-                  }
-                : o
-            )
-          );
+          setOrders(prev => prev.map(o => o.id === order.id ? { ...o, balance_paid: true, balance_due: 0, status: o.delivered ? 'completed' : 'balance_paid' } : o));
           
           setMpesaPaymentStep(3);
           toast.dismiss(loadingToast);
-          
-          toast.success(
-            <div>
-              <strong>Payment successful!</strong>
-              <br />
-              <small>Amount: {formatKSH(paidAmount)}</small>
-              <br />
-              <small>Receipt: {receipt}</small>
-            </div>,
-            { duration: 8000, icon: '✅' }
-          );
+          toast.success(`Payment successful! Amount: ${formatKSH(paidAmount)}`, { duration: 8000, icon: '✅' });
           
           await fetchWallet();
           
@@ -589,7 +556,6 @@ const BuyerOrders = () => {
       setMpesaPaymentCheckoutId(result?.checkoutRequestID);
       
     } catch (err) {
-      console.error("M-Pesa error:", err);
       toast.dismiss(loadingToast);
       toast.error(err?.message || "M-Pesa payment failed");
       setMpesaPaymentStep(1);
@@ -602,81 +568,23 @@ const BuyerOrders = () => {
     const loadingToast = toast.loading("Processing payment...");
 
     try {
-      const { data, error } = await supabase.rpc("pay_remaining_balance", {
-        p_order: order.id,
-        p_buyer: user.id,
-      });
-      
+      const { data, error } = await supabase.rpc("pay_remaining_balance", { p_order: order.id, p_buyer: user.id });
       if (error) throw error;
-      
-      if (!data?.success) {
-        throw new Error(data?.error || "Payment failed");
-      }
+      if (!data?.success) throw new Error(data?.error || "Payment failed");
 
-      setOrders(prev =>
-        prev.map(o =>
-          o.id === order.id
-            ? { 
-                ...o, 
-                balance_paid: true, 
-                balance_due: 0,
-                status: o.delivered ? 'completed' : 'balance_paid',
-                escrow_released: o.delivered ? true : o.escrow_released
-              }
-            : o
-        )
-      );
+      setOrders(prev => prev.map(o => o.id === order.id ? { ...o, balance_paid: true, balance_due: 0, status: o.delivered ? 'completed' : 'balance_paid' } : o));
 
       toast.dismiss(loadingToast);
-      
-      toast.success(
-        <div>
-          <strong>Payment successful!</strong>
-          <br />
-          <small>Amount paid: {formatKSH(order.balance_due)}</small>
-        </div>,
-        { duration: 5000 }
-      );
+      toast.success(`Payment successful! Amount: ${formatKSH(order.balance_due)}`, { duration: 5000 });
 
       await fetchWallet();
-      
       setPaymentModalOpen(false);
       setSelectedOrder(null);
 
     } catch (err) {
-      console.error("Payment error:", err);
       toast.dismiss(loadingToast);
       toast.error(err?.message || "Payment failed. Please try again.");
     } finally {
-      setProcessingPayment(false);
-    }
-  }
-
-  async function processPaypalPayment(order) {
-    setProcessingPayment(true);
-    const loadingToast = toast.loading("Redirecting to PayPal...");
-    
-    try {
-      const { data, error } = await supabase.functions.invoke("create-paypal-order", {
-        body: {
-          orderId: order.id,
-          amount: order.balance_due,
-          buyerId: user.id
-        }
-      });
-      
-      if (error) throw error;
-      
-      toast.dismiss(loadingToast);
-      
-      if (data.approvalUrl) {
-        window.location.href = data.approvalUrl;
-      }
-      
-    } catch (err) {
-      console.error("PayPal error:", err);
-      toast.dismiss(loadingToast);
-      toast.error(err?.message || "PayPal payment failed");
       setProcessingPayment(false);
     }
   }
@@ -697,44 +605,23 @@ const BuyerOrders = () => {
       await processWalletPayment(selectedOrder);
     } else if (paymentMethod === 'mpesa') {
       const phone = prompt("Enter your M-Pesa phone number (e.g., 0712345678):", user?.phone || "");
-      
-      if (!phone) {
-        toast.error("Phone number is required for M-Pesa payment");
+      if (!phone || !/^0[17]\d{8}$/.test(phone)) {
+        toast.error("Please enter a valid M-Pesa phone number");
         setProcessingPayment(false);
         return;
       }
-      
-      const phoneRegex = /^0[17]\d{8}$/;
-      if (!phoneRegex.test(phone)) {
-        toast.error("Please enter a valid M-Pesa phone number (e.g., 0712345678)");
-        setProcessingPayment(false);
-        return;
-      }
-      
       await handleMpesaPayment(selectedOrder, phone);
-    } else if (paymentMethod === 'paypal') {
-      await processPaypalPayment(selectedOrder);
     }
   }
 
-  // Filter orders
-  const activeOrders = useMemo(
-    () => orders.filter((o) => !(o.status === "completed" || o.escrow_released)),
-    [orders]
-  );
-  
-  const completedOrders = useMemo(
-    () => orders.filter((o) => o.status === "completed" || o.escrow_released),
-    [orders]
-  );
+  const activeOrders = useMemo(() => orders.filter((o) => !(o.status === "completed" || o.escrow_released)), [orders]);
+  const completedOrders = useMemo(() => orders.filter((o) => o.status === "completed" || o.escrow_released), [orders]);
 
   if (loading) {
     return (
       <div className={`${styles.container} ${darkMode ? styles.darkMode : styles.lightMode}`}>
         <div className={styles.header}>
-          <button className={styles.backBtn} onClick={() => navigate(-1)}>
-            <FaArrowLeft />
-          </button>
+          <button className={styles.backBtn} onClick={() => navigate(-1)}><FaArrowLeft /></button>
           <h1>My Orders</h1>
           <div className={styles.skeletonWallet}></div>
         </div>
@@ -746,9 +633,7 @@ const BuyerOrders = () => {
           </div>
         </div>
         <div className={styles.ordersList}>
-          {[1, 2, 3].map((i) => (
-            <OrderCardSkeleton key={i} />
-          ))}
+          {[1, 2, 3].map(i => <OrderCardSkeleton key={i} />)}
         </div>
       </div>
     );
@@ -759,55 +644,20 @@ const BuyerOrders = () => {
       {/* M-Pesa Payment Modal */}
       <AnimatePresence>
         {mpesaPaymentStep === 2 && (
-          <motion.div 
-            className={styles.modalOverlay}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <motion.div 
-              className={styles.modalContent}
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.9 }}
-            >
+          <motion.div className={styles.modalOverlay} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div className={styles.modalContent} initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }}>
               <div className={styles.paymentLoader}>
                 <div className={styles.spinner}></div>
                 <p>Waiting for M-Pesa payment...</p>
-                <p className={styles.paymentInstruction}>
-                  Please check your phone ({mpesaPhoneNumber}) and enter your M-Pesa PIN to complete the payment of {formatKSH(mpesaPaymentAmount)}
-                </p>
-                {mpesaPaymentCheckoutId && (
-                  <p className={styles.referenceText}>Reference: {mpesaPaymentCheckoutId.slice(-8)}</p>
-                )}
-                <button 
-                  onClick={() => {
-                    cancelPolling();
-                    setMpesaPaymentStep(1);
-                    setProcessingPayment(false);
-                  }}
-                  className={styles.cancelBtn}
-                >
-                  Cancel Payment
-                </button>
+                <p className={styles.paymentInstruction}>Please check your phone ({mpesaPhoneNumber}) and enter your M-Pesa PIN to complete the payment of {formatKSH(mpesaPaymentAmount)}</p>
+                <button onClick={() => { cancelPolling(); setMpesaPaymentStep(1); setProcessingPayment(false); }} className={styles.cancelBtn}>Cancel Payment</button>
               </div>
             </motion.div>
           </motion.div>
         )}
-
         {mpesaPaymentStep === 3 && (
-          <motion.div 
-            className={styles.modalOverlay}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <motion.div 
-              className={styles.successContent}
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.9 }}
-            >
+          <motion.div className={styles.modalOverlay} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div className={styles.successContent} initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }}>
               <div className={styles.successIcon}>✅</div>
               <h3>Payment Successful!</h3>
               <p>Your payment has been received.</p>
@@ -819,9 +669,7 @@ const BuyerOrders = () => {
 
       {/* Header */}
       <header className={styles.header}>
-        <button className={styles.backBtn} onClick={() => navigate(-1)}>
-          <FaArrowLeft />
-        </button>
+        <button className={styles.backBtn} onClick={() => navigate(-1)}><FaArrowLeft /></button>
         <h1>My Orders</h1>
         <div className={styles.walletBadge}>
           <FaWallet size={14} />
@@ -835,30 +683,14 @@ const BuyerOrders = () => {
       {/* Tabs */}
       <div className={styles.tabsContainer}>
         <div className={styles.tabsScroll}>
-          <button
-            className={`${styles.tabBtn} ${tab === "all" ? styles.active : ""}`}
-            onClick={() => setTab("all")}
-          >
-            Active ({activeOrders.length})
-          </button>
-          <button
-            className={`${styles.tabBtn} ${tab === "installments" ? styles.active : ""}`}
-            onClick={() => setTab("installments")}
-          >
-            Installments ({installments.length})
-          </button>
-          <button
-            className={`${styles.tabBtn} ${tab === "completed" ? styles.active : ""}`}
-            onClick={() => setTab("completed")}
-          >
-            Completed ({completedOrders.length})
-          </button>
+          <button className={`${styles.tabBtn} ${tab === "all" ? styles.active : ""}`} onClick={() => setTab("all")}>Active ({activeOrders.length})</button>
+          <button className={`${styles.tabBtn} ${tab === "installments" ? styles.active : ""}`} onClick={() => setTab("installments")}>Installments ({installments.length})</button>
+          <button className={`${styles.tabBtn} ${tab === "completed" ? styles.active : ""}`} onClick={() => setTab("completed")}>Completed ({completedOrders.length})</button>
         </div>
       </div>
 
       {/* Orders List */}
       <div className={styles.ordersList}>
-        {/* Active Orders */}
         {tab === "all" && (
           <>
             {activeOrders.length === 0 ? (
@@ -866,87 +698,83 @@ const BuyerOrders = () => {
                 <FaBox size={48} />
                 <h3>No active orders</h3>
                 <p>You don't have any active orders at the moment</p>
-                <button className={styles.shopBtn} onClick={() => navigate('/student/marketplace')}>
-                  Start Shopping
-                </button>
+                <button className={styles.shopBtn} onClick={() => navigate('/student/marketplace')}>Start Shopping</button>
               </div>
             ) : (
               activeOrders.map((order) => {
                 const sellerMarkedDelivered = order.status?.toLowerCase() === "delivered";
                 const buyerConfirmed = !!order.delivered;
-                
                 const canConfirmDelivery = sellerMarkedDelivered && !buyerConfirmed;
                 const canPayRemaining = buyerConfirmed && order.balance_due > 0 && !order.balance_paid;
-                const currentStatus = order.status;
 
                 return (
                   <div className={styles.orderCard} key={order.id}>
-                    <div className={styles.orderRow}>
-                      <img
-                        src={order.product?.image_gallery?.[0] || "/placeholder.png"}
-                        alt={order.product?.name}
-                        className={styles.orderImage}
-                      />
-                      <div className={styles.orderDetails}>
-                        <div className={styles.orderHeaderRow}>
-                          <h3 className={styles.productName}>{order.product?.name}</h3>
-                          <div 
-                            className={styles.deliveryBadge}
-                            style={{ 
-                              backgroundColor: order.delivery_info.bg, 
-                              color: order.delivery_info.color 
-                            }}
-                          >
-                            {order.delivery_info.icon}
-                            <span>{order.delivery_info.label}</span>
+                    <div className={styles.orderContent}>
+                      <div className={styles.orderImageSection}>
+                        {order.product_image && order.product_image !== "/placeholder.png" ? (
+                          <img 
+                            src={order.product_image} 
+                            alt={order.product?.name} 
+                            className={styles.orderImage} 
+                            onError={(e) => { e.target.src = "/placeholder.png"; }} 
+                          />
+                        ) : (
+                          <div className={styles.orderImagePlaceholder}>
+                            <FaImage size={32} />
+                          </div>
+                        )}
+                      </div>
+                      <div className={styles.orderInfoSection}>
+                        <div className={styles.orderHeader}>
+                          <h3 className={styles.productName}>{order.product?.name || "Product"}</h3>
+                          <div className={styles.deliveryBadge} style={{ backgroundColor: order.delivery_info.bg, color: order.delivery_info.color }}>
+                            {order.delivery_info.icon}<span>{order.delivery_info.label}</span>
                           </div>
                         </div>
-                        
                         <p className={styles.storeName}>
-                          <FaStore size={10} />
+                          <FaStore size={12} />
                           {order.store?.name || "Unknown Store"}
                         </p>
-                        
                         <div className={styles.orderMeta}>
                           <span>
-                            <FaClock size={10} />
-                            {new Date(order.created_at).toLocaleDateString('en-KE', {
-                              day: '2-digit',
-                              month: 'short',
-                              year: 'numeric'
-                            })}
+                            <FaClock size={12} />
+                            {new Date(order.created_at).toLocaleDateString('en-KE', { day: '2-digit', month: 'short', year: 'numeric' })}
                           </span>
                           <span>
-                            <FaMapMarkerAlt size={10} />
+                            <FaMapMarkerAlt size={12} />
                             {order.delivery_location?.split(',')[0] || "N/A"}
+                          </span>
+                          <span>
+                            Qty: {order.quantity || 1}
                           </span>
                         </div>
 
-                        {renderHorizontalProgress(currentStatus, buyerConfirmed)}
+                        {/* Horizontal Progress Bar */}
+                        {renderHorizontalProgressBar(order.status, buyerConfirmed)}
 
                         {sellerMarkedDelivered && !buyerConfirmed && (
                           <div className={styles.statusMessageInfo}>
                             <FaTruck /> Seller marked as delivered - Please confirm delivery with OTP
                           </div>
                         )}
-
                         {buyerConfirmed && order.balance_due > 0 && !order.balance_paid && (
                           <div className={styles.statusMessageSuccess}>
                             <FaCheckCircle /> Delivery confirmed! Pay remaining balance to complete order
                           </div>
                         )}
 
-                        <div className={styles.priceRow}>
+                        {/* Price Breakdown */}
+                        <div className={styles.priceBreakdown}>
                           <div className={styles.priceItem}>
-                            <span className={styles.priceLabel}>Deposit</span>
+                            <span className={styles.priceLabel}>Deposit Paid</span>
                             <span className={styles.priceValuePaid}>{formatKSH(order.deposit_amount)}</span>
                           </div>
-                          <FaChevronRight size={12} className={styles.priceSep} />
+                          <div className={styles.priceDivider} />
                           <div className={styles.priceItem}>
-                            <span className={styles.priceLabel}>Balance</span>
+                            <span className={styles.priceLabel}>Balance Due</span>
                             <span className={styles.priceValueDue}>{formatKSH(order.balance_due)}</span>
                           </div>
-                          <FaChevronRight size={12} className={styles.priceSep} />
+                          <div className={styles.priceDivider} />
                           <div className={styles.priceItem}>
                             <span className={styles.priceLabel}>Total</span>
                             <span className={styles.priceValueTotal}>{formatKSH(order.total_price)}</span>
@@ -955,25 +783,15 @@ const BuyerOrders = () => {
 
                         <div className={styles.actionButtons}>
                           {canConfirmDelivery && (
-                            <button
-                              className={styles.actionBtnConfirm}
-                              onClick={() => openOtpModal(order)}
-                              disabled={processingAction}
-                            >
+                            <button className={styles.actionBtnConfirm} onClick={() => openOtpModal(order)} disabled={processingAction}>
                               <FaKey /> Confirm Delivery
                             </button>
                           )}
-
                           {canPayRemaining && (
-                            <button
-                              className={styles.actionBtnPay}
-                              onClick={() => openPaymentModal(order)}
-                              disabled={processingPayment || mpesaLoading}
-                            >
+                            <button className={styles.actionBtnPay} onClick={() => openPaymentModal(order)} disabled={processingPayment || mpesaLoading}>
                               <FaWallet /> Pay Balance
                             </button>
                           )}
-
                           {order.escrow_released && (
                             <div className={styles.statusBadgeCompleted}>
                               <FaCheckCircle /> Order Complete
@@ -989,7 +807,6 @@ const BuyerOrders = () => {
           </>
         )}
 
-        {/* Installments Tab */}
         {tab === "installments" && (
           <>
             {installments.length === 0 ? (
@@ -1000,28 +817,39 @@ const BuyerOrders = () => {
               </div>
             ) : (
               installments.map((order) => {
-                const paidPercent = Math.floor(
-                  (Number(order.amount_paid || 0) / Number(order.total_price || 1)) * 100
-                );
+                const paidPercent = Math.floor((Number(order.amount_paid || 0) / Number(order.total_price || 1)) * 100);
+                let installImage = "/placeholder.png";
+                if (order.products?.image_gallery?.length > 0 && order.products.image_gallery[0]) {
+                  installImage = order.products.image_gallery[0];
+                } else if (order.products?.image_url) {
+                  installImage = order.products.image_url;
+                }
 
                 return (
                   <div className={styles.orderCard} key={order.id}>
-                    <div className={styles.orderRow}>
-                      <img
-                        src={order.products?.image_gallery?.[0] || "/placeholder.png"}
-                        alt={order.products?.name}
-                        className={styles.orderImage}
-                      />
-                      <div className={styles.orderDetails}>
-                        <h3 className={styles.productName}>{order.products?.name}</h3>
-                        
+                    <div className={styles.orderContent}>
+                      <div className={styles.orderImageSection}>
+                        {installImage !== "/placeholder.png" ? (
+                          <img 
+                            src={installImage} 
+                            alt={order.products?.name} 
+                            className={styles.orderImage} 
+                            onError={(e) => { e.target.src = "/placeholder.png"; }} 
+                          />
+                        ) : (
+                          <div className={styles.orderImagePlaceholder}>
+                            <FaImage size={32} />
+                          </div>
+                        )}
+                      </div>
+                      <div className={styles.orderInfoSection}>
+                        <h3 className={styles.productName}>{order.products?.name || "Product"}</h3>
                         <div className={styles.installmentProgress}>
                           <div className={styles.progressTrack}>
                             <div className={styles.progressFill} style={{ width: `${paidPercent}%` }} />
                           </div>
                           <span className={styles.progressText}>{paidPercent}% paid</span>
                         </div>
-
                         <div className={styles.installmentStats}>
                           <div className={styles.stat}>
                             <span>Total</span>
@@ -1036,11 +864,7 @@ const BuyerOrders = () => {
                             <strong>{order.next_due_date?.slice(0, 10) || "—"}</strong>
                           </div>
                         </div>
-
-                        <button 
-                          className={styles.installmentLink} 
-                          onClick={() => navigate('/student/my-installments')}
-                        >
+                        <button className={styles.installmentLink} onClick={() => navigate('/student/my-installments')}>
                           Manage Plan <FaChevronRight />
                         </button>
                       </div>
@@ -1052,7 +876,6 @@ const BuyerOrders = () => {
           </>
         )}
 
-        {/* Completed Orders Tab */}
         {tab === "completed" && (
           <>
             {completedOrders.length === 0 ? (
@@ -1064,44 +887,48 @@ const BuyerOrders = () => {
             ) : (
               completedOrders.map((order) => (
                 <div className={styles.orderCard} key={order.id}>
-                  <div className={styles.orderRow}>
-                    <img
-                      src={order.product?.image_gallery?.[0] || "/placeholder.png"}
-                      alt={order.product?.name}
-                      className={styles.orderImage}
-                    />
-                    <div className={styles.orderDetails}>
-                      <div className={styles.orderHeaderRow}>
-                        <h3 className={styles.productName}>{order.product?.name}</h3>
+                  <div className={styles.orderContent}>
+                    <div className={styles.orderImageSection}>
+                      {order.product_image && order.product_image !== "/placeholder.png" ? (
+                        <img 
+                          src={order.product_image} 
+                          alt={order.product?.name} 
+                          className={styles.orderImage} 
+                          onError={(e) => { e.target.src = "/placeholder.png"; }} 
+                        />
+                      ) : (
+                        <div className={styles.orderImagePlaceholder}>
+                          <FaImage size={32} />
+                        </div>
+                      )}
+                    </div>
+                    <div className={styles.orderInfoSection}>
+                      <div className={styles.orderHeader}>
+                        <h3 className={styles.productName}>{order.product?.name || "Product"}</h3>
                         <div className={styles.completedBadge}>
                           <FaCheckCircle size={12} />
                           <span>Completed</span>
                         </div>
                       </div>
-
                       <p className={styles.storeName}>
-                        <FaStore size={10} />
+                        <FaStore size={12} />
                         {order.store?.name || "Unknown Store"}
                       </p>
-
                       <div className={styles.orderMeta}>
                         <span>
-                          <FaClock size={10} />
-                          {new Date(order.updated_at || order.created_at).toLocaleDateString('en-KE', {
-                            day: '2-digit',
-                            month: 'short',
-                            year: 'numeric'
-                          })}
+                          <FaClock size={12} />
+                          {new Date(order.updated_at || order.created_at).toLocaleDateString('en-KE', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        </span>
+                        <span>
+                          Qty: {order.quantity || 1}
                         </span>
                       </div>
-
-                      <div className={styles.priceRow}>
+                      <div className={styles.priceBreakdown}>
                         <div className={styles.priceItem}>
                           <span className={styles.priceLabel}>Total Paid</span>
                           <span className={styles.priceValueTotal}>{formatKSH(order.total_price)}</span>
                         </div>
                       </div>
-
                       {renderRatingStars(order)}
                     </div>
                   </div>
@@ -1115,44 +942,19 @@ const BuyerOrders = () => {
       {/* OTP Modal */}
       <AnimatePresence>
         {otpOpen && (
-          <motion.div 
-            className={styles.modalOverlay}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <motion.div 
-              className={styles.modalContent}
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.9 }}
-            >
+          <motion.div className={styles.modalOverlay} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div className={styles.modalContent} initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }}>
               <div className={styles.modalHeader}>
                 <h3>Confirm Delivery</h3>
-                <button className={styles.closeBtn} onClick={() => setOtpOpen(false)}>
-                  <FaTimes />
-                </button>
+                <button className={styles.closeBtn} onClick={() => setOtpOpen(false)}><FaTimes /></button>
               </div>
               <div className={styles.modalBody}>
                 <p>Enter the 6-digit OTP to confirm delivery</p>
-                <input
-                  type="text"
-                  maxLength={6}
-                  value={otpValue}
-                  onChange={(e) => setOtpValue(e.target.value)}
-                  placeholder="000000"
-                  className={styles.otpInput}
-                />
+                <input type="text" maxLength={6} value={otpValue} onChange={(e) => setOtpValue(e.target.value)} placeholder="000000" className={styles.otpInput} />
               </div>
               <div className={styles.modalFooter}>
-                <button className={styles.modalBtnCancel} onClick={() => setOtpOpen(false)}>
-                  Cancel
-                </button>
-                <button
-                  className={styles.modalBtnConfirm}
-                  onClick={submitOtp}
-                  disabled={submittingOtp || otpValue.length !== 6}
-                >
+                <button className={styles.modalBtnCancel} onClick={() => setOtpOpen(false)}>Cancel</button>
+                <button className={styles.modalBtnConfirm} onClick={submitOtp} disabled={submittingOtp || otpValue.length !== 6}>
                   {submittingOtp ? "Confirming..." : "Confirm Delivery"}
                 </button>
               </div>
@@ -1164,36 +966,19 @@ const BuyerOrders = () => {
       {/* Payment Modal */}
       <AnimatePresence>
         {paymentModalOpen && selectedOrder && (
-          <motion.div 
-            className={styles.modalOverlay}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <motion.div 
-              className={styles.modalContent}
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.9 }}
-            >
+          <motion.div className={styles.modalOverlay} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div className={styles.modalContent} initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }}>
               <div className={styles.modalHeader}>
                 <h3>Pay Balance</h3>
-                <button className={styles.closeBtn} onClick={() => setPaymentModalOpen(false)}>
-                  <FaTimes />
-                </button>
+                <button className={styles.closeBtn} onClick={() => setPaymentModalOpen(false)}><FaTimes /></button>
               </div>
               <div className={styles.modalBody}>
                 <div className={styles.paymentAmount}>
                   <span>Amount Due:</span>
                   <strong>{formatKSH(selectedOrder.balance_due)}</strong>
                 </div>
-
                 <div className={styles.paymentMethods}>
-                  <button
-                    className={`${styles.paymentMethod} ${paymentMethod === 'wallet' ? styles.selected : ''}`}
-                    onClick={() => setPaymentMethod('wallet')}
-                    disabled={processingPayment || mpesaLoading}
-                  >
+                  <button className={`${styles.paymentMethod} ${paymentMethod === 'wallet' ? styles.selected : ''}`} onClick={() => setPaymentMethod('wallet')} disabled={processingPayment || mpesaLoading}>
                     <FaWallet size={20} />
                     <div className={styles.methodInfo}>
                       <span className={styles.methodName}>Omniflow Wallet</span>
@@ -1201,12 +986,7 @@ const BuyerOrders = () => {
                     </div>
                     {paymentMethod === 'wallet' && <div className={styles.checkIndicator}>✓</div>}
                   </button>
-
-                  <button
-                    className={`${styles.paymentMethod} ${paymentMethod === 'mpesa' ? styles.selected : ''}`}
-                    onClick={() => setPaymentMethod('mpesa')}
-                    disabled={processingPayment || mpesaLoading}
-                  >
+                  <button className={`${styles.paymentMethod} ${paymentMethod === 'mpesa' ? styles.selected : ''}`} onClick={() => setPaymentMethod('mpesa')} disabled={processingPayment || mpesaLoading}>
                     <FaMobile size={20} />
                     <div className={styles.methodInfo}>
                       <span className={styles.methodName}>M-Pesa</span>
@@ -1214,41 +994,11 @@ const BuyerOrders = () => {
                     </div>
                     {paymentMethod === 'mpesa' && <div className={styles.checkIndicator}>✓</div>}
                   </button>
-
-                  <button
-                    className={`${styles.paymentMethod} ${paymentMethod === 'paypal' ? styles.selected : ''}`}
-                    onClick={() => setPaymentMethod('paypal')}
-                    disabled={processingPayment}
-                  >
-                    <FaPaypal size={20} />
-                    <div className={styles.methodInfo}>
-                      <span className={styles.methodName}>PayPal</span>
-                      <span className={styles.methodBalance}>International payments</span>
-                    </div>
-                    {paymentMethod === 'paypal' && <div className={styles.checkIndicator}>✓</div>}
-                  </button>
                 </div>
-                
-                {paymentMethod === 'mpesa' && (
-                  <div className={styles.mpesaInfo}>
-                    <FaInfoCircle size={14} />
-                    <small>You will be prompted to enter your M-Pesa phone number after clicking "Pay Now"</small>
-                  </div>
-                )}
               </div>
               <div className={styles.modalFooter}>
-                <button 
-                  className={styles.modalBtnCancel} 
-                  onClick={() => setPaymentModalOpen(false)}
-                  disabled={processingPayment}
-                >
-                  Cancel
-                </button>
-                <button
-                  className={styles.modalBtnConfirm}
-                  onClick={processPayment}
-                  disabled={processingPayment || mpesaLoading || !paymentMethod}
-                >
+                <button className={styles.modalBtnCancel} onClick={() => setPaymentModalOpen(false)} disabled={processingPayment}>Cancel</button>
+                <button className={styles.modalBtnConfirm} onClick={processPayment} disabled={processingPayment || mpesaLoading || !paymentMethod}>
                   {processingPayment || mpesaLoading ? <FaSpinner className={styles.spinning} /> : "Pay Now"}
                 </button>
               </div>

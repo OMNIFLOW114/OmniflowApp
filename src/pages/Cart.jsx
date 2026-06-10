@@ -286,6 +286,7 @@ const Cart = memo(() => {
             price,
             discount,
             stock_quantity,
+            delivery_methods,
             image_gallery,
             image_url,
             stores!inner (

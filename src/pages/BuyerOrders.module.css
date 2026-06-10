@@ -1,4 +1,4 @@
-/* src/pages/BuyerOrders.module.css */
+/* src/pages/BuyerOrders.module.css - FULLY RESPONSIVE WITH PERFECT PROGRESS BAR */
 
 .lightMode {
   --bg-primary: #ffffff;
@@ -15,6 +15,8 @@
   --error: #EF4444;
   --warning: #F59E0B;
   --info: #3B82F6;
+  --progress-active: #10B981;
+  --progress-inactive: #e5e7eb;
 }
 
 .darkMode {
@@ -32,6 +34,8 @@
   --error: #EF4444;
   --warning: #F59E0B;
   --info: #3B82F6;
+  --progress-active: #10B981;
+  --progress-inactive: #1f1f1f;
 }
 
 .container {
@@ -65,7 +69,6 @@
   justify-content: center;
   cursor: pointer;
   color: var(--text-primary);
-  transition: all 0.2s;
 }
 
 .backBtn:hover {
@@ -93,10 +96,6 @@
   border: 1px solid var(--border-color);
 }
 
-.walletBadge svg {
-  color: var(--accent-primary);
-}
-
 .refreshBtn {
   background: none;
   border: none;
@@ -106,11 +105,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
 }
 
-.refreshBtn:hover {
-  color: var(--accent-primary);
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 /* Tabs */
@@ -132,16 +135,6 @@
   height: 3px;
 }
 
-.tabsScroll::-webkit-scrollbar-track {
-  background: var(--bg-tertiary);
-  border-radius: 10px;
-}
-
-.tabsScroll::-webkit-scrollbar-thumb {
-  background: var(--accent-primary);
-  border-radius: 10px;
-}
-
 .tabBtn {
   padding: 10px 20px;
   background: none;
@@ -150,7 +143,6 @@
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
   color: var(--text-secondary);
   white-space: nowrap;
 }
@@ -158,11 +150,6 @@
 .tabBtn.active {
   background: var(--accent-primary);
   color: white;
-}
-
-.tabBtn:hover:not(.active) {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
 }
 
 /* Orders List */
@@ -178,36 +165,50 @@
   background: var(--card-bg);
   border: 1px solid var(--border-color);
   border-radius: 20px;
-  padding: 16px;
-  transition: all 0.2s;
+  padding: 20px;
+  width: 100%;
 }
 
-.orderCard:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  border-color: var(--accent-primary);
-}
-
-.orderRow {
+.orderContent {
   display: flex;
-  gap: 16px;
+  gap: 20px;
+  width: 100%;
+}
+
+/* Product Image */
+.orderImageSection {
+  flex-shrink: 0;
+  width: 120px;
+  height: 120px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--bg-tertiary);
 }
 
 .orderImage {
-  width: 100px;
-  height: 100px;
-  border-radius: 12px;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
-  background: var(--bg-tertiary);
-  flex-shrink: 0;
+  display: block;
 }
 
-.orderDetails {
+.orderImagePlaceholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-tertiary);
+  color: var(--text-tertiary);
+}
+
+/* Order Info */
+.orderInfoSection {
   flex: 1;
   min-width: 0;
 }
 
-.orderHeaderRow {
+.orderHeader {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -238,7 +239,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-secondary);
   margin-bottom: 8px;
 }
@@ -246,68 +247,216 @@
 .orderMeta {
   display: flex;
   gap: 16px;
-  margin-bottom: 12px;
-  font-size: 11px;
+  margin-bottom: 16px;
+  font-size: 12px;
   color: var(--text-tertiary);
+  flex-wrap: wrap;
 }
 
 .orderMeta span {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 
-/* Progress Bar */
-.orderProgressHorizontal {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin: 16px 0;
-  padding: 0 8px;
+/* ===== PERFECT RESPONSIVE HORIZONTAL PROGRESS BAR ===== */
+.horizontalProgressWrapper {
+  margin: 20px 0;
+  padding: 16px 12px;
+  background: var(--bg-secondary);
+  border-radius: 20px;
 }
 
-.progressStepContainer {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  position: relative;
-  flex: 1;
+/* Desktop: Show all steps horizontally */
+@media (min-width: 768px) {
+  .horizontalProgressContainer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  
+  .horizontalProgressStep {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+  }
+  
+  .horizontalProgressContent {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+  }
+  
+  .horizontalProgressIcon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--progress-inactive);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    color: var(--text-tertiary);
+    margin-bottom: 8px;
+    transition: all 0.3s ease;
+  }
+  
+  .horizontalProgressIcon.active {
+    background: var(--progress-active);
+    color: white;
+  }
+  
+  .horizontalProgressIcon.current {
+    background: var(--progress-active);
+    color: white;
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2);
+  }
+  
+  .horizontalProgressLabel {
+    text-align: center;
+  }
+  
+  .horizontalProgressText {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    white-space: nowrap;
+  }
+  
+  .horizontalProgressText.activeText {
+    color: var(--progress-active);
+    font-weight: 600;
+  }
+  
+  .horizontalProgressLine {
+    position: absolute;
+    top: 24px;
+    left: calc(50% + 24px);
+    right: calc(50% - 70px);
+    height: 3px;
+    background: var(--progress-inactive);
+    z-index: 1;
+    width: auto;
+  }
+  
+  .horizontalProgressLine.activeLine {
+    background: var(--progress-active);
+  }
 }
 
-.progressStep {
-  width: 32px;
-  height: 32px;
-  border-radius: 16px;
-  background: var(--bg-tertiary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-  z-index: 2;
-  position: relative;
+/* Mobile: Wrap or adjust layout */
+@media (max-width: 767px) {
+  .horizontalProgressWrapper {
+    padding: 16px 8px;
+  }
+  
+  .horizontalProgressContainer {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 16px;
+  }
+  
+  .horizontalProgressStep {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 70px;
+  }
+  
+  .horizontalProgressContent {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .horizontalProgressIcon {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--progress-inactive);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    color: var(--text-tertiary);
+    margin-bottom: 6px;
+  }
+  
+  .horizontalProgressIcon.active {
+    background: var(--progress-active);
+    color: white;
+  }
+  
+  .horizontalProgressIcon.current {
+    background: var(--progress-active);
+    color: white;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+  }
+  
+  .horizontalProgressLabel {
+    text-align: center;
+  }
+  
+  .horizontalProgressText {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    white-space: nowrap;
+  }
+  
+  .horizontalProgressText.activeText {
+    color: var(--progress-active);
+    font-weight: 600;
+  }
+  
+  /* Hide lines on mobile - too cluttered */
+  .horizontalProgressLine {
+    display: none;
+  }
 }
 
-.progressStep.active {
-  background: var(--accent-primary);
-  color: white;
+/* Very small phones */
+@media (max-width: 480px) {
+  .horizontalProgressContainer {
+    gap: 8px;
+  }
+  
+  .horizontalProgressStep {
+    min-width: 60px;
+  }
+  
+  .horizontalProgressIcon {
+    width: 38px;
+    height: 38px;
+    font-size: 16px;
+  }
+  
+  .horizontalProgressText {
+    font-size: 9px;
+  }
 }
 
-.stepIcon {
-  font-size: 14px;
+.horizontalProgressStatus {
+  text-align: center;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
 }
 
-.progressLine {
-  position: absolute;
-  top: 16px;
-  left: 50%;
-  right: -50%;
-  height: 2px;
-  background: var(--bg-tertiary);
-  z-index: 1;
-}
-
-.progressLine.active {
-  background: var(--accent-primary);
+.horizontalProgressBadge {
+  display: inline-block;
+  padding: 6px 20px;
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--success);
+  border-radius: 30px;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 /* Status Messages */
@@ -315,72 +464,83 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 12px;
+  padding: 12px 16px;
   background: #EFF6FF;
   border-radius: 12px;
-  font-size: 12px;
+  font-size: 13px;
   color: #2563EB;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
+}
+
+.darkMode .statusMessageInfo {
+  background: rgba(37, 99, 235, 0.15);
 }
 
 .statusMessageSuccess {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 12px;
+  padding: 12px 16px;
   background: #ECFDF5;
   border-radius: 12px;
-  font-size: 12px;
+  font-size: 13px;
   color: #10B981;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
-/* Price Row */
-.priceRow {
+.darkMode .statusMessageSuccess {
+  background: rgba(16, 185, 129, 0.15);
+}
+
+/* Price Breakdown */
+.priceBreakdown {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 12px 0;
+  gap: 16px;
+  padding: 16px 0;
   border-top: 1px solid var(--border-color);
   border-bottom: 1px solid var(--border-color);
-  margin-bottom: 12px;
-  flex-wrap: wrap;
+  margin-bottom: 16px;
 }
 
 .priceItem {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   flex: 1;
 }
 
 .priceLabel {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .priceValuePaid {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 700;
   color: var(--success);
 }
 
 .priceValueDue {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 700;
   color: var(--warning);
 }
 
 .priceValueTotal {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 700;
   color: var(--accent-primary);
 }
 
-.priceSep {
-  color: var(--text-tertiary);
+.priceDivider {
+  width: 1px;
+  height: 40px;
+  background: var(--border-color);
 }
 
 /* Action Buttons */
@@ -394,42 +554,38 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 16px;
+  padding: 10px 20px;
   background: #EFF6FF;
   border: none;
   border-radius: 30px;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
   color: #2563EB;
 }
 
 .actionBtnConfirm:hover:not(:disabled) {
   background: #2563EB;
   color: white;
-  transform: scale(1.02);
 }
 
 .actionBtnPay {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 16px;
+  padding: 10px 20px;
   background: #ECFDF5;
   border: none;
   border-radius: 30px;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
   color: #10B981;
 }
 
 .actionBtnPay:hover:not(:disabled) {
   background: #10B981;
   color: white;
-  transform: scale(1.02);
 }
 
 .actionBtnConfirm:disabled,
@@ -442,7 +598,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 10px 16px;
+  padding: 10px 20px;
   background: var(--bg-tertiary);
   border-radius: 30px;
   font-size: 13px;
@@ -466,7 +622,7 @@
 
 /* Installment Section */
 .installmentProgress {
-  margin: 12px 0;
+  margin: 16px 0;
 }
 
 .progressTrack {
@@ -474,7 +630,7 @@
   background: var(--bg-tertiary);
   border-radius: 3px;
   overflow: hidden;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 
 .progressFill {
@@ -485,17 +641,17 @@
 }
 
 .progressText {
-  font-size: 11px;
-  color: var(--text-tertiary);
+  font-size: 12px;
+  color: var(--text-secondary);
 }
 
 .installmentStats {
   display: flex;
   gap: 16px;
-  margin: 12px 0;
-  padding: 12px;
+  margin: 16px 0;
+  padding: 16px;
   background: var(--bg-secondary);
-  border-radius: 12px;
+  border-radius: 16px;
 }
 
 .stat {
@@ -508,6 +664,7 @@
 .stat span {
   font-size: 10px;
   color: var(--text-tertiary);
+  text-transform: uppercase;
 }
 
 .stat strong {
@@ -527,12 +684,10 @@
   font-weight: 600;
   cursor: pointer;
   padding: 8px 0;
-  transition: all 0.2s;
 }
 
 .installmentLink:hover {
   gap: 10px;
-  color: var(--accent-secondary);
 }
 
 /* Rating Section */
@@ -540,36 +695,26 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-top: 12px;
-  padding-top: 12px;
+  margin-top: 16px;
+  padding-top: 16px;
   border-top: 1px solid var(--border-color);
   flex-wrap: wrap;
-}
-
-.ratingSection span {
-  font-size: 12px;
-  color: var(--text-secondary);
 }
 
 .stars {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 
 .star {
-  font-size: 16px;
+  font-size: 18px;
   color: var(--border-color);
   cursor: pointer;
-  transition: all 0.2s;
 }
 
 .star.active {
   color: #F59E0B;
-}
-
-.star:hover {
-  transform: scale(1.1);
 }
 
 .ratedText {
@@ -586,22 +731,6 @@
   border-radius: 20px;
 }
 
-.emptyState svg {
-  color: var(--text-tertiary);
-  margin-bottom: 16px;
-}
-
-.emptyState h3 {
-  font-size: 18px;
-  margin-bottom: 8px;
-  color: var(--text-primary);
-}
-
-.emptyState p {
-  color: var(--text-secondary);
-  margin-bottom: 24px;
-}
-
 .shopBtn {
   background: var(--accent-primary);
   color: white;
@@ -610,14 +739,9 @@
   border-radius: 30px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
 }
 
-.shopBtn:hover {
-  transform: scale(1.05);
-}
-
-/* Modal */
+/* Modals */
 .modalOverlay {
   position: fixed;
   top: 0;
@@ -648,13 +772,6 @@
   border-bottom: 1px solid var(--border-color);
 }
 
-.modalHeader h3 {
-  font-size: 18px;
-  font-weight: 700;
-  margin: 0;
-  color: var(--text-primary);
-}
-
 .closeBtn {
   background: none;
   border: none;
@@ -662,7 +779,6 @@
   cursor: pointer;
   color: var(--text-tertiary);
   padding: 4px;
-  transition: all 0.2s;
 }
 
 .closeBtn:hover {
@@ -687,7 +803,6 @@
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
   border: none;
 }
 
@@ -700,16 +815,6 @@
 .modalBtnConfirm {
   background: var(--accent-primary);
   color: white;
-}
-
-.modalBtnCancel:hover, .modalBtnConfirm:hover {
-  transform: scale(1.02);
-}
-
-.modalBtnConfirm:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
 }
 
 /* OTP Input */
@@ -769,18 +874,10 @@
   border: 2px solid var(--border-color);
   border-radius: 16px;
   cursor: pointer;
-  transition: all 0.2s;
-  position: relative;
-}
-
-.paymentMethod:hover {
-  border-color: var(--accent-primary);
-  transform: translateY(-2px);
 }
 
 .paymentMethod.selected {
   border-color: var(--accent-primary);
-  background: var(--accent-primary)10;
 }
 
 .methodInfo {
@@ -813,22 +910,10 @@
   font-size: 14px;
 }
 
-.mpesaInfo {
-  margin-top: 16px;
-  padding: 12px;
-  background: #EFF6FF;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #2563EB;
-  font-size: 12px;
-}
-
 /* M-Pesa Payment Modal */
 .paymentLoader {
   text-align: center;
-  padding: 20px;
+  padding: 32px;
 }
 
 .spinner {
@@ -839,23 +924,6 @@
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto 16px;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.paymentInstruction {
-  margin: 16px 0;
-  font-size: 13px;
-  color: var(--text-secondary);
-}
-
-.referenceText {
-  font-size: 11px;
-  color: var(--text-tertiary);
-  margin-top: 8px;
 }
 
 .cancelBtn {
@@ -899,121 +967,83 @@
 }
 
 /* Skeleton Loading */
-.skeletonWallet {
-  width: 100px;
-  height: 40px;
-  border-radius: 30px;
+.skeletonWallet, .skeletonTab, .skeletonImage, .skeletonTitle, .skeletonStore, .skeletonMeta, .skeletonProgress, .skeletonPrice, .skeletonActions {
   background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--border-color) 50%, var(--bg-secondary) 75%);
   background-size: 200% 100%;
   animation: loading 1.5s infinite;
 }
 
-.skeletonTab {
-  width: 100px;
-  height: 40px;
-  border-radius: 30px;
-  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--border-color) 50%, var(--bg-secondary) 75%);
-  background-size: 200% 100%;
-  animation: loading 1.5s infinite;
-}
-
-.skeletonImage {
-  width: 100px;
-  height: 100px;
-  border-radius: 12px;
-  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--border-color) 50%, var(--bg-secondary) 75%);
-  background-size: 200% 100%;
-  animation: loading 1.5s infinite;
-}
-
-.skeletonTitle {
-  width: 60%;
-  height: 20px;
-  border-radius: 8px;
-  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--border-color) 50%, var(--bg-secondary) 75%);
-  background-size: 200% 100%;
-  animation: loading 1.5s infinite;
-}
-
-.skeletonBadge {
-  width: 80px;
-  height: 24px;
-  border-radius: 20px;
-  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--border-color) 50%, var(--bg-secondary) 75%);
-  background-size: 200% 100%;
-  animation: loading 1.5s infinite;
-}
-
-.skeletonStore {
-  width: 40%;
-  height: 14px;
-  border-radius: 6px;
-  margin: 8px 0;
-  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--border-color) 50%, var(--bg-secondary) 75%);
-  background-size: 200% 100%;
-  animation: loading 1.5s infinite;
-}
-
-.skeletonMeta {
-  width: 50%;
-  height: 12px;
-  border-radius: 6px;
-  margin-bottom: 12px;
-  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--border-color) 50%, var(--bg-secondary) 75%);
-  background-size: 200% 100%;
-  animation: loading 1.5s infinite;
-}
-
-.skeletonProgress {
-  height: 40px;
-  margin: 16px 0;
-  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--border-color) 50%, var(--bg-secondary) 75%);
-  background-size: 200% 100%;
-  animation: loading 1.5s infinite;
-  border-radius: 20px;
-}
-
-.skeletonPrice {
-  height: 40px;
-  margin: 12px 0;
-  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--border-color) 50%, var(--bg-secondary) 75%);
-  background-size: 200% 100%;
-  animation: loading 1.5s infinite;
-  border-radius: 12px;
-}
-
-.skeletonActions {
-  height: 40px;
-  width: 50%;
-  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--border-color) 50%, var(--bg-secondary) 75%);
-  background-size: 200% 100%;
-  animation: loading 1.5s infinite;
-  border-radius: 30px;
-}
+.skeletonWallet { width: 100px; height: 40px; border-radius: 30px; }
+.skeletonTab { width: 100px; height: 40px; border-radius: 30px; }
+.skeletonImage { width: 120px; height: 120px; border-radius: 16px; }
+.skeletonTitle { width: 60%; height: 20px; border-radius: 8px; }
+.skeletonStore { width: 40%; height: 14px; border-radius: 6px; margin: 8px 0; }
+.skeletonMeta { width: 50%; height: 12px; border-radius: 6px; margin-bottom: 12px; }
+.skeletonProgress { height: 100px; margin: 16px 0; border-radius: 20px; }
+.skeletonPrice { height: 60px; margin: 12px 0; border-radius: 12px; }
+.skeletonActions { height: 40px; width: 50%; border-radius: 30px; }
 
 @keyframes loading {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
 
-.spinning {
-  animation: spin 1s linear infinite;
+/* Tablet Responsive */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .horizontalProgressIcon {
+    width: 44px;
+    height: 44px;
+    font-size: 18px;
+  }
+  
+  .horizontalProgressText {
+    font-size: 10px;
+  }
+  
+  .ordersList {
+    max-width: 100%;
+  }
+  
+  .priceValuePaid,
+  .priceValueDue,
+  .priceValueTotal {
+    font-size: 14px;
+  }
 }
 
-/* Responsive */
-@media (max-width: 480px) {
-  .orderRow {
+/* Desktop */
+@media (min-width: 1024px) {
+  .ordersList {
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+  
+  .horizontalProgressIcon {
+    width: 52px;
+    height: 52px;
+    font-size: 22px;
+  }
+  
+  .horizontalProgressText {
+    font-size: 12px;
+  }
+}
+
+/* Mobile specific fixes */
+@media (max-width: 767px) {
+  .orderContent {
     flex-direction: column;
     align-items: center;
     text-align: center;
   }
   
-  .orderImage {
-    width: 120px;
-    height: 120px;
+  .orderImageSection {
+    width: 140px;
+    height: 140px;
+    margin-bottom: 16px;
   }
   
-  .orderHeaderRow {
+  .orderHeader {
     justify-content: center;
   }
   
@@ -1021,17 +1051,21 @@
     justify-content: center;
   }
   
-  .priceRow {
+  .priceBreakdown {
     flex-direction: column;
     align-items: stretch;
+    gap: 12px;
   }
   
   .priceItem {
     flex-direction: row;
     justify-content: space-between;
+    padding: 8px 12px;
+    background: var(--bg-secondary);
+    border-radius: 12px;
   }
   
-  .priceSep {
+  .priceDivider {
     display: none;
   }
   
@@ -1041,7 +1075,7 @@
   
   .installmentStats {
     flex-direction: column;
-    gap: 8px;
+    gap: 12px;
   }
   
   .ratingSection {
@@ -1057,9 +1091,42 @@
   }
 }
 
-@media (min-width: 768px) {
-  .ordersList {
-    max-width: 800px;
-    margin: 0 auto;
+/* Extra small devices */
+@media (max-width: 380px) {
+  .orderImageSection {
+    width: 120px;
+    height: 120px;
+  }
+  
+  .productName {
+    font-size: 14px;
+  }
+  
+  .horizontalProgressStep {
+    min-width: 55px;
+  }
+  
+  .horizontalProgressIcon {
+    width: 34px;
+    height: 34px;
+    font-size: 14px;
+  }
+  
+  .horizontalProgressText {
+    font-size: 8px;
+  }
+  
+  .deliveryBadge span {
+    display: none;
+  }
+  
+  .deliveryBadge {
+    padding: 4px 8px;
+  }
+  
+  .actionBtnConfirm,
+  .actionBtnPay {
+    padding: 8px 16px;
+    font-size: 12px;
   }
 }

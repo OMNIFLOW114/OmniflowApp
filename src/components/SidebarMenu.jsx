@@ -14,7 +14,7 @@ import {
   FaInfoCircle,
   FaHome
 } from "react-icons/fa";
-import { motion } from "framer-motion";
+import { color, motion } from "framer-motion";
 import { useDarkMode } from "@/context/DarkModeContext";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/supabase";
@@ -58,17 +58,10 @@ const SidebarMenu = ({ onClose, onLogout }) => {
       requiresAuth: false
     },
     { 
-      icon: <FaUserCircle size={18} />, 
-      text: "Profile", 
-      link: "/profile",
-      requiresAuth: true
-    },
-    { 
       icon: <FaWallet size={18} />, 
       text: "OmniPay", 
       link: "/wallet",
       requiresAuth: true,
-      badge: "💎"
     },
     { 
       icon: <FaGraduationCap size={18} />, 
@@ -88,7 +81,6 @@ const SidebarMenu = ({ onClose, onLogout }) => {
       text: "About Us", 
       link: "/about",
       requiresAuth: false,
-      badge: "✨"
     },
     { 
       icon: <FaCogs size={18} />, 
@@ -236,8 +228,8 @@ const SidebarMenu = ({ onClose, onLogout }) => {
 
         {/* App Version */}
         <div className={styles.footer}>
-          <p className={styles.version}>OmniFlow v2.0</p>
-          <p className={styles.tagline}>Kenya's Powered E-Commerce</p>
+          <p className={styles.version}>OmniFlow 1.1.2.0</p>
+          <p className={styles.tagline}>Kenya's Hyperlocal E-Commerce</p>
         </div>
       </motion.div>
     </>

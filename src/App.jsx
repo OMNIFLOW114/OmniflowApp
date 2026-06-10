@@ -1,9 +1,10 @@
-// App.jsx - FULLY UPDATED: Secure, Production-Ready with React Router v7 Future Flags
+// App.jsx - FULLY UPDATED: Secure, Production-Ready with Network Handling
 import React from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { DarkModeProvider } from "./context/DarkModeContext";
+import { NetworkProvider, useNetwork } from "./context/NetworkContext";
 import { PayPalScriptProvider } from "@paypal/react-paypal-js";
 import { Toaster } from "react-hot-toast";
 import Modal from "react-modal";
@@ -86,6 +87,9 @@ import DashboardOverview from '@/pages/admin/DashboardOverview';
 import AdminAuth from "@/pages/admin/AdminAuth";
 import ProtectedAdminRoute from "@/pages/admin/ProtectedAdminRoute";
 
+// Network Components
+import NoInternetConnection from "@/components/NoInternetConnection";
+
 // Create a client for React Query - Optimized for production
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -108,31 +112,48 @@ function ScrollToTop() {
   return null;
 }
 
-// Protected Route - requires authentication
+// Protected Route - requires authentication with network check
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
+  const { isOnline } = useNetwork();
+  
   if (loading) return <div className="flex items-center justify-center min-h-screen text-lg">Loading...</div>;
+  
+  // Show offline page when no internet connection
+  if (!isOnline) {
+    return <NoInternetConnection />;
+  }
+  
   if (!user) return <Navigate to="/auth" replace />;
   return children;
 }
 
-// Admin Route - requires admin privileges
+// Admin Route - requires admin privileges with network check
 function AdminRoute({ children }) {
   const { user, loading } = useAuth();
+  const { isOnline } = useNetwork();
+  
   if (loading) return <div className="flex items-center justify-center min-h-screen text-lg">Loading...</div>;
+  
+  // Show offline page when no internet connection
+  if (!isOnline) {
+    return <NoInternetConnection />;
+  }
+  
   if (!user || user.email !== "omniflow718@gmail.com") return <Navigate to="/" replace />;
   return children;
 }
 
-// Main Routes Component
+// Main Routes Component with Network Monitoring
 function AppRoutes() {
   const { user: User } = useAuth();
+  const { isOnline, wasOffline, isSlowConnection } = useNetwork();
 
   return (
     <>
       <ScrollToTop />
       <Routes>
-        {/* Public Routes */}
+        {/* Public Routes - Accessible even offline (will show cached content) */}
         <Route path="/" element={<TradeStore />} />
         <Route path="/auth" element={<Auth />} />
         <Route path="/about" element={<AboutUs />} />
@@ -142,7 +163,7 @@ function AppRoutes() {
         <Route path="/flash-sales" element={<FlashSalesPage />} />
         <Route path="/checkout/:id" element={<Checkout />} />
         
-        {/* Protected User Routes */}
+        {/* Protected User Routes - Require internet */}
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
@@ -216,7 +237,7 @@ function AppRoutes() {
   );
 }
 
-// Main App Component
+// Main App Component - Wrapped with NetworkProvider
 export default function App() {
   const PAYPAL_CLIENT_ID = "AafXEhKIfb17UbunbfNiv5e_h1mtg3fpjx_7c-1EFLnTxHQsJF-a_l1q-W7exOKcfcBafNvKTjJOkrt2";
   Modal.setAppElement("#root");
@@ -224,70 +245,72 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <DarkModeProvider>
-          <PayPalScriptProvider
-            options={{
-              "client-id": PAYPAL_CLIENT_ID,
-              currency: "USD",
-              intent: "capture",
-              vault: false,
-              debug: false,
-            }}
-          >
-            <div className="bg-white dark:bg-gray-900 min-h-screen flex flex-col text-black dark:text-white transition-colors">
-              {/* Global Toast Notifications - Single Instance */}
-              <Toaster
-                position="top-right"
-                reverseOrder={false}
-                toastOptions={{
-                  duration: 4000,
-                  style: {
-                    background: "#ffffff",
-                    color: "#000000",
-                    border: "1px solid #e5e7eb",
-                    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
-                    borderRadius: "12px",
-                    padding: "12px 16px",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                  },
-                  success: {
-                    duration: 3000,
-                    iconTheme: {
-                      primary: "#10b981",
-                      secondary: "#ffffff",
-                    },
-                    style: {
-                      background: "#ecfdf5",
-                      borderColor: "#a7f3d0",
-                      color: "#065f46",
-                    },
-                  },
-                  error: {
+        <NetworkProvider>
+          <DarkModeProvider>
+            <PayPalScriptProvider
+              options={{
+                "client-id": PAYPAL_CLIENT_ID,
+                currency: "USD",
+                intent: "capture",
+                vault: false,
+                debug: false,
+              }}
+            >
+              <div className="bg-white dark:bg-gray-900 min-h-screen flex flex-col text-black dark:text-white transition-colors">
+                {/* Global Toast Notifications - Single Instance */}
+                <Toaster
+                  position="top-right"
+                  reverseOrder={false}
+                  toastOptions={{
                     duration: 4000,
-                    iconTheme: {
-                      primary: "#ef4444",
-                      secondary: "#ffffff",
-                    },
                     style: {
-                      background: "#fef2f2",
-                      borderColor: "#fecaca",
-                      color: "#991b1b",
+                      background: "#ffffff",
+                      color: "#000000",
+                      border: "1px solid #e5e7eb",
+                      boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+                      borderRadius: "12px",
+                      padding: "12px 16px",
+                      fontSize: "14px",
+                      fontWeight: "500",
                     },
-                  },
-                  loading: {
-                    style: {
-                      background: "#f3f4f6",
-                      color: "#374151",
+                    success: {
+                      duration: 3000,
+                      iconTheme: {
+                        primary: "#10b981",
+                        secondary: "#ffffff",
+                      },
+                      style: {
+                        background: "#ecfdf5",
+                        borderColor: "#a7f3d0",
+                        color: "#065f46",
+                      },
                     },
-                  },
-                }}
-              />
-              <AppRoutes />
-              <BottomNav />
-            </div>
-          </PayPalScriptProvider>
-        </DarkModeProvider>
+                    error: {
+                      duration: 4000,
+                      iconTheme: {
+                        primary: "#ef4444",
+                        secondary: "#ffffff",
+                      },
+                      style: {
+                        background: "#fef2f2",
+                        borderColor: "#fecaca",
+                        color: "#991b1b",
+                      },
+                    },
+                    loading: {
+                      style: {
+                        background: "#f3f4f6",
+                        color: "#374151",
+                      },
+                    },
+                  }}
+                />
+                <AppRoutes />
+                <BottomNav />
+              </div>
+            </PayPalScriptProvider>
+          </DarkModeProvider>
+        </NetworkProvider>
       </AuthProvider>
     </QueryClientProvider>
   );
