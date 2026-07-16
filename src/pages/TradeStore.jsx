@@ -239,6 +239,8 @@ const ProductCard = memo(({ product, onClick, onAuthRequired, buyerLocation }) =
         <img
           src={product.imageUrl}
           alt={product.name}
+          loading="lazy"
+          decoding="async"
           onError={(e) => { e.target.src = "/placeholder.jpg"; }}
         />
         {getBadge()}
@@ -475,6 +477,7 @@ const TradeStore = memo(() => {
   const scrollPositionRef = useRef(0);
   const isRefreshingRef = useRef(false);
   const initialLoadDoneRef = useRef(loadFromCache(CACHE_KEYS.INITIAL_LOAD_DONE, false));
+  const darkModeLoadedRef = useRef(false); // Track if dark mode has been loaded from DB
   const cacheDataRef = useRef({
     isInitialized: initialLoadDoneRef.current,
     lastFetchTime: 0,
@@ -701,16 +704,39 @@ const TradeStore = memo(() => {
     fetchUserData();
   }, [user]);
 
+  // ===== FIXED: Dark mode - only load once, preserve user toggle =====
   useEffect(() => {
     if (!user?.id) return;
+    if (darkModeLoadedRef.current) return; // Skip if already loaded
+    
     supabase.from("users").select("dark_mode").eq("id", user.id).single()
       .then(({ data }) => {
-        if (data) {
+        if (data !== null && data !== undefined) {
           setIsDarkMode(data.dark_mode);
           document.body.setAttribute("data-theme", data.dark_mode ? "dark" : "light");
+          darkModeLoadedRef.current = true; // Mark as loaded
         }
+      })
+      .catch((error) => {
+        console.error("Error fetching dark mode preference:", error);
       });
   }, [user]);
+
+  // Save dark mode preference when it changes
+  useEffect(() => {
+    if (!user?.id) return;
+    if (!darkModeLoadedRef.current) return; // Don't save until loaded
+    
+    document.body.setAttribute("data-theme", isDarkMode ? "dark" : "light");
+    
+    supabase
+      .from("users")
+      .update({ dark_mode: isDarkMode })
+      .eq("id", user.id)
+      .then(({ error }) => {
+        if (error) console.error("Error saving dark mode preference:", error);
+      });
+  }, [isDarkMode, user]);
 
   useEffect(() => {
     const fetchUnreadMessagesCount = async () => {
@@ -782,25 +808,20 @@ const TradeStore = memo(() => {
     return supabase.storage.from("product-images").getPublicUrl(path).data.publicUrl;
   }, []);
 
+  // ===== FIXED: fetchProducts with proper infinite scroll =====
   const fetchProducts = useCallback(async (forceRefresh = false) => {
     if (isRefreshingRef.current || isFetchingProducts) return;
-    
-    const cacheKey = `${CACHE_KEYS.PRODUCTS}_page_${page}_tab_${activeTab}`;
-    
-    if (!forceRefresh && cacheDataRef.current.productCache.has(cacheKey)) {
-      const cachedProducts = cacheDataRef.current.productCache.get(cacheKey);
-      setProducts(prev => Array.from(new Map([...prev, ...cachedProducts].map(p => [p.id, p])).values()));
-      setPage(prev => prev + 1);
-      return;
-    }
+    if (!hasMore && !forceRefresh) return;
     
     isRefreshingRef.current = true;
     setIsFetchingProducts(true);
     setIsLoadingMore(true);
-    const offset = (page - 1) * pageSize;
+    
+    const currentPage = forceRefresh ? 1 : page;
+    const offset = (currentPage - 1) * pageSize;
     
     try {
-      const { data, error } = await supabase
+      const { data, error, count } = await supabase
         .from("products")
         .select(`
           id, name, description, price, discount, stock_quantity,
@@ -809,7 +830,7 @@ const TradeStore = memo(() => {
           lipa_polepole, installment_plan,
           store_id,
           stores!inner (id, is_active, location_lat, location_lng)
-        `)
+        `, { count: 'exact' })
         .eq("visibility", "public")
         .eq("status", "active")
         .eq("stores.is_active", true)
@@ -821,16 +842,22 @@ const TradeStore = memo(() => {
       
       const validProducts = data?.filter(p => p.stores?.is_active) || [];
       const productIds = validProducts.map(p => p.id);
-      const { data: ratingsData } = await supabase.from("ratings").select("product_id, rating").in("product_id", productIds);
       
-      const ratingsMap = new Map();
-      ratingsData?.forEach(r => {
-        if (!ratingsMap.has(r.product_id)) ratingsMap.set(r.product_id, { total: 0, count: 0 });
-        const current = ratingsMap.get(r.product_id);
-        current.total += r.rating;
-        current.count += 1;
-        ratingsMap.set(r.product_id, current);
-      });
+      let ratingsMap = new Map();
+      if (productIds.length > 0) {
+        const { data: ratingsData } = await supabase
+          .from("ratings")
+          .select("product_id, rating")
+          .in("product_id", productIds);
+        
+        ratingsData?.forEach(r => {
+          if (!ratingsMap.has(r.product_id)) ratingsMap.set(r.product_id, { total: 0, count: 0 });
+          const current = ratingsMap.get(r.product_id);
+          current.total += r.rating;
+          current.count += 1;
+          ratingsMap.set(r.product_id, current);
+        });
+      }
       
       const withImagesAndRatings = validProducts.map(p => ({
         ...p,
@@ -842,22 +869,35 @@ const TradeStore = memo(() => {
         tags: Array.isArray(p.tags) ? p.tags : (p.tags ? JSON.parse(p.tags) : [])
       }));
       
-      cacheDataRef.current.productCache.set(cacheKey, withImagesAndRatings);
-      cacheDataRef.current.lastFetchTime = Date.now();
+      if (forceRefresh) {
+        setProducts(withImagesAndRatings);
+        setPage(2);
+      } else {
+        setProducts(prev => {
+          const combined = [...prev, ...withImagesAndRatings];
+          const unique = Array.from(new Map(combined.map(p => [p.id, p])).values());
+          return unique;
+        });
+        setPage(prev => prev + 1);
+      }
       
-      setProducts(prev => Array.from(new Map([...prev, ...withImagesAndRatings].map(p => [p.id, p])).values()));
+      if (count !== undefined) {
+        setHasMore(offset + withImagesAndRatings.length < count);
+      } else {
+        setHasMore(withImagesAndRatings.length === pageSize);
+      }
       
-      if (validProducts.length < pageSize) setHasMore(false);
     } catch (error) {
       console.error("Error fetching products:", error);
-      toast.error("Failed to load products");
+      toast.error("Failed to load more products");
     } finally {
       isRefreshingRef.current = false;
       setIsFetchingProducts(false);
       setIsLoadingMore(false);
     }
-  }, [page, activeTab, getImageUrl, pageSize, isFetchingProducts]);
+  }, [page, getImageUrl, pageSize, isFetchingProducts, hasMore]);
 
+  // Initial load
   useEffect(() => {
     if (products.length === 0 && !cacheDataRef.current.hasInitialFetch && !isNavigatingBack) {
       cacheDataRef.current.hasInitialFetch = true;
@@ -869,6 +909,7 @@ const TradeStore = memo(() => {
     }
   }, [products.length, fetchProducts, isNavigatingBack]);
 
+  // Filter products
   useEffect(() => {
     let result = [...products];
     if (buyerLocation && activeTab === "Near You") {
@@ -953,47 +994,11 @@ const TradeStore = memo(() => {
     isRefreshingRef.current = true;
     try {
       const toastId = toast.loading('Refreshing products...');
-      cacheDataRef.current.productCache.clear();
-      const { data, error } = await supabase
-        .from("products")
-        .select(`
-          id, name, description, price, discount, stock_quantity,
-          category, tags, image_gallery, created_at, views,
-          is_featured, is_rare_drop, is_flash_sale, is_trending,
-          lipa_polepole, installment_plan,
-          store_id,
-          stores!inner (id, is_active, location_lat, location_lng)
-        `)
-        .eq("visibility", "public")
-        .eq("status", "active")
-        .eq("stores.is_active", true)
-        .not("stores.location_lat", "is", null)
-        .order("created_at", { ascending: false })
-        .range(0, pageSize - 1);
-      if (error) throw error;
-      const validProducts = data?.filter(p => p.stores?.is_active) || [];
-      const productIds = validProducts.map(p => p.id);
-      const { data: ratingsData } = await supabase.from("ratings").select("product_id, rating").in("product_id", productIds);
-      const ratingsMap = new Map();
-      ratingsData?.forEach(r => {
-        if (!ratingsMap.has(r.product_id)) ratingsMap.set(r.product_id, { total: 0, count: 0 });
-        const current = ratingsMap.get(r.product_id);
-        current.total += r.rating;
-        current.count += 1;
-        ratingsMap.set(r.product_id, current);
-      });
-      const withImagesAndRatings = validProducts.map(p => ({
-        ...p,
-        imageUrl: getImageUrl(p.image_gallery?.[0]),
-        average_rating: ratingsMap.has(p.id) ? ratingsMap.get(p.id).total / ratingsMap.get(p.id).count : 0,
-        rating_count: ratingsMap.has(p.id) ? ratingsMap.get(p.id).count : 0,
-        store_lat: p.stores?.location_lat,
-        store_lng: p.stores?.location_lng,
-        tags: Array.isArray(p.tags) ? p.tags : (p.tags ? JSON.parse(p.tags) : [])
-      }));
-      setProducts(withImagesAndRatings);
-      setPage(2);
-      setHasMore(validProducts.length === pageSize);
+      setProducts([]);
+      setPage(1);
+      setHasMore(true);
+      cacheDataRef.current.hasInitialFetch = false;
+      await fetchProducts(true);
       toast.success('Products refreshed!', { id: toastId });
     } catch (error) {
       console.error("Error refreshing products:", error);
@@ -1001,7 +1006,7 @@ const TradeStore = memo(() => {
     } finally {
       isRefreshingRef.current = false;
     }
-  }, [getImageUrl, pageSize]);
+  }, [fetchProducts]);
 
   const handleRefreshLocation = useCallback(() => fetchUserLocation(true), [fetchUserLocation]);
   const handleMessagesClick = useCallback(() => {
@@ -1108,7 +1113,11 @@ const TradeStore = memo(() => {
         ) : (
           <InfiniteScroll
             dataLength={filtered.length}
-            next={fetchProducts}
+            next={() => {
+              if (hasMore && !isFetchingProducts) {
+                fetchProducts();
+              }
+            }}
             hasMore={hasMore && !isFetchingProducts}
             loader={
               isLoadingMore && filtered.length > 0 ? (
@@ -1123,9 +1132,10 @@ const TradeStore = memo(() => {
             }
             endMessage={filtered.length > 0 && (
               <div className="end-message">
-                <p>You've discovered all our products!</p>
+                <p> You've discovered all our products!</p>
               </div>
             )}
+            scrollThreshold={0.9}
           >
             <motion.div className="product-grid" layout>
               {filtered.length === 0 ? (

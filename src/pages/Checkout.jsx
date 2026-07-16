@@ -1,4 +1,4 @@
-// src/pages/Checkout.jsx - FULLY FIXED PRODUCTION READY VERSION
+// src/pages/Checkout.jsx - FULLY FIXED PRODUCTION READY VERSION WITH QUANTITY SELECTOR
 import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -27,7 +27,9 @@ import {
   FaShieldAlt,
   FaPercent,
   FaInfoCircle,
-  FaTimes
+  FaTimes,
+  FaPlus,
+  FaMinus
 } from "react-icons/fa";
 import styles from "./Checkout.module.css";
 
@@ -119,8 +121,6 @@ export default function Checkout() {
 
   // checkout fields
   const [deliveryMethod, setDeliveryMethod] = useState("");
-  const [deliverySpeed, setDeliverySpeed] = useState("standard");
-  const [fragile, setFragile] = useState(false);
   const [contactPhone, setContactPhone] = useState(user?.phone || "");
   const [quantity, setQuantity] = useState(1);
   const [buying, setBuying] = useState(false);
@@ -585,7 +585,7 @@ export default function Checkout() {
           if (!p) {
             const { data, error } = await supabase
               .from("products")
-              .select(`*, delivery_methods, image_gallery, discount, installment_plan, variants, variant_options, price, description, store_id, metadata`)
+              .select(`*, delivery_methods, image_gallery, discount, installment_plan, variants, variant_options, price, description, store_id, metadata, stock_quantity`)
               .eq("id", productId)
               .single();
             if (error) throw error;
@@ -635,6 +635,46 @@ export default function Checkout() {
     }
     load();
   }, [productId, location.state, user, fromCart, fromFlashSale, navigate, isFlashSale]);
+
+  // ===== QUANTITY HANDLERS =====
+  const handleQuantityChange = useCallback((productId, newQuantity) => {
+    setProducts(prevProducts => 
+      prevProducts.map(product => {
+        if (product.id === productId) {
+          // Ensure quantity doesn't exceed stock
+          const maxQuantity = product.stock_quantity || 999;
+          const safeQuantity = Math.max(1, Math.min(newQuantity, maxQuantity));
+          return { ...product, quantity: safeQuantity };
+        }
+        return product;
+      })
+    );
+  }, []);
+
+  const handleIncrement = useCallback((productId) => {
+    setProducts(prevProducts => 
+      prevProducts.map(product => {
+        if (product.id === productId) {
+          const maxQuantity = product.stock_quantity || 999;
+          const newQuantity = Math.min(product.quantity + 1, maxQuantity);
+          return { ...product, quantity: newQuantity };
+        }
+        return product;
+      })
+    );
+  }, []);
+
+  const handleDecrement = useCallback((productId) => {
+    setProducts(prevProducts => 
+      prevProducts.map(product => {
+        if (product.id === productId) {
+          const newQuantity = Math.max(product.quantity - 1, 1);
+          return { ...product, quantity: newQuantity };
+        }
+        return product;
+      })
+    );
+  }, []);
 
   // M-PESA PAYMENT FUNCTION
   const handleMpesaPayment = async () => {
@@ -926,8 +966,6 @@ export default function Checkout() {
               escrow_released: false,
               metadata: {
                 is_flash_sale: false,
-                delivery_speed: deliverySpeed,
-                fragile,
                 store_delivery_type: storeDeliverySettings?.delivery_type,
                 pickup_station: deliveryMethod === "pickup" ? pickupStation : null
               }
@@ -1004,8 +1042,6 @@ export default function Checkout() {
               is_flash_sale: isFlashSale,
               flash_sale_ends_at: isFlashSale ? flashSaleEndsAt : null,
               original_price: isFlashSale ? originalPrice : null,
-              delivery_speed: deliverySpeed,
-              fragile,
               store_delivery_type: storeDeliverySettings?.delivery_type,
               pickup_station: deliveryMethod === "pickup" ? pickupStation : null
             }
@@ -1255,6 +1291,11 @@ export default function Checkout() {
     return getDeliveryOptions(products[0]);
   }, [products]);
 
+  // Get current product for quantity display (for single product checkout)
+  const currentProduct = useMemo(() => {
+    return products.length === 1 ? products[0] : null;
+  }, [products]);
+
   if (loading) return <CheckoutSkeleton />;
   if (!products.length) return (
     <div className={`${styles.container} ${darkMode ? styles.darkMode : styles.lightMode}`}>
@@ -1380,6 +1421,39 @@ export default function Checkout() {
                     </div>
                   )}
                   
+                  {/* ===== QUANTITY SELECTOR ===== */}
+                  {!fromCart && (
+                    <div className={styles.quantitySelector}>
+                      <span className={styles.quantityLabel}>Quantity:</span>
+                      <div className={styles.quantityControls}>
+                        <button 
+                          className={styles.quantityBtn}
+                          onClick={() => handleDecrement(product.id)}
+                          disabled={product.quantity <= 1}
+                          aria-label="Decrease quantity"
+                        >
+                          <FaMinus />
+                        </button>
+                        <span className={styles.quantityDisplay}>{product.quantity}</span>
+                        <button 
+                          className={styles.quantityBtn}
+                          onClick={() => handleIncrement(product.id)}
+                          disabled={product.quantity >= (product.stock_quantity || 999)}
+                          aria-label="Increase quantity"
+                        >
+                          <FaPlus />
+                        </button>
+                      </div>
+                      <span className={styles.stockDisplay}>
+                        {product.stock_quantity > 0 ? (
+                          <span className={styles.inStockSmall}>{product.stock_quantity} available</span>
+                        ) : (
+                          <span className={styles.outOfStockSmall}>Out of stock</span>
+                        )}
+                      </span>
+                    </div>
+                  )}
+                  
                   {isFlashSale && (
                     <div className={styles.flashPriceDisplay}>
                       <div className={styles.originalPriceLine}>
@@ -1436,7 +1510,7 @@ export default function Checkout() {
             </div>
           )}
 
-          {/* Delivery Section - FIXED */}
+          {/* Delivery Section */}
           <div className={styles.card}>
             <h4>Delivery & Options</h4>
             <div className={styles.deliveryMethods}>
@@ -1589,19 +1663,6 @@ export default function Checkout() {
                     </div>
                   )}
                 </div>
-
-                <div className={styles.formGroup}>
-                  <label>Delivery speed:</label>
-                  <select value={deliverySpeed} onChange={(e) => setDeliverySpeed(e.target.value)}>
-                    <option value="standard">Standard (2-5 days)</option>
-                    <option value="express">Express (1-2 days) +{formatKSH(200)}</option>
-                  </select>
-                </div>
-
-                <label className={styles.checkboxLabel}>
-                  <input type="checkbox" checked={fragile} onChange={(e) => setFragile(e.target.checked)} />
-                  <span> Fragile item (extra handling)</span>
-                </label>
               </>
             )}
 
