@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
     <title>OmniFlow Marketplace Kenya - Founder Kirangi John Njeru & Team</title>
-    <meta name="description" content="Meet Kirangi John Njeru, Njoroge Joseph Ngugi & Adrian Robin Oluoch - The team behind Kenya's student-powered e-commerce with Lipa Mdogo Mdogo, zero commission, same-day delivery prioritizing local products, and simple legal store setup.">
-    <meta name="keywords" content="Kirangi John Njeru, Njoroge Joseph Ngugi, Adrian Robin Oluoch, OmniFlow Kenya, JKUAT student, Lipa Mdogo Mdogo, zero commission e-commerce, same-day delivery Kenya, student marketplace Nairobi">
+    <meta name="description" content="Meet Kirangi John Njeru, Isaac Njuguna, Chelsea Chepkoech and the OmniFlow team. Kenya's student-powered e-commerce with Lipa Mdogo Mdogo, zero commission, same-day delivery.">
+    <meta name="keywords" content="Kirangi John Njeru, Isaac Njuguna, Chelsea Chepkoech, OmniFlow Kenya, JKUAT student, Lipa Mdogo Mdogo, zero commission e-commerce">
     <meta name="robots" content="index, follow, max-image-preview:large">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta property="og:title" content="OmniFlow Marketplace Kenya - Student-Powered E-commerce">
-    <meta property="og:description" content="Founded by Kirangi John Njeru with team members Njoroge Joseph Ngugi & Adrian Robin Oluoch. Revolutionizing online shopping with local-first delivery and simple store setup.">
+    <meta property="og:description" content="Founded by Kirangi John Njeru with team members Isaac Njuguna & Chelsea Chepkoech. Revolutionizing online shopping in Kenya.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://omniflowapp.co.ke/about">
     <meta name="twitter:card" content="summary_large_image">
@@ -21,31 +21,43 @@
         "@type": "Organization",
         "name": "OmniFlow Marketplace Kenya",
         "url": "https://omniflowapp.co.ke",
-        "logo": "https://omniflowapp.co.ke/logo.png",
-        "description": "Student-powered e-commerce platform with Lipa Mdogo Mdogo payment system and local-first delivery",
         "founder": {
             "@type": "Person",
             "name": "Kirangi John Njeru",
-            "jobTitle": "Founder & CEO",
-            "alumniOf": "Jomo Kenyatta University of Agriculture and Technology"
+            "jobTitle": "Founder & CEO"
         },
         "employee": [
             {
                 "@type": "Person",
-                "name": "Njoroge Joseph Ngugi",
-                "jobTitle": "Tech Lead"
+                "name": "Isaac Njuguna",
+                "jobTitle": "Co-Founder & COO"
             },
             {
                 "@type": "Person",
-                "name": "Adrian Robin Oluoch",
-                "jobTitle": "Operations Manager"
+                "name": "Chelsea Chepkoech",
+                "jobTitle": "Chief Technology Officer"
+            },
+            {
+                "@type": "Person",
+                "name": "Simon Ndegwa",
+                "jobTitle": "Head of UX"
+            },
+            {
+                "@type": "Person",
+                "name": "Joseph Ngugi",
+                "jobTitle": "Chief Financial Officer"
+            },
+            {
+                "@type": "Person",
+                "name": "Esther",
+                "jobTitle": "Head of Business Intelligence"
+            },
+            {
+                "@type": "Person",
+                "name": "Shanice",
+                "jobTitle": "Head of Product Management"
             }
-        ],
-        "address": {
-            "@type": "PostalAddress",
-            "addressLocality": "Nairobi",
-            "addressCountry": "KE"
-        }
+        ]
     }
     </script>
     
@@ -64,7 +76,6 @@
             color: #1e293b;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            width: 100vw;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -108,15 +119,15 @@
         
         .team-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr));
-            gap: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
+            gap: 15px;
             margin: 30px 0;
             width: 100%;
         }
         
         .team-card {
             background: white;
-            padding: 25px 20px;
+            padding: 20px 15px;
             border-radius: 15px;
             box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
             transition: transform 0.3s ease;
@@ -128,18 +139,25 @@
         }
         
         .avatar {
-            width: 80px;
-            height: 80px;
+            width: 70px;
+            height: 70px;
             border-radius: 50%;
-            background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
             color: white;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 2rem;
+            font-size: 1.8rem;
             font-weight: bold;
-            margin: 0 auto 15px;
+            margin: 0 auto 12px;
         }
+        
+        .avatar-gold { background: linear-gradient(135deg, #FFD700, #F59E0B); }
+        .avatar-blue { background: linear-gradient(135deg, #3B82F6, #2563EB); }
+        .avatar-purple { background: linear-gradient(135deg, #8B5CF6, #7C3AED); }
+        .avatar-green { background: linear-gradient(135deg, #10B981, #059669); }
+        .avatar-orange { background: linear-gradient(135deg, #F59E0B, #D97706); }
+        .avatar-pink { background: linear-gradient(135deg, #EC4899, #DB2777); }
+        .avatar-cyan { background: linear-gradient(135deg, #06B6D4, #0891B2); }
         
         .features-list {
             text-align: left;
@@ -211,68 +229,30 @@
             font-size: 0.9rem;
         }
         
-        /* Responsive adjustments */
+        /* Responsive */
         @media (max-width: 768px) {
             .redirect-content {
                 padding: 25px 20px;
                 margin: 10px;
             }
-            
             .team-grid {
-                grid-template-columns: 1fr;
-                max-width: 400px;
-                margin-left: auto;
-                margin-right: auto;
+                grid-template-columns: 1fr 1fr;
             }
-            
             .cta-button {
                 width: 100%;
                 max-width: 300px;
             }
-            
-            .features-list {
-                padding: 20px;
-            }
         }
         
         @media (max-width: 480px) {
-            body {
-                padding: 10px;
+            .team-grid {
+                grid-template-columns: 1fr;
             }
-            
-            .redirect-content {
-                padding: 20px 15px;
-            }
-            
-            h1 {
-                font-size: 1.6rem;
-            }
-            
-            h2 {
-                font-size: 1.2rem;
-            }
-            
-            .avatar {
-                width: 70px;
-                height: 70px;
-                font-size: 1.8rem;
-            }
-            
-            .spinner {
-                width: 50px;
-                height: 50px;
-            }
-            
-            .features-list {
-                padding: 15px;
-            }
-            
-            .features-list li {
-                font-size: 0.9rem;
-            }
+            h1 { font-size: 1.6rem; }
+            h2 { font-size: 1.2rem; }
+            .avatar { width: 60px; height: 60px; font-size: 1.5rem; }
         }
         
-        /* Animation */
         .fade-in {
             opacity: 0;
             transform: translateY(20px);
@@ -303,24 +283,45 @@
         <h2 class="fade-in delay-1">Meet Our Core Team</h2>
         <div class="team-grid">
             <div class="team-card fade-in delay-1">
-                <div class="avatar">KN</div>
-                <h3>Kirangi John Njeru</h3>
+                <div class="avatar avatar-gold">KN</div>
+                <h4>Kirangi John Njeru</h4>
                 <p><em>Founder & CEO</em></p>
-                <p style="color: #2563eb; margin-top: 10px;">Vision & Strategy</p>
+            </div>
+            
+            <div class="team-card fade-in delay-1">
+                <div class="avatar avatar-blue">IN</div>
+                <h4>Isaac Njuguna</h4>
+                <p><em>Co-Founder & COO</em></p>
             </div>
             
             <div class="team-card fade-in delay-2">
-                <div class="avatar">NJ</div>
-                <h3>Njoroge Joseph Ngugi</h3>
-                <p><em>Tech Lead</em></p>
-                <p style="color: #2563eb; margin-top: 10px;">Platform Development</p>
+                <div class="avatar avatar-purple">CC</div>
+                <h4>Chelsea Chepkoech</h4>
+                <p><em>Chief Technology Officer</em></p>
+            </div>
+            
+            <div class="team-card fade-in delay-2">
+                <div class="avatar avatar-green">SN</div>
+                <h4>Simon Ndegwa</h4>
+                <p><em>Head of UX</em></p>
             </div>
             
             <div class="team-card fade-in delay-3">
-                <div class="avatar">AO</div>
-                <h3>Adrian Robin Oluoch</h3>
-                <p><em>Operations Manager</em></p>
-                <p style="color: #2563eb; margin-top: 10px;">Logistics & Customer Experience</p>
+                <div class="avatar avatar-orange">JN</div>
+                <h4>Joseph Ngugi</h4>
+                <p><em>Chief Financial Officer</em></p>
+            </div>
+            
+            <div class="team-card fade-in delay-3">
+                <div class="avatar avatar-pink">ES</div>
+                <h4>Esther</h4>
+                <p><em>Head of Business Intelligence</em></p>
+            </div>
+            
+            <div class="team-card fade-in delay-3">
+                <div class="avatar avatar-cyan">SH</div>
+                <h4>Shanice</h4>
+                <p><em>Head of Product Management</em></p>
             </div>
         </div>
         
@@ -354,29 +355,10 @@
         </div>
     </div>
     
-    <!-- Fallback JavaScript redirect -->
     <script>
         setTimeout(function() {
             window.location.href = "https://omniflowapp.co.ke/about";
         }, 3000);
-        
-        // Optional: Track redirect in analytics
-        window.addEventListener('load', function() {
-            if (typeof gtag !== 'undefined') {
-                gtag('event', 'redirect', {
-                    'event_category': 'engagement',
-                    'event_label': 'founder_page_redirect'
-                });
-            }
-            
-            // Add animation classes after load
-            const elements = document.querySelectorAll('.fade-in');
-            elements.forEach((el, index) => {
-                setTimeout(() => {
-                    el.style.animationPlayState = 'running';
-                }, index * 100);
-            });
-        });
     </script>
 </body>
 </html>

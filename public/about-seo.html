@@ -4,8 +4,62 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OmniFlow Marketplace Kenya - Founder & Team | All-Inclusive E-commerce Platform</title>
-    <meta name="description" content="Meet Kirangi John Njeru and the OmniFlow team. Comprehensive e-commerce platform for all sellers with Lipa Mdogo Mdogo, zero commission, same-day delivery, and dedicated Student Marketplace.">
+    <meta name="description" content="Meet Kirangi John Njeru, Isaac Njuguna, Chelsea Chepkoech and the OmniFlow team. Kenya's student-powered e-commerce platform with Lipa Mdogo Mdogo, zero commission, same-day delivery.">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "OmniFlow Marketplace Kenya",
+        "url": "https://omniflowapp.co.ke",
+        "description": "Student-powered e-commerce platform with Lipa Mdogo Mdogo payment system and local-first delivery",
+        "founder": {
+            "@type": "Person",
+            "name": "Kirangi John Njeru",
+            "jobTitle": "Founder & CEO"
+        },
+        "employee": [
+            {
+                "@type": "Person",
+                "name": "Isaac Njuguna",
+                "jobTitle": "Co-Founder & COO"
+            },
+            {
+                "@type": "Person",
+                "name": "Chelsea Chepkoech",
+                "jobTitle": "Chief Technology Officer"
+            },
+            {
+                "@type": "Person",
+                "name": "Simon Ndegwa",
+                "jobTitle": "Head of UX"
+            },
+            {
+                "@type": "Person",
+                "name": "Joseph Ngugi",
+                "jobTitle": "Chief Financial Officer"
+            },
+            {
+                "@type": "Person",
+                "name": "Esther",
+                "jobTitle": "Head of Business Intelligence"
+            },
+            {
+                "@type": "Person",
+                "name": "Shanice",
+                "jobTitle": "Head of Product Management"
+            }
+        ],
+        "address": {
+            "@type": "PostalAddress",
+            "addressLocality": "Nairobi",
+            "addressCountry": "KE"
+        }
+    }
+    </script>
+    
     <style>
         :root {
             --primary: #2563eb;
@@ -171,6 +225,7 @@
             margin-bottom: 20px;
         }
         
+        /* Team Section - 7 Members */
         .team-section {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
@@ -186,6 +241,7 @@
             border-radius: var(--radius);
             box-shadow: var(--shadow);
             transition: transform 0.3s ease;
+            border-top: 4px solid var(--primary);
         }
         
         .team-member:hover {
@@ -193,19 +249,38 @@
         }
         
         .team-avatar {
-            width: 140px;
-            height: 140px;
+            width: 100px;
+            height: 100px;
             border-radius: 50%;
-            background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
             display: flex;
             align-items: center;
             justify-content: center;
             color: white;
-            font-size: 3rem;
-            margin: 0 auto 20px;
+            font-size: 2.2rem;
+            margin: 0 auto 15px;
             font-weight: bold;
             border: 5px solid white;
             box-shadow: var(--shadow);
+        }
+        
+        .team-role {
+            color: var(--primary);
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        
+        .team-discipline {
+            color: var(--dark);
+            font-size: 0.85rem;
+            opacity: 0.7;
+            margin: 5px 0;
+        }
+        
+        .team-focus {
+            font-size: 0.85rem;
+            color: var(--dark);
+            margin-top: 10px;
+            line-height: 1.4;
         }
         
         .contact-info {
@@ -308,133 +383,47 @@
             width: 100%;
         }
         
-        .audience-cards {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
-            gap: 25px;
-            margin: 40px 0;
-        }
+        /* Team color variants */
+        .team-gold { border-top-color: #FFD700; }
+        .team-blue { border-top-color: #3B82F6; }
+        .team-purple { border-top-color: #8B5CF6; }
+        .team-green { border-top-color: #10B981; }
+        .team-orange { border-top-color: #F59E0B; }
+        .team-pink { border-top-color: #EC4899; }
+        .team-cyan { border-top-color: #06B6D4; }
         
-        .audience-card {
-            background: white;
-            padding: 30px;
-            border-radius: var(--radius);
-            box-shadow: var(--shadow);
-            text-align: center;
-            transition: all 0.3s ease;
-        }
+        .avatar-gold { background: linear-gradient(135deg, #FFD700, #F59E0B); }
+        .avatar-blue { background: linear-gradient(135deg, #3B82F6, #2563EB); }
+        .avatar-purple { background: linear-gradient(135deg, #8B5CF6, #7C3AED); }
+        .avatar-green { background: linear-gradient(135deg, #10B981, #059669); }
+        .avatar-orange { background: linear-gradient(135deg, #F59E0B, #D97706); }
+        .avatar-pink { background: linear-gradient(135deg, #EC4899, #DB2777); }
+        .avatar-cyan { background: linear-gradient(135deg, #06B6D4, #0891B2); }
         
-        .audience-card:hover {
-            transform: translateY(-10px);
-        }
-        
-        .audience-card.big-seller {
-            border-top: 4px solid var(--primary);
-        }
-        
-        .audience-card.small-seller {
-            border-top: 4px solid var(--success);
-        }
-        
-        .audience-card.student-section {
-            border-top: 4px solid var(--warning);
-        }
-        
-        .audience-icon {
-            font-size: 3rem;
-            margin-bottom: 20px;
-        }
-        
-        /* Responsive adjustments */
+        /* Responsive */
         @media (max-width: 768px) {
-            .header {
-                padding: 40px 15px;
-            }
-            
-            .section {
-                padding: 50px 15px;
-            }
-            
-            .founder-section {
-                padding: 40px 15px;
-            }
-            
-            .team-avatar {
-                width: 120px;
-                height: 120px;
-                font-size: 2.5rem;
-            }
-            
-            .btn {
-                width: 100%;
-                max-width: 300px;
-                margin: 10px auto;
-                display: block;
-            }
-            
-            .features-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .contact-info {
-                grid-template-columns: 1fr;
-            }
-            
-            .team-section {
-                grid-template-columns: 1fr;
-                max-width: 400px;
-                margin-left: auto;
-                margin-right: auto;
-            }
-            
-            .audience-cards {
-                grid-template-columns: 1fr;
-            }
+            .header { padding: 40px 15px; }
+            .section { padding: 50px 15px; }
+            .founder-section { padding: 40px 15px; }
+            .team-avatar { width: 80px; height: 80px; font-size: 1.8rem; }
+            .btn { width: 100%; max-width: 300px; margin: 10px auto; display: block; }
+            .features-grid { grid-template-columns: 1fr; }
+            .contact-info { grid-template-columns: 1fr; }
+            .team-section { grid-template-columns: 1fr; max-width: 400px; margin-left: auto; margin-right: auto; }
         }
         
         @media (max-width: 480px) {
-            .header {
-                padding: 30px 10px;
-            }
-            
-            .section {
-                padding: 40px 10px;
-            }
-            
-            h1 {
-                font-size: 1.8rem;
-            }
-            
-            h2 {
-                font-size: 1.1rem;
-            }
-            
-            h3 {
-                font-size: 1.3rem;
-            }
-            
-            .founder-img {
-                width: 200px;
-                height: 200px;
-            }
-            
-            .team-avatar {
-                width: 100px;
-                height: 100px;
-                font-size: 2rem;
-            }
-            
-            .tag {
-                font-size: 0.8rem;
-                padding: 6px 12px;
-            }
-            
-            .audience-card {
-                padding: 20px;
-            }
+            .header { padding: 30px 10px; }
+            .section { padding: 40px 10px; }
+            h1 { font-size: 1.8rem; }
+            h2 { font-size: 1.1rem; }
+            h3 { font-size: 1.3rem; }
+            .founder-img { width: 200px; height: 200px; }
+            .team-avatar { width: 70px; height: 70px; font-size: 1.5rem; }
+            .tag { font-size: 0.8rem; padding: 6px 12px; }
         }
         
-        /* Animation classes */
+        /* Fade animations */
         .fade-in {
             opacity: 0;
             transform: translateY(20px);
@@ -482,117 +471,116 @@
         <div class="content">
             <div class="highlight fade-in">
                 <h3><i class="fas fa-rocket"></i> The OmniFlow Story</h3>
-                <p style="font-size: 1.1rem;">Founded on October 10, 2025, OmniFlow was born from my experience as a JKUAT Economics student who recognized the need for an inclusive e-commerce platform that serves everyone. While we started with a focus on students, we've evolved into Kenya's most comprehensive marketplace platform serving sellers of all sizes - from large enterprises to individual entrepreneurs, with a dedicated Student Marketplace section.</p>
+                <p style="font-size: 1.1rem;">Founded on October 10, 2025, OmniFlow was born from my experience as a JKUAT Economics student who recognized the need for an inclusive e-commerce platform that serves everyone. We've evolved into Kenya's most comprehensive marketplace platform serving sellers of all sizes.</p>
             </div>
             
             <div class="highlight platform-highlight fade-in">
                 <h3><i class="fas fa-globe-africa"></i> Our Platform Philosophy</h3>
-                <p style="font-size: 1.1rem;">OmniFlow is designed as an <strong>all-inclusive marketplace</strong> where big sellers can scale their operations, small businesses can grow their reach, and students can learn entrepreneurship in a dedicated, supportive environment. We believe in democratizing e-commerce for all Kenyans.</p>
+                <p style="font-size: 1.1rem;">OmniFlow is designed as an <strong>all-inclusive marketplace</strong> where big sellers can scale their operations, small businesses can grow their reach, and students can learn entrepreneurship in a dedicated, supportive environment.</p>
             </div>
         </div>
     </section>
 
-    <!-- Platform Audience Section -->
+    <!-- Team Section - Updated with 7 Members -->
     <section class="section">
         <div class="content">
-            <h3 class="fade-in"><i class="fas fa-users"></i> Who Uses OmniFlow?</h3>
-            <p class="fade-in" style="margin-bottom: 20px; font-size: 1.1rem;">Our platform is built to serve the complete spectrum of Kenyan sellers and buyers:</p>
-            
-            <div class="audience-cards">
-                <div class="audience-card big-seller fade-in">
-                    <div class="audience-icon" style="color: var(--primary);">
-                        <i class="fas fa-building"></i>
-                    </div>
-                    <h4>Big Sellers & Enterprises</h4>
-                    <p>Scale your business with our advanced analytics, bulk listing tools, and corporate account features. Reach millions of customers across Kenya with our intelligent local-first algorithm.</p>
-                </div>
-                
-                <div class="audience-card small-seller fade-in">
-                    <div class="audience-icon" style="color: var(--success);">
-                        <i class="fas fa-store"></i>
-                    </div>
-                    <h4>Small Businesses & Entrepreneurs</h4>
-                    <p>Start and grow your online store with zero commission for the first 1,000 sellers. Access our Lipa Mdogo Mdogo payment system to increase your sales and customer reach.</p>
-                </div>
-                
-                <div class="audience-card student-section fade-in">
-                    <div class="audience-icon" style="color: var(--warning);">
-                        <i class="fas fa-graduation-cap"></i>
-                    </div>
-                    <h4>Student Marketplace Section</h4>
-                    <p>A dedicated space for students to buy affordable items, sell products, and learn entrepreneurship. Exclusive student discounts, campus delivery networks, and peer-to-peer trading.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Team Section -->
-    <section class="section section-alt">
-        <div class="content">
             <h3 class="fade-in"><i class="fas fa-users"></i> Meet Our Core Team</h3>
+            <p class="fade-in" style="margin-bottom: 30px; font-size: 1.1rem;">7 visionaries building Kenya's e-commerce future</p>
+            
             <div class="team-section">
-                <div class="team-member fade-in">
-                    <div class="team-avatar">KN</div>
+                <!-- Kirangi John Njeru - Founder & CEO -->
+                <div class="team-member team-gold fade-in">
+                    <div class="team-avatar avatar-gold">KN</div>
                     <h4>Kirangi John Njeru</h4>
-                    <p><strong>Founder & CEO</strong></p>
-                    <p>BSc Economics, JKUAT</p>
-                    <p style="color: var(--primary); margin-top: 10px;">Vision & Strategy</p>
+                    <p class="team-role">Founder & Chief Executive Officer (CEO)</p>
+                    <p class="team-discipline">Economics</p>
+                    <p class="team-focus">Overall vision, executive execution, and corporate strategy</p>
                 </div>
                 
-                <div class="team-member fade-in">
-                    <div class="team-avatar">NJ</div>
-                    <h4>Njoroge Joseph Ngugi</h4>
-                    <p><strong>Tech Lead</strong></p>
-                    <p>Platform Development</p>
-                    <p style="color: var(--primary); margin-top: 10px;">Innovation & Technology</p>
+                <!-- Isaac Njuguna - Co-Founder & COO -->
+                <div class="team-member team-blue fade-in">
+                    <div class="team-avatar avatar-blue">IN</div>
+                    <h4>Isaac Njuguna</h4>
+                    <p class="team-role">Co-Founder, Chief Operating Officer (COO) & Strategy Lead</p>
+                    <p class="team-discipline">Economics</p>
+                    <p class="team-focus">Market efficiency, transaction structures, pricing models, and pioneer campaign strategy</p>
                 </div>
                 
-                <div class="team-member fade-in">
-                    <div class="team-avatar">AO</div>
-                    <h4>Adrian Robin Oluoch</h4>
-                    <p><strong>Operations Manager</strong></p>
-                    <p>Customer Experience</p>
-                    <p style="color: var(--primary); margin-top: 10px;">Logistics & Operations</p>
+                <!-- Chelsea Chepkoech - CTO -->
+                <div class="team-member team-purple fade-in">
+                    <div class="team-avatar avatar-purple">CC</div>
+                    <h4>Chelsea Chepkoech</h4>
+                    <p class="team-role">Chief Technology Officer (CTO) & Lead Software Engineer</p>
+                    <p class="team-discipline">Computer Science</p>
+                    <p class="team-focus">System architecture, React Native development, Supabase backend, database triggers, and security</p>
                 </div>
                 
-                <div class="team-member fade-in">
-                    <div class="team-avatar">GD</div>
-                    <h4>Gathuku Douglas Ndegwa</h4>
-                    <p><strong>Business Development</strong></p>
-                    <p>Partnerships & Growth</p>
-                    <p style="color: var(--primary); margin-top: 10px;">Enterprise Relations</p>
+                <!-- Simon Ndegwa - Head of UX -->
+                <div class="team-member team-green fade-in">
+                    <div class="team-avatar avatar-green">SN</div>
+                    <h4>Simon Ndegwa</h4>
+                    <p class="team-role">Head of User Experience (UX) & Customer Psychology</p>
+                    <p class="team-discipline">Psychology</p>
+                    <p class="team-focus">User behavior, consumer psychology, proximity tag integration, and checkout flow optimization</p>
+                </div>
+                
+                <!-- Joseph Ngugi - CFO -->
+                <div class="team-member team-orange fade-in">
+                    <div class="team-avatar avatar-orange">JN</div>
+                    <h4>Joseph Ngugi</h4>
+                    <p class="team-role">Chief Financial Officer (CFO) & Head of Merchant Acquirers</p>
+                    <p class="team-discipline">Bachelor of Commerce</p>
+                    <p class="team-focus">Corporate finance, merchant relations, M-Pesa automated payouts, and OmniPay Wallet auditing</p>
+                </div>
+                
+                <!-- Esther - Head of BI -->
+                <div class="team-member team-pink fade-in">
+                    <div class="team-avatar avatar-pink">ES</div>
+                    <h4>Esther</h4>
+                    <p class="team-role">Head of Business Intelligence & Data Analytics</p>
+                    <p class="team-discipline">Data Analysis</p>
+                    <p class="team-focus">User acquisition data, marketplace event triggers, tracking pixels, and geographical proximity dashboards</p>
+                </div>
+                
+                <!-- Shanice - Head of Product -->
+                <div class="team-member team-cyan fade-in">
+                    <div class="team-avatar avatar-cyan">SH</div>
+                    <h4>Shanice</h4>
+                    <p class="team-role">Head of Corporate Technology Integration & Product Management</p>
+                    <p class="team-discipline">Business Information Technology (BBIT)</p>
+                    <p class="team-focus">Product roadmaps, feature-strategy alignment, tech integrations, and cross-functional sprints</p>
                 </div>
             </div>
         </div>
     </section>
 
     <!-- Features Section -->
-    <section class="section">
+    <section class="section section-alt">
         <div class="content">
             <h3 class="fade-in"><i class="fas fa-star"></i> Key Innovations</h3>
             <div class="features-grid">
                 <div class="feature-card fade-in">
                     <i class="fas fa-bolt"></i>
                     <h4>Smart Same-Day Delivery</h4>
-                    <p>Our intelligent system prioritizes products <strong>closest to the buyer</strong> in the marketplace. This ensures faster delivery, lower costs, and a better shopping experience for everyone.</p>
+                    <p>Our intelligent system prioritizes products <strong>closest to the buyer</strong> in the marketplace. This ensures faster delivery, lower costs, and a better shopping experience.</p>
                 </div>
                 
                 <div class="feature-card fade-in">
                     <i class="fas fa-store"></i>
                     <h4>Simple Legal Store Setup</h4>
-                    <p>Create your store in minutes! Just fill the required fields on our <strong>Create Store</strong> page and submit only the requested documents. We handle the legal complexities for you.</p>
+                    <p>Create your store in minutes! Just fill the required fields on our <strong>Create Store</strong> page and submit only the requested documents.</p>
                 </div>
                 
                 <div class="feature-card fade-in">
                     <i class="fas fa-wallet"></i>
                     <h4>Lipa Mdogo Mdogo</h4>
-                    <p>Our revolutionary buy-now-pay-later system designed for all Kenyans. Break down payments into manageable installments to increase purchasing power.</p>
+                    <p>Our revolutionary buy-now-pay-later system designed for all Kenyans. Break down payments into manageable installments.</p>
                 </div>
                 
                 <div class="feature-card fade-in">
                     <i class="fas fa-tags"></i>
                     <h4>Zero Commission Stores</h4>
-                    <p>Free for the first 1,000 sellers! Keep 100% of your profits while accessing our growing customer base. Competitive rates for high-volume sellers.</p>
+                    <p>Free for the first 1,000 sellers! Keep 100% of your profits while accessing our growing customer base.</p>
                 </div>
                 
                 <div class="feature-card fade-in">
@@ -604,19 +592,19 @@
                 <div class="feature-card fade-in">
                     <i class="fas fa-chart-line"></i>
                     <h4>Enterprise Analytics</h4>
-                    <p>Advanced tools for big sellers including sales analytics, customer insights, and inventory management to help scale your business effectively.</p>
+                    <p>Advanced tools for big sellers including sales analytics, customer insights, and inventory management to help scale your business.</p>
                 </div>
             </div>
 
             <div class="highlight fade-in">
                 <h4><i class="fas fa-bullseye"></i> Local-First Marketplace</h4>
-                <p style="font-size: 1.1rem;">Our algorithm ensures buyers see products available <strong>near their location first</strong>. This boosts local businesses, reduces delivery time to hours instead of days, and cuts carbon footprint by minimizing transportation distances.</p>
+                <p style="font-size: 1.1rem;">Our algorithm ensures buyers see products available <strong>near their location first</strong>. This boosts local businesses, reduces delivery time, and cuts carbon footprint.</p>
             </div>
         </div>
     </section>
 
     <!-- Contact Section -->
-    <section class="section section-alt">
+    <section class="section">
         <div class="content">
             <h3 class="fade-in"><i class="fas fa-envelope"></i> Contact Information</h3>
             <div class="contact-info">
@@ -646,7 +634,7 @@
             </div>
             
             <h3 class="fade-in"><i class="fas fa-eye"></i> Our Vision</h3>
-            <p style="font-size: 1.1rem;" class="fade-in">To become Kenya's premier all-inclusive e-commerce platform by 2027, empowering sellers of all sizes while revolutionizing how Kenyans shop and sell online, with a special commitment to nurturing the next generation of entrepreneurs through our Student Marketplace.</p>
+            <p style="font-size: 1.1rem;" class="fade-in">To become Kenya's premier all-inclusive e-commerce platform by 2027, empowering sellers of all sizes while revolutionizing how Kenyans shop and sell online.</p>
         </div>
     </section>
 
@@ -674,13 +662,11 @@
 
     <!-- Hidden SEO content -->
     <div style="display: none;">
-        <p>Kirangi John Njeru Njoroge Joseph Ngugi Adrian Robin Oluoch Gathuku Douglas Ndegwa OmniFlow CEO Founder JKUAT student Kenyan e-commerce Lipa Mdogo Mdogo zero commission stores same day delivery local delivery prioritize nearby products all sellers marketplace big sellers small businesses student marketplace Nairobi startup create store simple legal documents team members inclusive e-commerce platform</p>
+        <p>Kirangi John Njeru Isaac Njuguna Chelsea Chepkoech Simon Ndegwa Joseph Ngugi Esther Shanice OmniFlow CEO COO CTO Founder JKUAT student Kenyan e-commerce Lipa Mdogo Mdogo zero commission stores same day delivery local delivery prioritize nearby products all sellers marketplace big sellers small businesses student marketplace Nairobi startup create store simple legal documents team members inclusive e-commerce platform</p>
     </div>
 
     <script>
-        // Animation on scroll
         document.addEventListener('DOMContentLoaded', function() {
-            // Intersection Observer for fade-in animations
             const observer = new IntersectionObserver((entries) => {
                 entries.forEach(entry => {
                     if (entry.isIntersecting) {
@@ -692,42 +678,8 @@
                 rootMargin: '0px 0px -50px 0px'
             });
             
-            // Observe all elements with fade-in class
             document.querySelectorAll('.fade-in').forEach(element => {
                 observer.observe(element);
-            });
-            
-            // Add current year to footer if needed
-            const yearSpan = document.querySelector('#current-year');
-            if (yearSpan) {
-                yearSpan.textContent = new Date().getFullYear();
-            }
-            
-            // Smooth scroll for anchor links
-            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-                anchor.addEventListener('click', function (e) {
-                    e.preventDefault();
-                    const targetId = this.getAttribute('href');
-                    if (targetId === '#') return;
-                    
-                    const targetElement = document.querySelector(targetId);
-                    if (targetElement) {
-                        window.scrollTo({
-                            top: targetElement.offsetTop - 80,
-                            behavior: 'smooth'
-                        });
-                    }
-                });
-            });
-        });
-        
-        // Handle image loading error
-        window.addEventListener('load', function() {
-            const images = document.querySelectorAll('img');
-            images.forEach(img => {
-                img.onerror = function() {
-                    this.src = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80';
-                };
             });
         });
     </script>

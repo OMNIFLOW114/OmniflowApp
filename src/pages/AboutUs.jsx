@@ -28,7 +28,13 @@ import {
   FaCheckCircle,
   FaCrown,
   FaLightbulb,
-  FaRegSmile
+  FaRegSmile,
+  FaCode,
+  FaBrain,
+  FaCoins,
+  FaChartBar,
+  FaCogs,
+  FaUserTie
 } from 'react-icons/fa';
 import './AboutUs.css';
 
@@ -36,11 +42,78 @@ const AboutUs = () => {
   // SEO Data
   const seoData = {
     title: "Kirangi John Njeru - Founder & CEO of OmniFlow Marketplace Kenya",
-    description: "Meet Kirangi John Njeru, JKUAT Economics student and Founder of OmniFlow - Kenya's student-powered e-commerce marketplace. Lipa Mdogo Mdogo, zero commission stores, same-day delivery.",
-    keywords: "Kirangi John Njeru, OmniFlow CEO, JKUAT student entrepreneur, Kenyan e-commerce, Lipa Mdogo Mdogo, student marketplace Kenya",
+    description: "Meet Kirangi John Njeru, Isaac Njuguna, Chelsea Chepkoech and the OmniFlow team - Kenya's student-powered e-commerce marketplace.",
+    keywords: "Kirangi John Njeru, Isaac Njuguna, Chelsea Chepkoech, OmniFlow CEO, JKUAT, Kenyan e-commerce, Lipa Mdogo Mdogo",
     canonical: "https://omniflowapp.co.ke/about",
     image: "https://omniflowapp.co.ke/images/kirangi-john-njeru.jpg"
   };
+
+  // Updated Team Members
+  const coreTeam = [
+    {
+      name: "Kirangi John Njeru",
+      role: "Founder & Chief Executive Officer (CEO)",
+      discipline: "Economics",
+      focus: "Overall vision, executive execution, and corporate strategy",
+      initials: "KN",
+      icon: <FaUserTie />,
+      color: "#FFD700"
+    },
+    {
+      name: "Isaac Njuguna",
+      role: "Co-Founder, Chief Operating Officer (COO) & Strategy Lead",
+      discipline: "Economics",
+      focus: "Market efficiency, transaction structures, pricing models, and pioneer campaign strategy",
+      initials: "IN",
+      icon: <FaHandshake />,
+      color: "#3B82F6"
+    },
+    {
+      name: "Chelsea Chepkoech",
+      role: "Chief Technology Officer (CTO) & Lead Software Engineer",
+      discipline: "Computer Science",
+      focus: "System architecture, React Native development, Supabase backend, database triggers, and security",
+      initials: "CC",
+      icon: <FaCode />,
+      color: "#8B5CF6"
+    },
+    {
+      name: "Simon Ndegwa",
+      role: "Head of User Experience (UX) & Customer Psychology",
+      discipline: "Psychology",
+      focus: "User behavior, consumer psychology, proximity tag integration, and checkout flow optimization",
+      initials: "SN",
+      icon: <FaBrain />,
+      color: "#10B981"
+    },
+    {
+      name: "Joseph Ngugi",
+      role: "Chief Financial Officer (CFO) & Head of Merchant Acquirers",
+      discipline: "Bachelor of Commerce",
+      focus: "Corporate finance, merchant relations, M-Pesa automated payouts, and OmniPay Wallet auditing",
+      initials: "JN",
+      icon: <FaCoins />,
+      color: "#F59E0B"
+    },
+    {
+      name: "Esther",
+      role: "Head of Business Intelligence & Data Analytics",
+      discipline: "Data Analysis",
+      focus: "User acquisition data, marketplace event triggers, tracking pixels, and geographical proximity dashboards",
+      initials: "ES",
+      icon: <FaChartBar />,
+      color: "#EC4899"
+    },
+    {
+      name: "Shanice",
+      role: "Head of Corporate Technology Integration & Product Management",
+      discipline: "Business Information Technology (BBIT)",
+      focus: "Product roadmaps, feature-strategy alignment, tech integrations, and cross-functional sprints",
+      initials: "SH",
+      icon: <FaCogs />,
+      color: "#06B6D4"
+    }
+  ];
 
   // Enhanced animations
   const fadeInUp = {
@@ -52,14 +125,14 @@ const AboutUs = () => {
   const staggerContainer = {
     animate: {
       transition: {
-        staggerChildren: 0.15
+        staggerChildren: 0.12
       }
     }
   };
 
   // Viral metrics
   const viralStats = [
-    { number: '1,000', label: 'FREE Stores', sublabel: 'for pioneers', icon: <FaCrown />, color: '#FFD700' },
+    { number: '1,000+', label: 'FREE Stores', sublabel: 'for pioneers', icon: <FaCrown />, color: '#FFD700' },
     { number: '50K', label: 'Target Users', sublabel: 'by March 2026', icon: <FaUsers />, color: '#00D4AA' },
     { number: '20%', label: 'Market Share', sublabel: '$922M opportunity', icon: <FaChartLine />, color: '#6366F1' },
     { number: '0%', label: 'Commission', sublabel: 'for first sellers', icon: <FaMoneyBillWave />, color: '#10B981' }
@@ -97,14 +170,14 @@ const AboutUs = () => {
     }
   ];
 
-  // Founder story with viral appeal
+  // Founder story
   const founderStory = {
     name: 'Kirangi John Njeru',
     title: 'The Student Changing Kenyan E-Commerce',
     role: 'Founder & CEO',
     education: 'BSc Economics Student @ JKUAT',
-    achievement: 'Bootstrapping Kenya\'s fastest-growing marketplace while studying',
-    mission: 'Making millionaires out of students and small business owners',
+    achievement: 'Building Kenya\'s fastest-growing marketplace while studying',
+    mission: 'Making e-commerce accessible for every Kenyan',
     stats: [
       { value: '22', label: 'Years Old' },
       { value: 'JKUAT', label: 'Campus' },
@@ -125,16 +198,12 @@ const AboutUs = () => {
       <div style={{ display: 'none' }} itemScope itemType="https://schema.org/Person">
         <h1 itemProp="name">Kirangi John Njeru</h1>
         <p itemProp="jobTitle">Founder & CEO</p>
-        <p itemProp="description">Kirangi John Njeru is the Founder and CEO of OmniFlow Marketplace Kenya, a revolutionary e-commerce platform built specifically for Kenyan students and small businesses. As a BSc Economics student at JKUAT, he identified the need for affordable, student-friendly e-commerce solutions in Kenya.</p>
+        <p itemProp="description">Kirangi John Njeru is the Founder and CEO of OmniFlow Marketplace Kenya.</p>
         <div itemProp="alumniOf" itemScope itemType="https://schema.org/EducationalOrganization">
           <span itemProp="name">Jomo Kenyatta University of Agriculture and Technology</span>
         </div>
         <div itemProp="worksFor" itemScope itemType="https://schema.org/Organization">
           <span itemProp="name">OmniFlow Technologies</span>
-        </div>
-        <div itemProp="address" itemScope itemType="https://schema.org/PostalAddress">
-          <span itemProp="addressLocality">Nairobi</span>
-          <span itemProp="addressCountry">Kenya</span>
         </div>
         <span itemProp="email">omniflow718@gmail.com</span>
         <span itemProp="telephone">+254745456476</span>
@@ -182,7 +251,7 @@ const AboutUs = () => {
               variants={fadeInUp}
             >
               <motion.a
-                href="https://omniflowapp.co.ke/download"
+                href="/download"
                 className="btn-viral btn-download"
                 whileHover={{ 
                   scale: 1.05,
@@ -205,7 +274,6 @@ const AboutUs = () => {
               </motion.button>
             </motion.div>
 
-            {/* Viral Stats */}
             <motion.div
               className="viral-stats-grid"
               variants={staggerContainer}
@@ -237,6 +305,60 @@ const AboutUs = () => {
           </motion.div>
         </div>
       </header>
+
+      {/* Team Section - Updated with 7 Members */}
+      <section className="team-section-viral" aria-labelledby="team-heading">
+        <div className="container">
+          <motion.div
+            className="section-header-viral"
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            viewport={{ once: true }}
+          >
+            <div className="section-badge">OUR CORE TEAM</div>
+            <h2 id="team-heading">The <span className="text-gradient">Dream Team</span> Behind OmniFlow</h2>
+            <p className="team-subtitle">7 visionaries building Kenya's e-commerce future</p>
+          </motion.div>
+
+          <div className="team-grid-viral">
+            {coreTeam.map((member, index) => (
+              <motion.div
+                key={member.name}
+                className="team-card-viral"
+                initial={{ opacity: 0, y: 40 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1, duration: 0.6 }}
+                whileHover={{ 
+                  y: -10,
+                  transition: { duration: 0.3 }
+                }}
+                viewport={{ once: true }}
+              >
+                <div 
+                  className="team-avatar-viral"
+                  style={{ 
+                    background: `linear-gradient(135deg, ${member.color}, ${member.color}CC)`,
+                    boxShadow: `0 8px 24px ${member.color}40`
+                  }}
+                >
+                  {member.initials}
+                </div>
+                <h3>{member.name}</h3>
+                <p className="team-role">{member.role}</p>
+                <div className="team-discipline">
+                  <FaGraduationCap />
+                  <span>{member.discipline}</span>
+                </div>
+                <p className="team-focus">{member.focus}</p>
+                <div className="team-icon-wrapper" style={{ color: member.color }}>
+                  {member.icon}
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* The Problem & Solution */}
       <section className="story-section-viral" aria-labelledby="founder-story">
@@ -285,14 +407,11 @@ const AboutUs = () => {
               <motion.div
                 className="founder-story-card"
                 whileHover={{ scale: 1.02 }}
-                itemScope
-                itemType="https://schema.org/Person"
               >
                 <div className="founder-avatar">
                   <img 
                     src="/images/kirangi-john-njeru.jpg" 
-                    alt="Kirangi John Njeru - Founder & CEO of OmniFlow Marketplace Kenya"
-                    itemProp="image"
+                    alt="Kirangi John Njeru - Founder & CEO"
                     onError={(e) => {
                       e.target.src = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80';
                     }}
@@ -300,10 +419,10 @@ const AboutUs = () => {
                   <div className="avatar-badge">CEO</div>
                 </div>
                 <div className="founder-content">
-                  <h3 itemProp="name">{founderStory.name}</h3>
-                  <p className="founder-title" itemProp="jobTitle">{founderStory.role}</p>
-                  <p className="founder-education" itemProp="alumniOf">{founderStory.education}</p>
-                  <p className="founder-mission" itemProp="description">{founderStory.mission}</p>
+                  <h3>{founderStory.name}</h3>
+                  <p className="founder-title">{founderStory.role}</p>
+                  <p className="founder-education">{founderStory.education}</p>
+                  <p className="founder-mission">{founderStory.mission}</p>
                   
                   <div className="founder-stats">
                     {founderStory.stats.map((stat, index) => (
@@ -312,15 +431,6 @@ const AboutUs = () => {
                         <div className="stat-label">{stat.label}</div>
                       </div>
                     ))}
-                  </div>
-                  
-                  {/* Hidden SEO-rich content */}
-                  <div style={{ display: 'none' }} itemProp="address" itemScope itemType="https://schema.org/PostalAddress">
-                    <span itemProp="addressLocality">Nairobi</span>
-                    <span itemProp="addressCountry">Kenya</span>
-                  </div>
-                  <div style={{ display: 'none' }} itemProp="worksFor" itemScope itemType="https://schema.org/Organization">
-                    <span itemProp="name">OmniFlow Technologies</span>
                   </div>
                 </div>
               </motion.div>
@@ -396,11 +506,9 @@ const AboutUs = () => {
                   whileInView={{ opacity: 1, scale: 1 }}
                   transition={{ delay: index * 0.2, duration: 0.6 }}
                   viewport={{ once: true }}
-                  itemScope
-                  itemType="https://schema.org/Review"
                 >
-                  <div className="testimonial-text" itemProp="reviewBody">"{testimonial.text}"</div>
-                  <div className="testimonial-source" itemProp="author">— {testimonial.source}</div>
+                  <div className="testimonial-text">"{testimonial.text}"</div>
+                  <div className="testimonial-source">— {testimonial.source}</div>
                 </motion.div>
               ))}
             </div>
@@ -495,7 +603,7 @@ const AboutUs = () => {
             
             <div className="cta-buttons-final">
               <motion.a
-                href="https://omniflowapp.co.ke/download"
+                href="/download"
                 className="btn-viral btn-cta-primary"
                 whileHover={{ 
                   scale: 1.05,
