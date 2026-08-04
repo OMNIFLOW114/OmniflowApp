@@ -1,4 +1,4 @@
-/* src/pages/BuyerOrders.module.css - MODERNIZED VERSION */
+/* src/pages/BuyerOrders.module.css - UPDATED WITH ORDER DETAIL NAVIGATION */
 
 /* ===== THEME VARIABLES ===== */
 .lightMode {
@@ -258,13 +258,82 @@
   padding: 16px;
 }
 
-/* Order Header */
+/* ===== ORDER HEADER WITH CLICKABLE AREA ===== */
 .orderCardHeader {
   display: flex;
   gap: 14px;
   align-items: flex-start;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  border-radius: 12px;
+  padding: 4px;
+  margin: -4px;
 }
 
+.orderCardHeader:hover {
+  background: var(--bg-tertiary);
+}
+
+/* ===== VIEW DETAIL BUTTON ===== */
+.orderCardActions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.viewDetailBtn {
+  background: var(--bg-tertiary);
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--accent-primary);
+  transition: all 0.2s ease;
+}
+
+.viewDetailBtn:hover {
+  background: var(--accent-primary);
+  color: white;
+  transform: scale(1.1);
+}
+
+.viewDetailBtn svg {
+  font-size: 14px;
+}
+
+/* ===== EXPAND TOGGLE ===== */
+.expandToggle {
+  background: var(--bg-tertiary);
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+
+.expandToggle:hover {
+  background: var(--accent-primary);
+  color: white;
+}
+
+.expandToggle .rotated {
+  transform: rotate(90deg);
+  transition: transform 0.3s ease;
+}
+
+/* ===== ORDER IMAGE ===== */
 .orderImageContainer {
   flex-shrink: 0;
   width: 80px;
@@ -393,32 +462,6 @@
   font-size: 10px;
   font-weight: 600;
   white-space: nowrap;
-}
-
-.expandToggle {
-  background: var(--bg-tertiary);
-  border: none;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: var(--text-secondary);
-  transition: all 0.3s ease;
-  flex-shrink: 0;
-  margin-top: 4px;
-}
-
-.expandToggle:hover {
-  background: var(--accent-primary);
-  color: white;
-}
-
-.expandToggle .rotated {
-  transform: rotate(90deg);
-  transition: transform 0.3s ease;
 }
 
 /* ===== MODERN PROGRESS BAR ===== */
@@ -724,11 +767,31 @@
   font-size: 16px;
 }
 
-/* Action Buttons */
+/* ===== ACTION BUTTONS - UPDATED ===== */
 .actionButtonsModern {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.actionBtnViewDetail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 30px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: var(--bg-tertiary);
+  color: var(--accent-primary);
+}
+
+.actionBtnViewDetail:hover {
+  background: var(--accent-primary);
+  color: white;
 }
 
 .actionBtnConfirmModern,
@@ -1416,6 +1479,15 @@
   
   .orderCardHeader {
     gap: 12px;
+    flex-wrap: wrap;
+  }
+  
+  .orderCardActions {
+    flex-direction: row;
+    width: 100%;
+    justify-content: flex-end;
+    padding-top: 8px;
+    border-top: 1px solid var(--border-color);
   }
   
   .orderImageContainer {
@@ -1489,11 +1561,13 @@
     flex-direction: column;
   }
   
+  .actionBtnViewDetail,
   .actionBtnConfirmModern,
   .actionBtnPayModern,
   .actionBtnWhatsApp {
     justify-content: center;
     padding: 12px 20px;
+    width: 100%;
   }
   
   /* Installment stats mobile */
@@ -1540,6 +1614,13 @@
   
   .paymentMethodModern {
     padding: 12px 14px;
+  }
+  
+  /* Rating mobile */
+  .ratingSectionModern {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
   }
 }
 

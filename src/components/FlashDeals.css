@@ -1,4 +1,4 @@
-/* src/components/FlashDeals.css - MINIMIZED FOR HOMEPAGE SECTION */
+/* src/components/FlashDeals.css - FIXED IMAGE DISPLAY WITH CONTAIN */
 
 /* ========== LIGHT MODE VARIABLES ========== */
 .flash-deals-section {
@@ -9,11 +9,11 @@
   --border-color: #e2e8f0;
   --shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   --shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.08);
-  --accent-primary: #09fa2a;
+  --accent-primary: #10b981;
   --success: #10b981;
   --error: #ef4444;
   --warning: #f59e0b;
-  --flash-gradient: linear-gradient(135deg, #ef4444, #dc2626);
+  --flash-gradient: linear-gradient(135deg, #dc2626, #b91c1c);
   --skeleton-base: #e5e7eb;
   --skeleton-highlight: rgba(255, 255, 255, 0.2);
 }
@@ -180,7 +180,7 @@ html.dark .flash-deals-section {
   border-radius: 3px;
 }
 
-/* Flash Card - Minimized */
+/* ========== FIXED: Flash Card with Proper Image Display ========== */
 .flash-card {
   flex: 0 0 140px;
   background: var(--bg-card);
@@ -190,6 +190,8 @@ html.dark .flash-deals-section {
   transition: all 0.2s ease;
   border: 1px solid var(--border-color);
   position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
 .flash-card:hover {
@@ -198,27 +200,33 @@ html.dark .flash-deals-section {
   border-color: var(--accent-primary);
 }
 
-/* Image Container - Smaller */
+/* ========== FIXED: Image Container - Full Display ========== */
 .flash-image-container {
   position: relative;
   width: 100%;
   aspect-ratio: 1 / 1;
   overflow: hidden;
-  background: var(--border-color);
+  background: var(--bg-secondary);
+  flex-shrink: 0;
 }
 
+/* ========== FIXED: Image - CONTAIN to show full image without cropping ========== */
 .flash-image {
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  transition: transform 0.2s ease;
+  object-fit: contain;
+  object-position: center;
+  transition: transform 0.3s ease;
+  display: block;
+  background: var(--bg-secondary);
+  padding: 4px;
 }
 
 .flash-card:hover .flash-image {
   transform: scale(1.03);
 }
 
-/* Discount Badge - Smaller */
+/* Discount Badge - Red */
 .flash-discount-badge {
   position: absolute;
   top: 0.25rem;
@@ -230,6 +238,7 @@ html.dark .flash-deals-section {
   font-size: 0.55rem;
   font-weight: 700;
   z-index: 5;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3);
 }
 
 /* Timer - Smaller */
@@ -237,7 +246,7 @@ html.dark .flash-deals-section {
   position: absolute;
   bottom: 0.25rem;
   right: 0.25rem;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.75);
   backdrop-filter: blur(4px);
   color: white;
   padding: 0.1rem 0.35rem;
@@ -261,6 +270,7 @@ html.dark .flash-deals-section {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  flex: 1;
 }
 
 .flash-product-name {
@@ -443,6 +453,10 @@ html.dark .flash-deals-section {
   
   .flash-current-price {
     font-size: 0.7rem;
+  }
+  
+  .flash-original-price {
+    font-size: 0.5rem;
   }
   
   .flash-timer {

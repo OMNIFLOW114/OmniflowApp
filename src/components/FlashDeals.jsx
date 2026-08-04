@@ -1,4 +1,4 @@
-// src/components/FlashDeals.jsx - UPDATED WITH RETENTION & MINIMIZED SIZE
+// src/components/FlashDeals.jsx - FIXED IMAGE DISPLAY WITH LOADING ENHANCEMENTS
 import React, { useEffect, useState, useCallback, useRef, memo } from "react";
 import { supabase } from "@/supabase";
 import { useNavigate } from "react-router-dom";
@@ -286,7 +286,10 @@ const FlashDeals = memo(({ limit = 4, showViewMore = true }) => {
                   alt={product.name}
                   className="flash-image"
                   loading="lazy"
-                  onError={(e) => (e.target.src = "/placeholder.jpg")}
+                  decoding="async"
+                  onError={(e) => { 
+                    e.target.src = "/placeholder.jpg"; 
+                  }}
                 />
                 {product.discount > 0 && (
                   <span className="flash-discount-badge">-{product.discount}%</span>

@@ -1,4 +1,4 @@
-// src/pages/BuyerOrders.jsx - MODERNIZED VERSION
+// src/pages/BuyerOrders.jsx - UPDATED WITH ORDER DETAIL NAVIGATION
 import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -37,7 +37,8 @@ import {
   FaGift,
   FaShieldAlt,
   FaMedal,
-  FaWhatsapp
+  FaWhatsapp,
+  FaEye
 } from "react-icons/fa";
 import styles from "./BuyerOrders.module.css";
 
@@ -253,7 +254,7 @@ const BuyerOrders = () => {
     const storeIds = [...new Set(ordersData.map((o) => o.product?.store_id).filter(Boolean))];
     let storesData = [];
     if (storeIds.length) {
-      const { data } = await supabase.from("stores").select("id, name, location, delivery_type, owner_id").in("id", storeIds);
+      const { data } = await supabase.from("stores").select("id, name, location, delivery_type, owner_id, contact_phone").in("id", storeIds);
       if (data) storesData = data;
     }
 
@@ -284,7 +285,8 @@ const BuyerOrders = () => {
         delivery_info: deliveryInfo, 
         has_rated: !!existingRating, 
         user_rating: existingRating?.rating || null, 
-        product_image: imageUrl 
+        product_image: imageUrl,
+        store_phone: store?.contact_phone || ''
       };
     });
 
@@ -583,6 +585,11 @@ const BuyerOrders = () => {
     }
   }
 
+  // UPDATED: Navigate to order detail
+  const navigateToOrderDetail = (orderId) => {
+    navigate(`/order/${orderId}`);
+  };
+
   const toggleOrderExpand = (orderId) => {
     setExpandedOrders(prev => ({ ...prev, [orderId]: !prev[orderId] }));
   };
@@ -699,7 +706,7 @@ const BuyerOrders = () => {
                 <h3 className={styles.emptyTitle}>No Active Orders</h3>
                 <p className={styles.emptyDesc}>You don't have any active orders at the moment</p>
                 <button className={styles.shopBtnModern} onClick={() => navigate('/student/marketplace')}>
-                  <FaShopping /> Start Shopping
+                  <FaShoppingBag /> Start Shopping
                 </button>
               </motion.div>
             ) : (
@@ -720,8 +727,12 @@ const BuyerOrders = () => {
                     whileHover={{ y: -2 }}
                   >
                     <div className={styles.orderCardInner}>
-                      {/* Order Header */}
-                      <div className={styles.orderCardHeader}>
+                      {/* Order Header - Clickable to view details */}
+                      <div 
+                        className={styles.orderCardHeader}
+                        onClick={() => navigateToOrderDetail(order.id)}
+                        style={{ cursor: 'pointer' }}
+                      >
                         <div className={styles.orderImageContainer}>
                           {order.product_image && order.product_image !== "/placeholder.png" ? (
                             <img 
@@ -758,12 +769,27 @@ const BuyerOrders = () => {
                             </span>
                           </div>
                         </div>
-                        <button 
-                          className={styles.expandToggle}
-                          onClick={() => toggleOrderExpand(order.id)}
-                        >
-                          <FaChevronRight className={isExpanded ? styles.rotated : ''} />
-                        </button>
+                        <div className={styles.orderCardActions}>
+                          <button 
+                            className={styles.viewDetailBtn}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigateToOrderDetail(order.id);
+                            }}
+                            title="View Order Details"
+                          >
+                            <FaEye />
+                          </button>
+                          <button 
+                            className={styles.expandToggle}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleOrderExpand(order.id);
+                            }}
+                          >
+                            <FaChevronRight className={isExpanded ? styles.rotated : ''} />
+                          </button>
+                        </div>
                       </div>
 
                       {/* Progress Bar */}
@@ -846,6 +872,12 @@ const BuyerOrders = () => {
 
                             {/* Action Buttons */}
                             <div className={styles.actionButtonsModern}>
+                              <button 
+                                className={styles.actionBtnViewDetail}
+                                onClick={() => navigateToOrderDetail(order.id)}
+                              >
+                                <FaEye /> View Full Details
+                              </button>
                               {canConfirmDelivery && (
                                 <button className={styles.actionBtnConfirmModern} onClick={() => openOtpModal(order)} disabled={processingAction}>
                                   <FaKey /> Confirm Delivery
@@ -859,8 +891,12 @@ const BuyerOrders = () => {
                               <button 
                                 className={styles.actionBtnWhatsApp}
                                 onClick={() => {
-                                  const phone = order.store?.phone || '';
-                                  window.open(`https://wa.me/254${phone.replace(/^0+/, '')}`, '_blank');
+                                  const phone = order.store_phone || '';
+                                  if (phone) {
+                                    window.open(`https://wa.me/254${phone.replace(/^0+/, '')}`, '_blank');
+                                  } else {
+                                    toast.error("Store phone number not available");
+                                  }
                                 }}
                               >
                                 <FaWhatsapp /> Contact Seller
@@ -982,7 +1018,11 @@ const BuyerOrders = () => {
                   transition={{ delay: index * 0.05 }}
                 >
                   <div className={styles.orderCardInner}>
-                    <div className={styles.orderCardHeader}>
+                    <div 
+                      className={styles.orderCardHeader}
+                      onClick={() => navigateToOrderDetail(order.id)}
+                      style={{ cursor: 'pointer' }}
+                    >
                       <div className={styles.orderImageContainer}>
                         {order.product_image && order.product_image !== "/placeholder.png" ? (
                           <img 
@@ -1022,6 +1062,16 @@ const BuyerOrders = () => {
                         </div>
                         {renderRatingStars(order)}
                       </div>
+                      <button 
+                        className={styles.viewDetailBtn}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigateToOrderDetail(order.id);
+                        }}
+                        title="View Order Details"
+                      >
+                        <FaEye />
+                      </button>
                     </div>
                   </div>
                 </motion.div>

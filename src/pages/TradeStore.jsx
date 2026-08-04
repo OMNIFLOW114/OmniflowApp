@@ -1,3 +1,4 @@
+// src/pages/TradeStore.jsx - FULLY UPDATED WITH FIXES
 import React, { useEffect, useState, useCallback, useRef, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -204,7 +205,7 @@ const getDeliveryColor = (distance) => {
   return "#ef4444";
 };
 
-// ========== PRODUCT CARD - NO ICONS ON IMAGE ==========
+// ========== PRODUCT CARD - FIXED IMAGE DISPLAY ==========
 const ProductCard = memo(({ product, onClick, onAuthRequired, buyerLocation }) => {
   const distance = buyerLocation?.lat && product.store_lat
     ? calculateDistance(buyerLocation.lat, buyerLocation.lng, product.store_lat, product.store_lng)
@@ -213,6 +214,7 @@ const ProductCard = memo(({ product, onClick, onAuthRequired, buyerLocation }) =
   const deliveryTime = getDeliveryTime(distance);
   const deliveryColor = getDeliveryColor(distance);
 
+  // FIXED: Flash badge in RED
   const getBadge = () => {
     if (product.is_flash_sale) return <span className="badge flash"><FaBolt /> Flash</span>;
     if (product.is_trending) return <span className="badge trending"><FaFire /> Trending</span>;
@@ -235,6 +237,7 @@ const ProductCard = memo(({ product, onClick, onAuthRequired, buyerLocation }) =
       whileHover={{ y: -2 }}
       transition={{ type: "spring", stiffness: 300 }}
     >
+      {/* FIXED: Image wrapper with proper display */}
       <div className="product-img-wrapper">
         <img
           src={product.imageUrl}
@@ -477,7 +480,7 @@ const TradeStore = memo(() => {
   const scrollPositionRef = useRef(0);
   const isRefreshingRef = useRef(false);
   const initialLoadDoneRef = useRef(loadFromCache(CACHE_KEYS.INITIAL_LOAD_DONE, false));
-  const darkModeLoadedRef = useRef(false); // Track if dark mode has been loaded from DB
+  const darkModeLoadedRef = useRef(false);
   const cacheDataRef = useRef({
     isInitialized: initialLoadDoneRef.current,
     lastFetchTime: 0,
@@ -704,17 +707,17 @@ const TradeStore = memo(() => {
     fetchUserData();
   }, [user]);
 
-  // ===== FIXED: Dark mode - only load once, preserve user toggle =====
+  // ===== Dark mode - only load once, preserve user toggle =====
   useEffect(() => {
     if (!user?.id) return;
-    if (darkModeLoadedRef.current) return; // Skip if already loaded
+    if (darkModeLoadedRef.current) return;
     
     supabase.from("users").select("dark_mode").eq("id", user.id).single()
       .then(({ data }) => {
         if (data !== null && data !== undefined) {
           setIsDarkMode(data.dark_mode);
           document.body.setAttribute("data-theme", data.dark_mode ? "dark" : "light");
-          darkModeLoadedRef.current = true; // Mark as loaded
+          darkModeLoadedRef.current = true;
         }
       })
       .catch((error) => {
@@ -725,7 +728,7 @@ const TradeStore = memo(() => {
   // Save dark mode preference when it changes
   useEffect(() => {
     if (!user?.id) return;
-    if (!darkModeLoadedRef.current) return; // Don't save until loaded
+    if (!darkModeLoadedRef.current) return;
     
     document.body.setAttribute("data-theme", isDarkMode ? "dark" : "light");
     
@@ -808,7 +811,7 @@ const TradeStore = memo(() => {
     return supabase.storage.from("product-images").getPublicUrl(path).data.publicUrl;
   }, []);
 
-  // ===== FIXED: fetchProducts with proper infinite scroll =====
+  // ===== fetchProducts with proper infinite scroll =====
   const fetchProducts = useCallback(async (forceRefresh = false) => {
     if (isRefreshingRef.current || isFetchingProducts) return;
     if (!hasMore && !forceRefresh) return;
