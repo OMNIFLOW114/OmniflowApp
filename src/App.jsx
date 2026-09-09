@@ -1,5 +1,5 @@
 // App.jsx - FULLY UPDATED: Secure, Production-Ready with Network Handling
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider, useAuth } from "./context/AuthContext";
@@ -86,7 +86,7 @@ import PromotionsOffers from '@/pages/admin/PromotionsOffers';
 import DatabaseManagement from '@/pages/admin/DatabaseManagement';
 import DashboardOverview from '@/pages/admin/DashboardOverview';
 import AdminAuth from "@/pages/admin/AdminAuth";
-import ProtectedAdminRoute from "@/pages/admin/ProtectedAdminRoute";
+import { supabase } from "@/supabase";
 
 // Network Components
 import NoInternetConnection from "@/components/NoInternetConnection";
@@ -129,19 +129,89 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
-// Admin Route - requires admin privileges with network check
+// ✅ FIXED: Admin Route - checks if user is in admin_users table
 function AdminRoute({ children }) {
   const { user, loading } = useAuth();
   const { isOnline } = useNetwork();
-  
-  if (loading) return <div className="flex items-center justify-center min-h-screen text-lg">Loading...</div>;
-  
+  const [isAdmin, setIsAdmin] = useState(null);
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    const checkAdmin = async () => {
+      if (!user) {
+        setIsAdmin(false);
+        setChecking(false);
+        return;
+      }
+
+      try {
+        console.log("🔍 AdminRoute checking user:", user.id, user.email);
+        
+        // Check if user is in admin_users table
+        let { data: adminData, error } = await supabase
+          .from("admin_users")
+          .select("id, role, is_active")
+          .eq("user_id", user.id)
+          .eq("is_active", true)
+          .maybeSingle();
+
+        // If not found by user_id, try by email
+        if (!adminData && !error) {
+          console.log("🔍 Not found by user_id, trying by email:", user.email);
+          const { data: adminByEmail } = await supabase
+            .from("admin_users")
+            .select("id, role, is_active")
+            .eq("email", user.email)
+            .eq("is_active", true)
+            .maybeSingle();
+          
+          if (adminByEmail) {
+            adminData = adminByEmail;
+            // Update user_id if null
+            if (!adminByEmail.user_id) {
+              console.log("🔄 Updating user_id for admin:", adminByEmail.id);
+              await supabase
+                .from("admin_users")
+                .update({ user_id: user.id })
+                .eq("id", adminByEmail.id);
+            }
+          }
+        }
+
+        if (adminData) {
+          console.log("✅ AdminRoute: User is admin:", adminData.role);
+          setIsAdmin(true);
+        } else {
+          console.log("❌ AdminRoute: User is NOT admin");
+          setIsAdmin(false);
+        }
+      } catch (err) {
+        console.error("❌ Admin check error:", err);
+        setIsAdmin(false);
+      } finally {
+        setChecking(false);
+      }
+    };
+
+    checkAdmin();
+  }, [user]);
+
+  // Show loading while checking
+  if (loading || checking) {
+    return <div className="flex items-center justify-center min-h-screen text-lg">Checking admin access...</div>;
+  }
+
   // Show offline page when no internet connection
   if (!isOnline) {
     return <NoInternetConnection />;
   }
-  
-  if (!user || user.email !== "omniflow718@gmail.com") return <Navigate to="/" replace />;
+
+  // Redirect if not admin
+  if (!user || !isAdmin) {
+    console.log("🚫 AdminRoute: Redirecting to home - not admin");
+    return <Navigate to="/" replace />;
+  }
+
   return children;
 }
 
@@ -208,7 +278,7 @@ function AppRoutes() {
         <Route path="/student/notifications" element={<ProtectedRoute><StudentNotificationsPage /></ProtectedRoute>} />
         <Route path="/student/report-product/:id" element={<ProtectedRoute><ReportProductPage /></ProtectedRoute>} />
 
-        {/* Admin Routes - Protected by AdminRoute */}
+        {/* Admin Routes - Protected by AdminRoute (FIXED) */}
         <Route path="/admin" element={<AdminAuth />} />
         <Route path="/admin-dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
         <Route path="/admin/users" element={<AdminRoute><UserManagement /></AdminRoute>} />

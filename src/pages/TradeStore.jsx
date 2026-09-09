@@ -215,13 +215,18 @@ const ProductCard = memo(({ product, onClick, onAuthRequired, buyerLocation }) =
   const deliveryColor = getDeliveryColor(distance);
 
   // FIXED: Flash badge in RED
-  const getBadge = () => {
-    if (product.is_flash_sale) return <span className="badge flash"><FaBolt /> Flash</span>;
-    if (product.is_trending) return <span className="badge trending"><FaFire /> Trending</span>;
-    if (product.is_featured) return <span className="badge featured">Featured</span>;
-    if (product.lipa_polepole) return <span className="badge installment"><FaMoneyBillWave /> Lipa</span>;
-    return null;
-  };
+const getBadge = () => {
+  // Check if flash sale is still active (not expired)
+  const isFlashActive = product.is_flash_sale && 
+    product.flash_sale_ends_at && 
+    new Date(product.flash_sale_ends_at) > new Date();
+  
+  if (isFlashActive) return <span className="badge flash"><FaBolt /> Flash</span>;
+  if (product.is_trending) return <span className="badge trending"><FaFire /> Trending</span>;
+  if (product.is_featured) return <span className="badge featured">Featured</span>;
+  if (product.lipa_polepole) return <span className="badge installment"><FaMoneyBillWave /> Lipa</span>;
+  return null;
+};
 
   const hasDiscount = parseFloat(product.discount || 0) > 0;
   const discountedPrice = hasDiscount
@@ -830,7 +835,7 @@ const TradeStore = memo(() => {
           id, name, description, price, discount, stock_quantity,
           category, tags, image_gallery, created_at, views,
           is_featured, is_rare_drop, is_flash_sale, is_trending,
-          lipa_polepole, installment_plan,
+          lipa_polepole,flash_sale_ends_at, installment_plan,
           store_id,
           stores!inner (id, is_active, location_lat, location_lng)
         `, { count: 'exact' })

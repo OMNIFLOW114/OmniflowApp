@@ -1,4 +1,4 @@
-// src/pages/admin/ProductModeration.jsx
+// src/pages/admin/ProductModeration.jsx - FULLY UPDATED
 import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
@@ -15,9 +15,9 @@ import {
   FiShoppingCart, FiPackage, FiCreditCard, FiDatabase,
   FiClipboard, FiUserPlus, FiUsers, FiFileText,
   FiPlus, FiRefreshCw, FiZap, FiTrendingUp, FiBox,
-  FiEye
+  FiEye, FiCheck, FiX, FiSend, FiInfo
 } from "react-icons/fi";
-import { FaCrown, FaStore, FaBolt, FaShieldAlt, FaFire } from "react-icons/fa";
+import { FaCrown, FaStore, FaBolt, FaShieldAlt, FaFire, FaTimes } from "react-icons/fa";
 import { toast } from "react-hot-toast";
 import "./ProductModeration.css";
 
@@ -28,8 +28,67 @@ const TABS = [
   { key: "rejected", label: "Rejected", icon: <FiXCircle />, color: "#EF4444" },
   { key: "flagged", label: "Flagged", icon: <FiFlag />, color: "#EF4444" },
   { key: "promoted", label: "Promoted", icon: <FiAward />, color: "#F59E0B" },
-  { key: "flashsales", label: "Flash Sales", icon: <FaBolt />, color: "#8B5CF6" }
+  { key: "flashsales", label: "Flash Sales", icon: <FaBolt />, color: "#8B5CF6" },
+  { key: "flash_requests", label: "Flash Requests", icon: <FiSend />, color: "#EC4899" }
 ];
+
+// ===== SKELETON LOADER COMPONENT =====
+const ProductModerationSkeleton = () => {
+  const { darkMode } = useDarkMode();
+  
+  return (
+    <div className={`product-modern-root ${darkMode ? "dark" : ""}`}>
+      <div className="skeleton-layout">
+        {/* Sidebar Skeleton */}
+        <div className="skeleton-sidebar">
+          <div className="skeleton-sidebar-header">
+            <div className="skeleton-circle"></div>
+            <div className="skeleton-line" style={{ width: 100 }}></div>
+          </div>
+          {[1,2,3,4,5,6,7,8].map(i => (
+            <div key={i} className="skeleton-nav-item"></div>
+          ))}
+        </div>
+        
+        {/* Main Content Skeleton */}
+        <div className="skeleton-main">
+          <div className="skeleton-topbar">
+            <div className="skeleton-line" style={{ width: 200, height: 24 }}></div>
+            <div className="skeleton-line" style={{ width: 300, height: 36, borderRadius: 40 }}></div>
+          </div>
+          
+          <div className="skeleton-content">
+            <div className="skeleton-stats">
+              {[1,2,3,4].map(i => (
+                <div key={i} className="skeleton-stat"></div>
+              ))}
+            </div>
+            
+            <div className="skeleton-tabs">
+              {[1,2,3,4,5,6,7].map(i => (
+                <div key={i} className="skeleton-tab"></div>
+              ))}
+            </div>
+            
+            <div className="skeleton-grid">
+              {[1,2,3,4,5,6].map(i => (
+                <div key={i} className="skeleton-card">
+                  <div className="skeleton-image"></div>
+                  <div className="skeleton-body">
+                    <div className="skeleton-line" style={{ width: '80%' }}></div>
+                    <div className="skeleton-line" style={{ width: '50%' }}></div>
+                    <div className="skeleton-line" style={{ width: '60%' }}></div>
+                    <div className="skeleton-line" style={{ width: '40%' }}></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default function ProductModeration() {
   const { user } = useAuth();
@@ -46,6 +105,7 @@ export default function ProductModeration() {
   const [promotionsList, setPromotionsList] = useState([]);
   const [promotedIds, setPromotedIds] = useState([]);
   const [flashSales, setFlashSales] = useState([]);
+  const [flashRequests, setFlashRequests] = useState([]);
   const [activeTab, setActiveTab] = useState("all");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
@@ -55,6 +115,22 @@ export default function ProductModeration() {
   const [lastRefresh, setLastRefresh] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+
+  // Multi-select flash sale state
+  const [selectedProducts, setSelectedProducts] = useState([]);
+  const [selectAll, setSelectAll] = useState(false);
+  const [showBulkFlashModal, setShowBulkFlashModal] = useState(false);
+  const [bulkFlashData, setBulkFlashData] = useState({
+    discount_percentage: 10,
+    duration_hours: 24,
+    start_date: "",
+    end_date: ""
+  });
+  const [processingBulkFlash, setProcessingBulkFlash] = useState(false);
+
+  // Flash request reject state
+  const [rejectReason, setRejectReason] = useState("");
+  const [showRejectReason, setShowRejectReason] = useState(null);
 
   const PRODUCTS_PER_PAGE = 12;
 
@@ -119,7 +195,6 @@ export default function ProductModeration() {
     } catch { return "/placeholder.jpg"; }
   };
 
-  // FIXED: Format price with proper thousands separator
   const formatPrice = (price) => {
     const num = Number(price || 0);
     const rounded = Math.round(num);
@@ -248,7 +323,8 @@ export default function ProductModeration() {
           ...p,
           imageUrl: await getImageUrl(p.image_gallery?.[0] || p.image_url),
           flash_price: p.price * (1 - (p.discount || 0) / 100),
-          discount_percentage: p.discount || 0
+          discount_percentage: p.discount || 0,
+          is_expired: new Date(p.flash_sale_ends_at) < new Date()
         }))
       );
       
@@ -256,6 +332,70 @@ export default function ProductModeration() {
     } catch (err) {
       console.error(err);
       toast.error("Failed to load flash sales");
+    }
+  };
+
+  // Fetch flash sale requests from sellers
+  const fetchFlashRequests = async () => {
+    try {
+      // First, check if the table exists
+      const { data: tableCheck, error: tableError } = await supabase
+        .from('flash_sale_requests')
+        .select('id')
+        .limit(1);
+      
+      // If table doesn't exist, handle gracefully
+      if (tableError && tableError.message?.includes('does not exist')) {
+        console.warn('flash_sale_requests table does not exist yet');
+        setFlashRequests([]);
+        return;
+      }
+      
+      const { data, error } = await supabase
+        .from('flash_sale_requests')
+        .select(`
+          *,
+          products:product_id (
+            id, 
+            name, 
+            price, 
+            image_gallery, 
+            store_id,
+            owner_id
+          ),
+          stores:store_id (
+            id, 
+            name, 
+            owner_id
+          )
+        `)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      // Process the data
+      const requestsWithImages = await Promise.all(
+        (data || []).map(async (req) => {
+          let imageUrl = "/placeholder.jpg";
+          if (req.products?.image_gallery?.[0]) {
+            imageUrl = await getImageUrl(req.products.image_gallery[0]);
+          }
+          return {
+            ...req,
+            product_image: imageUrl,
+            product: req.products || null,
+            store: req.stores || null
+          };
+        })
+      );
+      
+      setFlashRequests(requestsWithImages);
+    } catch (err) {
+      console.error('Error fetching flash requests:', err);
+      if (!err.message?.includes('does not exist')) {
+        toast.error('Failed to load flash requests');
+      }
+      setFlashRequests([]);
     }
   };
 
@@ -278,7 +418,7 @@ export default function ProductModeration() {
     setLoading(true);
     try {
       await expireOldFlashSales();
-      await Promise.all([fetchProducts(), fetchPromotions(), fetchFlashSales()]);
+      await Promise.all([fetchProducts(), fetchPromotions(), fetchFlashSales(), fetchFlashRequests()]);
       setLastRefresh(new Date());
       toast.success("Data refreshed successfully");
     } catch (err) {
@@ -289,6 +429,215 @@ export default function ProductModeration() {
     }
   }, []);
 
+  // Bulk Flash Sale Functions
+  const toggleProductSelection = (productId) => {
+    setSelectedProducts(prev => 
+      prev.includes(productId) 
+        ? prev.filter(id => id !== productId) 
+        : [...prev, productId]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectAll) {
+      setSelectedProducts([]);
+    } else {
+      const allIds = paginatedProducts.map(p => p.id);
+      setSelectedProducts(allIds);
+    }
+    setSelectAll(!selectAll);
+  };
+
+  const openBulkFlashModal = () => {
+    if (selectedProducts.length === 0) {
+      toast.error("Please select at least one product");
+      return;
+    }
+    const now = new Date();
+    const endDate = new Date(now);
+    endDate.setHours(endDate.getHours() + 24);
+    
+    setBulkFlashData({
+      discount_percentage: 10,
+      duration_hours: 24,
+      start_date: toLocalInput(now.toISOString()),
+      end_date: toLocalInput(endDate.toISOString())
+    });
+    setShowBulkFlashModal(true);
+  };
+
+  const handleBulkFlashSubmit = async () => {
+    const { discount_percentage, start_date, end_date } = bulkFlashData;
+    
+    if (!discount_percentage || discount_percentage < 1 || discount_percentage > 90) {
+      toast.error("Discount must be between 1% and 90%");
+      return;
+    }
+    
+    if (!start_date || !end_date) {
+      toast.error("Please set start and end dates");
+      return;
+    }
+    
+    if (new Date(start_date) >= new Date(end_date)) {
+      toast.error("End date must be after start date");
+      return;
+    }
+    
+    setProcessingBulkFlash(true);
+    const loadingToast = toast.loading(`Processing ${selectedProducts.length} products...`);
+    
+    try {
+      let successCount = 0;
+      let failCount = 0;
+      
+      for (const productId of selectedProducts) {
+        const product = products.find(p => p.id === productId);
+        if (!product) continue;
+        
+        const originalPrice = product.price;
+        const flashPrice = originalPrice * (1 - discount_percentage / 100);
+        const calcDiscount = Math.round(((originalPrice - flashPrice) / originalPrice) * 100);
+        
+        const { error } = await supabase
+          .from("products")
+          .update({
+            is_flash_sale: true,
+            discount: calcDiscount,
+            flash_sale_ends_at: fromLocalToISO(end_date),
+            flash_sale_starts_at: fromLocalToISO(start_date),
+            discount_expiry: fromLocalToISO(end_date)
+          })
+          .eq("id", productId);
+        
+        if (error) {
+          failCount++;
+          console.error(`Failed to update product ${productId}:`, error);
+        } else {
+          successCount++;
+        }
+      }
+      
+      toast.dismiss(loadingToast);
+      
+      if (successCount > 0) {
+        toast.success(`✅ ${successCount} product(s) added to flash sale${failCount > 0 ? `, ${failCount} failed` : ''}`);
+      } else {
+        toast.error("Failed to create flash sales");
+      }
+      
+      setShowBulkFlashModal(false);
+      setSelectedProducts([]);
+      setSelectAll(false);
+      await fetchAllData();
+      
+    } catch (err) {
+      console.error(err);
+      toast.dismiss(loadingToast);
+      toast.error("Failed to create flash sales");
+    } finally {
+      setProcessingBulkFlash(false);
+    }
+  };
+
+  // Handle flash request actions (approve/reject)
+  const handleFlashRequestAction = async (requestId, action, rejectionReason = "") => {
+    setActionLoading(`flash-request-${requestId}`);
+    try {
+      const request = flashRequests.find(r => r.id === requestId);
+      if (!request) throw new Error("Request not found");
+      
+      if (action === "approve") {
+        const productId = request.product_id;
+        const discount = request.requested_discount_percent || 10;
+        const durationHours = request.requested_duration_hours || 24;
+        
+        const now = new Date();
+        const endDate = new Date(now);
+        endDate.setHours(endDate.getHours() + durationHours);
+        
+        const product = products.find(p => p.id === productId);
+        if (!product) throw new Error("Product not found");
+        
+        const originalPrice = product.price;
+        const flashPrice = originalPrice * (1 - discount / 100);
+        const calcDiscount = Math.round(((originalPrice - flashPrice) / originalPrice) * 100);
+        
+        const { error: updateError } = await supabase
+          .from("products")
+          .update({
+            is_flash_sale: true,
+            discount: calcDiscount,
+            flash_sale_ends_at: endDate.toISOString(),
+            flash_sale_starts_at: now.toISOString(),
+            discount_expiry: endDate.toISOString()
+          })
+          .eq("id", productId);
+        
+        if (updateError) throw updateError;
+        
+        await supabase
+          .from("flash_sale_requests")
+          .update({
+            status: "approved",
+            approved_at: new Date().toISOString(),
+            approved_by: user.id
+          })
+          .eq("id", requestId);
+        
+        await supabase.from("notifications").insert({
+          user_id: request.store?.owner_id,
+          title: "Flash Sale Approved! 🎉",
+          message: `Your flash sale request for "${request.products?.name}" has been approved and is now live!`,
+          type: "flash_sale",
+          read: false,
+          color: "success"
+        });
+        
+        toast.success("Flash sale request approved!");
+        await fetchAllData();
+        
+      } else if (action === "reject") {
+        if (!rejectionReason) {
+          toast.error("Please provide a rejection reason");
+          setActionLoading(null);
+          return;
+        }
+        
+        await supabase
+          .from("flash_sale_requests")
+          .update({
+            status: "rejected",
+            rejected_at: new Date().toISOString(),
+            rejected_by: user.id,
+            rejection_reason: rejectionReason
+          })
+          .eq("id", requestId);
+        
+        await supabase.from("notifications").insert({
+          user_id: request.store?.owner_id,
+          title: "Flash Sale Request Update",
+          message: `Your flash sale request for "${request.products?.name}" was not approved. Reason: ${rejectionReason}`,
+          type: "flash_sale",
+          read: false,
+          color: "error"
+        });
+        
+        toast.success("Flash sale request rejected");
+        setShowRejectReason(null);
+        setRejectReason("");
+        await fetchAllData();
+      }
+      
+    } catch (err) {
+      console.error(err);
+      toast.error(err.message || "Failed to process request");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Existing action functions
   const toggleFlag = async (id, current) => {
     setActionLoading(`flag-${id}`);
     try {
@@ -422,7 +771,9 @@ export default function ProductModeration() {
           is_flash_sale: true,
           discount: calcDiscount,
           flash_sale_ends_at: fromLocalToISO(ends_at),
-          stock_quantity: Number(stock_quantity)
+          flash_sale_starts_at: fromLocalToISO(starts_at),
+          stock_quantity: Number(stock_quantity),
+          discount_expiry: fromLocalToISO(ends_at)
         })
         .eq("id", product_id);
       
@@ -535,15 +886,9 @@ export default function ProductModeration() {
   useEffect(() => { checkAdminAccess(); }, [checkAdminAccess]);
   useEffect(() => { if (hasAccess) fetchAllData(); }, [hasAccess]);
 
+  // Use skeleton loader
   if (!hasAccess || loading) {
-    return (
-      <div className={`product-modern-root ${darkMode ? "dark" : ""}`}>
-        <div className="loading-container">
-          <div className="loading-spinner"></div>
-          <p>Loading product moderation...</p>
-        </div>
-      </div>
-    );
+    return <ProductModerationSkeleton />;
   }
 
   const isSuperAdmin = currentAdmin?.role === "super_admin";
@@ -610,7 +955,7 @@ export default function ProductModeration() {
             <button className="mobile-menu-btn" onClick={() => setSidebarOpen(true)}><FiMenu /></button>
             <div>
               <h1>Product Moderation</h1>
-              <p>Manage products, promotions, and flash sales</p>
+              <p>Manage products, promotions, flash sales, and seller requests</p>
             </div>
           </div>
           <div className="topbar-right">
@@ -660,15 +1005,15 @@ export default function ProductModeration() {
             <div className="stat-card">
               <div className="stat-icon purple"><FaBolt /></div>
               <div className="stat-info">
-                <span className="stat-value">{flashSales.length}</span>
+                <span className="stat-value">{flashSales.filter(s => !s.is_expired).length}</span>
                 <span className="stat-label">Active Flash Sales</span>
               </div>
             </div>
             <div className="stat-card">
-              <div className="stat-icon green"><FiCheckCircle /></div>
+              <div className="stat-icon pink"><FiSend /></div>
               <div className="stat-info">
-                <span className="stat-value">{products.filter(p => p.status === 'active').length}</span>
-                <span className="stat-label">Approved</span>
+                <span className="stat-value">{flashRequests.filter(r => r.status === 'pending').length}</span>
+                <span className="stat-label">Pending Requests</span>
               </div>
             </div>
           </div>
@@ -679,17 +1024,148 @@ export default function ProductModeration() {
                 key={tab.key}
                 className={`tab-btn ${activeTab === tab.key ? 'active' : ''}`}
                 style={activeTab === tab.key ? { '--tab-color': tab.color } : {}}
-                onClick={() => { setActiveTab(tab.key); setPage(1); }}
+                onClick={() => { setActiveTab(tab.key); setPage(1); setSelectedProducts([]); setSelectAll(false); }}
               >
                 {tab.icon}
                 <span>{tab.label}</span>
-                {tab.key === 'pending' && (
-                  <span className="tab-count">{products.filter(p => p.status === 'pending').length}</span>
+                {tab.key === 'flash_requests' && (
+                  <span className="tab-count">{flashRequests.filter(r => r.status === 'pending').length}</span>
                 )}
               </button>
             ))}
           </div>
 
+          {/* Flash Requests Tab */}
+          {activeTab === 'flash_requests' && (
+            <div className="tab-content">
+              <div className="section-header">
+                <h2>Flash Sale Requests from Sellers</h2>
+                <span className="product-count">{flashRequests.filter(r => r.status === 'pending').length} pending</span>
+              </div>
+              
+              {flashRequests.length === 0 ? (
+                <div className="empty-state">
+                  <FiSend className="empty-icon" />
+                  <h3>No flash sale requests</h3>
+                  <p>Requests from sellers will appear here</p>
+                </div>
+              ) : (
+                <div className="flash-requests-grid">
+                  {flashRequests.map(request => {
+                    const isPending = request.status === 'pending';
+                    const isApproved = request.status === 'approved';
+                    const isRejected = request.status === 'rejected';
+                    const showReject = showRejectReason === request.id;
+                    
+                    return (
+                      <div key={request.id} className="flash-request-card">
+                        <div className="request-header">
+                          <div className="request-product-image">
+                            <img src={request.product_image || "/placeholder.jpg"} alt={request.products?.name} />
+                          </div>
+                          <div className="request-info">
+                            <h3>{request.products?.name || "Unknown Product"}</h3>
+                            <div className="request-meta">
+                              <span className="meta-item">
+                                <FaStore /> {request.store?.name || "Unknown Store"}
+                              </span>
+                            </div>
+                            <div className="request-details">
+                              <span className="detail-item">
+                                <strong>Discount:</strong> {request.requested_discount_percent || 10}%
+                              </span>
+                              <span className="detail-item">
+                                <strong>Duration:</strong> {request.requested_duration_hours || 24} hours
+                              </span>
+                              <span className="detail-item">
+                                <strong>Flash Price:</strong> {request.requested_flash_price ? formatPrice(request.requested_flash_price) : 'N/A'}
+                              </span>
+                              <span className="detail-item">
+                                <strong>Requested:</strong> {formatDate(request.created_at)}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="request-status">
+                            <span className={`status-badge ${request.status}`}>
+                              {isPending && <FiClock />}
+                              {isApproved && <FiCheckCircle />}
+                              {isRejected && <FiXCircle />}
+                              {request.status}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        {request.rejection_reason && (
+                          <div className="rejection-reason">
+                            <FaExclamationTriangle /> {request.rejection_reason}
+                          </div>
+                        )}
+                        
+                        {isPending && (
+                          <div className="request-actions">
+                            <button 
+                              className="approve-request-btn"
+                              onClick={() => handleFlashRequestAction(request.id, 'approve')}
+                              disabled={actionLoading === `flash-request-${request.id}`}
+                            >
+                              <FiCheck /> Approve
+                            </button>
+                            
+                            {!showReject ? (
+                              <button 
+                                className="reject-request-btn"
+                                onClick={() => setShowRejectReason(request.id)}
+                                disabled={actionLoading === `flash-request-${request.id}`}
+                              >
+                                <FiX /> Reject
+                              </button>
+                            ) : (
+                              <div className="reject-form">
+                                <input 
+                                  type="text" 
+                                  placeholder="Rejection reason..."
+                                  value={rejectReason}
+                                  onChange={(e) => setRejectReason(e.target.value)}
+                                  autoFocus
+                                />
+                                <button 
+                                  className="confirm-reject-btn"
+                                  onClick={() => handleFlashRequestAction(request.id, 'reject', rejectReason)}
+                                  disabled={actionLoading === `flash-request-${request.id}` || !rejectReason.trim()}
+                                >
+                                  <FiX /> Confirm
+                                </button>
+                                <button 
+                                  className="cancel-reject-btn"
+                                  onClick={() => { setShowRejectReason(null); setRejectReason(""); }}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        
+                        {isApproved && (
+                          <div className="request-approved-message">
+                            <FaCheckCircle /> Approved on {formatDate(request.approved_at)}
+                          </div>
+                        )}
+                        
+                        {isRejected && (
+                          <div className="request-rejected-message">
+                            <FaXCircle /> Rejected on {formatDate(request.rejected_at)}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Promoted Tab */}
           {activeTab === "promoted" && (
             <div className="tab-content">
               <div className="section-header">
@@ -746,6 +1222,7 @@ export default function ProductModeration() {
             </div>
           )}
 
+          {/* Flash Sales Tab */}
           {activeTab === "flashsales" && (
             <div className="tab-content">
               <div className="section-header">
@@ -765,8 +1242,10 @@ export default function ProductModeration() {
                   {flashSales.map(sale => {
                     const remaining = getTimeRemaining(sale.flash_sale_ends_at);
                     const flashPrice = sale.price * (1 - (sale.discount || 0) / 100);
+                    const isExpired = remaining.expired;
+                    
                     return (
-                      <div key={sale.id} className="flash-card">
+                      <div key={sale.id} className={`flash-card ${isExpired ? 'expired' : ''}`}>
                         <img src={sale.imageUrl || "/placeholder.jpg"} alt={sale.name} />
                         <div className="flash-body">
                           <h3>{sale.name}</h3>
@@ -782,7 +1261,7 @@ export default function ProductModeration() {
                             <span>{sale.stock_quantity} left</span>
                           </div>
                           <div className="flash-meta">
-                            <FiClock /> {remaining.expired ? 'Expired' : `${remaining.days}d ${remaining.hours}h ${remaining.minutes}m`}
+                            <FiClock /> {isExpired ? 'Expired' : `${remaining.days}d ${remaining.hours}h ${remaining.minutes}m`}
                           </div>
                           <div className="flash-actions">
                             <button className="btn-edit" onClick={() => {
@@ -811,11 +1290,19 @@ export default function ProductModeration() {
             </div>
           )}
 
-          {activeTab !== "promoted" && activeTab !== "flashsales" && (
+          {/* Products Tab */}
+          {activeTab !== "promoted" && activeTab !== "flashsales" && activeTab !== "flash_requests" && (
             <div className="tab-content">
               <div className="section-header">
                 <h2>{TABS.find(t => t.key === activeTab)?.label} Products</h2>
-                <span className="product-count">{filteredProducts.length} products</span>
+                <div className="section-actions">
+                  <span className="product-count">{filteredProducts.length} products</span>
+                  {selectedProducts.length > 0 && (
+                    <button className="btn-primary small" onClick={openBulkFlashModal}>
+                      <FaBolt /> Flash Sale ({selectedProducts.length})
+                    </button>
+                  )}
+                </div>
               </div>
               
               {filteredProducts.length === 0 ? (
@@ -830,13 +1317,23 @@ export default function ProductModeration() {
                     {paginatedProducts.map(product => {
                       const status = getProductStatus(product);
                       const isPromoted = promotedIds.includes(product.id);
+                      const isSelected = selectedProducts.includes(product.id);
                       const isLoading = actionLoading === `flag-${product.id}` || 
                                        actionLoading === `status-${product.id}` ||
                                        actionLoading === `end-flash-${product.id}`;
+                      const isFlashActive = product.is_flash_sale && 
+                        product.flash_sale_ends_at && 
+                        new Date(product.flash_sale_ends_at) > new Date();
                       
                       return (
                         <div key={product.id} className="product-card">
                           <div className="product-image-wrapper">
+                            <input 
+                              type="checkbox" 
+                              className="product-select-checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleProductSelection(product.id)}
+                            />
                             <img 
                               src={product.imageUrl || "/placeholder.jpg"} 
                               alt={product.name}
@@ -848,7 +1345,7 @@ export default function ProductModeration() {
                                 {status.icon} {status.label}
                               </span>
                               {isPromoted && <span className="badge promoted"><FiAward /> Promoted</span>}
-                              {product.is_flash_sale && <span className="badge flash"><FaBolt /> Flash</span>}
+                              {isFlashActive && <span className="badge flash"><FaBolt /> Flash</span>}
                               {product.is_trending && <span className="badge trending"><FaFire /> Trending</span>}
                             </div>
                             <button 
@@ -1013,140 +1510,140 @@ export default function ProductModeration() {
         </div>
       </main>
 
-      {/* Promotion Modal */}
+      {/* Bulk Flash Sale Modal */}
       <AnimatePresence>
-        {showPromoModal && (
+        {showBulkFlashModal && (
           <motion.div 
             className="modal-overlay" 
             initial={{ opacity: 0 }} 
             animate={{ opacity: 1 }} 
             exit={{ opacity: 0 }}
-            onClick={() => { setShowPromoModal(false); setEditingPromo(null); }}
+            onClick={() => setShowBulkFlashModal(false)}
           >
             <motion.div 
-              className="modal-content premium-modal" 
+              className="modal-content premium-modal flash-premium" 
               initial={{ scale: 0.95, opacity: 0, y: 20 }} 
               animate={{ scale: 1, opacity: 1, y: 0 }} 
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
               onClick={e => e.stopPropagation()}
             >
-              <div className="modal-header premium">
+              <div className="modal-header premium flash-header">
                 <div className="modal-header-content">
-                  <span className="modal-icon">🚀</span>
-                  <h3>{editingPromo ? "Edit Promotion" : "Create Promotion"}</h3>
+                  <span className="modal-icon flash-icon">⚡</span>
+                  <h3>Bulk Flash Sale</h3>
+                  <span className="modal-subtitle">{selectedProducts.length} products selected</span>
                 </div>
-                <button className="modal-close" onClick={() => { setShowPromoModal(false); setEditingPromo(null); }}>
+                <button className="modal-close" onClick={() => setShowBulkFlashModal(false)}>
                   <FiXCircle />
                 </button>
               </div>
               <div className="modal-body premium">
-                <div className="form-group premium">
-                  <label>Title <span className="required">*</span></label>
-                  <input 
-                    type="text" 
-                    value={promotionData.title} 
-                    onChange={e => setPromotionData({...promotionData, title: e.target.value})}
-                    placeholder="Enter promotion title"
-                    className="premium-input"
-                  />
+                <div className="bulk-product-preview">
+                  <p>Selected products:</p>
+                  <div className="bulk-product-tags">
+                    {selectedProducts.slice(0, 10).map(id => {
+                      const p = products.find(pr => pr.id === id);
+                      return p ? (
+                        <span key={id} className="product-tag">
+                          {p.name.length > 20 ? p.name.substring(0, 20) + '...' : p.name}
+                        </span>
+                      ) : null;
+                    })}
+                    {selectedProducts.length > 10 && (
+                      <span className="product-tag more">+{selectedProducts.length - 10} more</span>
+                    )}
+                  </div>
                 </div>
+                
                 <div className="form-group premium">
-                  <label>Tagline</label>
+                  <label>Discount Percentage <span className="required">*</span></label>
                   <input 
-                    type="text" 
-                    value={promotionData.tagline} 
-                    onChange={e => setPromotionData({...promotionData, tagline: e.target.value})}
-                    placeholder="Short description"
+                    type="number" 
+                    min="1" 
+                    max="90" 
+                    value={bulkFlashData.discount_percentage}
+                    onChange={e => setBulkFlashData({...bulkFlashData, discount_percentage: parseInt(e.target.value) || 0})}
                     className="premium-input"
+                    placeholder="Enter discount percentage"
                   />
+                  <small>Recommended: 5% - 70%</small>
                 </div>
+                
                 <div className="form-group premium">
-                  <label>Image URL <span className="required">*</span></label>
-                  <input 
-                    type="text" 
-                    value={promotionData.image_url} 
-                    onChange={e => setPromotionData({...promotionData, image_url: e.target.value})}
-                    placeholder="https://example.com/image.jpg"
-                    className="premium-input"
-                  />
+                  <label>Duration (Hours) <span className="required">*</span></label>
+                  <select 
+                    value={bulkFlashData.duration_hours}
+                    onChange={e => {
+                      const hours = parseInt(e.target.value);
+                      const now = new Date();
+                      const end = new Date(now);
+                      end.setHours(end.getHours() + hours);
+                      setBulkFlashData({
+                        ...bulkFlashData,
+                        duration_hours: hours,
+                        end_date: toLocalInput(end.toISOString())
+                      });
+                    }}
+                    className="premium-select"
+                  >
+                    <option value={6}>6 hours</option>
+                    <option value={12}>12 hours</option>
+                    <option value={24}>24 hours</option>
+                    <option value={48}>48 hours</option>
+                    <option value={72}>72 hours</option>
+                  </select>
                 </div>
-                <div className="form-group premium">
-                  <label>Link URL</label>
-                  <input 
-                    type="text" 
-                    value={promotionData.link_url} 
-                    onChange={e => setPromotionData({...promotionData, link_url: e.target.value})}
-                    placeholder="/product/123 or https://example.com"
-                    className="premium-input"
-                  />
-                </div>
+                
                 <div className="form-row premium">
                   <div className="form-group premium">
-                    <label>Start Date</label>
+                    <label>Start Date <span className="required">*</span></label>
                     <input 
                       type="datetime-local" 
-                      value={promotionData.starts_at} 
-                      onChange={e => setPromotionData({...promotionData, starts_at: e.target.value})}
+                      value={bulkFlashData.start_date} 
+                      onChange={e => setBulkFlashData({...bulkFlashData, start_date: e.target.value})}
                       className="premium-input"
                     />
                   </div>
                   <div className="form-group premium">
-                    <label>End Date</label>
+                    <label>End Date <span className="required">*</span></label>
                     <input 
                       type="datetime-local" 
-                      value={promotionData.ends_at} 
-                      onChange={e => setPromotionData({...promotionData, ends_at: e.target.value})}
+                      value={bulkFlashData.end_date} 
+                      onChange={e => setBulkFlashData({...bulkFlashData, end_date: e.target.value})}
                       className="premium-input"
                     />
                   </div>
                 </div>
-                <div className="form-row premium">
-                  <div className="form-group premium">
-                    <label>Priority</label>
-                    <input 
-                      type="number" 
-                      value={promotionData.priority} 
-                      onChange={e => setPromotionData({...promotionData, priority: parseInt(e.target.value) || 0})}
-                      placeholder="0"
-                      className="premium-input"
-                    />
+                
+                <div className="bulk-summary">
+                  <div className="summary-item">
+                    <span>Products:</span>
+                    <strong>{selectedProducts.length}</strong>
                   </div>
-                  <div className="form-group premium">
-                    <label>CTA Text</label>
-                    <input 
-                      type="text" 
-                      value={promotionData.cta_text} 
-                      onChange={e => setPromotionData({...promotionData, cta_text: e.target.value})}
-                      placeholder="Shop Now"
-                      className="premium-input"
-                    />
+                  <div className="summary-item">
+                    <span>Discount:</span>
+                    <strong>{bulkFlashData.discount_percentage || 0}%</strong>
                   </div>
-                </div>
-                <div className="form-group premium checkbox-group">
-                  <label className="checkbox-label premium">
-                    <input 
-                      type="checkbox" 
-                      checked={promotionData.is_featured} 
-                      onChange={e => setPromotionData({...promotionData, is_featured: e.target.checked})}
-                    />
-                    <span>Featured Promotion</span>
-                  </label>
+                  <div className="summary-item">
+                    <span>Duration:</span>
+                    <strong>{bulkFlashData.duration_hours || 0} hours</strong>
+                  </div>
                 </div>
               </div>
               <div className="modal-footer premium">
-                <button className="btn-cancel premium" onClick={() => { setShowPromoModal(false); setEditingPromo(null); }}>
+                <button className="btn-cancel premium" onClick={() => setShowBulkFlashModal(false)}>
                   Cancel
                 </button>
                 <button 
-                  className="btn-submit premium" 
-                  onClick={handlePromoSubmit}
-                  disabled={actionLoading === 'promo-submit'}
+                  className="btn-submit premium flash-submit" 
+                  onClick={handleBulkFlashSubmit}
+                  disabled={processingBulkFlash || !bulkFlashData.discount_percentage || !bulkFlashData.start_date || !bulkFlashData.end_date}
                 >
-                  {actionLoading === 'promo-submit' ? (
+                  {processingBulkFlash ? (
                     <span className="loading-dots"></span>
                   ) : (
-                    editingPromo ? 'Update Promotion' : 'Create Promotion'
+                    `Create Flash Sales (${selectedProducts.length})`
                   )}
                 </button>
               </div>
@@ -1155,7 +1652,7 @@ export default function ProductModeration() {
         )}
       </AnimatePresence>
 
-      {/* Flash Sale Modal */}
+      {/* Individual Flash Sale Modal */}
       <AnimatePresence>
         {showFlashModal && (
           <motion.div 
@@ -1302,6 +1799,148 @@ export default function ProductModeration() {
                     <span className="loading-dots"></span>
                   ) : (
                     editingFlash ? 'Update Flash Sale' : 'Create Flash Sale'
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Promotion Modal */}
+      <AnimatePresence>
+        {showPromoModal && (
+          <motion.div 
+            className="modal-overlay" 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }}
+            onClick={() => { setShowPromoModal(false); setEditingPromo(null); }}
+          >
+            <motion.div 
+              className="modal-content premium-modal" 
+              initial={{ scale: 0.95, opacity: 0, y: 20 }} 
+              animate={{ scale: 1, opacity: 1, y: 0 }} 
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="modal-header premium">
+                <div className="modal-header-content">
+                  <span className="modal-icon">🚀</span>
+                  <h3>{editingPromo ? "Edit Promotion" : "Create Promotion"}</h3>
+                </div>
+                <button className="modal-close" onClick={() => { setShowPromoModal(false); setEditingPromo(null); }}>
+                  <FiXCircle />
+                </button>
+              </div>
+              <div className="modal-body premium">
+                <div className="form-group premium">
+                  <label>Title <span className="required">*</span></label>
+                  <input 
+                    type="text" 
+                    value={promotionData.title} 
+                    onChange={e => setPromotionData({...promotionData, title: e.target.value})}
+                    placeholder="Enter promotion title"
+                    className="premium-input"
+                  />
+                </div>
+                <div className="form-group premium">
+                  <label>Tagline</label>
+                  <input 
+                    type="text" 
+                    value={promotionData.tagline} 
+                    onChange={e => setPromotionData({...promotionData, tagline: e.target.value})}
+                    placeholder="Short description"
+                    className="premium-input"
+                  />
+                </div>
+                <div className="form-group premium">
+                  <label>Image URL <span className="required">*</span></label>
+                  <input 
+                    type="text" 
+                    value={promotionData.image_url} 
+                    onChange={e => setPromotionData({...promotionData, image_url: e.target.value})}
+                    placeholder="https://example.com/image.jpg"
+                    className="premium-input"
+                  />
+                </div>
+                <div className="form-group premium">
+                  <label>Link URL</label>
+                  <input 
+                    type="text" 
+                    value={promotionData.link_url} 
+                    onChange={e => setPromotionData({...promotionData, link_url: e.target.value})}
+                    placeholder="/product/123 or https://example.com"
+                    className="premium-input"
+                  />
+                </div>
+                <div className="form-row premium">
+                  <div className="form-group premium">
+                    <label>Start Date</label>
+                    <input 
+                      type="datetime-local" 
+                      value={promotionData.starts_at} 
+                      onChange={e => setPromotionData({...promotionData, starts_at: e.target.value})}
+                      className="premium-input"
+                    />
+                  </div>
+                  <div className="form-group premium">
+                    <label>End Date</label>
+                    <input 
+                      type="datetime-local" 
+                      value={promotionData.ends_at} 
+                      onChange={e => setPromotionData({...promotionData, ends_at: e.target.value})}
+                      className="premium-input"
+                    />
+                  </div>
+                </div>
+                <div className="form-row premium">
+                  <div className="form-group premium">
+                    <label>Priority</label>
+                    <input 
+                      type="number" 
+                      value={promotionData.priority} 
+                      onChange={e => setPromotionData({...promotionData, priority: parseInt(e.target.value) || 0})}
+                      placeholder="0"
+                      className="premium-input"
+                    />
+                  </div>
+                  <div className="form-group premium">
+                    <label>CTA Text</label>
+                    <input 
+                      type="text" 
+                      value={promotionData.cta_text} 
+                      onChange={e => setPromotionData({...promotionData, cta_text: e.target.value})}
+                      placeholder="Shop Now"
+                      className="premium-input"
+                    />
+                  </div>
+                </div>
+                <div className="form-group premium checkbox-group">
+                  <label className="checkbox-label premium">
+                    <input 
+                      type="checkbox" 
+                      checked={promotionData.is_featured} 
+                      onChange={e => setPromotionData({...promotionData, is_featured: e.target.checked})}
+                    />
+                    <span>Featured Promotion</span>
+                  </label>
+                </div>
+              </div>
+              <div className="modal-footer premium">
+                <button className="btn-cancel premium" onClick={() => { setShowPromoModal(false); setEditingPromo(null); }}>
+                  Cancel
+                </button>
+                <button 
+                  className="btn-submit premium" 
+                  onClick={handlePromoSubmit}
+                  disabled={actionLoading === 'promo-submit'}
+                >
+                  {actionLoading === 'promo-submit' ? (
+                    <span className="loading-dots"></span>
+                  ) : (
+                    editingPromo ? 'Update Promotion' : 'Create Promotion'
                   )}
                 </button>
               </div>

@@ -7,7 +7,7 @@ import {
   FaStore, FaUsers, FaStar, FaBell, FaShoppingCart, FaTimes, FaBars,
   FaWallet, FaReceipt, FaDownload, FaFilter, FaEdit, FaFire, FaCheck,
   FaTruck, FaShippingFast, FaHourglassHalf, FaCheckCircle, FaCheckDouble,
-  FaUndo
+  FaUndo, FaClock, FaExclamationTriangle
 } from 'react-icons/fa';
 import { useDropzone } from 'react-dropzone';
 import { supabase } from '../lib/supabaseClient';
@@ -49,6 +49,7 @@ const StoreDashboard = () => {
   const [flashSaleDiscount, setFlashSaleDiscount] = useState(10);
   const [loadingFlashSale, setLoadingFlashSale] = useState(false);
   const [updatingOrderId, setUpdatingOrderId] = useState(null);
+  const [flashSaleRequestStatus, setFlashSaleRequestStatus] = useState(null);
   
   const [dashboardStats, setDashboardStats] = useState({
     totalEarnings: 0,
@@ -95,7 +96,7 @@ const StoreDashboard = () => {
   const [confirmingDeleteId, setConfirmingDeleteId] = useState(null);
   const [editModalProduct, setEditModalProduct] = useState(null);
 
-  // Order status flow - complete list with all statuses
+  // Order status flow
   const statusFlow = [
     { value: 'pending', label: 'Pending', icon: <FaHourglassHalf />, color: '#F59E0B', nextStatus: 'processing' },
     { value: 'processing', label: 'Processing', icon: <FaBox />, color: '#3B82F6', nextStatus: 'shipped' },
@@ -127,28 +128,73 @@ const StoreDashboard = () => {
   const handleMarkForInstallment = (product) => { setInstallmentModalProduct(product); };
   const handleFlashSaleRequest = (product) => { setFlashSaleModalProduct(product); };
 
+  // Check if product already has a pending request
+  const checkExistingRequest = async (productId) => {
+    try {
+      const { data, error } = await supabase
+        .from('flash_sale_requests')
+        .select('id, status')
+        .eq('product_id', productId)
+        .in('status', ['pending', 'approved'])
+        .maybeSingle();
+      
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error checking existing request:', error);
+      return null;
+    }
+  };
+
+  // Updated submitFlashSaleRequest with duplicate check
   const submitFlashSaleRequest = async () => {
     if (!flashSaleModalProduct) return;
+    
+    // Check for existing request
+    const existingRequest = await checkExistingRequest(flashSaleModalProduct.id);
+    if (existingRequest) {
+      toast.warning(`You already have a ${existingRequest.status} request for this product. Please wait for admin approval.`);
+      setFlashSaleModalProduct(null);
+      return;
+    }
+    
     setLoadingFlashSale(true);
+    const loadingToast = toast.loading('Submitting flash sale request...');
+    
     try {
       const expiresAt = new Date();
       expiresAt.setHours(expiresAt.getHours() + parseInt(flashSaleDuration));
-      const { error } = await supabase.from('flash_sale_requests').insert({
-        product_id: flashSaleModalProduct.id,
-        store_id: flashSaleModalProduct.store_id,
-        requested_duration_hours: parseInt(flashSaleDuration),
-        requested_discount_percent: parseInt(flashSaleDiscount),
-        status: 'pending',
-        expires_at: expiresAt.toISOString()
-      });
+      
+      const flashPrice = flashSaleModalProduct.price * (1 - flashSaleDiscount / 100);
+      
+      const { data, error } = await supabase
+        .from('flash_sale_requests')
+        .insert({
+          product_id: flashSaleModalProduct.id,
+          store_id: flashSaleModalProduct.store_id,
+          requested_duration_hours: parseInt(flashSaleDuration),
+          requested_discount_percent: parseInt(flashSaleDiscount),
+          requested_flash_price: Math.round(flashPrice * 100) / 100,
+          status: 'pending',
+          expires_at: expiresAt.toISOString()
+        })
+        .select();
+      
       if (error) throw error;
-      toast.success('Flash sale request submitted for admin approval!');
+      
+      toast.dismiss(loadingToast);
+      toast.success('✅ Flash sale request sent to admin successfully!');
+      
       setFlashSaleModalProduct(null);
       setFlashSaleDuration(24);
       setFlashSaleDiscount(10);
+      setFlashSaleRequestStatus('success');
+      setTimeout(() => setFlashSaleRequestStatus(null), 5000);
+      
     } catch (error) {
       console.error('Flash sale request error:', error);
-      toast.error('Failed to submit flash sale request');
+      toast.dismiss(loadingToast);
+      toast.error('Failed to submit flash sale request. Please try again.');
     } finally {
       setLoadingFlashSale(false);
     }
@@ -616,18 +662,12 @@ const StoreDashboard = () => {
     return () => supabase.removeChannel(orderChannel);
   }, [store]);
 
-  /* ─────────────────────────────────────────────────
-     Section animation config
-  ───────────────────────────────────────────────── */
   const sectionVariants = {
     initial: { opacity: 0, y: 16 },
     animate: { opacity: 1, y: 0, transition: { duration: 0.28, ease: 'easeOut' } },
     exit:    { opacity: 0, y: -8, transition: { duration: 0.18 } }
   };
 
-  /* ─────────────────────────────────────────────────
-     RENDER
-  ───────────────────────────────────────────────── */
   return (
     <div className="dashboard-glass">
 
@@ -688,7 +728,6 @@ const StoreDashboard = () => {
       )}
 
       {/* ── SIDEBAR / MOBILE DRAWER ── */}
-      {/* Overlay for mobile */}
       {mobileMenuOpen && (
         <div
           style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', zIndex:940, backdropFilter:'blur(2px)' }}
@@ -737,9 +776,7 @@ const StoreDashboard = () => {
 
         <AnimatePresence mode="wait">
 
-          {/* ════════════════════════════════
-              OVERVIEW
-          ════════════════════════════════ */}
+          {/* OVERVIEW */}
           {section === 'overview' && (
             <motion.section key="overview" className="glass-section" variants={sectionVariants} initial="initial" animate="animate" exit="exit">
               <h3>Store Overview</h3>
@@ -822,9 +859,7 @@ const StoreDashboard = () => {
             </motion.section>
           )}
 
-          {/* ════════════════════════════════
-              EARNINGS
-          ════════════════════════════════ */}
+          {/* EARNINGS */}
           {section === 'earnings' && (
             <motion.section key="earnings" className="glass-section" variants={sectionVariants} initial="initial" animate="animate" exit="exit">
               <h3>Earnings Overview</h3>
@@ -871,9 +906,7 @@ const StoreDashboard = () => {
             </motion.section>
           )}
 
-          {/* ════════════════════════════════
-              PAYMENTS
-          ════════════════════════════════ */}
+          {/* PAYMENTS */}
           {section === 'payments' && (
             <motion.section key="payments" className="glass-section" variants={sectionVariants} initial="initial" animate="animate" exit="exit">
               <div className="section-header-with-actions">
@@ -930,9 +963,7 @@ const StoreDashboard = () => {
             </motion.section>
           )}
 
-          {/* ════════════════════════════════
-              PRODUCTS
-          ════════════════════════════════ */}
+          {/* PRODUCTS */}
           {section === 'products' && (
             <motion.section key="products" className="glass-section" variants={sectionVariants} initial="initial" animate="animate" exit="exit">
               <h3>Your Products</h3>
@@ -1107,9 +1138,7 @@ const StoreDashboard = () => {
             </motion.section>
           )}
 
-          {/* ════════════════════════════════
-              ORDERS - FIXED VERSION
-          ════════════════════════════════ */}
+          {/* ORDERS */}
           {section === 'orders' && (
             <motion.section key="orders" className="glass-section" variants={sectionVariants} initial="initial" animate="animate" exit="exit">
               <div className="section-header-with-actions">
@@ -1291,9 +1320,7 @@ const StoreDashboard = () => {
             </motion.section>
           )}
 
-          {/* ════════════════════════════════
-              LIPA PRODUCTS
-          ════════════════════════════════ */}
+          {/* LIPA PRODUCTS */}
           {section === 'lipa-products' && (
             <motion.section key="lipa-products" className="glass-section" variants={sectionVariants} initial="initial" animate="animate" exit="exit">
               <h3>Lipa Polepole Products</h3>
@@ -1346,9 +1373,7 @@ const StoreDashboard = () => {
             </motion.section>
           )}
 
-          {/* ════════════════════════════════
-              SUPPORT CHAT
-          ════════════════════════════════ */}
+          {/* SUPPORT CHAT */}
           {section === 'chat' && (
             <motion.section key="chat" className="glass-section chat-section" variants={sectionVariants} initial="initial" animate="animate" exit="exit">
               <h3>Store Support Chat</h3>
@@ -1392,9 +1417,7 @@ const StoreDashboard = () => {
             </motion.section>
           )}
 
-          {/* ════════════════════════════════
-              INSTALLMENTS
-          ════════════════════════════════ */}
+          {/* INSTALLMENTS */}
           {section === 'installments' && (
             <motion.section key="installments" className="glass-section" variants={sectionVariants} initial="initial" animate="animate" exit="exit">
               <h3>Lipa Polepole Orders</h3>
@@ -1507,40 +1530,122 @@ const StoreDashboard = () => {
           />
         )}
 
-        {/* ── FLASH SALE MODAL ── */}
+        {/* ── FLASH SALE REQUEST MODAL - ENHANCED ── */}
         {flashSaleModalProduct && (
           <div className="modal-backdrop">
-            <motion.div className="modal-glass" initial={{opacity:0,scale:0.94}} animate={{opacity:1,scale:1}}>
-              <h4>Request Flash Sale</h4>
-              <p>Product: <strong>{flashSaleModalProduct.name}</strong></p>
-              <div className="glass-form">
-                <div className="form-group">
-                  <label>Duration (Hours)</label>
-                  <select value={flashSaleDuration} onChange={e=>setFlashSaleDuration(e.target.value)} disabled={loadingFlashSale}>
-                    {[6,12,24,48,72].map(h=><option key={h} value={h}>{h} hours</option>)}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Discount Percentage</label>
-                  <input type="number" min="5" max="70" step="5" value={flashSaleDiscount} onChange={e=>setFlashSaleDiscount(e.target.value)} disabled={loadingFlashSale} />
-                  <small style={{color:'var(--c-text-tertiary)',fontSize:'0.72rem',marginTop:'4px',display:'block'}}>Recommended: 5–70%</small>
-                </div>
-                <div style={{padding:'var(--space-3) var(--space-4)',background:'var(--c-surface-2)',borderRadius:'var(--r-md)',fontSize:'0.82rem',fontWeight:700,color:'var(--c-text-secondary)'}}>
-                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:'4px'}}>
-                    <span>Current Price:</span>
-                    <span>Ksh {formatPrice(flashSaleModalProduct.price)}</span>
-                  </div>
-                  <div style={{display:'flex',justifyContent:'space-between',color:'var(--c-green)'}}>
-                    <span>Flash Sale Price:</span>
-                    <span>Ksh {formatPrice(flashSaleModalProduct.price - (flashSaleModalProduct.price * flashSaleDiscount / 100))}</span>
-                  </div>
-                </div>
-              </div>
-              <div className="modal-actions">
-                <button onClick={submitFlashSaleRequest} disabled={loadingFlashSale} className="submit-btn" style={{flex:1}}>
-                  {loadingFlashSale ? 'Submitting…' : 'Submit Request'}
+            <motion.div 
+              className="modal-glass flash-request-modal" 
+              initial={{opacity:0, scale:0.94}} 
+              animate={{opacity:1, scale:1}}
+              style={{ maxWidth: '560px' }}
+            >
+              <div className="modal-header-premium">
+                <h4>⚡ Request Flash Sale</h4>
+                <button 
+                  className="modal-close-btn" 
+                  onClick={() => setFlashSaleModalProduct(null)}
+                  disabled={loadingFlashSale}
+                >
+                  <FaTimes />
                 </button>
-                <button onClick={()=>setFlashSaleModalProduct(null)} disabled={loadingFlashSale} className="cancel-btn">Cancel</button>
+              </div>
+              
+              <div className="modal-body-premium">
+                <div className="flash-request-product-info">
+                  <div className="request-product-image">
+                    {flashSaleModalProduct.image_gallery?.[0] ? (
+                      <img src={flashSaleModalProduct.image_gallery[0]} alt={flashSaleModalProduct.name} />
+                    ) : (
+                      <div className="no-image-placeholder">
+                        <FaStore size={24} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="request-product-details">
+                    <h5>{flashSaleModalProduct.name}</h5>
+                    <p className="request-product-price">Current Price: <strong>Ksh {formatPrice(flashSaleModalProduct.price)}</strong></p>
+                    <p className="request-product-stock">Stock: {flashSaleModalProduct.stock_quantity} units</p>
+                  </div>
+                </div>
+
+                <div className="flash-request-form">
+                  <div className="form-group">
+                    <label>Duration <span className="required">*</span></label>
+                    <select 
+                      value={flashSaleDuration} 
+                      onChange={e => setFlashSaleDuration(e.target.value)} 
+                      disabled={loadingFlashSale}
+                      className="premium-select"
+                    >
+                      <option value={6}>6 hours</option>
+                      <option value={12}>12 hours</option>
+                      <option value={24}>24 hours</option>
+                      <option value={48}>48 hours</option>
+                      <option value={72}>72 hours</option>
+                    </select>
+                    <small>How long should the flash sale run?</small>
+                  </div>
+                  
+                  <div className="form-group">
+                    <label>Discount Percentage <span className="required">*</span></label>
+                    <input 
+                      type="number" 
+                      min="5" 
+                      max="70" 
+                      step="5" 
+                      value={flashSaleDiscount} 
+                      onChange={e => setFlashSaleDiscount(e.target.value)} 
+                      disabled={loadingFlashSale}
+                      className="premium-input"
+                    />
+                    <small>Recommended: 5–70% (Admin may adjust)</small>
+                  </div>
+
+                  <div className="flash-price-preview">
+                    <div className="preview-row">
+                      <span>Original Price</span>
+                      <span className="original">Ksh {formatPrice(flashSaleModalProduct.price)}</span>
+                    </div>
+                    <div className="preview-row highlight">
+                      <span>Flash Sale Price</span>
+                      <span className="flash-price">Ksh {formatPrice(flashSaleModalProduct.price - (flashSaleModalProduct.price * flashSaleDiscount / 100))}</span>
+                    </div>
+                    <div className="preview-row">
+                      <span>Discount</span>
+                      <span className="discount">{flashSaleDiscount}% OFF</span>
+                    </div>
+                  </div>
+                </div>
+
+                {flashSaleRequestStatus === 'success' && (
+                  <div className="request-success-message">
+                    <FaCheckCircle /> Request submitted successfully! You'll be notified when approved.
+                  </div>
+                )}
+              </div>
+
+              <div className="modal-footer-premium">
+                <button 
+                  className="cancel-btn" 
+                  onClick={() => setFlashSaleModalProduct(null)} 
+                  disabled={loadingFlashSale}
+                >
+                  Cancel
+                </button>
+                <button 
+                  className="submit-btn" 
+                  onClick={submitFlashSaleRequest} 
+                  disabled={loadingFlashSale}
+                >
+                  {loadingFlashSale ? (
+                    <>
+                      <span className="loading-spinner-small" />
+                      Submitting...
+                    </>
+                  ) : (
+                    'Submit Request'
+                  )}
+                </button>
               </div>
             </motion.div>
           </div>
