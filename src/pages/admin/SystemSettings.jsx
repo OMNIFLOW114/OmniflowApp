@@ -3,13 +3,14 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "@/supabase";
 import { toast } from "react-hot-toast";
 import { useDarkMode } from "@/context/DarkModeContext";
-import { 
-  FiSettings, 
-  FiBell, 
-  FiUsers, 
-  FiGlobe, 
-  FiUser, 
-  FiTrash2, 
+import { useNavigate } from "react-router-dom";
+import {
+  FiSettings,
+  FiBell,
+  FiUsers,
+  FiGlobe,
+  FiUser,
+  FiTrash2,
   FiSend,
   FiMessageSquare,
   FiAlertTriangle,
@@ -30,13 +31,112 @@ import {
   FiTrendingUp,
   FiAward,
   FiShield,
-  FiStar
+  FiStar,
+  FiChevronLeft,
+  FiChevronRight,
+  FiMenu,
+  FiLogOut,
+  FiHome,
+  FiShoppingCart,
+  FiPackage,
+  FiCreditCard,
+  FiDatabase,
+  FiClipboard,
+  FiUserPlus,
+  FiFileText,
+  FiDollarSign,
+  FiWifi,
+  FiWifiOff,
+  FiExternalLink,
 } from "react-icons/fi";
+import { FaCrown, FaStore, FaShieldAlt } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
 import "./SystemSettings.css";
 
+// ===== PUSH NOTIFICATION HELPERS =====
+const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || "";
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
+async function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) return null;
+  try {
+    const registration = await navigator.serviceWorker.register("/service-worker.js");
+    return registration;
+  } catch (error) {
+    console.error("Service worker registration failed:", error);
+    return null;
+  }
+}
+
+function isPushSupported() {
+  return "serviceWorker" in navigator && "PushManager" in window;
+}
+
+async function getPushSubscriptionStatus() {
+  if (!isPushSupported()) return "unsupported";
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.getSubscription();
+    if (subscription) return "subscribed";
+    if (Notification.permission === "denied") return "denied";
+    return "not-subscribed";
+  } catch (e) {
+    return "not-subscribed";
+  }
+}
+
+// ===== SKELETON LOADER =====
+const SystemSettingsSkeleton = ({ darkMode }) => (
+  <div className={`system-settings-root skeleton ${darkMode ? "dark" : ""}`}>
+    <aside className="settings-sidebar" style={{ width: 260 }}>
+      <div className="settings-sidebar-brand">
+        <div className="sk-pulse" style={{ width: 40, height: 40, borderRadius: 12 }} />
+        <div className="sk-pulse" style={{ width: 100, height: 16, marginLeft: 12 }} />
+      </div>
+      <div className="settings-sidebar-nav" style={{ padding: 12 }}>
+        {[1,2,3,4,5,6,7,8].map(i => (
+          <div key={i} className="sk-pulse" style={{ height: 36, marginBottom: 8, borderRadius: 8 }} />
+        ))}
+      </div>
+    </aside>
+    <main className="settings-main-content">
+      <div className="settings-topbar">
+        <div>
+          <div className="sk-pulse" style={{ width: 200, height: 22, borderRadius: 4 }} />
+          <div className="sk-pulse" style={{ width: 260, height: 14, marginTop: 4, borderRadius: 4 }} />
+        </div>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <div className="sk-pulse" style={{ width: 100, height: 36, borderRadius: 8 }} />
+          <div className="sk-pulse" style={{ width: 36, height: 36, borderRadius: 8 }} />
+        </div>
+      </div>
+      <div className="settings-content">
+        <div className="settings-stats-grid">
+          {[1,2,3,4].map(i => (
+            <div key={i} className="sk-card">
+              <div className="sk-pulse" style={{ height: 90, borderRadius: 16 }} />
+            </div>
+          ))}
+        </div>
+        <div className="sk-pulse" style={{ height: 400, borderRadius: 16, marginTop: 24 }} />
+      </div>
+    </main>
+  </div>
+);
+
 const SystemSettings = () => {
-  const { darkMode } = useDarkMode();
+  const { darkMode, toggleDarkMode } = useDarkMode();
+  const navigate = useNavigate();
   const [settings, setSettings] = useState([]);
   const [announcement, setAnnouncement] = useState({
     title: "",
@@ -47,8 +147,7 @@ const SystemSettings = () => {
     type: "info",
     priority: "medium",
     pushNotification: true,
-    inAppNotification: true,
-    schedule: null
+    inAppNotification: true
   });
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -61,167 +160,132 @@ const SystemSettings = () => {
     todayAnnouncements: 0,
     totalUsers: 0,
     totalSellers: 0,
+    totalBuyers: 0,
     deliveryRate: 95
   });
   const [activeTab, setActiveTab] = useState("broadcast");
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [previewMode, setPreviewMode] = useState(false);
-  const [scheduledAnnouncements, setScheduledAnnouncements] = useState([]);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [currentAdmin, setCurrentAdmin] = useState(null);
+
+  // ===== WEB PUSH STATE =====
+  const [pushStatus, setPushStatus] = useState("loading");
+  const [pushLoading, setPushLoading] = useState(false);
+  const [webPush, setWebPush] = useState({
+    title: "",
+    body: "",
+    url: "/",
+  });
+  const [sendingWebPush, setSendingWebPush] = useState(false);
+  const [subscriberCount, setSubscriberCount] = useState(0);
 
   const adminSenderId = "a7e0653f-789d-408b-9a85-4d0db68b81ad";
 
-  // Premium 3D Templates with Categories
+  // Premium Templates
   const premiumTemplates = {
     urgent: [
       {
         id: 1,
-        title: "🚨 Urgent System Maintenance",
+        title: "Urgent System Maintenance",
         message: "Critical system maintenance required. Platform will be temporarily unavailable for 30 minutes starting at 2:00 AM UTC.",
         type: "urgent",
-        category: "urgent",
-        icon: "⚡",
-        gradient: "from-red-500 to-orange-500",
-        badge: "Critical"
+        category: "urgent"
       },
       {
         id: 2,
-        title: "🔒 Security Alert - Action Required",
+        title: "Security Alert - Action Required",
         message: "Important security update: Please change your password immediately and enable two-factor authentication for enhanced protection.",
         type: "urgent",
-        category: "security",
-        icon: "🛡️",
-        gradient: "from-purple-600 to-pink-600",
-        badge: "Security"
+        category: "security"
       }
     ],
     promotional: [
       {
         id: 3,
-        title: "🎊 Exclusive Seller Promotion",
+        title: "Exclusive Seller Promotion",
         message: "Special limited-time offer for our valued sellers! Get 50% off on platform fees for the next 48 hours. Don't miss out!",
         type: "promo",
-        category: "seller",
-        icon: "🏪",
-        gradient: "from-green-500 to-teal-500",
-        badge: "Seller Exclusive"
+        category: "seller"
       },
       {
         id: 4,
-        title: "🛍️ Flash Sale Alert - Buyers",
+        title: "Flash Sale Alert - Buyers",
         message: "Massive flash sale live now! Up to 70% off on premium products. Limited stock available. Shop now before it's gone!",
         type: "promo",
-        category: "buyer",
-        icon: "🛒",
-        gradient: "from-blue-500 to-cyan-500",
-        badge: "Buyer Special"
+        category: "buyer"
       }
     ],
     features: [
       {
         id: 5,
-        title: "✨ New Feature Launch",
+        title: "New Feature Launch",
         message: "We're excited to introduce AI-powered product recommendations! Your customers will love personalized shopping experiences.",
         type: "info",
-        category: "feature",
-        icon: "🤖",
-        gradient: "from-indigo-500 to-purple-500",
-        badge: "New Feature"
+        category: "feature"
       },
       {
         id: 6,
-        title: "📱 Mobile App Update",
+        title: "Mobile App Update",
         message: "Our mobile app has been completely redesigned! Enjoy faster performance, new features, and enhanced security. Update now!",
         type: "info",
-        category: "update",
-        icon: "📲",
-        gradient: "from-yellow-500 to-red-500",
-        badge: "Update Available"
+        category: "update"
       }
     ],
     welcome: [
       {
         id: 7,
-        title: "👋 Welcome to Our Platform",
+        title: "Welcome to Our Platform",
         message: "Welcome aboard! We're thrilled to have you. Explore all features, connect with sellers/buyers, and start your journey with us.",
         type: "success",
-        category: "welcome",
-        icon: "🎯",
-        gradient: "from-teal-500 to-blue-500",
-        badge: "Welcome"
+        category: "welcome"
       }
     ]
   };
 
-  // Notification types with 3D colors
   const notificationTypes = {
-    info: { 
-      color: "info", 
-      icon: <FiBell />, 
-      label: "Information",
-      gradient: "from-blue-500 to-cyan-500",
-      bgColor: "linear-gradient(135deg, #3B82F6, #06B6D4)"
-    },
-    warning: { 
-      color: "warning", 
-      icon: <FiAlertTriangle />, 
-      label: "Warning",
-      gradient: "from-amber-500 to-orange-500",
-      bgColor: "linear-gradient(135deg, #F59E0B, #F97316)"
-    },
-    success: { 
-      color: "success", 
-      icon: <FiCheckCircle />, 
-      label: "Success",
-      gradient: "from-emerald-500 to-green-500",
-      bgColor: "linear-gradient(135deg, #10B981, #22C55E)"
-    },
-    urgent: { 
-      color: "danger", 
-      icon: <FiZap />, 
-      label: "Urgent",
-      gradient: "from-red-500 to-rose-500",
-      bgColor: "linear-gradient(135deg, #EF4444, #F43F5E)"
-    },
-    promo: { 
-      color: "promo", 
-      icon: <FiAward />, 
-      label: "Promotional",
-      gradient: "from-purple-500 to-fuchsia-500",
-      bgColor: "linear-gradient(135deg, #8B5CF6, #D946EF)"
-    }
+    info: { color: "info", icon: <FiBell />, label: "Information" },
+    warning: { color: "warning", icon: <FiAlertTriangle />, label: "Warning" },
+    success: { color: "success", icon: <FiCheckCircle />, label: "Success" },
+    urgent: { color: "danger", icon: <FiZap />, label: "Urgent" },
+    promo: { color: "promo", icon: <FiAward />, label: "Promotional" }
   };
 
-  // Priority levels with 3D effects
   const priorityLevels = {
-    low: { 
-      color: "#6B7280", 
-      label: "Low",
-      bg: "linear-gradient(135deg, #6B7280, #9CA3AF)",
-      glow: "0 0 10px rgba(107, 114, 128, 0.3)"
-    },
-    medium: { 
-      color: "#F59E0B", 
-      label: "Medium",
-      bg: "linear-gradient(135deg, #F59E0B, #FBBF24)",
-      glow: "0 0 15px rgba(245, 158, 11, 0.4)"
-    },
-    high: { 
-      color: "#EF4444", 
-      label: "High",
-      bg: "linear-gradient(135deg, #EF4444, #F87171)",
-      glow: "0 0 20px rgba(239, 68, 68, 0.5)"
-    }
+    low: { color: "#6B7280", label: "Low" },
+    medium: { color: "#F59E0B", label: "Medium" },
+    high: { color: "#EF4444", label: "High" }
   };
 
-  // User types for targeting
   const userTypes = {
-    all: { icon: <FiGlobe />, label: "All Users", color: "#3B82F6" },
+    all: { icon: <FiGlobe />, label: "All Users", color: "#6366F1" },
     sellers: { icon: <FiBriefcase />, label: "Sellers Only", color: "#10B981" },
     buyers: { icon: <FiShoppingBag />, label: "Buyers Only", color: "#8B5CF6" }
   };
 
+  // Admin navigation modules
+  const adminModules = [
+    { icon: <FiHome />, title: "Dashboard", path: "/admin-dashboard" },
+    { icon: <FiUsers />, title: "Users", path: "/admin/users" },
+    { icon: <FaStore />, title: "Stores", path: "/admin/stores" },
+    { icon: <FiShoppingCart />, title: "Products", path: "/admin/products" },
+    { icon: <FiPackage />, title: "Categories", path: "/admin/categories" },
+    { icon: <FiMessageSquare />, title: "Messages", path: "/admin/messages" },
+    { icon: <FiDollarSign />, title: "Finance", path: "/admin/finance" },
+    { icon: <FiCreditCard />, title: "Wallets", path: "/admin/wallet" },
+    { icon: <FiStar />, title: "Ratings", path: "/admin/ratings" },
+    { icon: <FiClipboard />, title: "Installments", path: "/admin/installments" },
+    { icon: <FiFileText />, title: "Reports", path: "/admin/reports" },
+    { icon: <FiUserPlus />, title: "Admins", path: "/admin/admins" },
+    { icon: <FiSettings />, title: "Settings", path: "/admin/settings" },
+    { icon: <FiDatabase />, title: "Database", path: "/admin/database" },
+  ];
+
   useEffect(() => {
     fetchInitialData();
+    loadAdminData();
+    initPush();
   }, []);
 
   useEffect(() => {
@@ -237,10 +301,147 @@ const SystemSettings = () => {
     }
   }, [userSearch, users]);
 
+  // ===== PUSH INIT =====
+  const initPush = async () => {
+    await registerServiceWorker();
+    const status = await getPushSubscriptionStatus();
+    setPushStatus(status);
+    await fetchSubscriberCount();
+  };
+
+  const fetchSubscriberCount = async () => {
+    try {
+      const { count, error } = await supabase
+        .from("push_subscriptions")
+        .select("*", { count: "exact", head: true });
+      if (!error) setSubscriberCount(count || 0);
+    } catch (e) {
+      console.warn("Could not fetch subscriber count:", e);
+    }
+  };
+
+  // ===== ADMIN PUSH TOGGLE =====
+  const handleTogglePush = async () => {
+    setPushLoading(true);
+    try {
+      if (!isPushSupported()) {
+        toast.error("Push notifications not supported in this browser");
+        return;
+      }
+      if (!VAPID_PUBLIC_KEY) {
+        toast.error("VAPID public key not configured. Add VITE_VAPID_PUBLIC_KEY to your .env");
+        return;
+      }
+
+      const registration = await navigator.serviceWorker.ready;
+
+      if (pushStatus === "subscribed") {
+        // Unsubscribe
+        const subscription = await registration.pushManager.getSubscription();
+        if (subscription) {
+          await subscription.unsubscribe();
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            await supabase.from("push_subscriptions").delete().eq("user_id", user.id);
+          }
+        }
+        setPushStatus("not-subscribed");
+        toast.success("Push notifications disabled for this device");
+      } else {
+        // Subscribe
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") {
+          toast.error("Notification permission denied");
+          setPushStatus("denied");
+          return;
+        }
+        const subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        });
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          toast.error("You must be logged in");
+          return;
+        }
+        const { error } = await supabase.from("push_subscriptions").upsert(
+          {
+            user_id: user.id,
+            subscription: subscription.toJSON(),
+          },
+          { onConflict: "user_id" }
+        );
+        if (error) throw error;
+        setPushStatus("subscribed");
+        toast.success("Push notifications enabled for this device!");
+      }
+      await fetchSubscriberCount();
+    } catch (error) {
+      console.error("Push toggle error:", error);
+      toast.error(error.message || "Failed to toggle push notifications");
+    } finally {
+      setPushLoading(false);
+    }
+  };
+
+  // ===== SEND WEB PUSH TO ALL SUBSCRIBERS =====
+  const handleSendWebPush = async () => {
+    if (!webPush.title.trim() || !webPush.body.trim()) {
+      toast.error("Please enter both a title and a message");
+      return;
+    }
+
+    setSendingWebPush(true);
+    try {
+      // Call Supabase Edge Function
+      const { data, error } = await supabase.functions.invoke("send-notification", {
+        body: {
+          title: webPush.title,
+          body: webPush.body,
+          url: webPush.url || "/",
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.sent === 0) {
+        toast.error("No subscribed devices found. Ask users to enable notifications first.");
+      } else {
+        toast.success(
+          `Push sent! ✅ ${data.sent} delivered, ${data.failed || 0} failed (${data.total || 0} total)`
+        );
+      }
+
+      setWebPush({ title: "", body: "", url: "/" });
+      await fetchSubscriberCount();
+    } catch (error) {
+      console.error("Web push send error:", error);
+      toast.error("Failed to send push: " + (error.message || "Unknown error"));
+    } finally {
+      setSendingWebPush(false);
+    }
+  };
+
+  const loadAdminData = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data } = await supabase
+          .from("admin_users")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("is_active", true)
+          .maybeSingle();
+        if (data) setCurrentAdmin(data);
+      }
+    } catch (err) {
+      console.warn("Could not load admin data:", err);
+    }
+  };
+
   const fetchInitialData = async () => {
     setLoading(true);
     try {
-      // Fetch platform settings
       const { data: settingsData, error: settingsError } = await supabase
         .from("platform_settings")
         .select("*")
@@ -249,7 +450,6 @@ const SystemSettings = () => {
       if (settingsError) throw settingsError;
       setSettings(settingsData || []);
 
-      // Fetch users
       const { data: usersData, error: usersError } = await supabase
         .from("users")
         .select("id, email, full_name, created_at, is_banned, push_notifications")
@@ -259,7 +459,6 @@ const SystemSettings = () => {
       if (usersError) throw usersError;
       setUsers(usersData || []);
 
-      // Fetch stores to identify sellers
       const { data: storesData, error: storesError } = await supabase
         .from("stores")
         .select("owner_id, name, is_active")
@@ -268,9 +467,8 @@ const SystemSettings = () => {
       if (storesError) throw storesError;
       setStores(storesData || []);
 
-      // Calculate statistics
       const today = new Date().toISOString().split('T')[0];
-      const todayAnnouncements = (settingsData || []).filter(s => 
+      const todayAnnouncements = (settingsData || []).filter(s =>
         s.created_at && s.created_at.startsWith(today)
       ).length || 0;
 
@@ -312,23 +510,19 @@ const SystemSettings = () => {
       .select("id, push_notifications")
       .eq("is_banned", false);
 
-    // Filter by user type (sellers/buyers)
     if (userType !== "all") {
       const sellerIds = new Set(stores.map(store => store.owner_id));
-      
+
       if (userType === "sellers") {
-        // Only include users who have stores
         const { data: sellers } = await query.in("id", Array.from(sellerIds));
         return sellers || [];
       } else if (userType === "buyers") {
-        // Only include users who don't have stores
         const { data: allUsers } = await query;
         const buyers = (allUsers || []).filter(user => !sellerIds.has(user.id));
         return buyers;
       }
     }
 
-    // For "all" user type, return all users
     const { data: allUsers } = await query;
     return allUsers || [];
   };
@@ -349,7 +543,6 @@ const SystemSettings = () => {
     setSending(true);
 
     try {
-      // Get target users based on selection
       const targetUsers = await getTargetUsers(target, userType, userId);
 
       if (targetUsers.length === 0) {
@@ -357,8 +550,7 @@ const SystemSettings = () => {
         return;
       }
 
-      // Save to platform_settings
-      const { data: insertedSetting, error: settingError } = await supabase
+      const { error: settingError } = await supabase
         .from("platform_settings")
         .insert({
           title,
@@ -371,13 +563,10 @@ const SystemSettings = () => {
           push_enabled: pushNotification,
           in_app_enabled: inAppNotification,
           created_by: adminSenderId
-        })
-        .select()
-        .single();
+        });
 
       if (settingError) throw settingError;
 
-      // Create notifications
       const notifPayload = targetUsers.map(user => ({
         user_id: user.id,
         title,
@@ -391,19 +580,29 @@ const SystemSettings = () => {
       const { error: notifError } = await supabase.from("notifications").insert(notifPayload);
       if (notifError) throw notifError;
 
-      // Send push notifications if enabled
-      if (pushNotification) {
-        await sendPushNotifications(targetUsers, title, message, type);
+      // If push notification is enabled, also send via Web Push
+      if (pushNotification && target === "global") {
+        try {
+          const { data, error } = await supabase.functions.invoke("send-notification", {
+            body: { title, body: message, url: "/" },
+          });
+          if (error) {
+            console.warn("Web push send failed (in-app still delivered):", error);
+          } else if (data) {
+            console.log(`Web push: ${data.sent} sent, ${data.failed} failed`);
+          }
+        } catch (pushErr) {
+          console.warn("Web push error:", pushErr);
+        }
       }
 
       const userTypeLabel = userTypes[userType]?.label || "Users";
       toast.success(
-        target === "global" 
-          ? `🎯 ${notifPayload.length} notifications sent to ${userTypeLabel}!`
-          : "📩 Message sent to user successfully!"
+        target === "global"
+          ? `Sent ${notifPayload.length} notifications to ${userTypeLabel}!`
+          : "Message sent to user successfully!"
       );
 
-      // Refresh data and reset form
       fetchInitialData();
       setAnnouncement({
         title: "",
@@ -414,8 +613,7 @@ const SystemSettings = () => {
         type: "info",
         priority: "medium",
         pushNotification: true,
-        inAppNotification: true,
-        schedule: null
+        inAppNotification: true
       });
       setSelectedTemplate(null);
 
@@ -427,28 +625,6 @@ const SystemSettings = () => {
     }
   };
 
-  const sendPushNotifications = async (userList, title, message, type) => {
-    try {
-      const usersWithPushEnabled = userList.filter(user => 
-        user.push_notifications !== false
-      );
-
-      if (usersWithPushEnabled.length === 0) {
-        console.log('No users with push notifications enabled');
-        return;
-      }
-
-      // OneSignal integration placeholder
-      console.log('Sending push notifications to:', usersWithPushEnabled.length, 'users');
-      
-      toast.success(`📱 Push notifications queued for ${usersWithPushEnabled.length} users`);
-      
-    } catch (error) {
-      console.error('Push notification error:', error);
-      toast.error('Push notifications failed, but in-app messages were sent');
-    }
-  };
-
   const handleUseTemplate = (template) => {
     setAnnouncement(prev => ({
       ...prev,
@@ -457,6 +633,7 @@ const SystemSettings = () => {
       type: template.type
     }));
     setSelectedTemplate(template.id);
+    setActiveTab("broadcast");
   };
 
   const handleDeleteAnnouncement = async (id) => {
@@ -475,300 +652,339 @@ const SystemSettings = () => {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      toast.success("Logged out successfully");
+      navigate("/admin-auth", { replace: true });
+    } catch (err) {
+      navigate("/admin-auth", { replace: true });
+    }
+  };
+
   if (loading) {
-    return (
-      <div className="system-settings-loading">
-        <div className="premium-spinner">
-          <div className="spinner-ring"></div>
-          <div className="spinner-glow"></div>
-        </div>
-        <p>Loading Premium Control Center...</p>
-      </div>
-    );
+    return <SystemSettingsSkeleton darkMode={darkMode} />;
   }
 
-  return (
-    <div className={`premium-system-settings ${darkMode ? 'dark-mode' : ''}`}>
-      {/* Animated Background Elements */}
-      <div className="background-elements">
-        <div className="floating-shape shape-1"></div>
-        <div className="floating-shape shape-2"></div>
-        <div className="floating-shape shape-3"></div>
-      </div>
+  const isSuperAdmin = currentAdmin?.role === "super_admin";
+  const rc = {
+    primary: isSuperAdmin ? "#F59E0B" : "#6366F1",
+    badge: isSuperAdmin
+      ? "linear-gradient(135deg,#F59E0B,#D97706)"
+      : "linear-gradient(135deg,#6366F1,#4F46E5)"
+  };
 
-      {/* Header Section with 3D Effects */}
-      <motion.header 
-        className="premium-header"
-        initial={{ opacity: 0, y: -50 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-      >
-        <div className="header-content">
-          <div className="header-main">
-            <div className="header-title">
-              <div className="header-icon-3d">
-                <FiSettings />
+  const pushStatusLabel = {
+    loading: "Checking...",
+    unsupported: "Not Supported",
+    denied: "Blocked",
+    "not-subscribed": "Enable Notifications",
+    subscribed: "Disable Notifications",
+  };
+
+  return (
+    <div className={`system-settings-root ${darkMode ? "dark" : ""}`}>
+      {/* Mobile Backdrop */}
+      <AnimatePresence>
+        {sidebarOpen && window.innerWidth < 1024 && (
+          <motion.div
+            className="sidebar-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Sidebar */}
+      <aside className={`settings-sidebar ${sidebarCollapsed ? "collapsed" : ""} ${sidebarOpen ? "mobile-open" : ""}`}>
+        <div className="settings-sidebar-brand">
+          <div className="brand-logo" style={{ background: rc.badge, color: isSuperAdmin ? "#000" : "#fff" }}>
+            {isSuperAdmin ? <FaCrown /> : <FaShieldAlt />}
+          </div>
+          {!sidebarCollapsed && (
+            <div className="brand-text">
+              <div className="brand-name">OmniFlow</div>
+              <div className="brand-role">{isSuperAdmin ? "Super Admin" : "Admin Panel"}</div>
+            </div>
+          )}
+          <button className="sidebar-collapse-btn" onClick={() => setSidebarCollapsed(p => !p)}>
+            {sidebarCollapsed ? <FiChevronRight /> : <FiChevronLeft />}
+          </button>
+        </div>
+
+        <nav className="settings-sidebar-nav">
+          {!sidebarCollapsed && <div className="nav-section-label">Navigation</div>}
+          {adminModules.map(module => (
+            <button
+              key={module.path}
+              className={`nav-item ${module.path === "/admin/settings" ? "active" : ""}`}
+              style={{ "--nav-color": rc.primary }}
+              onClick={() => {
+                navigate(module.path);
+                if (window.innerWidth < 1024) setSidebarOpen(false);
+              }}
+              title={sidebarCollapsed ? module.title : undefined}
+            >
+              <span className="nav-icon">{module.icon}</span>
+              {!sidebarCollapsed && <span className="nav-label">{module.title}</span>}
+            </button>
+          ))}
+        </nav>
+
+        <div className="settings-sidebar-footer">
+          <div className="sidebar-profile">
+            <div className="profile-avatar" style={{ background: rc.badge, color: isSuperAdmin ? "#000" : "#fff" }}>
+              {isSuperAdmin ? <FaCrown /> : <FiUser />}
+            </div>
+            {!sidebarCollapsed && (
+              <div>
+                <div className="profile-name">{currentAdmin?.email?.split("@")[0] || "Admin"}</div>
+                <div className="profile-role" style={{ color: rc.primary }}>{currentAdmin?.role?.replace("_", " ") || "Admin"}</div>
+              </div>
+            )}
+          </div>
+          <button className="logout-btn" onClick={handleLogout}>
+            <FiLogOut /> {!sidebarCollapsed && <span>Logout</span>}
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="settings-main-content">
+        {/* Topbar */}
+        <header className="settings-topbar">
+          <div className="topbar-left">
+            <button className="mobile-menu-btn" onClick={() => setSidebarOpen(true)}>
+              <FiMenu />
+            </button>
+            <div>
+              <div className="topbar-title">System Settings</div>
+              <div className="topbar-sub">Manage announcements, notifications, and platform broadcasts</div>
+            </div>
+          </div>
+          <div className="topbar-right">
+            <button className="refresh-btn" onClick={fetchInitialData}>
+              <FiRefreshCw /> Refresh
+            </button>
+            <button className="icon-btn theme-toggle" onClick={toggleDarkMode}>
+              {darkMode ? "☀️" : "🌙"}
+            </button>
+            <div className="role-chip">
+              <div className="role-chip-icon" style={{ background: rc.badge, color: isSuperAdmin ? "#000" : "#fff" }}>
+                {isSuperAdmin ? <FaCrown style={{ fontSize: 10 }} /> : <FaShieldAlt style={{ fontSize: 10 }} />}
               </div>
               <div>
-                <h1>Premium Control Center</h1>
-                <p>Advanced notification management with 3D effects</p>
+                <div className="role-chip-label" style={{ color: rc.primary }}>{currentAdmin?.role?.toUpperCase() || "ADMIN"}</div>
+                <div className="role-chip-status">● Online</div>
               </div>
             </div>
-            <motion.button 
-              className="premium-refresh-btn"
-              onClick={fetchInitialData}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+          </div>
+        </header>
+
+        <div className="settings-content">
+          {/* Web Push Status Banner */}
+          <div className={`push-status-banner ${pushStatus === "subscribed" ? "active" : ""}`}>
+            <div className="push-status-left">
+              <div className={`push-status-icon ${pushStatus === "subscribed" ? "active" : ""}`}>
+                {pushStatus === "subscribed" ? <FiWifi /> : <FiWifiOff />}
+              </div>
+              <div className="push-status-info">
+                <div className="push-status-title">
+                  Web Push Notifications
+                  {pushStatus === "subscribed" && <span className="push-status-dot">●</span>}
+                </div>
+                <div className="push-status-sub">
+                  {pushStatus === "subscribed"
+                    ? `Enabled for this device · ${subscriberCount} total subscribers`
+                    : pushStatus === "denied"
+                    ? "Blocked in browser settings"
+                    : pushStatus === "unsupported"
+                    ? "Not supported in this browser"
+                    : `Enable to receive test notifications · ${subscriberCount} subscribers`}
+                </div>
+              </div>
+            </div>
+            <button
+              className={`push-toggle-btn ${pushStatus === "subscribed" ? "active" : ""}`}
+              onClick={handleTogglePush}
+              disabled={pushLoading || pushStatus === "unsupported" || pushStatus === "loading" || pushStatus === "denied"}
             >
-              <FiRefreshCw />
-              Refresh Analytics
-            </motion.button>
+              {pushLoading ? (
+                <><FiRefreshCw className="spinning" /> Please wait...</>
+              ) : (
+                <>{pushStatusLabel[pushStatus] || "Enable"}</>
+              )}
+            </button>
           </div>
 
-          {/* Premium Stats Grid */}
-          <div className="premium-stats-grid">
-            <motion.div 
-              className="stat-card-3d"
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.1 }}
-            >
-              <div className="stat-glow"></div>
-              <div className="stat-icon-3d">
+          {/* Stats Grid */}
+          <div className="settings-stats-grid">
+            <div className="settings-stat-card">
+              <div className="stat-icon" style={{ background: "rgba(99,102,241,0.12)", color: "#6366F1" }}>
                 <FiBell />
               </div>
-              <div className="stat-content">
-                <div className="stat-number">{stats.totalAnnouncements}</div>
+              <div className="stat-info">
+                <div className="stat-value">{stats.totalAnnouncements}</div>
                 <div className="stat-label">Total Announcements</div>
-                <div className="stat-trend">+12% this month</div>
               </div>
-            </motion.div>
+            </div>
 
-            <motion.div 
-              className="stat-card-3d"
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.2 }}
-            >
-              <div className="stat-glow"></div>
-              <div className="stat-icon-3d">
+            <div className="settings-stat-card">
+              <div className="stat-icon" style={{ background: "rgba(16,185,129,0.12)", color: "#10B981" }}>
                 <FiUsers />
               </div>
-              <div className="stat-content">
-                <div className="stat-number">{stats.totalUsers}</div>
+              <div className="stat-info">
+                <div className="stat-value">{stats.totalUsers}</div>
                 <div className="stat-label">Total Users</div>
                 <div className="stat-breakdown">
                   <span>{stats.totalSellers} sellers</span>
                   <span>{stats.totalBuyers} buyers</span>
                 </div>
               </div>
-            </motion.div>
+            </div>
 
-            <motion.div 
-              className="stat-card-3d"
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.3 }}
-            >
-              <div className="stat-glow"></div>
-              <div className="stat-icon-3d">
-                <FiTrendingUp />
+            <div className="settings-stat-card">
+              <div className="stat-icon" style={{ background: "rgba(139,92,246,0.12)", color: "#8B5CF6" }}>
+                <FiSmartphone />
               </div>
-              <div className="stat-content">
-                <div className="stat-number">{stats.deliveryRate}%</div>
-                <div className="stat-label">Delivery Rate</div>
-                <div className="stat-progress">
-                  <div className="progress-bar">
-                    <div 
-                      className="progress-fill" 
-                      style={{ width: `${stats.deliveryRate}%` }}
-                    ></div>
-                  </div>
-                </div>
+              <div className="stat-info">
+                <div className="stat-value">{subscriberCount}</div>
+                <div className="stat-label">Push Subscribers</div>
               </div>
-            </motion.div>
+            </div>
 
-            <motion.div 
-              className="stat-card-3d"
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.4 }}
-            >
-              <div className="stat-glow"></div>
-              <div className="stat-icon-3d">
+            <div className="settings-stat-card">
+              <div className="stat-icon" style={{ background: "rgba(239,68,68,0.12)", color: "#EF4444" }}>
                 <FiZap />
               </div>
-              <div className="stat-content">
-                <div className="stat-number">{stats.todayAnnouncements}</div>
+              <div className="stat-info">
+                <div className="stat-value">{stats.todayAnnouncements}</div>
                 <div className="stat-label">Sent Today</div>
-                <div className="stat-badge live">Live</div>
               </div>
-            </motion.div>
+            </div>
           </div>
-        </div>
-      </motion.header>
 
-      {/* Main Content */}
-      <div className="premium-content">
-        {/* Premium Navigation Tabs */}
-        <motion.nav 
-          className="premium-tabs"
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.5 }}
-        >
-          {[
-            { id: "broadcast", label: "Broadcast", icon: <FiSend />, badge: "New" },
-            { id: "templates", label: "Templates", icon: <FiCopy />, badge: "3D" },
-            { id: "analytics", label: "Analytics", icon: <FiBarChart2 /> },
-            { id: "scheduled", label: "Scheduled", icon: <FiCalendar /> }
-          ].map(tab => (
-            <motion.button
-              key={tab.id}
-              className={`premium-tab-btn ${activeTab === tab.id ? 'active' : ''}`}
-              onClick={() => setActiveTab(tab.id)}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              {tab.icon}
-              <span>{tab.label}</span>
-              {tab.badge && <span className="tab-badge">{tab.badge}</span>}
-            </motion.button>
-          ))}
-        </motion.nav>
+          {/* Tabs */}
+          <div className="settings-tabs">
+            {[
+              { id: "broadcast", label: "Broadcast", icon: <FiSend /> },
+              { id: "webpush", label: "Web Push", icon: <FiSmartphone /> },
+              { id: "templates", label: "Templates", icon: <FiCopy /> },
+              { id: "analytics", label: "Analytics", icon: <FiBarChart2 /> },
+              { id: "scheduled", label: "Scheduled", icon: <FiCalendar /> }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                className={`settings-tab ${activeTab === tab.id ? "active" : ""}`}
+                onClick={() => setActiveTab(tab.id)}
+              >
+                {tab.icon}
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </div>
 
-        {/* Tab Content */}
-        <div className="premium-tab-content">
-          
-          {/* Broadcast Tab */}
-          {activeTab === "broadcast" && (
-            <motion.div
-              className="broadcast-3d"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-            >
-              <div className="broadcast-layout-3d">
-                {/* Message Composition - Left Panel */}
-                <div className="compose-panel-3d">
+          {/* Tab Content */}
+          <div className="settings-tab-content">
+            {/* Broadcast Tab */}
+            {activeTab === "broadcast" && (
+              <div className="broadcast-layout">
+                {/* Compose Panel */}
+                <div className="compose-panel">
                   <div className="panel-header">
-                    <h3>🎯 Compose Message</h3>
-                    <div className="header-actions">
-                      <motion.button
-                        className="preview-toggle-3d"
-                        onClick={() => setPreviewMode(!previewMode)}
-                        whileHover={{ scale: 1.05 }}
-                      >
-                        {previewMode ? <FiEyeOff /> : <FiEye />}
-                        {previewMode ? 'Hide Preview' : 'Show Preview'}
-                      </motion.button>
-                    </div>
+                    <h3>Compose Message</h3>
+                    <button
+                      className="preview-toggle"
+                      onClick={() => setPreviewMode(!previewMode)}
+                    >
+                      {previewMode ? <FiEyeOff /> : <FiEye />}
+                      {previewMode ? 'Hide Preview' : 'Show Preview'}
+                    </button>
                   </div>
 
-                  <div className="compose-form-3d">
-                    <div className="form-group-3d">
+                  <div className="compose-form">
+                    <div className="form-group">
                       <label>Message Title *</label>
-                      <div className="input-container-3d">
-                        <input
-                          type="text"
-                          placeholder="Enter a compelling title..."
-                          value={announcement.title}
-                          onChange={(e) => setAnnouncement(prev => ({ ...prev, title: e.target.value }))}
-                          className="premium-input"
-                        />
-                        <div className="input-glow"></div>
-                      </div>
+                      <input
+                        type="text"
+                        placeholder="Enter a compelling title..."
+                        value={announcement.title}
+                        onChange={(e) => setAnnouncement(prev => ({ ...prev, title: e.target.value }))}
+                        className="form-input"
+                      />
                     </div>
 
-                    <div className="form-group-3d">
+                    <div className="form-group">
                       <label>Message Content *</label>
-                      <div className="textarea-container-3d">
-                        <textarea
-                          placeholder="Craft your message with engaging content..."
-                          value={announcement.message}
-                          onChange={(e) => setAnnouncement(prev => ({ ...prev, message: e.target.value }))}
-                          rows={6}
-                          className="premium-textarea"
-                        />
-                        <div className="textarea-glow"></div>
-                      </div>
+                      <textarea
+                        placeholder="Craft your message..."
+                        value={announcement.message}
+                        onChange={(e) => setAnnouncement(prev => ({ ...prev, message: e.target.value }))}
+                        rows={6}
+                        className="form-textarea"
+                      />
                     </div>
 
-                    <div className="form-grid-3d">
-                      <div className="form-group-3d">
+                    <div className="form-row">
+                      <div className="form-group">
                         <label>Notification Type</label>
                         <select
                           value={announcement.type}
                           onChange={(e) => setAnnouncement(prev => ({ ...prev, type: e.target.value }))}
-                          className="premium-select"
+                          className="form-select"
                         >
                           {Object.entries(notificationTypes).map(([key, config]) => (
-                            <option key={key} value={key}>
-                              {config.label}
-                            </option>
+                            <option key={key} value={key}>{config.label}</option>
                           ))}
                         </select>
                       </div>
 
-                      <div className="form-group-3d">
+                      <div className="form-group">
                         <label>Priority Level</label>
                         <select
                           value={announcement.priority}
                           onChange={(e) => setAnnouncement(prev => ({ ...prev, priority: e.target.value }))}
-                          className="premium-select"
+                          className="form-select"
                         >
                           {Object.entries(priorityLevels).map(([key, config]) => (
-                            <option key={key} value={key}>
-                              {config.label}
-                            </option>
+                            <option key={key} value={key}>{config.label}</option>
                           ))}
                         </select>
                       </div>
                     </div>
 
-                    <div className="delivery-options-3d">
-                      <motion.label 
-                        className="checkbox-option-3d"
-                        whileHover={{ scale: 1.02 }}
-                      >
+                    <div className="delivery-options">
+                      <label className="checkbox-option">
                         <input
                           type="checkbox"
                           checked={announcement.pushNotification}
                           onChange={(e) => setAnnouncement(prev => ({ ...prev, pushNotification: e.target.checked }))}
                         />
-                        <div className="checkbox-design"></div>
                         <FiSmartphone />
                         <span>Push Notification</span>
-                      </motion.label>
+                      </label>
 
-                      <motion.label 
-                        className="checkbox-option-3d"
-                        whileHover={{ scale: 1.02 }}
-                      >
+                      <label className="checkbox-option">
                         <input
                           type="checkbox"
                           checked={announcement.inAppNotification}
                           onChange={(e) => setAnnouncement(prev => ({ ...prev, inAppNotification: e.target.checked }))}
                         />
-                        <div className="checkbox-design"></div>
                         <FiBell />
                         <span>In-App Notification</span>
-                      </motion.label>
+                      </label>
                     </div>
                   </div>
                 </div>
 
-                {/* Target & Actions - Right Panel */}
-                <div className="actions-panel-3d">
-                  {/* Target Selection */}
-                  <div className="target-section-3d">
-                    <h4>🎯 Target Audience</h4>
-                    <div className="target-options-3d">
-                      <motion.label 
-                        className="target-option-3d"
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                      >
+                {/* Actions Panel */}
+                <div className="actions-panel">
+                  <div className="target-section">
+                    <h4>Target Audience</h4>
+                    <div className="target-options">
+                      <label className="target-option">
                         <input
                           type="radio"
                           name="target"
@@ -776,19 +992,14 @@ const SystemSettings = () => {
                           checked={announcement.target === "global"}
                           onChange={() => setAnnouncement(prev => ({ ...prev, target: "global", userId: "" }))}
                         />
-                        <div className="option-design"></div>
                         <FiGlobe />
                         <div>
                           <div className="option-title">Global Broadcast</div>
                           <div className="option-desc">Send to all users</div>
                         </div>
-                      </motion.label>
+                      </label>
 
-                      <motion.label 
-                        className="target-option-3d"
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                      >
+                      <label className="target-option">
                         <input
                           type="radio"
                           name="target"
@@ -796,273 +1007,292 @@ const SystemSettings = () => {
                           checked={announcement.target === "user"}
                           onChange={() => setAnnouncement(prev => ({ ...prev, target: "user" }))}
                         />
-                        <div className="option-design"></div>
                         <FiUser />
                         <div>
                           <div className="option-title">Specific User</div>
                           <div className="option-desc">Send to one user</div>
                         </div>
-                      </motion.label>
+                      </label>
                     </div>
 
-                    {/* User Type Selection */}
                     {announcement.target === "global" && (
                       <div className="user-type-selection">
                         <label>User Category</label>
                         <div className="user-type-options">
                           {Object.entries(userTypes).map(([key, config]) => (
-                            <motion.button
+                            <button
                               key={key}
                               className={`user-type-btn ${announcement.userType === key ? 'active' : ''}`}
                               onClick={() => setAnnouncement(prev => ({ ...prev, userType: key }))}
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
-                              style={{ '--color': config.color }}
                             >
                               {config.icon}
                               {config.label}
-                            </motion.button>
+                            </button>
                           ))}
                         </div>
                       </div>
                     )}
 
-                    {/* User Selection for Specific User */}
                     {announcement.target === "user" && (
-                      <div className="user-selection-3d">
-                        <div className="search-box-3d">
+                      <div className="user-selection">
+                        <div className="search-box">
                           <FiSearch />
                           <input
                             type="text"
-                            placeholder="Search users by name or email..."
+                            placeholder="Search users..."
                             value={userSearch}
                             onChange={(e) => setUserSearch(e.target.value)}
                           />
                         </div>
-                        <div className="user-list-3d">
+                        <div className="user-list">
                           {filteredUsers.slice(0, 5).map(user => (
-                            <motion.div
+                            <div
                               key={user.id}
-                              className={`user-item-3d ${announcement.userId === user.id ? 'selected' : ''}`}
+                              className={`user-item ${announcement.userId === user.id ? 'selected' : ''}`}
                               onClick={() => setAnnouncement(prev => ({ ...prev, userId: user.id }))}
-                              whileHover={{ scale: 1.02 }}
                             >
-                              <div className="user-avatar-3d">
-                                <FiUser />
-                              </div>
+                              <div className="user-avatar"><FiUser /></div>
                               <div className="user-info">
                                 <div className="user-name">{user.full_name || user.email}</div>
                                 <div className="user-email">{user.email}</div>
-                                <div className="user-type">
-                                  {stores.find(s => s.owner_id === user.id) ? 'Seller' : 'Buyer'}
-                                </div>
                               </div>
-                            </motion.div>
+                            </div>
                           ))}
                         </div>
                       </div>
                     )}
                   </div>
 
-                  {/* Message Preview */}
                   {previewMode && (
-                    <motion.div 
-                      className="preview-section-3d"
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                    >
-                      <h4>👁️ Message Preview</h4>
-                      <div className="notification-preview-3d">
-                        <div 
-                          className="preview-header-3d"
-                          style={{ background: notificationTypes[announcement.type]?.bgColor }}
-                        >
-                          <div className="preview-icon-3d">
+                    <div className="preview-section">
+                      <h4>Message Preview</h4>
+                      <div className="notification-preview">
+                        <div className="preview-header">
+                          <div className="preview-icon">
                             {notificationTypes[announcement.type]?.icon}
                           </div>
-                          <div className="preview-title-3d">
+                          <div className="preview-title">
                             <strong>{announcement.title || "Your Title Here"}</strong>
-                            <span 
-                              className="priority-badge-3d"
-                              style={{ 
-                                background: priorityLevels[announcement.priority]?.bg,
-                                boxShadow: priorityLevels[announcement.priority]?.glow
-                              }}
-                            >
+                            <span className="priority-badge">
                               {priorityLevels[announcement.priority]?.label}
                             </span>
                           </div>
                         </div>
-                        <div className="preview-content-3d">
+                        <div className="preview-content">
                           <p>{announcement.message || "Your message will appear here..."}</p>
                         </div>
-                        <div className="preview-footer-3d">
-                          <span>Just now • {userTypes[announcement.userType]?.label}</span>
-                          <div className="delivery-badges-3d">
-                            {announcement.pushNotification && (
-                              <motion.span whileHover={{ scale: 1.2 }}>
-                                <FiSmartphone title="Push Notification" />
-                              </motion.span>
-                            )}
-                            {announcement.inAppNotification && (
-                              <motion.span whileHover={{ scale: 1.2 }}>
-                                <FiBell title="In-App Notification" />
-                              </motion.span>
-                            )}
-                          </div>
+                        <div className="preview-footer">
+                          <span>Just now · {userTypes[announcement.userType]?.label}</span>
                         </div>
                       </div>
-                    </motion.div>
+                    </div>
                   )}
 
-                  {/* Send Button */}
-                  <motion.button
-                    className="premium-send-btn"
+                  <button
+                    className="send-btn"
                     onClick={handleBroadcast}
                     disabled={sending || !announcement.title || !announcement.message}
-                    whileHover={{ scale: sending ? 1 : 1.05 }}
-                    whileTap={{ scale: 0.95 }}
                   >
                     {sending ? (
                       <>
-                        <motion.div
-                          animate={{ rotate: 360 }}
-                          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                        >
-                          <FiRefreshCw />
-                        </motion.div>
+                        <FiRefreshCw className="spinning" />
                         Sending...
                       </>
                     ) : (
                       <>
                         <FiSend />
                         Broadcast Message
-                        <div className="send-glow"></div>
                       </>
                     )}
-                  </motion.button>
+                  </button>
                 </div>
               </div>
-            </motion.div>
-          )}
+            )}
 
-          {/* Templates Tab */}
-          {activeTab === "templates" && (
-            <motion.div
-              className="templates-3d"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-            >
-              <div className="templates-header">
-                <h2>🎨 Premium Templates</h2>
-                <p>Choose from our professionally designed templates</p>
-              </div>
-
-              <div className="templates-grid-3d">
-                {Object.entries(premiumTemplates).map(([category, templates]) => (
-                  <div key={category} className="template-category-3d">
-                    <h3 className="category-title">{category.charAt(0).toUpperCase() + category.slice(1)}</h3>
-                    <div className="template-cards-3d">
-                      {templates.map(template => (
-                        <motion.div
-                          key={template.id}
-                          className={`template-card-3d ${selectedTemplate === template.id ? 'selected' : ''}`}
-                          onClick={() => handleUseTemplate(template)}
-                          whileHover={{ 
-                            scale: 1.05,
-                            y: -5,
-                            boxShadow: "0 20px 40px rgba(0,0,0,0.3)"
-                          }}
-                          whileTap={{ scale: 0.95 }}
-                        >
-                          <div className="template-glow"></div>
-                          <div 
-                            className="template-header-3d"
-                            style={{ background: `linear-gradient(135deg, ${template.gradient})` }}
-                          >
-                            <div className="template-icon-3d">
-                              {template.icon}
-                            </div>
-                            <h4>{template.title}</h4>
-                            <span className="template-badge">{template.badge}</span>
-                          </div>
-                          <div className="template-content-3d">
-                            <p>{template.message}</p>
-                          </div>
-                          <div className="template-footer-3d">
-                            <motion.button 
-                              className="use-template-btn-3d"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setActiveTab('broadcast');
-                                handleUseTemplate(template);
-                              }}
-                              whileHover={{ scale: 1.1 }}
-                              whileTap={{ scale: 0.9 }}
-                            >
-                              Use Template
-                            </motion.button>
-                          </div>
-                        </motion.div>
-                      ))}
+            {/* Web Push Tab */}
+            {activeTab === "webpush" && (
+              <div className="webpush-layout">
+                <div className="compose-panel">
+                  <div className="panel-header">
+                    <h3>
+                      <FiSmartphone style={{ marginRight: 8 }} />
+                      Send Web Push Notification
+                    </h3>
+                    <div className="push-info-badge">
+                      {subscriberCount} subscriber{subscriberCount !== 1 ? "s" : ""}
                     </div>
                   </div>
-                ))}
-              </div>
-            </motion.div>
-          )}
 
-          {/* Analytics Tab */}
-          {activeTab === "analytics" && (
-            <motion.div
-              className="analytics-3d"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-            >
-              <div className="analytics-placeholder-3d">
-                <div className="analytics-icon-3d">
-                  <FiBarChart2 />
-                </div>
-                <h3>Advanced Analytics Dashboard</h3>
-                <p>Real-time notification analytics and insights coming soon...</p>
-                <div className="analytics-stats-preview">
-                  <div className="stat-preview">
-                    <span>📊</span>
-                    <strong>Engagement Rate</strong>
-                    <span>Coming Soon</span>
+                  <div className="webpush-info">
+                    <FiAlertTriangle />
+                    <div>
+                      <strong>Browser push to all opted-in devices.</strong>
+                      <span> Users must click "Enable Notifications" on their device first. Sent to {subscriberCount} subscriber{subscriberCount !== 1 ? "s" : ""}.</span>
+                    </div>
                   </div>
-                  <div className="stat-preview">
-                    <span>👥</span>
-                    <strong>User Segments</strong>
-                    <span>Coming Soon</span>
-                  </div>
-                  <div className="stat-preview">
-                    <span>📈</span>
-                    <strong>Performance Metrics</strong>
-                    <span>Coming Soon</span>
+
+                  <div className="compose-form">
+                    <div className="form-group">
+                      <label>Notification Title *</label>
+                      <input
+                        type="text"
+                        placeholder="e.g., Flash Sale Alert!"
+                        value={webPush.title}
+                        onChange={(e) => setWebPush(prev => ({ ...prev, title: e.target.value }))}
+                        className="form-input"
+                        maxLength={80}
+                      />
+                      <div className="field-hint">{webPush.title.length}/80 characters</div>
+                    </div>
+
+                    <div className="form-group">
+                      <label>Notification Message *</label>
+                      <textarea
+                        placeholder="e.g., Up to 70% off on premium products. Limited stock — shop now!"
+                        value={webPush.body}
+                        onChange={(e) => setWebPush(prev => ({ ...prev, body: e.target.value }))}
+                        rows={4}
+                        className="form-textarea"
+                        maxLength={200}
+                      />
+                      <div className="field-hint">{webPush.body.length}/200 characters</div>
+                    </div>
+
+                    <div className="form-group">
+                      <label>Click-through URL</label>
+                      <input
+                        type="text"
+                        placeholder="/deals or https://omniflowapp.co.ke/deals"
+                        value={webPush.url}
+                        onChange={(e) => setWebPush(prev => ({ ...prev, url: e.target.value }))}
+                        className="form-input"
+                      />
+                      <div className="field-hint">Where users go when they tap the notification. Leave as "/" for home.</div>
+                    </div>
+
+                    {/* Live Preview */}
+                    {(webPush.title || webPush.body) && (
+                      <div className="webpush-preview">
+                        <div className="webpush-preview-label">Live Preview</div>
+                        <div className="webpush-card">
+                          <div className="webpush-card-icon">
+                            <FiBell />
+                          </div>
+                          <div className="webpush-card-body">
+                            <div className="webpush-card-title">{webPush.title || "Notification Title"}</div>
+                            <div className="webpush-card-text">{webPush.body || "Your message will appear here..."}</div>
+                            <div className="webpush-card-url">
+                              <FiExternalLink /> omniflowapp.co.ke{webPush.url && webPush.url !== "/" ? webPush.url : ""}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <button
+                      className="send-btn webpush-send-btn"
+                      onClick={handleSendWebPush}
+                      disabled={sendingWebPush || !webPush.title.trim() || !webPush.body.trim() || subscriberCount === 0}
+                    >
+                      {sendingWebPush ? (
+                        <>
+                          <FiRefreshCw className="spinning" />
+                          Sending to {subscriberCount} device{subscriberCount !== 1 ? "s" : ""}...
+                        </>
+                      ) : (
+                        <>
+                          <FiSend />
+                          Send Push to {subscriberCount} Subscriber{subscriberCount !== 1 ? "s" : ""}
+                        </>
+                      )}
+                    </button>
+
+                    {subscriberCount === 0 && (
+                      <div className="webpush-empty-hint">
+                        <FiWifiOff />
+                        <span>No subscribers yet. Toggle the Web Push banner at the top of this page on your own device to test, then ask users to enable notifications.</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
-            </motion.div>
-          )}
+            )}
 
-          {/* Scheduled Tab */}
-          {activeTab === "scheduled" && (
-            <motion.div
-              className="scheduled-3d"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-            >
-              <div className="scheduled-placeholder-3d">
-                <div className="scheduled-icon-3d">
-                  <FiCalendar />
+            {/* Templates Tab */}
+            {activeTab === "templates" && (
+              <div className="templates-container">
+                <div className="templates-header">
+                  <h2>Message Templates</h2>
+                  <p>Choose from our professionally designed templates</p>
                 </div>
+
+                <div className="templates-grid">
+                  {Object.entries(premiumTemplates).map(([category, templates]) => (
+                    <div key={category} className="template-category">
+                      <h3 className="category-title">
+                        {category.charAt(0).toUpperCase() + category.slice(1)}
+                      </h3>
+                      <div className="template-cards">
+                        {templates.map(template => (
+                          <div
+                            key={template.id}
+                            className={`template-card ${selectedTemplate === template.id ? 'selected' : ''}`}
+                            onClick={() => handleUseTemplate(template)}
+                          >
+                            <div className="template-body">
+                              <h4>{template.title}</h4>
+                              <p>{template.message}</p>
+                            </div>
+                            <div className="template-footer">
+                              <button
+                                className="use-template-btn"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleUseTemplate(template);
+                                }}
+                              >
+                                Use Template
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Analytics Tab */}
+            {activeTab === "analytics" && (
+              <div className="placeholder-container">
+                <div className="placeholder-icon"><FiBarChart2 /></div>
+                <h3>Advanced Analytics</h3>
+                <p>Real-time notification analytics and insights coming soon</p>
+                <div className="placeholder-features">
+                  <div className="feature-item">
+                    <FiTrendingUp />
+                    <span>Engagement Rate Tracking</span>
+                  </div>
+                  <div className="feature-item">
+                    <FiUsers />
+                    <span>User Segmentation Analysis</span>
+                  </div>
+                  <div className="feature-item">
+                    <FiBarChart2 />
+                    <span>Performance Metrics</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Scheduled Tab */}
+            {activeTab === "scheduled" && (
+              <div className="placeholder-container">
+                <div className="placeholder-icon"><FiCalendar /></div>
                 <h3>Scheduled Announcements</h3>
                 <p>Schedule your announcements for optimal delivery times</p>
-                <div className="scheduled-features">
+                <div className="placeholder-features">
                   <div className="feature-item">
                     <FiClock />
                     <span>Time-based Scheduling</span>
@@ -1077,103 +1307,75 @@ const SystemSettings = () => {
                   </div>
                 </div>
               </div>
-            </motion.div>
-          )}
-        </div>
-
-        {/* Recent Announcements */}
-        <motion.section 
-          className="recent-announcements-3d"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.8 }}
-        >
-          <div className="section-header-3d">
-            <h3>📜 Recent Announcements</h3>
-            <div className="header-stats">
-              <span className="announcement-count">{settings.length} total</span>
-              <span className="announcement-active">{stats.todayAnnouncements} today</span>
-            </div>
+            )}
           </div>
 
-          {settings.length === 0 ? (
-            <div className="empty-state-3d">
-              <div className="empty-icon-3d">
-                <FiMessageSquare />
+          {/* Recent Announcements */}
+          <div className="recent-announcements">
+            <div className="section-header">
+              <div>
+                <h3>Recent Announcements</h3>
+                <p>Latest messages sent to your users</p>
               </div>
-              <h4>No announcements yet</h4>
-              <p>Create your first announcement to get started with advanced notification management</p>
-              <motion.button 
-                className="create-first-btn"
-                onClick={() => setActiveTab('broadcast')}
-                whileHover={{ scale: 1.05 }}
-              >
-                Create First Announcement
-              </motion.button>
+              <div className="header-stats">
+                <span className="badge">{settings.length} total</span>
+                <span className="badge badge-primary">{stats.todayAnnouncements} today</span>
+              </div>
             </div>
-          ) : (
-            <div className="announcements-list-3d">
-              {settings.slice(0, 6).map((setting, index) => (
-                <motion.div
-                  key={setting.id}
-                  className="announcement-item-3d"
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  whileHover={{ y: -5, boxShadow: "0 10px 30px rgba(0,0,0,0.2)" }}
-                >
-                  <div 
-                    className="announcement-icon-3d"
-                    style={{ 
-                      background: notificationTypes[setting.notification_type]?.bgColor 
-                    }}
-                  >
-                    {notificationTypes[setting.notification_type]?.icon}
-                  </div>
-                  <div className="announcement-content-3d">
-                    <div className="announcement-header-3d">
-                      <h4>{setting.title}</h4>
-                      <span className="announcement-time">
-                        {new Date(setting.created_at).toLocaleString()}
-                      </span>
+
+            {settings.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-icon"><FiMessageSquare /></div>
+                <h4>No announcements yet</h4>
+                <p>Create your first announcement to get started</p>
+                <button className="create-first-btn" onClick={() => setActiveTab('broadcast')}>
+                  Create First Announcement
+                </button>
+              </div>
+            ) : (
+              <div className="announcements-list">
+                {settings.slice(0, 6).map((setting, index) => (
+                  <div key={setting.id} className="announcement-item">
+                    <div className="announcement-icon">
+                      {notificationTypes[setting.notification_type]?.icon || <FiBell />}
                     </div>
-                    <p>{setting.message}</p>
-                    <div className="announcement-meta-3d">
-                      <span className="target-badge-3d">
-                        {setting.target_type === 'global' ? <FiGlobe /> : <FiUser />}
-                        {setting.target_type}
-                      </span>
-                      <span className="user-type-badge">
-                        {userTypes[setting.user_type]?.icon}
-                        {userTypes[setting.user_type]?.label || 'All Users'}
-                      </span>
-                      <span 
-                        className="priority-badge-3d"
-                        style={{ 
-                          background: priorityLevels[setting.priority]?.bg,
-                          boxShadow: priorityLevels[setting.priority]?.glow
-                        }}
+                    <div className="announcement-content">
+                      <div className="announcement-header">
+                        <h4>{setting.title}</h4>
+                        <span className="announcement-time">
+                          {new Date(setting.created_at).toLocaleString()}
+                        </span>
+                      </div>
+                      <p>{setting.message}</p>
+                      <div className="announcement-meta">
+                        <span className="badge">
+                          {setting.target_type === 'global' ? <FiGlobe /> : <FiUser />}
+                          {setting.target_type}
+                        </span>
+                        <span className="badge">
+                          {userTypes[setting.user_type]?.label || 'All Users'}
+                        </span>
+                        <span className="badge badge-priority">
+                          {setting.priority}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="announcement-actions">
+                      <button
+                        className="delete-btn"
+                        onClick={() => handleDeleteAnnouncement(setting.id)}
+                        title="Delete"
                       >
-                        {setting.priority}
-                      </span>
+                        <FiTrash2 />
+                      </button>
                     </div>
                   </div>
-                  <div className="announcement-actions-3d">
-                    <motion.button
-                      className="delete-btn-3d"
-                      onClick={() => handleDeleteAnnouncement(setting.id)}
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                    >
-                      <FiTrash2 />
-                    </motion.button>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          )}
-        </motion.section>
-      </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </main>
     </div>
   );
 };

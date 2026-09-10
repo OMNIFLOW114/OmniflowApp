@@ -1,239 +1,474 @@
 // src/pages/admin/UserManagement.jsx
-import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useDarkMode } from "@/context/DarkModeContext";
 import { supabase } from "@/supabase";
 import {
-  FiUsers, FiSearch, FiFilter, FiChevronLeft, FiChevronRight,
-  FiUser, FiUserCheck, FiUserX, FiStar, FiBriefcase, FiShield,
-  FiMail, FiPhone, FiCalendar, FiCheckCircle, FiXCircle, FiAlertCircle,
-  FiMenu, FiBell, FiLogOut, FiHome, FiSettings, FiMessageSquare,
-  FiShoppingCart, FiDollarSign, FiPackage, FiCreditCard, FiFileText,
-  FiDatabase, FiAward, FiClipboard, FiUserPlus, FiActivity
+  FiUsers, FiSettings, FiBriefcase, FiMessageSquare,
+  FiStar, FiShoppingCart, FiDollarSign, FiMenu, FiX, FiClipboard,
+  FiUserPlus, FiActivity, FiTrendingUp, FiAlertTriangle, FiCheckCircle,
+  FiSearch, FiBell, FiLogOut, FiUser, FiAward, FiPackage, FiCreditCard,
+  FiFileText, FiDatabase, FiHome, FiShield, FiChevronLeft, FiChevronRight,
+  FiTrendingDown, FiRefreshCw, FiEye, FiDownload, FiAlertCircle,
+  FiMail, FiPhone, FiMapPin, FiBox, FiClock
 } from "react-icons/fi";
-import { FaCrown, FaStore, FaBan, FaCheck, FaShieldAlt } from "react-icons/fa";
+import { FaCrown, FaShieldAlt } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "react-hot-toast";
 import "./UserManagement.css";
 
-const USERS_PER_PAGE = 10;
-
-// Reusable Skeleton Component
-const UserCardSkeleton = () => (
-  <div className="user-card skeleton">
-    <div className="user-header">
-      <div className="sk-pulse" style={{ width: 48, height: 48, borderRadius: 24 }} />
-      <div style={{ flex: 1, marginLeft: 12 }}>
-        <div className="sk-pulse" style={{ width: "60%", height: 20, marginBottom: 8 }} />
-        <div className="sk-pulse" style={{ width: "80%", height: 14 }} />
+// ─── SKELETON COMPONENT ──────────────────────────────────────────────────────
+const UserManagementSkeleton = ({ darkMode }) => (
+  <div className={`user-mgmt-root skeleton ${darkMode ? "dark" : ""}`}>
+    <aside className="user-sidebar" style={{ width: 260 }}>
+      <div className="user-sidebar-brand">
+        <div className="sk-pulse" style={{ width: 40, height: 40, borderRadius: 12 }} />
+        <div className="sk-pulse" style={{ width: 100, height: 16, marginLeft: 12 }} />
       </div>
-    </div>
-    <div className="user-details">
-      <div className="sk-pulse" style={{ width: "50%", height: 16, marginBottom: 8 }} />
-      <div className="sk-pulse" style={{ width: "40%", height: 16, marginBottom: 8 }} />
-      <div className="sk-pulse" style={{ width: "70%", height: 16 }} />
-    </div>
-    <div className="user-actions">
-      <div className="sk-pulse" style={{ width: 100, height: 36, borderRadius: 8 }} />
-      <div className="sk-pulse" style={{ width: 100, height: 36, borderRadius: 8 }} />
-      <div className="sk-pulse" style={{ width: 100, height: 36, borderRadius: 8 }} />
-    </div>
+      <div className="user-sidebar-nav" style={{ padding: 12 }}>
+        {[1,2,3,4,5,6].map(i => (
+          <div key={i} className="sk-pulse" style={{ height: 36, marginBottom: 8, borderRadius: 8 }} />
+        ))}
+      </div>
+      <div className="user-sidebar-footer">
+        <div className="sk-pulse" style={{ height: 40, borderRadius: 8, marginBottom: 8 }} />
+        <div className="sk-pulse" style={{ height: 36, borderRadius: 8 }} />
+      </div>
+    </aside>
+    <main className="user-main-content">
+      <div className="user-topbar">
+        <div className="topbar-left">
+          <div className="sk-pulse" style={{ width: 32, height: 32, borderRadius: 8 }} />
+          <div>
+            <div className="sk-pulse" style={{ width: 120, height: 20, borderRadius: 4 }} />
+            <div className="sk-pulse" style={{ width: 160, height: 14, marginTop: 4, borderRadius: 4 }} />
+          </div>
+        </div>
+        <div className="topbar-right">
+          <div className="sk-pulse" style={{ width: 160, height: 36, borderRadius: 8 }} />
+          <div className="sk-pulse" style={{ width: 36, height: 36, borderRadius: 8 }} />
+          <div className="sk-pulse" style={{ width: 36, height: 36, borderRadius: 8 }} />
+          <div className="sk-pulse" style={{ width: 80, height: 36, borderRadius: 8 }} />
+        </div>
+      </div>
+      <div className="user-content">
+        <div className="filter-bar">
+          <div className="sk-pulse" style={{ width: 180, height: 40, borderRadius: 8 }} />
+          <div className="sk-pulse" style={{ width: 120, height: 40, borderRadius: 8 }} />
+          <div className="sk-pulse" style={{ width: 100, height: 40, borderRadius: 8 }} />
+        </div>
+        <div className="users-grid">
+          {[1,2,3,4,5,6].map(i => (
+            <div key={i} className="user-card sk-card">
+              <div className="user-card-header">
+                <div className="sk-pulse" style={{ width: 48, height: 48, borderRadius: 24 }} />
+                <div className="user-info">
+                  <div className="sk-pulse" style={{ width: 140, height: 18, borderRadius: 4 }} />
+                  <div className="sk-pulse" style={{ width: 100, height: 14, marginTop: 4, borderRadius: 4 }} />
+                </div>
+                <div className="sk-pulse" style={{ width: 80, height: 24, borderRadius: 12, marginLeft: 'auto' }} />
+              </div>
+              <div className="user-details">
+                <div className="sk-pulse" style={{ width: "60%", height: 14, borderRadius: 4, marginBottom: 8 }} />
+                <div className="sk-pulse" style={{ width: "40%", height: 14, borderRadius: 4, marginBottom: 8 }} />
+                <div className="sk-pulse" style={{ width: "50%", height: 14, borderRadius: 4 }} />
+              </div>
+              <div className="user-actions">
+                <div className="sk-pulse" style={{ width: 70, height: 32, borderRadius: 6 }} />
+                <div className="sk-pulse" style={{ width: 70, height: 32, borderRadius: 6 }} />
+                <div className="sk-pulse" style={{ width: 70, height: 32, borderRadius: 6 }} />
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="pagination">
+          <div className="sk-pulse" style={{ width: 100, height: 36, borderRadius: 8 }} />
+          <div className="sk-pulse" style={{ width: 60, height: 20, borderRadius: 4 }} />
+          <div className="sk-pulse" style={{ width: 100, height: 36, borderRadius: 8 }} />
+        </div>
+      </div>
+    </main>
   </div>
 );
 
+// ─── MAIN COMPONENT ──────────────────────────────────────────────────────────
 const UserManagement = () => {
   const { user } = useAuth();
   const { darkMode, toggleDarkMode } = useDarkMode();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  // UI state
+  // UI State
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [currentAdmin, setCurrentAdmin] = useState(null);
-  const [hasAccess, setHasAccess] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterRole, setFilterRole] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasError, setHasError] = useState(false);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState([]);
 
-  // Data state
+  // Data State
   const [users, setUsers] = useState([]);
-  const [page, setPage] = useState(1);
   const [totalUsers, setTotalUsers] = useState(0);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filter, setFilter] = useState("all");
-  const [actionLoading, setActionLoading] = useState(null);
+  const [currentAdmin, setCurrentAdmin] = useState(null);
+  const [actionLoading, setActionLoading] = useState({});
+  const [stats, setStats] = useState({
+    total: 0,
+    premium: 0,
+    verified: 0,
+    banned: 0
+  });
 
-  // Role colors (consistent with dashboard)
+  const ITEMS_PER_PAGE = 12;
+  const subscriptionRef = useRef(null);
+
+  // ─── Role Colors ──────────────────────────────────────────────────────────
   const roleColors = {
-    super_admin: { primary: "#F59E0B", badge: "linear-gradient(135deg,#F59E0B,#D97706)", accent: "rgba(245,158,11,0.15)" },
-    admin:       { primary: "#EF4444", badge: "linear-gradient(135deg,#EF4444,#DC2626)", accent: "rgba(239,68,68,0.15)" },
-    moderator:   { primary: "#6366F1", badge: "linear-gradient(135deg,#6366F1,#4F46E5)", accent: "rgba(99,102,241,0.15)" },
-    support:     { primary: "#10B981", badge: "linear-gradient(135deg,#10B981,#059669)", accent: "rgba(16,185,129,0.15)" },
+    super_admin: { primary: "#F59E0B", badge: "linear-gradient(135deg,#F59E0B,#D97706)" },
+    admin: { primary: "#EF4444", badge: "linear-gradient(135deg,#EF4444,#DC2626)" },
+    moderator: { primary: "#6366F1", badge: "linear-gradient(135deg,#6366F1,#4F46E5)" },
+    support: { primary: "#10B981", badge: "linear-gradient(135deg,#10B981,#059669)" },
   };
 
   const getRoleColor = (role) => roleColors[role] || roleColors.moderator;
 
-  // Navigation modules (same as dashboard – only show if user has permission)
-  const adminModules = [
-    { icon: <FiHome />, title: "Dashboard", path: "/admin-dashboard", perm: "view_dashboard" },
-    { icon: <FiUsers />, title: "User Management", path: "/admin/users", perm: "manage_users" },
-    { icon: <FaStore />, title: "Store Management", path: "/admin/stores", perm: "manage_stores" },
-    { icon: <FiShoppingCart />, title: "Products", path: "/admin/products", perm: "manage_products" },
-    { icon: <FiPackage />, title: "Categories", path: "/admin/categories", perm: "manage_categories" },
-    { icon: <FiMessageSquare />, title: "Messages", path: "/admin/messages", perm: "manage_messages" },
-    { icon: <FiDollarSign />, title: "Finance", path: "/admin/finance", perm: "manage_finance" },
-    { icon: <FiCreditCard />, title: "Wallets", path: "/admin/wallet", perm: "manage_wallets" },
-    { icon: <FiStar />, title: "Ratings", path: "/admin/ratings", perm: "manage_ratings" },
-    { icon: <FiClipboard />, title: "Installments", path: "/admin/installments", perm: "manage_installments" },
-    { icon: <FiFileText />, title: "Reports", path: "/admin/reports", perm: "view_reports" },
-    { icon: <FiUserPlus />, title: "Admin Users", path: "/admin/admins", perm: "manage_admins" },
-    { icon: <FiSettings />, title: "Settings", path: "/admin/settings", perm: "manage_settings" },
-    { icon: <FiDatabase />, title: "Database", path: "/admin/database", perm: "manage_database" },
-    { icon: <FiAward />, title: "Promotions", path: "/admin/promotions", perm: "manage_promotions" },
-  ];
-
-  // ── Check Admin Access ──────────────────────────────────────────────────────
-  const checkAdminAccess = useCallback(async () => {
-    if (!user) {
-      navigate("/admin-dashboard", { replace: true });
-      return false;
-    }
+  // ─── Load Admin Data ──────────────────────────────────────────────────────
+  const loadAdminData = useCallback(async () => {
+    if (!user) return false;
     try {
-      const { data, error } = await supabase
+      let { data: adminData } = await supabase
         .from("admin_users")
         .select("*")
         .eq("user_id", user.id)
         .eq("is_active", true)
-        .single();
-      if (data) {
-        setCurrentAdmin(data);
-        const hasPerm = data.role === "super_admin" || data.permissions?.includes("manage_users") || data.permissions?.includes("all");
-        if (!hasPerm) {
-          toast.error("You don't have permission to manage users");
-          navigate("/admin-dashboard", { replace: true });
-          return false;
+        .maybeSingle();
+
+      if (!adminData) {
+        const { data: adminByEmail } = await supabase
+          .from("admin_users")
+          .select("*")
+          .eq("email", user.email)
+          .eq("is_active", true)
+          .maybeSingle();
+        if (adminByEmail) {
+          adminData = adminByEmail;
+          if (!adminByEmail.user_id) {
+            await supabase
+              .from("admin_users")
+              .update({ user_id: user.id })
+              .eq("id", adminByEmail.id);
+          }
         }
-        setHasAccess(true);
+      }
+
+      if (adminData) {
+        setCurrentAdmin(adminData);
         return true;
       }
-      navigate("/admin-dashboard", { replace: true });
       return false;
-    } catch {
-      navigate("/admin-dashboard", { replace: true });
+    } catch (err) {
+      console.error("Error loading admin data:", err);
       return false;
     }
-  }, [user, navigate]);
+  }, [user]);
 
-  // ── Fetch Users ─────────────────────────────────────────────────────────────
+  // ─── Fetch Users ──────────────────────────────────────────────────────────
   const fetchUsers = useCallback(async () => {
+    if (!currentAdmin) return;
+
     setLoading(true);
-    const from = (page - 1) * USERS_PER_PAGE;
-    const to = from + USERS_PER_PAGE - 1;
+    try {
+      let query = supabase.from("users").select("*", { count: "exact" });
 
-    let query = supabase
-      .from("users")
-      .select(`*, stores:stores!stores_owner_id_fkey(id, name, is_verified, verified_at)`, { count: "exact" });
+      // Search filter
+      if (searchQuery) {
+        query = query.or(
+          `email.ilike.%${searchQuery}%,full_name.ilike.%${searchQuery}%,phone.ilike.%${searchQuery}%`
+        );
+      }
 
-    if (searchTerm) {
-      query = query.or(`name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,phone.ilike.%${searchTerm}%`);
-    }
-    if (filter === "banned") query = query.eq("is_banned", true);
-    else if (filter === "premium") query = query.eq("is_premium", true);
-    else if (filter === "store_owners") query = query.not("stores", "is", null);
-    else if (filter === "verified_stores") query = query.eq("stores.is_verified", true);
+      // Role filter (is_premium)
+      if (filterRole === "premium") {
+        query = query.eq("is_premium", true);
+      } else if (filterRole === "non-premium") {
+        query = query.eq("is_premium", false);
+      }
 
-    const { data, error, count } = await query
-      .order("created_at", { ascending: false })
-      .range(from, to);
+      // Status filter
+      if (filterStatus === "banned") {
+        query = query.eq("is_banned", true);
+      } else if (filterStatus === "active") {
+        query = query.eq("is_banned", false);
+      } else if (filterStatus === "verified") {
+        query = query.eq("confirmed", true);
+      } else if (filterStatus === "unverified") {
+        query = query.eq("confirmed", false);
+      }
 
-    if (error) {
-      console.error("Fetch error:", error);
-      toast.error("Failed to load users");
-    } else {
+      // Pagination
+      const from = (currentPage - 1) * ITEMS_PER_PAGE;
+      const to = from + ITEMS_PER_PAGE - 1;
+      query = query.range(from, to).order("created_at", { ascending: false });
+
+      const { data, error, count } = await query;
+
+      if (error) throw error;
+
       setUsers(data || []);
       setTotalUsers(count || 0);
-    }
-    setLoading(false);
-  }, [page, searchTerm, filter]);
 
-  // ── Actions (Ban, Premium, Store Access, Verify Store) ─────────────────────
-  const toggleField = async (userId, field, value, actionName) => {
-    setActionLoading(`${field}-${userId}`);
-    const { error } = await supabase
-      .from("users")
-      .update({ [field]: value })
-      .eq("id", userId);
-    if (error) {
-      toast.error(`Failed to ${actionName}`);
-    } else {
-      toast.success(`User ${actionName} successfully`);
+      // Calculate stats
+      const { data: allUsers } = await supabase
+        .from("users")
+        .select("is_premium, is_banned, confirmed");
+      
+      if (allUsers) {
+        setStats({
+          total: allUsers.length,
+          premium: allUsers.filter(u => u.is_premium).length,
+          verified: allUsers.filter(u => u.confirmed).length,
+          banned: allUsers.filter(u => u.is_banned).length
+        });
+      }
+
+      setHasError(false);
+    } catch (err) {
+      console.error("Error fetching users:", err);
+      setHasError(true);
+      toast.error("Failed to load users");
+    } finally {
+      setLoading(false);
+    }
+  }, [currentAdmin, searchQuery, filterRole, filterStatus, currentPage]);
+
+  // ─── Toggle User Ban ──────────────────────────────────────────────────────
+  const toggleBan = async (userId, currentStatus) => {
+    setActionLoading(prev => ({ ...prev, [userId]: true }));
+    try {
+      const { error } = await supabase
+        .from("users")
+        .update({ is_banned: !currentStatus })
+        .eq("id", userId);
+
+      if (error) throw error;
+
+      setUsers(prev => prev.map(u =>
+        u.id === userId ? { ...u, is_banned: !currentStatus } : u
+      ));
+      
+      toast.success(`User ${currentStatus ? "unbanned" : "banned"} successfully!`);
+    } catch (err) {
+      console.error("Error toggling ban:", err);
+      toast.error("Failed to update user status");
+    } finally {
+      setActionLoading(prev => ({ ...prev, [userId]: false }));
+    }
+  };
+
+  // ─── Toggle Premium ──────────────────────────────────────────────────────
+  const togglePremium = async (userId, currentStatus) => {
+    setActionLoading(prev => ({ ...prev, [`premium_${userId}`]: true }));
+    try {
+      const { error } = await supabase
+        .from("users")
+        .update({ is_premium: !currentStatus })
+        .eq("id", userId);
+
+      if (error) throw error;
+
+      setUsers(prev => prev.map(u =>
+        u.id === userId ? { ...u, is_premium: !currentStatus } : u
+      ));
+      
+      toast.success(`Premium ${currentStatus ? "revoked" : "granted"} successfully!`);
+    } catch (err) {
+      console.error("Error toggling premium:", err);
+      toast.error("Failed to update premium status");
+    } finally {
+      setActionLoading(prev => ({ ...prev, [`premium_${userId}`]: false }));
+    }
+  };
+
+  // ─── Toggle Store Creation ──────────────────────────────────────────────
+  const toggleStoreAccess = async (userId, currentStatus) => {
+    setActionLoading(prev => ({ ...prev, [`store_${userId}`]: true }));
+    try {
+      const { error } = await supabase
+        .from("users")
+        .update({ can_create_store: !currentStatus })
+        .eq("id", userId);
+
+      if (error) throw error;
+
+      setUsers(prev => prev.map(u =>
+        u.id === userId ? { ...u, can_create_store: !currentStatus } : u
+      ));
+      
+      toast.success(`Store access ${currentStatus ? "revoked" : "granted"} successfully!`);
+    } catch (err) {
+      console.error("Error toggling store access:", err);
+      toast.error("Failed to update store access");
+    } finally {
+      setActionLoading(prev => ({ ...prev, [`store_${userId}`]: false }));
+    }
+  };
+
+  // ─── Fetch Notifications ──────────────────────────────────────────────────
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const { data } = await supabase
+        .from("admin_notifications")
+        .select("id, title, message, created_at, is_read")
+        .eq("is_read", false)
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      const formatted = (data || []).map(n => ({
+        id: n.id,
+        message: n.message || n.title,
+        time: new Date(n.created_at).toLocaleTimeString(),
+        type: "admin"
+      }));
+
+      setNotifications(formatted);
+    } catch (err) {
+      console.warn("Could not fetch notifications:", err);
+    }
+  }, []);
+
+  // ─── Logout ──────────────────────────────────────────────────────────────────
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      toast.success("Logged out successfully");
+      navigate("/admin-auth", { replace: true });
+    } catch (err) {
+      console.error("Logout error:", err);
+      navigate("/admin-auth", { replace: true });
+    }
+  };
+
+  // ─── Effects ──────────────────────────────────────────────────────────────
+  
+  // Initialize
+  useEffect(() => {
+    let isMounted = true;
+    const init = async () => {
+      const adminLoaded = await loadAdminData();
+      if (!adminLoaded || !isMounted) {
+        setLoading(false);
+        return;
+      }
+      await fetchUsers();
+      await fetchNotifications();
+
+      try {
+        subscriptionRef.current = supabase.channel("user-updates")
+          .on("postgres_changes", { event: "*", schema: "public", table: "users" }, () => {
+            if (isMounted) fetchUsers();
+          })
+          .subscribe();
+      } catch (err) {
+        console.warn("Subscription error:", err);
+      }
+    };
+
+    init();
+
+    return () => {
+      isMounted = false;
+      if (subscriptionRef.current) {
+        subscriptionRef.current.unsubscribe();
+        subscriptionRef.current = null;
+      }
+    };
+  }, []); // Runs once on mount
+
+  // Fetch users when filters change
+  useEffect(() => {
+    if (currentAdmin) {
       fetchUsers();
     }
-    setActionLoading(null);
-  };
+  }, [searchQuery, filterRole, filterStatus, currentPage, fetchUsers]);
 
-  const toggleStoreVerification = async (storeId, value, storeName) => {
-    setActionLoading(`store-${storeId}`);
-    const { error } = await supabase
-      .from("stores")
-      .update({ is_verified: value, verified_at: value ? new Date().toISOString() : null })
-      .eq("id", storeId);
-    if (error) {
-      toast.error(`Failed to ${value ? "verify" : "unverify"} store`);
-    } else {
-      toast.success(`Store ${value ? "verified" : "unverified"} successfully`);
+  // Online/Offline handling
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOffline(false);
+      toast.success("Back online – refreshing data");
       fetchUsers();
-    }
-    setActionLoading(null);
-  };
+    };
+    const handleOffline = () => {
+      setIsOffline(true);
+      toast.error("You are offline. Showing cached data.");
+    };
+    
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, [fetchUsers]);
 
-  // ── Effects ─────────────────────────────────────────────────────────────────
+  // Keyboard shortcuts
   useEffect(() => {
-    checkAdminAccess();
-  }, [checkAdminAccess]);
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        document.querySelector(".search-bar input")?.focus();
+      }
+      if (e.key === "Escape") {
+        setShowNotifications(false);
+        setSidebarOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
-  useEffect(() => {
-    if (hasAccess) fetchUsers();
-  }, [fetchUsers, hasAccess]);
-
-  // ── Helpers ─────────────────────────────────────────────────────────────────
-  const totalPages = Math.ceil(totalUsers / USERS_PER_PAGE);
-  const isSuperAdmin = currentAdmin?.role === "super_admin";
-  const rc = getRoleColor(currentAdmin?.role);
-
-  const getStatusBadge = (user) => {
-    if (user.is_banned) return { label: "Banned", color: "#EF4444", icon: <FaBan /> };
-    if (user.is_premium) return { label: "Premium", color: "#F59E0B", icon: <FaCrown /> };
-    if (user.stores?.length > 0) return { label: "Store Owner", color: "#10B981", icon: <FaStore /> };
-    return { label: "Active", color: "#6366F1", icon: <FiUserCheck /> };
+  // ─── Render Helpers ──────────────────────────────────────────────────────
+  const formatDate = (date) => {
+    if (!date) return "N/A";
+    return new Date(date).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric"
+    });
   };
 
-  const getStoreBadge = (store) => {
-    if (!store) return null;
-    return store.is_verified
-      ? { label: "Verified Store", color: "#10B981", icon: <FiCheckCircle /> }
-      : { label: "Unverified Store", color: "#F59E0B", icon: <FiAlertCircle /> };
-  };
+  const totalPages = Math.ceil(totalUsers / ITEMS_PER_PAGE);
 
-  const formatDate = (dateString) => new Date(dateString).toLocaleDateString("en-US", {
-    year: "numeric", month: "short", day: "numeric"
-  });
-
-  // Loading or no access
-  if (!hasAccess || loading) {
-    return (
-      <div className={`user-mgmt-root ${darkMode ? "dark" : ""}`}>
-        <div className="loading-state">
-          <div className="loading-spinner"></div>
-          <p>Loading user management...</p>
-        </div>
-      </div>
-    );
+  // ─── Loading State ──────────────────────────────────────────────────────
+  if (loading) {
+    return <UserManagementSkeleton darkMode={darkMode} />;
   }
 
-  // ─── Render ─────────────────────────────────────────────────────────────────
+  // ─── Admin Navigation ────────────────────────────────────────────────────
+  const adminModules = [
+    { icon: <FiHome />, title: "Dashboard", path: "/admin-dashboard" },
+    { icon: <FiUsers />, title: "Users", path: "/admin/users" },
+    { icon: <FiBriefcase />, title: "Stores", path: "/admin/stores" },
+    { icon: <FiShoppingCart />, title: "Products", path: "/admin/products" },
+    { icon: <FiMessageSquare />, title: "Messages", path: "/admin/messages" },
+    { icon: <FiDollarSign />, title: "Finance", path: "/admin/finance" },
+    { icon: <FiStar />, title: "Ratings", path: "/admin/ratings" },
+    { icon: <FiClipboard />, title: "Installments", path: "/admin/installments" },
+    { icon: <FiFileText />, title: "Reports", path: "/admin/reports" },
+    { icon: <FiUserPlus />, title: "Admins", path: "/admin/admins" },
+    { icon: <FiSettings />, title: "Settings", path: "/admin/settings" },
+  ];
+
+  const rc = getRoleColor(currentAdmin?.role);
+  const isSuperAdmin = currentAdmin?.role === "super_admin";
+
   return (
-    <div className={`user-mgmt-root ${darkMode ? "dark" : ""}`}>
-      {/* Mobile backdrop */}
+    <div className={`user-mgmt-root${darkMode ? " dark" : ""}`}>
       <AnimatePresence>
         {sidebarOpen && window.innerWidth < 1024 && (
           <motion.div
@@ -246,16 +481,16 @@ const UserManagement = () => {
         )}
       </AnimatePresence>
 
-      {/* Sidebar (identical to dashboard) */}
+      {/* ─── SIDEBAR ──────────────────────────────────────────────────────── */}
       <aside className={`user-sidebar ${sidebarCollapsed ? "collapsed" : ""} ${sidebarOpen ? "mobile-open" : ""}`}>
         <div className="user-sidebar-brand">
           <div className="brand-logo" style={{ background: rc.badge, color: isSuperAdmin ? "#000" : "#fff" }}>
-            {isSuperAdmin ? <FaCrown /> : <FaShieldAlt />}
+            {isSuperAdmin ? <FaCrown /> : <FiShield />}
           </div>
           {!sidebarCollapsed && (
             <div className="brand-text">
               <div className="brand-name">OmniFlow</div>
-              <div className="brand-role">{isSuperAdmin ? "Super Admin" : "Admin Panel"}</div>
+              <div className="brand-role">{isSuperAdmin ? "Super Admin" : currentAdmin?.role?.replace(/_/g, " ") || "Admin"}</div>
             </div>
           )}
           <button className="sidebar-collapse-btn" onClick={() => setSidebarCollapsed(p => !p)}>
@@ -265,16 +500,19 @@ const UserManagement = () => {
 
         <nav className="user-sidebar-nav">
           {!sidebarCollapsed && <div className="nav-section-label">Navigation</div>}
-          {adminModules.map(module => (
+          {adminModules.map(m => (
             <button
-              key={module.path}
-              className={`nav-item ${module.path === "/admin/users" ? "active" : ""}`}
+              key={m.path}
+              className={`nav-item${location.pathname === m.path ? " active" : ""}`}
               style={{ "--nav-color": rc.primary, "--nav-accent": rc.accent }}
-              onClick={() => navigate(module.path)}
-              title={sidebarCollapsed ? module.title : undefined}
+              onClick={() => {
+                navigate(m.path);
+                if (window.innerWidth < 1024) setSidebarOpen(false);
+              }}
+              title={sidebarCollapsed ? m.title : undefined}
             >
-              <span className="nav-icon">{module.icon}</span>
-              {!sidebarCollapsed && <span className="nav-label">{module.title}</span>}
+              <span className="nav-icon">{m.icon}</span>
+              {!sidebarCollapsed && <span className="nav-label">{m.title}</span>}
             </button>
           ))}
         </nav>
@@ -285,44 +523,81 @@ const UserManagement = () => {
               {isSuperAdmin ? <FaCrown /> : <FiUser />}
             </div>
             {!sidebarCollapsed && (
-              <div>
+              <div style={{ overflow: "hidden" }}>
                 <div className="profile-name">{currentAdmin?.email?.split("@")[0] || "Admin"}</div>
-                <div className="profile-role" style={{ color: rc.primary }}>{currentAdmin?.role?.replace("_", " ")}</div>
+                <div className="profile-role" style={{ color: rc.primary }}>{currentAdmin?.role?.replace(/_/g, " ")}</div>
               </div>
             )}
           </div>
-          <button className="logout-btn" onClick={async () => {
-            await supabase.auth.signOut();
-            navigate("/admin-auth");
-          }}>
+          <button className="logout-btn" onClick={handleLogout}>
             <FiLogOut /> {!sidebarCollapsed && <span>Logout</span>}
           </button>
         </div>
       </aside>
 
-      {/* Main Content */}
+      {/* ─── MAIN CONTENT ────────────────────────────────────────────────── */}
       <main className="user-main-content">
         <header className="user-topbar">
           <div className="topbar-left">
-            <button className="mobile-menu-btn" onClick={() => setSidebarOpen(true)}><FiMenu /></button>
+            <button className="mobile-menu-btn" onClick={() => setSidebarOpen(true)}>
+              <FiMenu />
+            </button>
             <div>
               <div className="topbar-title">User Management</div>
-              <div className="topbar-sub">Manage platform users and permissions</div>
+              <div className="topbar-sub">
+                {totalUsers} total users · {stats.premium} premium · {stats.verified} verified
+              </div>
             </div>
           </div>
+
           <div className="topbar-right">
             <div className="search-bar">
               <FiSearch />
               <input
                 type="text"
-                placeholder="Search users..."
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
+                placeholder="Search users... (Ctrl+K)"
+                value={searchQuery}
+                onChange={e => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
               />
             </div>
+
+            {isOffline && (
+              <div className="offline-indicator">
+                <FiAlertCircle /> Offline
+              </div>
+            )}
+
+            <div style={{ position: "relative" }}>
+              <button className="icon-btn" onClick={() => setShowNotifications(p => !p)}>
+                <FiBell />
+                {notifications.length > 0 && <span className="notif-badge">{notifications.length}</span>}
+              </button>
+              <AnimatePresence>
+                {showNotifications && (
+                  <motion.div className="notif-dropdown" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+                    <div className="notif-header">Notifications</div>
+                    {notifications.length === 0 ? (
+                      <div className="notif-empty">No pending notifications</div>
+                    ) : (
+                      notifications.map(n => (
+                        <div key={n.id} className="notif-item">
+                          <div className="notif-msg">{n.message}</div>
+                          <div className="notif-time">{n.time}</div>
+                        </div>
+                      ))
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
             <button className="icon-btn theme-toggle" onClick={toggleDarkMode}>
               {darkMode ? "☀️" : "🌙"}
             </button>
+
             <div className="role-chip">
               <div className="role-chip-icon" style={{ background: rc.badge, color: isSuperAdmin ? "#000" : "#fff" }}>
                 {isSuperAdmin ? <FaCrown style={{ fontSize: 10 }} /> : <FaShieldAlt style={{ fontSize: 10 }} />}
@@ -336,125 +611,187 @@ const UserManagement = () => {
         </header>
 
         <div className="user-content">
-          {/* Filter Bar */}
+          {/* ─── FILTER BAR ────────────────────────────────────────────────── */}
           <div className="filter-bar">
             <div className="filter-group">
-              <FiFilter />
-              <select value={filter} onChange={e => setFilter(e.target.value)}>
+              <select
+                value={filterRole}
+                onChange={e => {
+                  setFilterRole(e.target.value);
+                  setCurrentPage(1);
+                }}
+              >
                 <option value="all">All Users</option>
-                <option value="banned">Banned Users</option>
-                <option value="premium">Premium Users</option>
-                <option value="store_owners">Store Owners</option>
-                <option value="verified_stores">Verified Stores</option>
+                <option value="premium">Premium</option>
+                <option value="non-premium">Non-Premium</option>
               </select>
             </div>
+
+            <div className="filter-group">
+              <select
+                value={filterStatus}
+                onChange={e => {
+                  setFilterStatus(e.target.value);
+                  setCurrentPage(1);
+                }}
+              >
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="banned">Banned</option>
+                <option value="verified">Verified</option>
+                <option value="unverified">Unverified</option>
+              </select>
+            </div>
+
             <div className="stats-info">
-              <span>{totalUsers} total users</span>
+              Showing {users.length} of {totalUsers} users
             </div>
           </div>
 
-          {/* Users Grid */}
-          <div className="users-grid">
-            {loading ? (
-              Array(6).fill(0).map((_, i) => <UserCardSkeleton key={i} />)
-            ) : users.length === 0 ? (
-              <div className="empty-state">
-                <FiUsers className="empty-icon" />
-                <h3>No users found</h3>
-                <p>Try adjusting your search or filter criteria</p>
-              </div>
-            ) : (
-              users.map((user, idx) => {
-                const status = getStatusBadge(user);
-                const store = user.stores?.[0];
-                const storeBadge = getStoreBadge(store);
+          {/* ─── USERS GRID ───────────────────────────────────────────────── */}
+          {hasError ? (
+            <div className="error-banner">
+              <FiAlertCircle />
+              <span>Failed to load users</span>
+              <button onClick={fetchUsers}>Retry</button>
+            </div>
+          ) : users.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-icon"><FiUsers /></div>
+              <h3>No users found</h3>
+              <p>Try adjusting your search or filters</p>
+            </div>
+          ) : (
+            <div className="users-grid">
+              {users.map(user => {
+                const isPremium = user.is_premium;
+                const isBanned = user.is_banned;
+                const isVerified = user.confirmed;
+                const canCreateStore = user.can_create_store;
+                const isAdminUser = user.is_admin;
+
                 return (
                   <motion.div
                     key={user.id}
                     className="user-card"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: idx * 0.05 }}
-                    whileHover={{ y: -2 }}
+                    transition={{ duration: 0.3 }}
                   >
                     <div className="user-card-header">
-                      <div className="user-avatar" style={{ background: `${status.color}20`, color: status.color }}>
-                        {status.icon}
+                      <div className="user-avatar" style={{
+                        background: isPremium ? "linear-gradient(135deg,#F59E0B,#D97706)" : "rgba(99,102,241,0.1)",
+                        color: isPremium ? "#000" : "#6366F1"
+                      }}>
+                        {user.avatar_url ? (
+                          <img src={user.avatar_url} alt={user.full_name} style={{ width: 48, height: 48, borderRadius: 24 }} />
+                        ) : (
+                          <FiUser size={20} />
+                        )}
                       </div>
                       <div className="user-info">
-                        <h3>{user.name || "Unnamed User"}</h3>
-                        <p>{user.email}</p>
+                        <h3>{user.full_name || "Unknown User"}</h3>
+                        <p>{user.email || "No email"}</p>
                       </div>
-                      <span className="status-badge" style={{ background: `${status.color}15`, color: status.color }}>
-                        {status.icon} {status.label}
-                      </span>
+                      <div className={`status-badge ${isBanned ? "banned" : isVerified ? "verified" : "pending"}`}>
+                        {isBanned ? <FiAlertTriangle size={12} /> : isVerified ? <FiCheckCircle size={12} /> : <FiClock size={12} />}
+                        {isBanned ? "Banned" : isVerified ? "Verified" : "Pending"}
+                      </div>
                     </div>
 
                     <div className="user-details">
-                      <div className="detail-row">
-                        <FiPhone /> <span>{user.phone || "No phone"}</span>
-                      </div>
-                      <div className="detail-row">
-                        <FiCalendar /> <span>Joined {formatDate(user.created_at)}</span>
-                      </div>
-                      {store && (
-                        <div className="detail-row store-row">
-                          <FaStore /> <span>{store.name}</span>
-                          {storeBadge && (
-                            <span className="store-badge" style={{ background: `${storeBadge.color}15`, color: storeBadge.color }}>
-                              {storeBadge.icon} {storeBadge.label}
-                            </span>
-                          )}
+                      {user.phone && (
+                        <div className="detail-row">
+                          <FiPhone /> {user.phone}
                         </div>
                       )}
+                      <div className="detail-row">
+                        <FiClock /> Joined {formatDate(user.created_at)}
+                      </div>
+                      <div className="detail-row store-row">
+                        <FiBox /> Store Access: 
+                        <span className={`store-badge ${canCreateStore ? "granted" : "revoked"}`}>
+                          {canCreateStore ? "✅ Granted" : "❌ Revoked"}
+                        </span>
+                        {isPremium && (
+                          <span className="store-badge premium">
+                            <FiCrown size={10} /> Premium
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     <div className="user-actions">
                       <button
-                        className={`action-btn ${user.is_banned ? "unban" : "ban"}`}
-                        onClick={() => toggleField(user.id, "is_banned", !user.is_banned, user.is_banned ? "unbanned" : "banned")}
-                        disabled={actionLoading === `is_banned-${user.id}`}
+                        className={`action-btn ${isBanned ? "unban" : "ban"}`}
+                        onClick={() => toggleBan(user.id, isBanned)}
+                        disabled={actionLoading[user.id]}
                       >
-                        {actionLoading === `is_banned-${user.id}` ? <div className="loading-dots" /> : <>{user.is_banned ? <FiUserCheck /> : <FiUserX />} {user.is_banned ? "Unban" : "Ban"}</>}
+                        {actionLoading[user.id] ? (
+                          <span className="loading-dots" />
+                        ) : isBanned ? (
+                          "Unban"
+                        ) : (
+                          "Ban"
+                        )}
                       </button>
+
                       <button
-                        className={`action-btn ${user.can_create_store ? "revoke" : "grant"}`}
-                        onClick={() => toggleField(user.id, "can_create_store", !user.can_create_store, user.can_create_store ? "store access revoked" : "store access granted")}
-                        disabled={actionLoading === `can_create_store-${user.id}`}
+                        className={`action-btn ${isPremium ? "revoke-premium" : "grant-premium"}`}
+                        onClick={() => togglePremium(user.id, isPremium)}
+                        disabled={actionLoading[`premium_${user.id}`]}
                       >
-                        {actionLoading === `can_create_store-${user.id}` ? <div className="loading-dots" /> : <><FiBriefcase /> {user.can_create_store ? "Revoke Store" : "Grant Store"}</>}
+                        {actionLoading[`premium_${user.id}`] ? (
+                          <span className="loading-dots" />
+                        ) : isPremium ? (
+                          "Revoke Premium"
+                        ) : (
+                          "Grant Premium"
+                        )}
                       </button>
+
                       <button
-                        className={`action-btn ${user.is_premium ? "revoke-premium" : "grant-premium"}`}
-                        onClick={() => toggleField(user.id, "is_premium", !user.is_premium, user.is_premium ? "premium revoked" : "premium granted")}
-                        disabled={actionLoading === `is_premium-${user.id}`}
+                        className={`action-btn ${canCreateStore ? "revoke" : "grant"}`}
+                        onClick={() => toggleStoreAccess(user.id, canCreateStore)}
+                        disabled={actionLoading[`store_${user.id}`]}
                       >
-                        {actionLoading === `is_premium-${user.id}` ? <div className="loading-dots" /> : <><FiStar /> {user.is_premium ? "Revoke Premium" : "Grant Premium"}</>}
+                        {actionLoading[`store_${user.id}`] ? (
+                          <span className="loading-dots" />
+                        ) : canCreateStore ? (
+                          "Revoke Store"
+                        ) : (
+                          "Grant Store"
+                        )}
                       </button>
-                      {store && (
-                        <button
-                          className={`action-btn ${store.is_verified ? "unverify-store" : "verify-store"}`}
-                          onClick={() => toggleStoreVerification(store.id, !store.is_verified, store.name)}
-                          disabled={actionLoading === `store-${store.id}`}
-                        >
-                          {actionLoading === `store-${store.id}` ? <div className="loading-dots" /> : <>{store.is_verified ? <FiXCircle /> : <FiCheckCircle />} {store.is_verified ? "Unverify Store" : "Verify Store"}</>}
-                        </button>
-                      )}
+
+                      <button
+                        className="action-btn"
+                        style={{ background: "rgba(99,102,241,0.1)", color: "#6366F1" }}
+                        onClick={() => navigate(`/admin/users/${user.id}`)}
+                      >
+                        <FiEye size={14} /> View
+                      </button>
                     </div>
                   </motion.div>
                 );
-              })
-            )}
-          </div>
+              })}
+            </div>
+          )}
 
-          {/* Pagination */}
+          {/* ─── PAGINATION ────────────────────────────────────────────────── */}
           {totalPages > 1 && (
             <div className="pagination">
-              <button onClick={() => setPage(p => Math.max(p - 1, 1))} disabled={page === 1}>
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >
                 <FiChevronLeft /> Previous
               </button>
-              <span>Page {page} of {totalPages} ({totalUsers} users)</span>
-              <button onClick={() => setPage(p => Math.min(p + 1, totalPages))} disabled={page === totalPages}>
+              <span>Page {currentPage} of {totalPages}</span>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+              >
                 Next <FiChevronRight />
               </button>
             </div>

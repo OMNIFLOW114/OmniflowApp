@@ -28,7 +28,7 @@ const TABS = [
 
 const STORES_PER_PAGE = 9;
 
-// Skeleton Components
+// ─── SKELETON COMPONENTS ────────────────────────────────────────────────────
 const StoreCardSkeleton = () => (
   <div className="store-card skeleton">
     <div className="store-header">
@@ -37,6 +37,7 @@ const StoreCardSkeleton = () => (
         <div className="sk-pulse" style={{ width: "60%", height: 20, marginBottom: 8 }} />
         <div className="sk-pulse" style={{ width: "80%", height: 14 }} />
       </div>
+      <div className="sk-pulse" style={{ width: 80, height: 24, borderRadius: 12 }} />
     </div>
     <div className="store-details">
       <div className="sk-pulse" style={{ width: "70%", height: 16, marginBottom: 8 }} />
@@ -59,6 +60,7 @@ const RequestCardSkeleton = () => (
         <div className="sk-pulse" style={{ width: "50%", height: 20, marginBottom: 8 }} />
         <div className="sk-pulse" style={{ width: "70%", height: 14 }} />
       </div>
+      <div className="sk-pulse" style={{ width: 80, height: 24, borderRadius: 12 }} />
     </div>
     <div className="request-details">
       <div className="sk-pulse" style={{ width: "90%", height: 14, marginBottom: 6 }} />
@@ -72,6 +74,66 @@ const RequestCardSkeleton = () => (
   </div>
 );
 
+// ─── SKELETON PAGE ──────────────────────────────────────────────────────────
+const StoreOversightSkeleton = ({ darkMode }) => (
+  <div className={`store-mgmt-root skeleton ${darkMode ? "dark" : ""}`}>
+    <aside className="store-sidebar" style={{ width: 260 }}>
+      <div className="store-sidebar-brand">
+        <div className="sk-pulse" style={{ width: 40, height: 40, borderRadius: 12 }} />
+        <div className="sk-pulse" style={{ width: 100, height: 16, marginLeft: 12 }} />
+      </div>
+      <div className="store-sidebar-nav" style={{ padding: 12 }}>
+        {[1,2,3,4,5,6].map(i => (
+          <div key={i} className="sk-pulse" style={{ height: 36, marginBottom: 8, borderRadius: 8 }} />
+        ))}
+      </div>
+      <div className="store-sidebar-footer">
+        <div className="sk-pulse" style={{ height: 40, borderRadius: 8, marginBottom: 8 }} />
+        <div className="sk-pulse" style={{ height: 36, borderRadius: 8 }} />
+      </div>
+    </aside>
+    <main className="store-main-content">
+      <div className="store-topbar">
+        <div className="topbar-left">
+          <div className="sk-pulse" style={{ width: 32, height: 32, borderRadius: 8 }} />
+          <div>
+            <div className="sk-pulse" style={{ width: 120, height: 20, borderRadius: 4 }} />
+            <div className="sk-pulse" style={{ width: 160, height: 14, marginTop: 4, borderRadius: 4 }} />
+          </div>
+        </div>
+        <div className="topbar-right">
+          <div className="sk-pulse" style={{ width: 160, height: 36, borderRadius: 8 }} />
+          <div className="sk-pulse" style={{ width: 36, height: 36, borderRadius: 8 }} />
+          <div className="sk-pulse" style={{ width: 36, height: 36, borderRadius: 8 }} />
+          <div className="sk-pulse" style={{ width: 80, height: 36, borderRadius: 8 }} />
+        </div>
+      </div>
+      <div className="store-content">
+        <div className="tabs-container">
+          {[1,2,3,4,5,6].map(i => (
+            <div key={i} className="sk-pulse" style={{ width: 100, height: 36, borderRadius: 8 }} />
+          ))}
+        </div>
+        <div className="section-header">
+          <div className="sk-pulse" style={{ width: 150, height: 24, borderRadius: 4 }} />
+          <div className="sk-pulse" style={{ width: 60, height: 24, borderRadius: 12 }} />
+        </div>
+        <div className="stores-grid">
+          {[1,2,3,4,5,6].map(i => (
+            <StoreCardSkeleton key={i} />
+          ))}
+        </div>
+        <div className="pagination">
+          <div className="sk-pulse" style={{ width: 100, height: 36, borderRadius: 8 }} />
+          <div className="sk-pulse" style={{ width: 60, height: 20, borderRadius: 4 }} />
+          <div className="sk-pulse" style={{ width: 100, height: 36, borderRadius: 8 }} />
+        </div>
+      </div>
+    </main>
+  </div>
+);
+
+// ─── MAIN COMPONENT ──────────────────────────────────────────────────────────
 const StoreOversight = () => {
   const { user } = useAuth();
   const { darkMode, toggleDarkMode } = useDarkMode();
@@ -381,16 +443,9 @@ const StoreOversight = () => {
 
   const formatDate = (dateString) => dateString ? new Date(dateString).toLocaleDateString() : 'Never';
 
-  // Loading or no access
-  if (!hasAccess || loading) {
-    return (
-      <div className={`store-mgmt-root ${darkMode ? "dark" : ""}`}>
-        <div className="loading-state">
-          <div className="loading-spinner"></div>
-          <p>Loading store management...</p>
-        </div>
-      </div>
-    );
+  // ─── Loading State ──────────────────────────────────────────────────────────
+  if (loading || !hasAccess) {
+    return <StoreOversightSkeleton darkMode={darkMode} />;
   }
 
   const isSuperAdmin = currentAdmin?.role === "super_admin";
@@ -526,11 +581,7 @@ const StoreOversight = () => {
                 <h2>Pending Store Requests</h2>
                 <span className="count-badge">{requests.length} requests</span>
               </div>
-              {loading ? (
-                <div className="requests-grid">
-                  {[1,2,3].map(i => <RequestCardSkeleton key={i} />)}
-                </div>
-              ) : requests.length === 0 ? (
+              {requests.length === 0 ? (
                 <div className="empty-state">
                   <FiCheckCircle className="empty-icon" />
                   <h3>No pending requests</h3>
@@ -616,11 +667,7 @@ const StoreOversight = () => {
               <div className="section-header">
                 <h2>{TABS.find(t => t.key === activeTab)?.label} <span className="count-badge">({filteredStores.length} stores)</span></h2>
               </div>
-              {loading ? (
-                <div className="stores-grid">
-                  {[1,2,3,4,5,6].map(i => <StoreCardSkeleton key={i} />)}
-                </div>
-              ) : filteredStores.length === 0 ? (
+              {filteredStores.length === 0 ? (
                 <div className="empty-state">
                   <FiBriefcase className="empty-icon" />
                   <h3>No stores found</h3>

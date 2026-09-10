@@ -1,4 +1,4 @@
-// src/pages/admin/ProductModeration.jsx - FULLY UPDATED
+// src/pages/admin/ProductModeration.jsx - FULLY UPDATED WITH SKELETON
 import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
@@ -17,7 +17,7 @@ import {
   FiPlus, FiRefreshCw, FiZap, FiTrendingUp, FiBox,
   FiEye, FiCheck, FiX, FiSend, FiInfo
 } from "react-icons/fi";
-import { FaCrown, FaStore, FaBolt, FaShieldAlt, FaFire, FaTimes } from "react-icons/fa";
+import { FaCrown, FaStore, FaBolt, FaShieldAlt, FaFire, FaTimes, FaExclamationTriangle } from "react-icons/fa";
 import { toast } from "react-hot-toast";
 import "./ProductModeration.css";
 
@@ -33,52 +33,66 @@ const TABS = [
 ];
 
 // ===== SKELETON LOADER COMPONENT =====
-const ProductModerationSkeleton = () => {
-  const { darkMode } = useDarkMode();
-  
+const ProductModerationSkeleton = ({ darkMode }) => {
   return (
-    <div className={`product-modern-root ${darkMode ? "dark" : ""}`}>
+    <div className={`product-modern-root skeleton ${darkMode ? "dark" : ""}`}>
       <div className="skeleton-layout">
         {/* Sidebar Skeleton */}
         <div className="skeleton-sidebar">
           <div className="skeleton-sidebar-header">
-            <div className="skeleton-circle"></div>
-            <div className="skeleton-line" style={{ width: 100 }}></div>
+            <div className="sk-pulse" style={{ width: 40, height: 40, borderRadius: 12 }} />
+            <div className="sk-pulse" style={{ width: 100, height: 16, marginLeft: 12 }} />
           </div>
           {[1,2,3,4,5,6,7,8].map(i => (
-            <div key={i} className="skeleton-nav-item"></div>
+            <div key={i} className="sk-pulse" style={{ height: 36, marginBottom: 8, borderRadius: 8, marginLeft: 12, marginRight: 12 }} />
           ))}
+          <div style={{ marginTop: 'auto', padding: 12, borderTop: '1px solid var(--border)' }}>
+            <div className="sk-pulse" style={{ height: 40, borderRadius: 8, marginBottom: 8 }} />
+            <div className="sk-pulse" style={{ height: 36, borderRadius: 8 }} />
+          </div>
         </div>
         
         {/* Main Content Skeleton */}
         <div className="skeleton-main">
           <div className="skeleton-topbar">
-            <div className="skeleton-line" style={{ width: 200, height: 24 }}></div>
-            <div className="skeleton-line" style={{ width: 300, height: 36, borderRadius: 40 }}></div>
+            <div>
+              <div className="sk-pulse" style={{ width: 200, height: 24, borderRadius: 4 }} />
+              <div className="sk-pulse" style={{ width: 160, height: 14, marginTop: 4, borderRadius: 4 }} />
+            </div>
+            <div className="skeleton-topbar-right">
+              <div className="sk-pulse" style={{ width: 200, height: 36, borderRadius: 40 }} />
+              <div className="sk-pulse" style={{ width: 36, height: 36, borderRadius: 8 }} />
+              <div className="sk-pulse" style={{ width: 36, height: 36, borderRadius: 8 }} />
+              <div className="sk-pulse" style={{ width: 100, height: 36, borderRadius: 40 }} />
+            </div>
           </div>
           
           <div className="skeleton-content">
             <div className="skeleton-stats">
               {[1,2,3,4].map(i => (
-                <div key={i} className="skeleton-stat"></div>
+                <div key={i} className="sk-pulse" style={{ height: 80, borderRadius: 16, flex: 1 }} />
               ))}
             </div>
             
             <div className="skeleton-tabs">
-              {[1,2,3,4,5,6,7].map(i => (
-                <div key={i} className="skeleton-tab"></div>
+              {[1,2,3,4,5,6,7,8].map(i => (
+                <div key={i} className="sk-pulse" style={{ width: 120, height: 40, borderRadius: 40 }} />
               ))}
             </div>
             
             <div className="skeleton-grid">
               {[1,2,3,4,5,6].map(i => (
-                <div key={i} className="skeleton-card">
-                  <div className="skeleton-image"></div>
-                  <div className="skeleton-body">
-                    <div className="skeleton-line" style={{ width: '80%' }}></div>
-                    <div className="skeleton-line" style={{ width: '50%' }}></div>
-                    <div className="skeleton-line" style={{ width: '60%' }}></div>
-                    <div className="skeleton-line" style={{ width: '40%' }}></div>
+                <div key={i} className="sk-card">
+                  <div className="sk-pulse" style={{ height: 180, borderRadius: '16px 16px 0 0' }} />
+                  <div style={{ padding: 16 }}>
+                    <div className="sk-pulse" style={{ width: '80%', height: 18, borderRadius: 4, marginBottom: 8 }} />
+                    <div className="sk-pulse" style={{ width: '50%', height: 20, borderRadius: 4, marginBottom: 12 }} />
+                    <div className="sk-pulse" style={{ width: '60%', height: 14, borderRadius: 4, marginBottom: 16 }} />
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <div className="sk-pulse" style={{ width: 60, height: 32, borderRadius: 20 }} />
+                      <div className="sk-pulse" style={{ width: 60, height: 32, borderRadius: 20 }} />
+                      <div className="sk-pulse" style={{ width: 60, height: 32, borderRadius: 20 }} />
+                    </div>
                   </div>
                 </div>
               ))}
@@ -888,7 +902,7 @@ export default function ProductModeration() {
 
   // Use skeleton loader
   if (!hasAccess || loading) {
-    return <ProductModerationSkeleton />;
+    return <ProductModerationSkeleton darkMode={darkMode} />;
   }
 
   const isSuperAdmin = currentAdmin?.role === "super_admin";
