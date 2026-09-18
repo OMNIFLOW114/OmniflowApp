@@ -39,6 +39,7 @@ import StudentEarningsPage from './pages/StudentEarningsPage';
 import TermsPage from "@/components/TermsPage";
 import FlashSalesPage from './components/FlashSalesPage';
 import OrderDetail from "@/pages/OrderDetail";
+import PrivacyPage from './pages/PrivacyPage';
 // Main Features
 import OmniPayWallet from "./pages/OmniPayWallet";
 import CurrencyConverter from "@/pages/CurrencyConverter";
@@ -234,6 +235,7 @@ function AppRoutes() {
         <Route path="/flash-sales" element={<FlashSalesPage />} />
         <Route path="/checkout/:id" element={<Checkout />} />
         <Route path="/order/:orderId" element={<OrderDetail />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
         
         {/* Protected User Routes - Require internet */}
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
