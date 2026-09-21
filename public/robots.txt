@@ -5,6 +5,8 @@ Allow: /images/
 Allow: /css/
 Allow: /js/
 Allow: /static/
+Allow: /privacy.html
+Allow: /terms.html
 Disallow: /api/
 Disallow: /admin/
 

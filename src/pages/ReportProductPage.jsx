@@ -17,6 +17,7 @@ import {
   FaUserSecret,
   FaGavel,
   FaInfoCircle,
+  FaClock,
   FaPaperPlane,
   FaClipboardList
 } from "react-icons/fa";
