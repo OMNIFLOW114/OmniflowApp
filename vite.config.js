@@ -1,115 +1,95 @@
-// vite.config.js - FIXED VERSION
+// vite.config.js - Native-safe PWA config
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import dotenv from 'dotenv';
 import { VitePWA } from 'vite-plugin-pwa';
 
-// ✅ Load .env variables before config is evaluated
 dotenv.config();
+
+// Detect native build: when we're building for Capacitor we set CAP_BUILD=1
+// Otherwise the PWA plugin is enabled as usual for the web deployment.
+const isNativeBuild = process.env.CAP_BUILD === '1' || process.env.BUILD_TARGET === 'native';
 
 export default defineConfig({
   plugins: [
     react(),
-    VitePWA({
-      registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'robots.txt'],
-      // ✅ FIX: Add workbox configuration to handle large files
-      workbox: {
-        // Increase maximum file size to cache (default is 2MB)
-        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB
-        // Define which files to cache
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        // Exclude large chunks from precaching
-        globIgnores: [
-          '**/index-*.js',
-          '**/vendor-*.js',
-          '**/tesseract-*.js',
-          '**/*.map'
-        ],
-        // Runtime caching for large assets
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts-cache',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
-              }
-            }
-          },
-          {
-            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts-cache',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365
-              }
-            }
-          },
-          {
-            urlPattern: /^https:\/\/images\.unsplash\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'images-cache',
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
-              }
-            }
-          },
-          {
-            urlPattern: /^https:\/\/kkxgrrcbyluhdfsoywvd\.supabase\.co\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'supabase-cache',
-              expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24 // 24 hours
-              }
-            }
-          }
-        ]
-      },
-      manifest: {
-        name: 'Omniflow App',
-        short_name: 'Omniflow',
-        start_url: '.',
-        display: 'standalone',
-        background_color: '#ffffff',
-        theme_color: '#f97316', // orange accent
-        description: 'Your all-in-one marketplace & finance app',
-        icons: [
-          {
-            src: '/icons/icon-192x192.png',
-            sizes: '192x192',
-            type: 'image/png',
-          },
-          {
-            src: '/icons/icon-512x512.png',
-            sizes: '512x512',
-            type: 'image/png',
-          },
-        ],
-      },
-    }),
+    // Only enable PWA on web builds. On native builds the service worker
+    // conflicts with Capacitor's asset loader and can hold stale chunks,
+    // which causes "Unable to open asset URL" and stale auth state.
+    ...(isNativeBuild
+      ? []
+      : [
+          VitePWA({
+            registerType: 'autoUpdate',
+            includeAssets: ['favicon.svg', 'robots.txt'],
+            workbox: {
+              maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+              globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+              globIgnores: ['**/index-*.js', '**/vendor-*.js', '**/tesseract-*.js', '**/*.map'],
+              runtimeCaching: [
+                {
+                  urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+                  handler: 'CacheFirst',
+                  options: {
+                    cacheName: 'google-fonts-cache',
+                    expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 },
+                  },
+                },
+                {
+                  urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
+                  handler: 'CacheFirst',
+                  options: {
+                    cacheName: 'google-fonts-cache',
+                    expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 },
+                  },
+                },
+                {
+                  urlPattern: /^https:\/\/images\.unsplash\.com\/.*/i,
+                  handler: 'CacheFirst',
+                  options: {
+                    cacheName: 'images-cache',
+                    expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 30 },
+                  },
+                },
+                {
+                  urlPattern: /^https:\/\/kkxgrrcbyluhdfsoywvd\.supabase\.co\/.*/i,
+                  handler: 'NetworkFirst',
+                  options: {
+                    cacheName: 'supabase-cache',
+                    expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 },
+                  },
+                },
+              ],
+            },
+            manifest: {
+              name: 'Omniflow App',
+              short_name: 'Omniflow',
+              start_url: '.',
+              display: 'standalone',
+              background_color: '#ffffff',
+              theme_color: '#f97316',
+              description: 'Your all-in-one marketplace & finance app',
+              icons: [
+                { src: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
+                { src: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png' },
+              ],
+            },
+          }),
+        ]),
   ],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, 'src'), // ✅ Allows '@/...' imports
+      '@': path.resolve(__dirname, 'src'),
     },
   },
   define: {
-    'process.env': JSON.stringify(process.env), // ✅ Fixes: process.env vars must be stringified
+    'process.env': JSON.stringify(process.env),
   },
   build: {
     target: 'esnext',
-    sourcemap: false, // disable source maps in production builds
-    minify: 'esbuild', // faster & less memory than terser
+    sourcemap: false,
+    minify: 'esbuild',
     chunkSizeWarningLimit: 1500,
     rollupOptions: {
       output: {
@@ -119,12 +99,17 @@ export default defineConfig({
           'vendor': ['axios', 'lodash'],
           'tesseract': ['tesseract.js'],
           'ui': ['framer-motion', 'react-hot-toast'],
-          'icons': ['react-icons']
+          'icons': ['react-icons'],
         },
-        // Ensure chunks are properly named
         chunkFileNames: 'assets/[name]-[hash].js',
-        entryFileNames: 'assets/[name]-[hash].js',
-        assetFileNames: 'assets/[name]-[hash].[ext]'
+        // ─────────────────────────────────────────────────────────────
+        // FIXED ENTRY FILENAME
+        // Pinned to a stable name so Android Studio's cached APK and
+        // fresh builds agree on the file. Fixes "Unable to open asset
+        // URL: index-sYkn8etk.js" white screen on Android.
+        // ─────────────────────────────────────────────────────────────
+        entryFileNames: 'assets/index-sYkn8etk.js',
+        assetFileNames: 'assets/[name]-[hash].[ext]',
       },
     },
   },
@@ -137,9 +122,8 @@ export default defineConfig({
       allowedHeaders: ['Content-Type', 'Authorization'],
     },
   },
-  // ✅ Optional: Add optimize deps to pre-bundle large dependencies
   optimizeDeps: {
     include: ['react', 'react-dom', 'react-router-dom', 'framer-motion', 'react-hot-toast'],
-    exclude: ['tesseract.js'] // Tesseract is large, exclude from pre-bundling
-  }
+    exclude: ['tesseract.js'],
+  },
 });

@@ -86,3 +86,20 @@ try {
 } catch(Exception   e) {
     logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
 }
+// ─────────────────────────────────────────────────────────────
+// Force-refresh Capacitor web assets before every build.
+// This defeats Android Studio's stale-APK cache.
+// ─────────────────────────────────────────────────────────────
+tasks.whenTaskAdded { task ->
+    if (task.name == 'preBuild') {
+        task.dependsOn 'syncCapacitorAssets'
+    }
+}
+
+task syncCapacitorAssets(type: Copy) {
+    description 'Copies dist/ into Android assets, guaranteeing fresh files'
+    from rootProject.file('../dist')
+    into 'src/main/assets/public'
+    // Skip if dist doesn't exist (e.g. first ever build)
+    onlyIf { rootProject.file('../dist').exists() }
+}

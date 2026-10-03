@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, Component } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { supabase } from "@/supabase";
+import { Capacitor } from "@capacitor/core";
 import { Button } from "@/components/ui/button";
 import toast, { Toaster } from "react-hot-toast";
 import { Loader2, Eye, EyeOff } from "lucide-react";
@@ -14,6 +15,12 @@ const getBaseUrl = () => {
 };
 
 const APP_URL = getBaseUrl();
+
+// Detect if we are running inside the native app (Capacitor)
+const isNativeApp = () => Capacitor.isNativePlatform();
+
+// Custom deep link scheme — must match AndroidManifest.xml and Supabase Redirect URLs
+const NATIVE_REDIRECT_URL = "ke.co.omniflowapp://login-callback";
 
 // Detect system preference for dark mode
 const isSystemDarkMode = () => {
@@ -160,10 +167,23 @@ export default function Auth() {
     }
   }, []);
 
-  // Handle OAuth callback and password reset
+  // Handle OAuth callback and password reset (WEB ONLY)
   useEffect(() => {
     const handleAuthCallback = async () => {
       if (envError) return;
+
+      // On native, the OAuth `code` arrives via the deep link listener in App.jsx.
+      // Skip the code-exchange here so we don't race against it.
+      if (isNativeApp()) {
+        const hash = window.location.hash;
+        const urlParams = new URLSearchParams(hash.substring(1));
+        const type = urlParams.get('type');
+        const tokenHash = urlParams.get('token_hash');
+        if (tokenHash && type === "recovery") {
+          navigate("/reset-password", { replace: true });
+        }
+        return;
+      }
 
       const hash = window.location.hash;
       const urlParams = new URLSearchParams(hash.substring(1));
@@ -189,7 +209,7 @@ export default function Auth() {
           if (data?.session?.user) {
             await syncUserData(data.session.user);
             toast.success("Successfully signed in!");
-            navigate("/home");
+            navigate("/");
           }
         } catch (err) {
           console.error("OAuth error:", err);
@@ -215,7 +235,7 @@ export default function Auth() {
           if (data.session) {
             await syncUserData(data.session.user);
             toast.success("Email confirmed successfully!");
-            navigate("/home");
+            navigate("/");
           }
         } catch (err) {
           toast.error("Error confirming email: " + err.message);
@@ -227,7 +247,9 @@ export default function Auth() {
     handleAuthCallback();
   }, [searchParams, navigate, envError]);
 
-  // Auto-redirect logged-in users
+  // Auto-redirect logged-in users.
+  // This is the SAFETY NET: if the deep link logged us in while this screen
+  // was still mounted (native case), this fires and clears the stuck loading state.
   useEffect(() => {
     const checkSession = async () => {
       if (envError) return;
@@ -235,7 +257,8 @@ export default function Auth() {
         const { data: { session } } = await supabase.auth.getSession();
         const isResetFlow = window.location.pathname.includes("/reset-password");
         if (session?.user && !isResetFlow) {
-          navigate("/home");
+          setLoading(false);       // clear the stuck spinner
+          navigate("/", { replace: true });
         }
       } catch (err) {
         console.error("Session check error:", err);
@@ -247,11 +270,12 @@ export default function Auth() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (envError) return;
       
-      if (event === "SIGNED_IN" && session?.user) {
+      if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION") && session?.user) {
         const isResetFlow = window.location.pathname.includes("/reset-password");
         if (!isResetFlow) {
           await syncUserData(session.user);
-          navigate("/home");
+          setLoading(false);     // always clear spinner on auth state change
+          navigate("/", { replace: true });
         }
       }
       
@@ -260,7 +284,18 @@ export default function Auth() {
       }
     });
 
-    return () => subscription.unsubscribe();
+    // Extra safety: when the app regains focus (e.g. coming back from the
+    // system browser), re-check the session. On native this fires right after
+    // the deep link handler creates the session.
+    const onFocus = () => checkSession();
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+
+    return () => {
+      subscription.unsubscribe();
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
   }, [navigate, searchParams, envError]);
 
   // Validation functions
@@ -505,7 +540,7 @@ export default function Auth() {
       if (data?.user) {
         await syncUserData(data.user);
         toast.success("Welcome back!");
-        navigate("/home");
+        navigate("/");
         setAttemptCount(0);
       }
     } catch (err) {
@@ -560,7 +595,12 @@ export default function Auth() {
     setLoading(true);
     
     try {
-      const redirectUrl = `${window.location.origin}/auth`;
+      // On native (Capacitor) use the custom scheme so Android reopens the app.
+      // On web, use the current origin so the browser flow keeps working.
+      const redirectUrl = isNativeApp()
+        ? NATIVE_REDIRECT_URL
+        : `${window.location.origin}/auth`;
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
@@ -572,6 +612,10 @@ export default function Auth() {
         },
       });
       if (error) throw error;
+      // Do NOT setLoading(false) here on success.
+      // The browser is about to take over. The safety-net effect above will
+      // clear the spinner once a session is detected (native case), and on
+      // web the page navigates away entirely.
     } catch (err) {
       console.error("Google OAuth error:", err);
       toast.error(err.message || "Google login failed. Please try again.");
