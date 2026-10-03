@@ -4,27 +4,48 @@ import { supabase } from "@/supabase";
 import { useAuth } from "@/context/AuthContext";
 import { useDarkMode } from "@/context/DarkModeContext";
 import { ToastContainer, toast } from "react-toastify";
-import { FiLoader } from "react-icons/fi";
+import { motion } from "framer-motion";
+import {
+  FaCrown,
+  FaGem,
+  FaRocket,
+  FaCheck,
+  FaStore,
+  FaWallet,
+  FaArrowLeft,
+  FaBolt,
+} from "react-icons/fa";
 import "react-toastify/dist/ReactToastify.css";
 import "./Premium.css";
 
-const Spinner = ({ size = 24 }) => (
+const Spinner = ({ size = 20 }) => (
   <svg
-    className="cs-spinner"
+    className="premium-spinner"
     width={size}
     height={size}
     viewBox="0 0 50 50"
     aria-hidden
   >
-    <circle cx="25" cy="25" r="20" stroke="currentColor" strokeWidth="5" fill="none" />
+    <circle
+      cx="25"
+      cy="25"
+      r="20"
+      stroke="currentColor"
+      strokeWidth="5"
+      fill="none"
+    />
   </svg>
 );
 
 const plans = [
   {
     name: "Basic",
-    price: 200, // KSH, for wallet deduction
-    displayPrice: "KSH 200 / month",
+    price: 200,
+    displayPrice: "KSH 200",
+    per: "/month",
+    tagline: "Everything you need to start selling",
+    icon: <FaStore />,
+    accent: "basic",
     features: [
       "Create 1 store",
       "List up to 50 products",
@@ -35,7 +56,11 @@ const plans = [
   {
     name: "Pro",
     price: 500,
-    displayPrice: "KSH 500 / month",
+    displayPrice: "KSH 500",
+    per: "/month",
+    tagline: "For growing sellers who want more reach",
+    icon: <FaRocket />,
+    accent: "pro",
     features: [
       "Create up to 3 stores",
       "List up to 200 products",
@@ -47,7 +72,11 @@ const plans = [
   {
     name: "Elite",
     price: 1000,
-    displayPrice: "KSH 1000 / month",
+    displayPrice: "KSH 1000",
+    per: "/month",
+    tagline: "Unlimited power for serious businesses",
+    icon: <FaGem />,
+    accent: "elite",
     features: [
       "Unlimited stores",
       "Unlimited product listings",
@@ -58,6 +87,8 @@ const plans = [
     ],
   },
 ];
+
+const FREE_STORE_LIMIT = 1000;
 
 const Premium = () => {
   const { user } = useAuth();
@@ -70,26 +101,26 @@ const Premium = () => {
   const [walletBalance, setWalletBalance] = useState(null);
 
   useEffect(() => {
-    console.log("User object:", user);
     if (!user?.id) {
-      console.log("No user ID, checking Supabase session");
-      supabase.auth.getSession().then(({ data: { session }, error }) => {
-        if (error) {
-          console.error("Session fetch error:", error);
-          toast.error("Please log in to access premium features.");
-          setLoading(false);
-          return;
-        }
-        if (!session?.user?.id) {
-          console.log("No session user, setting loading false");
-          setLoading(false);
-          return;
-        }
-        fetchStatus(session.user.id);
-      });
+      supabase.auth
+        .getSession()
+        .then(({ data: { session }, error }) => {
+          if (error) {
+            console.error("Session fetch error:", error);
+            toast.error("Please log in to access premium features.");
+            setLoading(false);
+            return;
+          }
+          if (!session?.user?.id) {
+            setLoading(false);
+            return;
+          }
+          fetchStatus(session.user.id);
+        });
       return;
     }
     fetchStatus(user.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const fetchStatus = async (userId) => {
@@ -106,23 +137,15 @@ const Premium = () => {
         .eq("user_id", userId)
         .eq("status", "active")
         .maybeSingle();
-      if (subError) {
-        console.error("Subscription fetch error:", subError);
-        throw subError;
-      }
+      if (subError) throw subError;
 
       const { data: wallet, error: walletError } = await supabase
         .from("wallets")
         .select("balance")
         .eq("user_id", userId)
         .single();
-      if (walletError && walletError.code !== "PGRST116") { // PGRST116: no rows found
-        console.error("Wallet fetch error:", walletError);
-        throw walletError;
-      }
+      if (walletError && walletError.code !== "PGRST116") throw walletError;
 
-      console.log("Subscription data:", subscription);
-      console.log("Wallet balance:", wallet?.balance);
       setTotalStores(count || 0);
       setIsPremium(!!subscription);
       setWalletBalance(wallet?.balance ?? 0);
@@ -141,24 +164,22 @@ const Premium = () => {
     }
     setSubmitting(plan.name);
     try {
-      // Check wallet balance
       if (walletBalance < plan.price) {
         toast.error("Insufficient wallet balance. Please top up your wallet.");
         return;
       }
 
-      // Deduct balance and create subscription
-      const { error: transactionError } = await supabase.rpc("subscribe_with_wallet", {
-        p_user_id: user.id,
-        p_plan_name: plan.name,
-        p_amount: plan.price,
-      });
-      if (transactionError) {
-        console.error("Transaction error:", transactionError);
-        throw new Error(`Transaction failed: ${transactionError.message}`);
-      }
+      const { error: transactionError } = await supabase.rpc(
+        "subscribe_with_wallet",
+        {
+          p_user_id: user.id,
+          p_plan_name: plan.name,
+          p_amount: plan.price,
+        }
+      );
 
-      console.log(`Subscribed to ${plan.name} using wallet`);
+      if (transactionError) throw new Error(transactionError.message);
+
       toast.success(`Successfully subscribed to ${plan.name}!`);
       setWalletBalance((prev) => prev - plan.price);
       setIsPremium(true);
@@ -171,12 +192,23 @@ const Premium = () => {
     }
   };
 
+  const freeSlotsLeft = Math.max(0, FREE_STORE_LIMIT - totalStores);
+  const isFreeTier = totalStores < FREE_STORE_LIMIT;
+
+  const handlePlanAction = (plan) => {
+    if (isFreeTier) {
+      navigate("/store/create");
+    } else {
+      handleSubscribe(plan);
+    }
+  };
+
   if (loading) {
     return (
       <div className={`premium-page ${darkMode ? "dark" : "light"}`}>
-        <div className="cs-container cs-center">
-          <Spinner size={40} />
-          <div className="cs-loading-text">Checking status...</div>
+        <div className="premium-loading">
+          <Spinner size={44} />
+          <p>Checking your seller status...</p>
         </div>
       </div>
     );
@@ -184,62 +216,138 @@ const Premium = () => {
 
   return (
     <div className={`premium-page ${darkMode ? "dark" : "light"}`}>
-      <div className="cs-container">
-        <h2 className="cs-title">Become a Premium Seller</h2>
-        {walletBalance !== null && (
-          <p className="cs-wallet-balance">
-            Wallet Balance: KSH {walletBalance.toFixed(2)}
+      {/* Header */}
+      <header className="premium-header">
+        <motion.button
+          className="premium-back"
+          onClick={() => navigate(-1)}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          aria-label="Go back"
+        >
+          <FaArrowLeft size={14} />
+        </motion.button>
+
+        <div className="premium-header-text">
+          <h1 className="premium-title">
+            {isPremium ? "You're a Seller" : "Become a Seller"}
+          </h1>
+          <p className="premium-subtitle">
+            {isFreeTier
+              ? `🎉 Free store creation open — ${freeSlotsLeft} slot${
+                  freeSlotsLeft === 1 ? "" : "s"
+                } left!`
+              : "Choose a plan that fits your hustle"}
           </p>
-        )}
-        {totalStores < 1000 ? (
-          <p className="cs-offer-text">
-            Limited Offer: Free store creation for the first 1000 stores! ({1000 - totalStores} slots left)
-          </p>
-        ) : (
-          <p className="cs-offer-text">
-            The free store creation offer has ended. Choose a premium plan to create your store.
-          </p>
-        )}
-        <div className="premium-plans-grid">
-          {plans.map((plan) => (
-            <div key={plan.name} className={`premium-card ${plan.name.toLowerCase()}`}>
-              <h3>{plan.name} Plan</h3>
-              <p className="premium-price">{plan.displayPrice}</p>
+        </div>
+
+        <div className="premium-header-spacer" aria-hidden />
+      </header>
+
+      {/* Wallet pill */}
+      {walletBalance !== null && (
+        <motion.div
+          className="premium-wallet-pill"
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <FaWallet size={14} />
+          <span>
+            Wallet:{" "}
+            <strong>KSH {Number(walletBalance).toLocaleString("en-KE")}</strong>
+          </span>
+        </motion.div>
+      )}
+
+      {/* Plans */}
+      <div className="premium-plans-grid">
+        {plans.map((plan, index) => {
+          const isThisSubmitting = submitting === plan.name;
+          const canAfford = walletBalance >= plan.price;
+          const disabled = isThisSubmitting || (!isFreeTier && !canAfford);
+
+          return (
+            <motion.div
+              key={plan.name}
+              className={`premium-card ${plan.accent} ${
+                plan.accent === "pro" ? "featured" : ""
+              }`}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.08, duration: 0.35 }}
+              whileHover={{ y: -4 }}
+            >
+              {plan.accent === "pro" && (
+                <span className="premium-ribbon">Most Popular</span>
+              )}
+              {plan.accent === "elite" && (
+                <span className="premium-ribbon elite-ribbon">Best Value</span>
+              )}
+
+              <div className={`premium-card-icon ${plan.accent}`}>
+                {plan.icon}
+              </div>
+
+              <h3 className="premium-card-title">{plan.name}</h3>
+              <p className="premium-card-tagline">{plan.tagline}</p>
+
+              <div className="premium-card-price">
+                <span className="premium-price-value">{plan.displayPrice}</span>
+                <span className="premium-price-per">{plan.per}</span>
+              </div>
+
               <ul className="premium-features">
-                {plan.features.map((feature, index) => (
-                  <li key={index}>{feature}</li>
+                {plan.features.map((feature, i) => (
+                  <li key={i}>
+                    <span className="premium-feature-check">
+                      <FaCheck size={10} />
+                    </span>
+                    <span>{feature}</span>
+                  </li>
                 ))}
               </ul>
-              <button
-                className="cs-btn cs-btn-primary"
-                onClick={
-                  totalStores < 1000
-                    ? () => {
-                        console.log("Navigating to /store/create for", plan.name);
-                        navigate("/store/create");
-                      }
-                    : () => {
-                        console.log("Starting subscription for", plan.name);
-                        handleSubscribe(plan);
-                      }
-                }
-                disabled={submitting === plan.name || (totalStores >= 1000 && walletBalance < plan.price)}
-                style={{ cursor: submitting === plan.name || (totalStores >= 1000 && walletBalance < plan.price) ? "not-allowed" : "pointer" }}
+
+              <motion.button
+                className="premium-action-btn"
+                onClick={() => handlePlanAction(plan)}
+                disabled={disabled}
+                whileHover={!disabled ? { scale: 1.02 } : {}}
+                whileTap={!disabled ? { scale: 0.98 } : {}}
               >
-                {submitting === plan.name ? (
+                {isThisSubmitting ? (
                   <>
-                    <Spinner size={18} /> Processing...
+                    <Spinner size={16} />
+                    <span>Processing...</span>
                   </>
-                ) : totalStores < 1000 ? (
-                  "Create Free Store"
+                ) : isFreeTier ? (
+                  <>
+                    <FaBolt size={12} />
+                    <span>Create Free Store</span>
+                  </>
+                ) : !canAfford ? (
+                  <>
+                    <FaWallet size={12} />
+                    <span>Top up wallet</span>
+                  </>
                 ) : (
-                  `Subscribe to ${plan.name}`
+                  <>
+                    <FaCrown size={12} />
+                    <span>Subscribe to {plan.name}</span>
+                  </>
                 )}
-              </button>
-            </div>
-          ))}
-        </div>
+              </motion.button>
+            </motion.div>
+          );
+        })}
       </div>
+
+      {/* Footer note */}
+      <p className="premium-footer-note">
+        {isFreeTier
+          ? "Free stores are limited. Once the offer ends, premium plans unlock unlimited access."
+          : "Cancel anytime. Your subscription renews monthly from your OmniPay wallet."}
+      </p>
+
       <ToastContainer position="bottom-center" />
     </div>
   );

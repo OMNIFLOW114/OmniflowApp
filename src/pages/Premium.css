@@ -1,274 +1,674 @@
+/* ================================================================
+   Premium page — responsive, dark-accent UI for OmniFlow
+   Mobile-first. Breakpoints: 480 / 640 / 768 / 1024 / 1280
+   ================================================================ */
+
+/* ---------------------------------------------------------------
+   BASE (mobile-first — smallest phones)
+   --------------------------------------------------------------- */
 .premium-page {
   min-height: 100vh;
-  padding: 2rem;
-  background-color: #f4f7fa;
-  font-family: 'Inter', sans-serif;
+  min-height: 100dvh; /* better on mobile browsers with dynamic toolbars */
+  padding: 0.85rem 0.75rem 7rem; /* extra bottom room for BottomNav */
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  -webkit-tap-highlight-color: transparent;
+  overflow-x: hidden;
+}
+
+.premium-page.light {
+  background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+  color: #0f172a;
 }
 
 .premium-page.dark {
-  background-color: #1a1a1a;
-  color: #e0e0e0;
+  background: radial-gradient(
+      ellipse at top,
+      rgba(102, 126, 234, 0.12) 0%,
+      transparent 55%
+    ),
+    #0a0a0f;
+  color: #e5e7eb;
 }
 
-.cs-container {
-  max-width: 1200px;
+/* ================================================================
+   HEADER
+   ================================================================ */
+.premium-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  max-width: 1100px;
+  margin: 0 auto 0.9rem;
+  padding: 0.4rem 0;
+}
+
+.premium-back {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+
+.premium-back:active {
+  transform: scale(0.94);
+}
+
+.premium-page.light .premium-back {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.premium-page.dark .premium-back {
+  background: rgba(255, 255, 255, 0.06);
+  color: #e5e7eb;
+}
+
+.premium-page.dark .premium-back:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.premium-header-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.premium-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0;
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+.premium-subtitle {
+  font-size: 0.75rem;
+  margin: 0.2rem 0 0;
+  opacity: 0.72;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.premium-header-spacer {
+  width: 40px;
+  flex-shrink: 0;
+}
+
+/* ================================================================
+   WALLET PILL
+   ================================================================ */
+.premium-wallet-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  max-width: 1100px;
+  margin: 0 auto 0.9rem;
+  padding: 0.5rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.premium-page.light .premium-wallet-pill {
+  background: #ffffff;
+  color: #334155;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  border: 1px solid #e2e8f0;
+}
+
+.premium-page.dark .premium-wallet-pill {
+  background: rgba(102, 126, 234, 0.12);
+  color: #c7d2fe;
+  border: 1px solid rgba(102, 126, 234, 0.25);
+}
+
+.premium-wallet-pill strong {
+  font-weight: 700;
+}
+
+/* ================================================================
+   PLAN GRID — mobile-first: single column
+   ================================================================ */
+.premium-plans-grid {
+  display: grid;
+  grid-template-columns: 1fr; /* mobile: 1 column */
+  gap: 0.75rem;
+  max-width: 1100px;
   margin: 0 auto;
-  text-align: center;
+  padding: 0;
 }
 
-.cs-center {
+/* ================================================================
+   PLAN CARD
+   ================================================================ */
+.premium-card {
+  position: relative;
+  border-radius: 18px;
+  padding: 1.15rem 1rem 1.05rem;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.premium-page.light .premium-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
+}
+
+.premium-page.dark .premium-card {
+  background: linear-gradient(180deg, #14141c 0%, #0f0f16 100%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.premium-page.dark .premium-card:hover {
+  border-color: rgba(102, 126, 234, 0.35);
+  box-shadow: 0 12px 32px rgba(102, 126, 234, 0.12);
+}
+
+.premium-card.featured {
+  border-width: 1.5px;
+}
+
+.premium-page.dark .premium-card.featured {
+  border-color: rgba(102, 126, 234, 0.45);
+  box-shadow: 0 12px 32px rgba(102, 126, 234, 0.15);
+}
+
+.premium-page.light .premium-card.featured {
+  border-color: rgba(102, 126, 234, 0.4);
+  box-shadow: 0 12px 32px rgba(102, 126, 234, 0.1);
+}
+
+/* ---- Ribbon ------------------------------------------------------
+   On small screens we use a top-right pill inside the card so it
+   never clips. On wider screens we switch to the diagonal banner.
+   ------------------------------------------------------------------ */
+.premium-ribbon {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 0.28rem 0.65rem;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fff;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  border-radius: 999px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  z-index: 2;
+  white-space: nowrap;
+}
+
+.premium-ribbon.elite-ribbon {
+  background: linear-gradient(90deg, #9013fe 0%, #d946ef 100%);
+}
+
+/* Card icon */
+.premium-card-icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 11px;
+  font-size: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.premium-card-icon.basic {
+  background: rgba(74, 144, 226, 0.15);
+  color: #4a90e2;
+}
+
+.premium-card-icon.pro {
+  background: rgba(102, 126, 234, 0.18);
+  color: #667eea;
+}
+
+.premium-card-icon.elite {
+  background: rgba(144, 19, 254, 0.18);
+  color: #b472ff;
+}
+
+.premium-card-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.premium-card-tagline {
+  font-size: 0.72rem;
+  opacity: 0.65;
+  margin: 0.2rem 0 0.85rem;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+/* Price */
+.premium-card-price {
+  display: flex;
+  align-items: baseline;
+  gap: 0.15rem;
+  margin-bottom: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.premium-price-value {
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.premium-page.dark .premium-price-value {
+  background: linear-gradient(90deg, #a5b4fc 0%, #c4b5fd 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.premium-page.light .premium-price-value {
+  color: #4f46e5;
+}
+
+.premium-price-per {
+  font-size: 0.72rem;
+  opacity: 0.6;
+  font-weight: 500;
+}
+
+/* Features */
+.premium-features {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  flex: 1;
+}
+
+.premium-features li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.76rem;
+  line-height: 1.4;
+  opacity: 0.9;
+  word-break: break-word;
+}
+
+.premium-feature-check {
+  flex-shrink: 0;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+}
+
+.premium-page.dark .premium-feature-check {
+  background: rgba(16, 185, 129, 0.18);
+  color: #34d399;
+}
+
+.premium-page.light .premium-feature-check {
+  background: rgba(16, 185, 129, 0.15);
+  color: #059669;
+}
+
+/* Action button — min 44px tap target */
+.premium-action-btn {
+  width: 100%;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.7rem 1rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s ease, opacity 0.2s ease;
+  margin-top: auto;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.premium-page.dark .premium-action-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #ffffff;
+}
+
+.premium-page.dark .premium-action-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #7c8ff0 0%, #8b5fc0 100%);
+}
+
+.premium-page.light .premium-action-btn {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  color: #ffffff;
+}
+
+.premium-page.light .premium-action-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+}
+
+.premium-action-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.premium-action-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+}
+
+/* ================================================================
+   LOADING STATE
+   ================================================================ */
+.premium-loading {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 50vh;
+  min-height: 60vh;
+  gap: 0.9rem;
 }
 
-.cs-title {
-  font-size: 2.5rem;
-  font-weight: 700;
-  margin-bottom: 1rem;
-  color: #1a1a1a;
+.premium-loading p {
+  font-size: 0.82rem;
+  opacity: 0.7;
+  margin: 0;
 }
 
-.premium-page.dark .cs-title {
-  color: #ffffff;
+/* ================================================================
+   FOOTER NOTE
+   ================================================================ */
+.premium-footer-note {
+  max-width: 640px;
+  margin: 1.4rem auto 0;
+  text-align: center;
+  font-size: 0.7rem;
+  line-height: 1.5;
+  opacity: 0.55;
+  padding: 0 0.75rem;
 }
 
-.cs-offer-text {
-  font-size: 1.2rem;
-  color: #555;
-  margin-bottom: 2rem;
-}
-
-.premium-page.dark .cs-offer-text {
-  color: #b0b0b0;
-}
-
-.cs-wallet-balance {
-  font-size: 1.2rem;
-  color: #28a745;
-  margin-bottom: 1rem;
-}
-
-.premium-page.dark .cs-wallet-balance {
-  color: #34c759;
-}
-
-.premium-plans-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 2rem;
-  padding: 1rem;
-}
-
-.premium-card {
-  background: #ffffff;
-  border-radius: 12px;
-  padding: 2rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  transition: transform 0.3s ease;
-  position: relative;
-  overflow: hidden;
-}
-
-.premium-page.dark .premium-card {
-  background: #2a2a2a;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-.premium-card:hover {
-  transform: translateY(-5px);
-}
-
-.premium-card.basic {
-  border: 2px solid #4a90e2;
-}
-
-.premium-card.pro {
-  border: 2px solid #f5a623;
-  position: relative;
-}
-
-.premium-card.pro::before {
-  content: "Most Popular";
-  position: absolute;
-  top: 0;
-  right: 0;
-  background: #f5a623;
-  color: #fff;
-  padding: 0.5rem 1rem;
-  font-size: 0.9rem;
-  font-weight: 600;
-  transform: rotate(45deg) translate(40%, -50%);
-}
-
-.premium-card.elite {
-  border: 2px solid #9013fe;
-}
-
-.premium-card.elite::before {
-  content: "Best Value";
-  position: absolute;
-  top: 0;
-  right: 0;
-  background: #9013fe;
-  color: #fff;
-  padding: 0.5rem 1rem;
-  font-size: 0.9rem;
-  font-weight: 600;
-  transform: rotate(45deg) translate(40%, -50%);
-}
-
-.premium-card h3 {
-  font-size: 1.8rem;
-  font-weight: 600;
-  margin-bottom: 1rem;
-  color: #1a1a1a;
-}
-
-.premium-page.dark .premium-card h3 {
-  color: #ffffff;
-}
-
-.premium-price {
-  font-size: 1.5rem;
-  font-weight: 500;
-  color: #4a90e2;
-  margin-bottom: 1.5rem;
-}
-
-.premium-page.dark .premium-price {
-  color: #60a5fa;
-}
-
-.premium-features {
-  list-style: none;
-  padding: 0;
-  margin-bottom: 2rem;
-}
-
-.premium-features li {
-  font-size: 1rem;
-  color: #555;
-  margin-bottom: 0.75rem;
-}
-
-.premium-page.dark .premium-features li {
-  color: #b0b0b0;
-}
-
-.cs-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  border-radius: 8px;
-  font-size: 1rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-}
-
-.cs-btn-primary {
-  background: #4a90e2;
-  color: #fff;
-  border: none;
-}
-
-.cs-btn-primary:hover:not(:disabled) {
-  background: #357abd;
-}
-
-.cs-btn-primary:disabled {
-  background: #a0a0a0;
-  cursor: not-allowed;
-}
-
-.premium-page.dark .cs-btn-primary {
-  background: #60a5fa;
-}
-
-.premium-page.dark .cs-btn-primary:hover:not(:disabled) {
-  background: #4b8fe2;
-}
-
-.cs-spinner {
-  animation: spin 1s linear infinite;
+/* ================================================================
+   SPINNER
+   ================================================================ */
+.premium-spinner {
+  animation: spin 0.9s linear infinite;
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
-.cs-loading-text {
-  font-size: 1.2rem;
-  color: #555;
-  margin-top: 1rem;
+/* ================================================================
+   BREAKPOINT — large phones (480px+)
+   ================================================================ */
+@media (min-width: 480px) {
+  .premium-page {
+    padding: 1rem 1rem 7rem;
+  }
+
+  .premium-title {
+    font-size: 1.25rem;
+  }
+
+  .premium-subtitle {
+    font-size: 0.78rem;
+  }
+
+  .premium-card {
+    padding: 1.25rem 1.15rem 1.1rem;
+    border-radius: 20px;
+  }
+
+  .premium-price-value {
+    font-size: 1.65rem;
+  }
+
+  .premium-card-title {
+    font-size: 1.15rem;
+  }
+
+  .premium-features li {
+    font-size: 0.8rem;
+  }
+
+  .premium-ribbon {
+    font-size: 0.62rem;
+    padding: 0.3rem 0.7rem;
+  }
 }
 
-.premium-page.dark .cs-loading-text {
-  color: #b0b0b0;
-}
+/* ================================================================
+   BREAKPOINT — large phones → small tablets (640px+)
+   ================================================================ */
+@media (min-width: 640px) {
+  .premium-page {
+    padding: 1.25rem 1.25rem 7rem;
+  }
 
-.cs-card-status {
-  background: #ffffff;
-  border-radius: 12px;
-  padding: 2rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  max-width: 500px;
-}
+  .premium-header {
+    margin-bottom: 1rem;
+  }
 
-.premium-page.dark .cs-card-status {
-  background: #2a2a2a;
-}
+  .premium-title {
+    font-size: 1.4rem;
+  }
 
-.cs-status-icon.approved {
-  color: #28a745;
-  margin-bottom: 1rem;
-}
+  .premium-subtitle {
+    font-size: 0.82rem;
+  }
 
-.cs-status-title {
-  font-size: 1.8rem;
-  font-weight: 600;
-  color: #1a1a1a;
-  margin-bottom: 1rem;
-}
-
-.premium-page.dark .cs-status-title {
-  color: #ffffff;
-}
-
-.cs-status-desc {
-  font-size: 1.1rem;
-  color: #555;
-  margin-bottom: 2rem;
-}
-
-.premium-page.dark .cs-status-desc {
-  color: #b0b0b0;
-}
-
-.cs-status-actions {
-  display: flex;
-  justify-content: center;
-}
-
-@media (max-width: 768px) {
   .premium-plans-grid {
-    grid-template-columns: 1fr;
+    gap: 1rem;
   }
 
-  .cs-title {
-    font-size: 2rem;
+  .premium-card {
+    padding: 1.4rem 1.25rem 1.2rem;
   }
 
-  .premium-card h3 {
+  .premium-price-value {
+    font-size: 1.75rem;
+  }
+}
+
+/* ================================================================
+   BREAKPOINT — tablets (768px+) — 2 columns
+   ================================================================ */
+@media (min-width: 768px) {
+  .premium-page {
+    padding: 1.5rem 1.5rem 7rem;
+  }
+
+  .premium-plans-grid {
+    /* 2-column layout: Basic + Pro top row, Elite spans full width */
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.15rem;
+  }
+
+  .premium-card.elite {
+    grid-column: span 2;
+    /* Elite card uses horizontal layout on tablet so it doesn't look stretched */
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 1.5rem;
+    align-items: start;
+  }
+
+  .premium-card.elite .premium-card-icon,
+  .premium-card.elite .premium-card-title,
+  .premium-card.elite .premium-card-tagline,
+  .premium-card.elite .premium-card-price {
+    grid-column: 1;
+  }
+
+  .premium-card.elite .premium-features {
+    grid-column: 2;
+    grid-row: 1 / span 4;
+    margin: 0;
+  }
+
+  .premium-card.elite .premium-action-btn {
+    grid-column: 1 / -1;
+    margin-top: 1rem;
+  }
+
+  /* Restore diagonal ribbon for wider cards */
+  .premium-ribbon {
+    top: 14px;
+    right: -34px;
+    padding: 0.3rem 2.5rem;
+    font-size: 0.65rem;
+    border-radius: 0;
+    transform: rotate(38deg);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  }
+
+  .premium-title {
     font-size: 1.5rem;
   }
 
-  .premium-price {
-    font-size: 1.3rem;
+  .premium-header-spacer {
+    width: 44px;
+  }
+
+  .premium-back {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+/* ================================================================
+   BREAKPOINT — desktop (1024px+) — 3 equal columns
+   ================================================================ */
+@media (min-width: 1024px) {
+  .premium-page {
+    padding: 2rem 2rem 7rem;
+  }
+
+  .premium-plans-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.25rem;
+  }
+
+  /* Reset Elite to normal vertical card at 3-col */
+  .premium-card.elite {
+    grid-column: auto;
+    display: flex;
+    flex-direction: column;
+    column-gap: 0;
+  }
+
+  .premium-card.elite .premium-features {
+    grid-column: auto;
+    grid-row: auto;
+    margin: 0 0 1rem;
+  }
+
+  .premium-card.elite .premium-action-btn {
+    grid-column: auto;
+    margin-top: auto;
+  }
+
+  .premium-title {
+    font-size: 1.65rem;
+  }
+
+  .premium-card {
+    padding: 1.75rem 1.5rem 1.5rem;
+  }
+
+  .premium-price-value {
+    font-size: 1.9rem;
+  }
+
+  .premium-features li {
+    font-size: 0.84rem;
+  }
+}
+
+/* ================================================================
+   BREAKPOINT — wide desktop (1280px+)
+   ================================================================ */
+@media (min-width: 1280px) {
+  .premium-page {
+    padding: 2.25rem 2.25rem 7rem;
+  }
+
+  .premium-plans-grid {
+    gap: 1.5rem;
+  }
+
+  .premium-card {
+    padding: 2rem 1.75rem 1.65rem;
+  }
+
+  .premium-card-title {
+    font-size: 1.35rem;
+  }
+
+  .premium-price-value {
+    font-size: 2.1rem;
+  }
+}
+
+/* ================================================================
+   LANDSCAPE PHONES (short viewport)
+   ================================================================ */
+@media (max-height: 500px) and (orientation: landscape) {
+  .premium-page {
+    padding: 0.75rem 1rem 6rem;
+  }
+
+  .premium-header {
+    margin-bottom: 0.6rem;
+  }
+
+  .premium-title {
+    font-size: 1.05rem;
+  }
+
+  .premium-subtitle {
+    font-size: 0.7rem;
+  }
+}
+
+/* ================================================================
+   REDUCED MOTION
+   ================================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .premium-card,
+  .premium-action-btn,
+  .premium-back,
+  .premium-spinner {
+    transition: none !important;
+    animation: none !important;
   }
 }

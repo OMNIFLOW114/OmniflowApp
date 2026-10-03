@@ -3,7 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaTimes, FaMoneyBillWave, FaCalendar, FaPercentage, FaDollarSign, FaInfoCircle } from 'react-icons/fa';
 import { toast } from 'react-toastify';
-import { supabase } from '../lib/supabaseClient';
+// ✅ After
+import { supabase } from "@/supabase";
 import './InstallmentSetupModal.css';
 
 const InstallmentSetupModal = ({ product, isOpen, onClose, onSuccess }) => {

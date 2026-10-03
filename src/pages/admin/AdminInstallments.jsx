@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/supabase";
 import { format } from "date-fns";
 import { toast } from "react-toastify";
 import { useDarkMode } from "@/context/DarkModeContext";

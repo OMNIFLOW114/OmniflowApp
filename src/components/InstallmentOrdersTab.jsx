@@ -1,6 +1,7 @@
 // src/components/InstallmentOrdersTab.jsx - ENHANCED VERSION
 import React, { useEffect, useState } from "react";
-import { supabase } from "../lib/supabaseClient";
+// ✅ After
+import { supabase } from "@/supabase";
 import { toast } from "react-toastify";
 import { 
   FaChartLine, 

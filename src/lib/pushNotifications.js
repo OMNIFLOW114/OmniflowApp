@@ -1,4 +1,5 @@
-import { supabase } from "./supabaseClient"; // Your Supabase client
+// ✅ After
+import { supabase } from "@/supabase";
 
 const VAPID_PUBLIC_KEY = "your-public-key-from-step-1";
 

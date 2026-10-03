@@ -1,6 +1,6 @@
 // src/pages/MyInstallments.jsx - COMPLETE FLEXIBLE PAYMENT SYSTEM
 import React, { useEffect, useState, useRef } from "react";
-import { supabase } from "../lib/supabaseClient";
+import { supabase } from "@/supabase";
 import { toast } from "react-toastify";
 import { useDarkMode } from "@/context/DarkModeContext";
 import "./MyInstallments.css";

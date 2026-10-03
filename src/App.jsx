@@ -1,6 +1,7 @@
-// App.jsx - FULLY UPDATED: Secure, Production-Ready with Network Handling + Native Deep Link
+// App.jsx - FULLY UPDATED: Secure, Production-Ready with Network Handling
+// + Native OAuth Deep Link Handler (Supabase Google login on Android/iOS)
 import React, { useState, useEffect } from "react";
-import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { DarkModeProvider } from "./context/DarkModeContext";
@@ -8,12 +9,15 @@ import { NetworkProvider, useNetwork } from "./context/NetworkContext";
 import { PayPalScriptProvider } from "@paypal/react-paypal-js";
 import { Toaster } from "react-hot-toast";
 import Modal from "react-modal";
-import { App as CapacitorApp } from "@capacitor/app";
-import { Capacitor } from "@capacitor/core";
 import 'swiper/css';
 import "./App.css";
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
+
+// Capacitor imports for native deep-link handling
+import { App as CapacitorApp } from "@capacitor/app";
+import { Browser } from "@capacitor/browser";
+import { Capacitor } from "@capacitor/core";
 
 // Pages / Components
 import Home from "./components/Home";
@@ -54,7 +58,7 @@ import StoreDashboard from "./pages/StoreDashboard";
 import MyInstallments from "./pages/MyInstallments";
 import Checkout from "@/pages/Checkout";
 import Premium from './pages/Premium';
-import SearchPage from "./pages/SearchPage"; 
+import SearchPage from "./pages/SearchPage";
 import StoreDashboardV2 from './pages/StoreDashboardV2';
 import NewMessages from './pages/NewMessages';
 import ReportProductPage from "./pages/ReportProductPage";
@@ -94,6 +98,14 @@ import { supabase } from "@/supabase";
 // Network Components
 import NoInternetConnection from "@/components/NoInternetConnection";
 
+// ================================================================
+// NATIVE OAUTH DEEP LINK URL — must match:
+//   - AndroidManifest.xml intent-filter (scheme + host)
+//   - Info.plist CFBundleURLSchemes
+//   - Supabase Dashboard → Authentication → Redirect URLs
+// ================================================================
+const NATIVE_DEEP_LINK = "ke.co.omniflowapp://login-callback";
+
 // Create a client for React Query - Optimized for production
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -116,17 +128,104 @@ function ScrollToTop() {
   return null;
 }
 
+// ================================================================
+// NATIVE DEEP LINK LISTENER
+// Attaches appUrlOpen listener on native platforms only. When the
+// in-app browser redirects back to ke.co.omniflowapp://login-callback
+// with ?code=..., this handler exchanges the code for a session.
+// On web, this component renders nothing and does nothing.
+// ================================================================
+function NativeDeepLinkHandler() {
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    let listener;
+
+    const setup = async () => {
+      try {
+        listener = await CapacitorApp.addListener("appUrlOpen", async (event) => {
+          console.log("🔗 [deep-link] appUrlOpen:", event.url);
+
+          // Only handle our own scheme — ignore anything else
+          if (!event.url.startsWith(NATIVE_DEEP_LINK)) {
+            console.log("🔗 [deep-link] ignoring — not our scheme");
+            return;
+          }
+
+          try {
+            // Close the in-app browser opened for OAuth
+            await Browser.close().catch(() => {});
+          } catch (_) {
+            /* ignore */
+          }
+
+          try {
+            const url = new URL(event.url);
+            const code = url.searchParams.get("code");
+            const errorDescription = url.searchParams.get("error_description");
+            const error = url.searchParams.get("error");
+
+            if (errorDescription || error) {
+              console.error(
+                "🔴 [deep-link] OAuth error:",
+                errorDescription || error
+              );
+              return;
+            }
+
+            if (!code) {
+              console.warn("🟡 [deep-link] no code in URL:", event.url);
+              return;
+            }
+
+            console.log("🔑 [deep-link] exchanging code for session...");
+            const { data, error: exchangeError } =
+              await supabase.auth.exchangeCodeForSession(code);
+
+            if (exchangeError) {
+              console.error("🔴 [deep-link] exchange error:", exchangeError);
+              return;
+            }
+
+            console.log(
+              "✅ [deep-link] signed in as:",
+              data?.session?.user?.email
+            );
+            // AuthContext / onAuthStateChange in Auth.jsx will pick up the
+            // new session and route the user accordingly.
+          } catch (err) {
+            console.error("🔴 [deep-link] handler error:", err);
+          }
+        });
+      } catch (err) {
+        console.error("🔴 [deep-link] failed to attach listener:", err);
+      }
+    };
+
+    setup();
+
+    return () => {
+      if (listener && typeof listener.remove === "function") {
+        listener.remove();
+      }
+    };
+  }, []);
+
+  return null;
+}
+
 // Protected Route - requires authentication with network check
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
   const { isOnline } = useNetwork();
-  
+
   if (loading) return <div className="flex items-center justify-center min-h-screen text-lg">Loading...</div>;
-  
+
+  // Show offline page when no internet connection
   if (!isOnline) {
     return <NoInternetConnection />;
   }
-  
+
   if (!user) return <Navigate to="/auth" replace />;
   return children;
 }
@@ -148,7 +247,8 @@ function AdminRoute({ children }) {
 
       try {
         console.log("🔍 AdminRoute checking user:", user.id, user.email);
-        
+
+        // Check if user is in admin_users table
         let { data: adminData, error } = await supabase
           .from("admin_users")
           .select("id, role, is_active")
@@ -156,6 +256,7 @@ function AdminRoute({ children }) {
           .eq("is_active", true)
           .maybeSingle();
 
+        // If not found by user_id, try by email
         if (!adminData && !error) {
           console.log("🔍 Not found by user_id, trying by email:", user.email);
           const { data: adminByEmail } = await supabase
@@ -164,9 +265,10 @@ function AdminRoute({ children }) {
             .eq("email", user.email)
             .eq("is_active", true)
             .maybeSingle();
-          
+
           if (adminByEmail) {
             adminData = adminByEmail;
+            // Update user_id if null
             if (!adminByEmail.user_id) {
               console.log("🔄 Updating user_id for admin:", adminByEmail.id);
               await supabase
@@ -195,14 +297,17 @@ function AdminRoute({ children }) {
     checkAdmin();
   }, [user]);
 
+  // Show loading while checking
   if (loading || checking) {
     return <div className="flex items-center justify-center min-h-screen text-lg">Checking admin access...</div>;
   }
 
+  // Show offline page when no internet connection
   if (!isOnline) {
     return <NoInternetConnection />;
   }
 
+  // Redirect if not admin
   if (!user || !isAdmin) {
     console.log("🚫 AdminRoute: Redirecting to home - not admin");
     return <Navigate to="/" replace />;
@@ -220,7 +325,7 @@ function AppRoutes() {
     <>
       <ScrollToTop />
       <Routes>
-        {/* Public Routes */}
+        {/* Public Routes - Accessible even offline (will show cached content) */}
         <Route path="/" element={<TradeStore />} />
         <Route path="/auth" element={<Auth />} />
         <Route path="/about" element={<AboutUs />} />
@@ -231,8 +336,8 @@ function AppRoutes() {
         <Route path="/checkout/:id" element={<Checkout />} />
         <Route path="/order/:orderId" element={<OrderDetail />} />
         <Route path="/privacy" element={<PrivacyPage />} />
-        
-        {/* Protected User Routes */}
+
+        {/* Protected User Routes - Require internet */}
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
@@ -245,13 +350,13 @@ function AppRoutes() {
         <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
         <Route path="/orders" element={<ProtectedRoute><BuyerOrders /></ProtectedRoute>} />
         <Route path="/my-installments" element={<ProtectedRoute><MyInstallments user={User} /></ProtectedRoute>} />
-        
+
         {/* Seller Routes */}
         <Route path="/seller/dashboard" element={<ProtectedRoute><StoreDashboardV2 /></ProtectedRoute>} />
         <Route path="/store/create" element={<ProtectedRoute><CreateStore /></ProtectedRoute>} />
         <Route path="/dashboard/store/:storeId" element={<ProtectedRoute><StoreDashboard /></ProtectedRoute>} />
-        <Route path="/store/premium" element={<ProtectedRoute><Premium /></ProtectedRoute>} />
-        
+        <Route path="/premium" element={<ProtectedRoute><Premium /></ProtectedRoute>} />
+
         {/* Student Routes */}
         <Route path="/student" element={<ProtectedRoute><StudentDashboard /></ProtectedRoute>} />
         <Route path="/student/sell-product" element={<ProtectedRoute><SellProductPage /></ProtectedRoute>} />
@@ -275,7 +380,7 @@ function AppRoutes() {
         <Route path="/student/notifications" element={<ProtectedRoute><StudentNotificationsPage /></ProtectedRoute>} />
         <Route path="/student/report-product/:id" element={<ProtectedRoute><ReportProductPage /></ProtectedRoute>} />
 
-        {/* Admin Routes */}
+        {/* Admin Routes - Protected by AdminRoute (FIXED) */}
         <Route path="/admin" element={<AdminAuth />} />
         <Route path="/admin-dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
         <Route path="/admin/users" element={<AdminRoute><UserManagement /></AdminRoute>} />
@@ -299,107 +404,14 @@ function AppRoutes() {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/verify-otp" element={<VerifyOtp />} />
 
+        {/* Catch all - redirect to home */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>
   );
 }
 
-// ─────────────────────────────────────────────────────────────
-// Native Deep-Link Handler
-// Registers exactly ONCE for the entire app lifetime.
-// Also drains the "launch URL" for the cold-start case (Android
-// launches the app from scratch with the deep link).
-// ─────────────────────────────────────────────────────────────
-function NativeDeepLinkHandler() {
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (!Capacitor.isNativePlatform()) return;
-
-    let isMounted = true;
-
-    const processUrl = async (url) => {
-      try {
-        if (!url) return;
-        if (!url.startsWith("ke.co.omniflowapp://")) return;
-
-        console.log("[deep-link] processing:", url);
-
-        const parsed = new URL(url);
-        const code = parsed.searchParams.get("code");
-        const errorDescription = parsed.searchParams.get("error_description");
-        const hash = parsed.hash ? parsed.hash.substring(1) : "";
-        const hashParams = new URLSearchParams(hash);
-        const accessToken = hashParams.get("access_token");
-        const refreshToken = hashParams.get("refresh_token");
-
-        if (errorDescription) {
-          console.error("[deep-link] OAuth error:", errorDescription);
-          return;
-        }
-
-        if (code) {
-          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-          if (error) {
-            console.error("[deep-link] exchangeCodeForSession error:", error);
-            return;
-          }
-          if (data?.session && isMounted) {
-            console.log("[deep-link] session established, navigating to /");
-            navigate("/", { replace: true });
-          }
-          return;
-        }
-
-        if (accessToken && refreshToken) {
-          const { error } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          });
-          if (error) {
-            console.error("[deep-link] setSession error:", error);
-            return;
-          }
-          if (isMounted) {
-            console.log("[deep-link] session set (implicit flow), navigating to /");
-            navigate("/", { replace: true });
-          }
-        }
-      } catch (err) {
-        console.error("[deep-link] handling error:", err);
-      }
-    };
-
-    // 1) Handle cold-start: Android may have launched us WITH a deep link.
-    CapacitorApp.getLaunchUrl()
-      .then((result) => {
-        if (result?.url) {
-          console.log("[deep-link] getLaunchUrl:", result.url);
-          processUrl(result.url);
-        }
-      })
-      .catch((err) => console.warn("[deep-link] getLaunchUrl failed:", err));
-
-    // 2) Handle warm-start: app already running, deep link arrives.
-    const listenerPromise = CapacitorApp.addListener("appUrlOpen", (event) => {
-      console.log("[deep-link] appUrlOpen:", event.url);
-      processUrl(event.url);
-    });
-
-    return () => {
-      isMounted = false;
-      Promise.resolve(listenerPromise).then((handle) => {
-        if (handle?.remove) handle.remove();
-      });
-    };
-    // NOTE: no `user` in deps → listener is registered exactly once.
-  }, [navigate]);
-
-  return null;
-}
-
-// Main App Component
+// Main App Component - Wrapped with NetworkProvider
 export default function App() {
   const PAYPAL_CLIENT_ID = "AafXEhKIfb17UbunbfNiv5e_h1mtg3fpjx_7c-1EFLnTxHQsJF-a_l1q-W7exOKcfcBafNvKTjJOkrt2";
   Modal.setAppElement("#root");
@@ -419,6 +431,7 @@ export default function App() {
               }}
             >
               <div className="bg-white dark:bg-gray-900 min-h-screen flex flex-col text-black dark:text-white transition-colors">
+                {/* Global Toast Notifications - Single Instance */}
                 <Toaster
                   position="top-right"
                   reverseOrder={false}
@@ -436,17 +449,37 @@ export default function App() {
                     },
                     success: {
                       duration: 3000,
-                      iconTheme: { primary: "#10b981", secondary: "#ffffff" },
-                      style: { background: "#ecfdf5", borderColor: "#a7f3d0", color: "#065f46" },
+                      iconTheme: {
+                        primary: "#10b981",
+                        secondary: "#ffffff",
+                      },
+                      style: {
+                        background: "#ecfdf5",
+                        borderColor: "#a7f3d0",
+                        color: "#065f46",
+                      },
                     },
                     error: {
                       duration: 4000,
-                      iconTheme: { primary: "#ef4444", secondary: "#ffffff" },
-                      style: { background: "#fef2f2", borderColor: "#fecaca", color: "#991b1b" },
+                      iconTheme: {
+                        primary: "#ef4444",
+                        secondary: "#ffffff",
+                      },
+                      style: {
+                        background: "#fef2f2",
+                        borderColor: "#fecaca",
+                        color: "#991b1b",
+                      },
                     },
-                    loading: { style: { background: "#f3f4f6", color: "#374151" } },
+                    loading: {
+                      style: {
+                        background: "#f3f4f6",
+                        color: "#374151",
+                      },
+                    },
                   }}
                 />
+                {/* Native OAuth deep link handler - no-op on web */}
                 <NativeDeepLinkHandler />
                 <AppRoutes />
                 <BottomNav />

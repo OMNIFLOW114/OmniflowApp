@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { supabase } from "../lib/supabaseClient";
+import { supabase } from "@/supabase";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "react-toastify";
 import { FaTrash } from "react-icons/fa";

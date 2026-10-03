@@ -2,31 +2,31 @@ import React, { useState, useEffect, useCallback, Component } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { supabase } from "@/supabase";
-import { Capacitor } from "@capacitor/core";
 import { Button } from "@/components/ui/button";
 import toast, { Toaster } from "react-hot-toast";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import "./Auth.css";
 
+// Get the correct base URL - remove trailing slash and ensure consistency
 const getBaseUrl = () => {
   const url = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
-  return url.replace(/\/$/, "");
+  return url.replace(/\/$/, '');
 };
 
 const APP_URL = getBaseUrl();
-const isNativeApp = () => Capacitor.isNativePlatform();
-const NATIVE_REDIRECT_URL = "ke.co.omniflowapp://login-callback";
 
+// Detect system preference for dark mode
 const isSystemDarkMode = () => {
-  if (typeof window !== "undefined") {
-    return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  if (typeof window !== 'undefined') {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
   }
   return false;
 };
 
-const FALLBACK_LOGO_DATA_URI =
-  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='44' viewBox='0 0 44 44'%3E%3Crect width='44' height='44' rx='12' fill='%23667eea'/%3E%3Cpath d='M22 12L12 17V27L22 32L32 27V17L22 12Z' stroke='white' stroke-width='2' fill='none'/%3E%3Ccircle cx='22' cy='22' r='3' fill='white'/%3E%3Cpath d='M12 17L22 22L32 17' stroke='white' stroke-width='2' fill='none'/%3E%3C/svg%3E";
+// Data URI fallback logo (base64 encoded simple logo - will always work)
+const FALLBACK_LOGO_DATA_URI = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='44' viewBox='0 0 44 44'%3E%3Crect width='44' height='44' rx='12' fill='%23667eea'/%3E%3Cpath d='M22 12L12 17V27L22 32L32 27V17L22 12Z' stroke='white' stroke-width='2' fill='none'/%3E%3Ccircle cx='22' cy='22' r='3' fill='white'/%3E%3Cpath d='M12 17L22 22L32 17' stroke='white' stroke-width='2' fill='none'/%3E%3C/svg%3E";
 
+// Error Boundary Component
 class AuthErrorBoundary extends Component {
   state = { hasError: false, error: null };
 
@@ -57,11 +57,11 @@ export default function Auth() {
   const navigate = useNavigate();
   const [mode, setMode] = useState("login");
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    name: "",
-    phone: "",
-    email: "",
-    password: "",
+  const [formData, setFormData] = useState({ 
+    name: "", 
+    phone: "", 
+    email: "", 
+    password: "" 
   });
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
@@ -73,27 +73,27 @@ export default function Auth() {
   const [logoUrl, setLogoUrl] = useState(FALLBACK_LOGO_DATA_URI);
   const [logoLoading, setLogoLoading] = useState(true);
 
-  // ---- Logo loader ----
+  // Try to load the actual logo file
   useEffect(() => {
     const tryLoadLogo = async () => {
       const logoPaths = [
-        "/icons/logo.png",
-        "/logo.png",
-        "/images/logo.png",
-        "/assets/logo.png",
+        '/icons/logo.png',
+        '/logo.png',
+        '/images/logo.png',
+        '/assets/logo.png'
       ];
 
       for (const path of logoPaths) {
         try {
           const img = new Image();
           img.crossOrigin = "Anonymous";
-
+          
           await new Promise((resolve, reject) => {
             img.onload = () => resolve(true);
             img.onerror = () => reject(false);
             img.src = path;
           });
-
+          
           setLogoUrl(path);
           setLogoLoading(false);
           return;
@@ -101,39 +101,39 @@ export default function Auth() {
           console.log(`Logo not found at ${path}`);
         }
       }
-
+      
       setLogoLoading(false);
     };
-
+    
     tryLoadLogo();
   }, []);
 
-  // ---- Dark mode ----
+  // Check and apply dark mode based on system preference
   useEffect(() => {
     const darkModePreference = isSystemDarkMode();
     setIsDarkMode(darkModePreference);
-
+    
     if (darkModePreference) {
-      document.body.classList.add("dark-mode");
+      document.body.classList.add('dark-mode');
     } else {
-      document.body.classList.remove("dark-mode");
+      document.body.classList.remove('dark-mode');
     }
 
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handleChange = (e) => {
       setIsDarkMode(e.matches);
       if (e.matches) {
-        document.body.classList.add("dark-mode");
+        document.body.classList.add('dark-mode');
       } else {
-        document.body.classList.remove("dark-mode");
+        document.body.classList.remove('dark-mode');
       }
     };
-
-    mediaQuery.addEventListener("change", handleChange);
-    return () => mediaQuery.removeEventListener("change", handleChange);
+    
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
 
-  // ---- Hidden shortcut: ALT+A -> Admin ----
+  // Hidden Developer Shortcut — ALT + A → Admin Login
   useEffect(() => {
     const handleKeyShortcut = (e) => {
       if (e.altKey && e.key.toLowerCase() === "a") {
@@ -145,14 +145,13 @@ export default function Auth() {
     return () => window.removeEventListener("keydown", handleKeyShortcut);
   }, [navigate]);
 
-  // ---- Env check ----
+  // Validate environment variables
   useEffect(() => {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
+    
     if (!supabaseUrl || !supabaseKey) {
-      const errorMessage =
-        "Missing Supabase configuration. Please check your .env file.";
+      const errorMessage = "Missing Supabase configuration. Please check your .env file.";
       setEnvError(errorMessage);
       toast.error(errorMessage);
       console.error("Missing environment variables");
@@ -161,61 +160,26 @@ export default function Auth() {
     }
   }, []);
 
-  // ================================================================
-  // OAUTH / EMAIL CALLBACK HANDLER
-  // Handles BOTH ?code= (PKCE) and #access_token= (implicit).
-  // ================================================================
+  // Handle OAuth callback and password reset
   useEffect(() => {
     const handleAuthCallback = async () => {
       if (envError) return;
 
-      // ---------- Native: let App.jsx handle the deep link ----------
-      if (isNativeApp()) {
-        const hash = window.location.hash;
-        const urlParams = new URLSearchParams(hash.substring(1));
-        const type = urlParams.get("type");
-        const tokenHash = urlParams.get("token_hash");
-        if (tokenHash && type === "recovery") {
-          navigate("/reset-password", { replace: true });
-        }
-        return;
-      }
+      const hash = window.location.hash;
+      const urlParams = new URLSearchParams(hash.substring(1));
+      const type = urlParams.get('type');
+      const tokenHash = urlParams.get('token_hash');
 
-      const hash = window.location.hash || "";
-      const hashParams = new URLSearchParams(
-        hash.startsWith("#") ? hash.substring(1) : hash
-      );
-      const hashType = hashParams.get("type");
-      const tokenHash = hashParams.get("token_hash");
-      const accessToken = hashParams.get("access_token");
-      const refreshToken = hashParams.get("refresh_token");
+      const searchParamsObj = new URLSearchParams(window.location.search);
+      const code = searchParamsObj.get("code");
 
-      const search = new URLSearchParams(window.location.search);
-      const code = search.get("code");
-      const errorDescription = search.get("error_description");
-
-      // ---------- OAuth error from Supabase ----------
-      if (errorDescription) {
-        toast.error(decodeURIComponent(errorDescription));
-        // Clean URL
-        window.history.replaceState({}, "", window.location.pathname);
-        setLoading(false);
-        return;
-      }
-
-      // ---------- 1. PKCE: ?code=... ----------
       if (code) {
         try {
           setLoading(true);
-          const { data, error } = await supabase.auth.exchangeCodeForSession(
-            code
-          );
-
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
           if (error) {
             if (error.message.includes("already registered")) {
-              toast.error(
-                "This email is already registered. Please sign in."
-              );
+              toast.error("This email is already registered. Please sign in.");
               setMode("login");
               return;
             }
@@ -225,68 +189,33 @@ export default function Auth() {
           if (data?.session?.user) {
             await syncUserData(data.session.user);
             toast.success("Successfully signed in!");
-            // Clean URL then redirect
-            window.history.replaceState({}, "", window.location.pathname);
-            navigate("/", { replace: true });
+            navigate("/home");
           }
         } catch (err) {
-          console.error("OAuth (PKCE) error:", err);
+          console.error("OAuth error:", err);
           toast.error(err.message || "Authentication failed");
-          setLoading(false);
         } finally {
           setLoading(false);
         }
         return;
       }
 
-      // ---------- 2. Implicit flow: #access_token=... ----------
-      if (accessToken) {
-        try {
-          setLoading(true);
-
-          const { data, error } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken || "",
-          });
-
-          if (error) throw error;
-
-          if (data?.session?.user) {
-            await syncUserData(data.session.user);
-            toast.success("Successfully signed in!");
-            // Clean hash from URL so a refresh doesn't re-run this
-            window.history.replaceState({}, "", window.location.pathname);
-            navigate("/", { replace: true });
-          }
-        } catch (err) {
-          console.error("OAuth (implicit) error:", err);
-          toast.error(err.message || "Authentication failed");
-          setLoading(false);
-        } finally {
-          setLoading(false);
-        }
-        return;
-      }
-
-      // ---------- 3. Password recovery ----------
-      if (tokenHash && hashType === "recovery") {
+      if (tokenHash && type === "recovery") {
         navigate("/reset-password", { replace: true });
         return;
       }
-
-      // ---------- 4. Email signup confirmation ----------
-      if (tokenHash && hashType === "signup") {
+      
+      if (tokenHash && type === "signup") {
         try {
           const { data, error } = await supabase.auth.verifyOtp({
-            type: "signup",
+            type: 'signup',
             token_hash: tokenHash,
           });
           if (error) throw error;
           if (data.session) {
             await syncUserData(data.session.user);
             toast.success("Email confirmed successfully!");
-            window.history.replaceState({}, "", window.location.pathname);
-            navigate("/", { replace: true });
+            navigate("/home");
           }
         } catch (err) {
           toast.error("Error confirming email: " + err.message);
@@ -296,25 +225,17 @@ export default function Auth() {
     };
 
     handleAuthCallback();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, navigate, envError]);
 
-  // ================================================================
-  // SAFETY NET: auto-redirect logged-in users, clear stuck spinner
-  // ================================================================
+  // Auto-redirect logged-in users
   useEffect(() => {
     const checkSession = async () => {
       if (envError) return;
       try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-        const isResetFlow = window.location.pathname.includes(
-          "/reset-password"
-        );
+        const { data: { session } } = await supabase.auth.getSession();
+        const isResetFlow = window.location.pathname.includes("/reset-password");
         if (session?.user && !isResetFlow) {
-          setLoading(false);
-          navigate("/", { replace: true });
+          navigate("/home");
         }
       } catch (err) {
         console.error("Session check error:", err);
@@ -323,45 +244,26 @@ export default function Auth() {
 
     checkSession();
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (envError) return;
-
-      if (
-        (event === "SIGNED_IN" ||
-          event === "TOKEN_REFRESHED" ||
-          event === "INITIAL_SESSION") &&
-        session?.user
-      ) {
-        const isResetFlow = window.location.pathname.includes(
-          "/reset-password"
-        );
+      
+      if (event === "SIGNED_IN" && session?.user) {
+        const isResetFlow = window.location.pathname.includes("/reset-password");
         if (!isResetFlow) {
           await syncUserData(session.user);
-          setLoading(false);
-          navigate("/", { replace: true });
+          navigate("/home");
         }
       }
-
+      
       if (event === "PASSWORD_RECOVERY") {
         navigate("/reset-password", { replace: true });
       }
     });
 
-    const onFocus = () => checkSession();
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onFocus);
-
-    return () => {
-      subscription.unsubscribe();
-      window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onFocus);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => subscription.unsubscribe();
   }, [navigate, searchParams, envError]);
 
-  // ---- Validation ----
+  // Validation functions
   const validatePhone = (phone) => {
     if (!phone) return true;
     return /^(\+254|0)[17]\d{8}$/.test(phone);
@@ -369,33 +271,20 @@ export default function Auth() {
   const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   const isValidPassword = (pwd) => {
     if (!pwd) return false;
-    return (
-      /[a-z]/.test(pwd) &&
-      /[A-Z]/.test(pwd) &&
-      /[0-9]/.test(pwd) &&
-      pwd.length >= 8
-    );
+    return /[a-z]/.test(pwd) && /[A-Z]/.test(pwd) && /[0-9]/.test(pwd) && pwd.length >= 8;
   };
-  const sanitizeInput = (input) =>
-    input?.replace(/[<>{}]/g, "").trim() || "";
+  const sanitizeInput = (input) => input?.replace(/[<>{}]/g, "").trim() || "";
 
   const getErrorMessage = (error) => {
     const message = error?.message?.toLowerCase() || "";
-
-    if (
-      message.includes("database error") ||
-      message.includes("relation") ||
-      message.includes("column")
-    ) {
+    
+    if (message.includes("database error") || message.includes("relation") || message.includes("column")) {
       return {
         message: "System error. Please contact support.",
         type: "database_error",
       };
     }
-    if (
-      message.includes("already registered") ||
-      message.includes("user already exists")
-    ) {
+    if (message.includes("already registered") || message.includes("user already exists")) {
       return {
         message: "This email is already registered. Please sign in.",
         type: "user_exists",
@@ -426,46 +315,20 @@ export default function Auth() {
     setErrors((prev) => ({ ...prev, [name]: "" }));
   }, []);
 
-  const handleBlur = useCallback(
-    (field) => {
-      const value = formData[field];
-      if (!value) return;
-
-      if (field === "email" && !validateEmail(value)) {
-        setErrors((prev) => ({
-          ...prev,
-          email: "Please enter a valid email address",
-        }));
-      } else if (field === "phone" && value && !validatePhone(value)) {
-        setErrors((prev) => ({
-          ...prev,
-          phone: "Enter valid phone (e.g., 0712345678 or +254712345678)",
-        }));
-      } else if (
-        field === "password" &&
-        mode === "signup" &&
-        value &&
-        !isValidPassword(value)
-      ) {
-        setErrors((prev) => ({
-          ...prev,
-          password:
-            "Must contain uppercase, lowercase, number, and be 8+ characters",
-        }));
-      } else if (
-        field === "name" &&
-        mode === "signup" &&
-        value &&
-        value.length < 2
-      ) {
-        setErrors((prev) => ({
-          ...prev,
-          name: "Name must be at least 2 characters",
-        }));
-      }
-    },
-    [formData, mode]
-  );
+  const handleBlur = useCallback((field) => {
+    const value = formData[field];
+    if (!value) return;
+    
+    if (field === "email" && !validateEmail(value)) {
+      setErrors(prev => ({ ...prev, email: "Please enter a valid email address" }));
+    } else if (field === "phone" && value && !validatePhone(value)) {
+      setErrors(prev => ({ ...prev, phone: "Enter valid phone (e.g., 0712345678 or +254712345678)" }));
+    } else if (field === "password" && mode === "signup" && value && !isValidPassword(value)) {
+      setErrors(prev => ({ ...prev, password: "Must contain uppercase, lowercase, number, and be 8+ characters" }));
+    } else if (field === "name" && mode === "signup" && value && value.length < 2) {
+      setErrors(prev => ({ ...prev, name: "Name must be at least 2 characters" }));
+    }
+  }, [formData, mode]);
 
   const checkEmailExists = async (email) => {
     try {
@@ -489,11 +352,7 @@ export default function Auth() {
       const userData = {
         id: user.id,
         email: user.email,
-        full_name:
-          user.user_metadata?.full_name ||
-          formData.name ||
-          user.email?.split("@")[0] ||
-          "User",
+        full_name: user.user_metadata?.full_name || formData.name || user.email?.split("@")[0] || "User",
         phone: formData.phone || user.user_metadata?.phone,
         updated_at: new Date().toISOString(),
       };
@@ -505,7 +364,7 @@ export default function Auth() {
 
       const { error } = await supabase
         .from("users")
-        .upsert(userData, { onConflict: "id" });
+        .upsert(userData, { onConflict: 'id' });
 
       if (error) console.error("Error syncing user:", error);
     } catch (err) {
@@ -515,7 +374,7 @@ export default function Auth() {
 
   const handleSignup = async (e) => {
     e.preventDefault();
-
+    
     if (envError) {
       toast.error("Service unavailable. Please try again later.");
       return;
@@ -534,9 +393,7 @@ export default function Auth() {
       return;
     }
     if (!isValidPassword(formData.password)) {
-      toast.error(
-        "Password must be 8+ characters with uppercase, lowercase, and number"
-      );
+      toast.error("Password must be 8+ characters with uppercase, lowercase, and number");
       return;
     }
     if (formData.phone && !validatePhone(formData.phone)) {
@@ -549,7 +406,7 @@ export default function Auth() {
     }
 
     setLoading(true);
-
+    
     try {
       const emailExists = await checkEmailExists(formData.email);
       if (emailExists) {
@@ -565,24 +422,21 @@ export default function Auth() {
         email: formData.email,
         password: formData.password,
         options: {
-          data: {
-            full_name: formData.name,
+          data: { 
+            full_name: formData.name, 
             phone: formData.phone,
             accepted_terms: acceptedTerms,
           },
           emailRedirectTo: redirectUrl,
         },
       });
-
+      
       if (error) {
         console.error("Supabase signup error:", error);
         throw error;
       }
 
-      if (
-        data?.user &&
-        (!data.user.identities || data.user.identities.length === 0)
-      ) {
+      if (data?.user && (!data.user.identities || data.user.identities.length === 0)) {
         toast.error("Account already exists. Please sign in.");
         setMode("login");
         return;
@@ -599,7 +453,7 @@ export default function Auth() {
       console.error("Signup error:", err);
       const errorInfo = getErrorMessage(err);
       toast.error(errorInfo.message);
-      setAttemptCount((prev) => prev + 1);
+      setAttemptCount(prev => prev + 1);
     } finally {
       setLoading(false);
     }
@@ -607,7 +461,7 @@ export default function Auth() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-
+    
     if (envError) {
       toast.error("Service unavailable. Please try again later.");
       return;
@@ -626,13 +480,13 @@ export default function Auth() {
     }
 
     setLoading(true);
-
+    
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password,
       });
-
+      
       if (error) {
         const errorInfo = getErrorMessage(error);
         if (errorInfo.type === "invalid_credentials") {
@@ -640,7 +494,7 @@ export default function Auth() {
           setTimeout(() => {
             if (window.confirm("No account found? Create one?")) {
               setMode("signup");
-              setFormData((prev) => ({ ...prev, password: "" }));
+              setFormData(prev => ({ ...prev, password: "" }));
             }
           }, 1500);
           return;
@@ -651,14 +505,14 @@ export default function Auth() {
       if (data?.user) {
         await syncUserData(data.user);
         toast.success("Welcome back!");
-        navigate("/");
+        navigate("/home");
         setAttemptCount(0);
       }
     } catch (err) {
       console.error("Login error:", err);
       const errorInfo = getErrorMessage(err);
       toast.error(errorInfo.message);
-      setAttemptCount((prev) => prev + 1);
+      setAttemptCount(prev => prev + 1);
     } finally {
       setLoading(false);
     }
@@ -666,7 +520,7 @@ export default function Auth() {
 
   const handleForgotPassword = async (e) => {
     e.preventDefault();
-
+    
     if (envError) {
       toast.error("Service unavailable. Please try again later.");
       return;
@@ -677,21 +531,18 @@ export default function Auth() {
     }
 
     setLoading(true);
-
+    
     try {
       const redirectUrl = `${window.location.origin}/auth`;
-      const { error } = await supabase.auth.resetPasswordForEmail(
-        formData.email,
-        {
-          redirectTo: redirectUrl,
-        }
-      );
-
+      const { error } = await supabase.auth.resetPasswordForEmail(formData.email, {
+        redirectTo: redirectUrl,
+      });
+      
       if (error) throw error;
-
+      
       toast.success("Password reset link sent! Check your email.");
       setMode("login");
-      setFormData((prev) => ({ ...prev, password: "" }));
+      setFormData(prev => ({ ...prev, password: "" }));
     } catch (err) {
       console.error("Reset password error:", err);
       toast.error(err.message || "Failed to send reset link");
@@ -705,17 +556,11 @@ export default function Auth() {
       toast.error("Service unavailable. Please try again later.");
       return;
     }
-
+    
     setLoading(true);
-
+    
     try {
-      // Native -> deep link. Web -> current origin.
-      const redirectUrl = isNativeApp()
-        ? NATIVE_REDIRECT_URL
-        : `${window.location.origin}/auth`;
-
-      console.log("Google OAuth redirectTo:", redirectUrl);
-
+      const redirectUrl = `${window.location.origin}/auth`;
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
@@ -726,11 +571,7 @@ export default function Auth() {
           },
         },
       });
-
       if (error) throw error;
-
-      // On success the browser navigates away. Do NOT clear loading here.
-      // The safety-net effect will clear it on return.
     } catch (err) {
       console.error("Google OAuth error:", err);
       toast.error(err.message || "Google login failed. Please try again.");
@@ -784,9 +625,7 @@ export default function Auth() {
                 value={formData.email}
                 required
               />
-              {errors.email && (
-                <span className="error-text">{errors.email}</span>
-              )}
+              {errors.email && <span className="error-text">{errors.email}</span>}
             </div>
 
             <div className="form-group">
@@ -800,12 +639,8 @@ export default function Auth() {
                 onBlur={() => handleBlur("phone")}
                 value={formData.phone}
               />
-              {errors.phone && (
-                <span className="error-text">{errors.phone}</span>
-              )}
-              <small className="input-hint">
-                Format: 0712345678 or +254712345678
-              </small>
+              {errors.phone && <span className="error-text">{errors.phone}</span>}
+              <small className="input-hint">Format: 0712345678 or +254712345678</small>
             </div>
 
             <div className="form-group">
@@ -829,12 +664,8 @@ export default function Auth() {
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
-              {errors.password && (
-                <span className="error-text">{errors.password}</span>
-              )}
-              <small className="input-hint">
-                Must contain uppercase, lowercase, number, and be 8+ characters
-              </small>
+              {errors.password && <span className="error-text">{errors.password}</span>}
+              <small className="input-hint">Must contain uppercase, lowercase, number, and be 8+ characters</small>
             </div>
 
             <div className="terms-checkbox">
@@ -846,22 +677,7 @@ export default function Auth() {
                 />
                 <span className="checkbox-custom"></span>
                 <span className="checkbox-text">
-                  I agree to the{" "}
-                  <button
-                    type="button"
-                    className="terms-link"
-                    onClick={() => navigate("/terms")}
-                  >
-                    Terms
-                  </button>{" "}
-                  and{" "}
-                  <button
-                    type="button"
-                    className="terms-link"
-                    onClick={() => navigate("/privacy")}
-                  >
-                    Privacy Policy
-                  </button>
+                  I agree to the <button type="button" className="terms-link" onClick={() => navigate('/terms')}>Terms</button> and <button type="button" className="terms-link" onClick={() => navigate('/privacy')}>Privacy Policy</button>
                 </span>
               </label>
             </div>
@@ -871,11 +687,7 @@ export default function Auth() {
               className="auth-button"
               disabled={loading || envError || !acceptedTerms}
             >
-              {loading ? (
-                <Loader2 className="animate-spin" size={18} />
-              ) : (
-                "Create account"
-              )}
+              {loading ? <Loader2 className="animate-spin" size={18} /> : "Create account"}
             </button>
           </form>
         );
@@ -895,9 +707,7 @@ export default function Auth() {
                 value={formData.email}
                 required
               />
-              {errors.email && (
-                <span className="error-text">{errors.email}</span>
-              )}
+              {errors.email && <span className="error-text">{errors.email}</span>}
             </div>
 
             <div className="form-group">
@@ -930,9 +740,7 @@ export default function Auth() {
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
-              {errors.password && (
-                <span className="error-text">{errors.password}</span>
-              )}
+              {errors.password && <span className="error-text">{errors.password}</span>}
             </div>
 
             <button
@@ -940,11 +748,7 @@ export default function Auth() {
               className="auth-button"
               disabled={loading || envError}
             >
-              {loading ? (
-                <Loader2 className="animate-spin" size={18} />
-              ) : (
-                "Sign in"
-              )}
+              {loading ? <Loader2 className="animate-spin" size={18} /> : "Sign in"}
             </button>
           </form>
         );
@@ -964,9 +768,7 @@ export default function Auth() {
                 value={formData.email}
                 required
               />
-              {errors.email && (
-                <span className="error-text">{errors.email}</span>
-              )}
+              {errors.email && <span className="error-text">{errors.email}</span>}
             </div>
 
             <button
@@ -974,11 +776,7 @@ export default function Auth() {
               className="auth-button"
               disabled={loading || envError}
             >
-              {loading ? (
-                <Loader2 className="animate-spin" size={18} />
-              ) : (
-                "Send reset link"
-              )}
+              {loading ? <Loader2 className="animate-spin" size={18} /> : "Send reset link"}
             </button>
 
             <button
@@ -999,22 +797,22 @@ export default function Auth() {
   return (
     <AuthErrorBoundary>
       <motion.div
-        className={`auth-container ${isDarkMode ? "dark-mode" : ""}`}
+        className={`auth-container ${isDarkMode ? 'dark-mode' : ''}`}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3 }}
       >
-        <Toaster
+        <Toaster 
           position="top-center"
           toastOptions={{
             duration: 4000,
             style: {
-              background: "#fff",
-              color: "#363636",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-              borderRadius: "12px",
-              padding: "12px 16px",
-              fontSize: "14px",
+              background: '#fff',
+              color: '#363636',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+              borderRadius: '12px',
+              padding: '12px 16px',
+              fontSize: '14px',
             },
           }}
         />
@@ -1023,21 +821,21 @@ export default function Auth() {
           <div className="auth-header">
             <div className="brand">
               {!logoLoading && (
-                <img src={logoUrl} alt="Omniflow Logo" className="auth-logo" />
+                <img 
+                  src={logoUrl}
+                  alt="Omniflow Logo" 
+                  className="auth-logo"
+                />
               )}
               <span className="auth-brand-name">Omniflow</span>
             </div>
 
             <h1 className="auth-title">
-              {mode === "signup"
-                ? "Create account"
-                : mode === "forgot"
-                ? "Reset password"
-                : "Welcome back"}
+              {mode === "signup" ? "Create account" : mode === "forgot" ? "Reset password" : "Welcome back"}
             </h1>
             <p className="auth-subtitle">
-              {mode === "signup"
-                ? "Sign up to get started"
+              {mode === "signup" 
+                ? "Sign up to get started" 
                 : mode === "forgot"
                 ? "Enter your email to reset your password"
                 : "Sign in to your account"}
@@ -1053,20 +851,8 @@ export default function Auth() {
           {successMessage && (
             <div className="success-message">
               <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                <circle
-                  cx="9"
-                  cy="9"
-                  r="9"
-                  fill="#10B981"
-                  fillOpacity="0.1"
-                />
-                <path
-                  d="M5 9L7.5 11.5L13 6"
-                  stroke="#10B981"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
+                <circle cx="9" cy="9" r="9" fill="#10B981" fillOpacity="0.1" />
+                <path d="M5 9L7.5 11.5L13 6" stroke="#10B981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
               <span>{successMessage}</span>
             </div>
@@ -1086,35 +872,19 @@ export default function Auth() {
                 disabled={loading || envError}
               >
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                  <path
-                    d="M18.171 10.1709C18.171 9.58002 18.1165 8.99002 18.0065 8.41504H10.222V11.7551H14.659C14.4815 12.7101 13.933 13.5551 13.1345 14.1151V16.0651H15.747C17.281 14.6251 18.171 12.5501 18.171 10.1709Z"
-                    fill="#4285F4"
-                  />
-                  <path
-                    d="M10.222 18.5C12.385 18.5 14.1945 17.765 15.747 16.065L13.1345 14.115C12.295 14.68 11.3065 15.005 10.222 15.005C8.135 15.005 6.3705 13.595 5.7285 11.695H3.035V13.705C4.576 16.75 7.7 18.5 10.222 18.5Z"
-                    fill="#34A853"
-                  />
-                  <path
-                    d="M5.7285 11.695C5.3935 10.705 5.3935 9.635 5.7285 8.645V6.635H3.035C1.8965 8.895 1.8965 11.445 3.035 13.705L5.7285 11.695Z"
-                    fill="#FBBC04"
-                  />
-                  <path
-                    d="M10.222 5.335C11.3735 5.315 12.485 5.74 13.3205 6.53L15.801 4.045C14.1185 2.47 11.7425 1.57 10.222 1.575C7.7 1.575 4.576 3.325 3.035 6.365L5.7285 8.375C6.3705 6.475 8.135 5.065 10.222 5.065V5.335Z"
-                    fill="#EA4335"
-                  />
+                  <path d="M18.171 10.1709C18.171 9.58002 18.1165 8.99002 18.0065 8.41504H10.222V11.7551H14.659C14.4815 12.7101 13.933 13.5551 13.1345 14.1151V16.0651H15.747C17.281 14.6251 18.171 12.5501 18.171 10.1709Z" fill="#4285F4"/>
+                  <path d="M10.222 18.5C12.385 18.5 14.1945 17.765 15.747 16.065L13.1345 14.115C12.295 14.68 11.3065 15.005 10.222 15.005C8.135 15.005 6.3705 13.595 5.7285 11.695H3.035V13.705C4.576 16.75 7.7 18.5 10.222 18.5Z" fill="#34A853"/>
+                  <path d="M5.7285 11.695C5.3935 10.705 5.3935 9.635 5.7285 8.645V6.635H3.035C1.8965 8.895 1.8965 11.445 3.035 13.705L5.7285 11.695Z" fill="#FBBC04"/>
+                  <path d="M10.222 5.335C11.3735 5.315 12.485 5.74 13.3205 6.53L15.801 4.045C14.1185 2.47 11.7425 1.57 10.222 1.575C7.7 1.575 4.576 3.325 3.035 6.365L5.7285 8.375C6.3705 6.475 8.135 5.065 10.222 5.065V5.335Z" fill="#EA4335"/>
                 </svg>
                 Continue with Google
               </button>
 
               <div className="auth-footer">
                 <p>
-                  {mode === "signup"
-                    ? "Already have an account?"
-                    : "Don't have an account?"}
+                  {mode === "signup" ? "Already have an account?" : "Don't have an account?"}
                   <button
-                    onClick={() =>
-                      setMode(mode === "signup" ? "login" : "signup")
-                    }
+                    onClick={() => setMode(mode === "signup" ? "login" : "signup")}
                     className="toggle-mode"
                   >
                     {mode === "signup" ? "Sign in" : "Sign up"}

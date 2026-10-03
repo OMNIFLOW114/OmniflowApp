@@ -15,7 +15,7 @@ import {
   FaExchangeAlt, FaShippingFast as FaDelivery, FaTachometerAlt
 } from 'react-icons/fa';
 import { useDropzone } from 'react-dropzone';
-import { supabase } from '../lib/supabaseClient';
+import { supabase } from "@/supabase";
 import { AuthContext } from '../context/AuthContext';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
