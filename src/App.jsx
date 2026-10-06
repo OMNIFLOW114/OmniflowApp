@@ -356,6 +356,7 @@ function AppRoutes() {
         <Route path="/store/create" element={<ProtectedRoute><CreateStore /></ProtectedRoute>} />
         <Route path="/dashboard/store/:storeId" element={<ProtectedRoute><StoreDashboard /></ProtectedRoute>} />
         <Route path="/premium" element={<ProtectedRoute><Premium /></ProtectedRoute>} />
+        
 
         {/* Student Routes */}
         <Route path="/student" element={<ProtectedRoute><StudentDashboard /></ProtectedRoute>} />
