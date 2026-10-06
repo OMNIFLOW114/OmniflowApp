@@ -1,4 +1,4 @@
-// src/pages/Checkout.jsx - GOOGLE PLACES (NEW) + ROUTES ROUTEMATRIX
+// src/pages/Checkout.jsx - FIXED: Preserve discount when coming from ProductDetail
 import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -41,7 +41,7 @@ if (GOOGLE_MAPS_API_KEY) {
   setOptions({
     key: GOOGLE_MAPS_API_KEY,
     v: "weekly",
-    libraries: ["places", "routes"], // routes = RouteMatrixService
+    libraries: ["places", "routes"],
   });
 }
 
@@ -121,6 +121,10 @@ export default function Checkout() {
     cancelPolling,
   } = useMpesaPayment();
 
+  // Read navigation state early so productTotals can use it
+  const fromCart = location.state?.fromCart;
+  const fromFlashSale = location.state?.fromFlashSale;
+
   const [products, setProducts] = useState([]);
   const [seller, setSeller] = useState(null);
   const [storeDeliverySettings, setStoreDeliverySettings] = useState(null);
@@ -164,9 +168,6 @@ export default function Checkout() {
   const depositPercent = 0.25;
   const [showInstallmentInfo, setShowInstallmentInfo] = useState(false);
   const [processingInstallment, setProcessingInstallment] = useState(false);
-
-  const fromCart = location.state?.fromCart;
-  const fromFlashSale = location.state?.fromFlashSale;
 
   const ADMIN_ID = "755ed9e9-69f6-459c-ad44-d1b93b80a4c6";
   const ADMIN_EMAIL = "omniflow718@gmail.com";
@@ -237,12 +238,13 @@ export default function Checkout() {
   };
 
   // ============================================================
-  // TOTALS
+  // TOTALS — FIXED: Only bypass discount for actual flash sale checkout
   // ============================================================
   const productTotals = useMemo(() => {
     return products.map((product) => {
       let unitPrice;
-      if (product.is_flash_sale) {
+      // Only use raw price if this is an actual flash sale checkout AND product is flash sale
+      if (fromFlashSale && product.is_flash_sale) {
         unitPrice = Number(product.price || 0);
       } else {
         const rawPrice = Number(product.price || 0);
@@ -259,7 +261,7 @@ export default function Checkout() {
         originalPrice: product.original_price || product.price,
       };
     });
-  }, [products]);
+  }, [products, fromFlashSale]);
 
   const totalProductPrice = useMemo(
     () => productTotals.reduce((sum, item) => sum + item.productPrice, 0),
@@ -354,115 +356,109 @@ export default function Checkout() {
     return () => clearInterval(timer);
   }, [isFlashSale, flashSaleEndsAt]);
 
-// ============================================================
-// ROUTE MATRIX — Calculate driving distance
-// ============================================================
-const calculateDistance = useCallback(
-  async (fromCoords, destLatLng) => {
-    if (!fromCoords || !destLatLng) return null;
-    if (!GOOGLE_MAPS_API_KEY) return null;
+  // ============================================================
+  // ROUTE MATRIX — Calculate driving distance
+  // ============================================================
+  const calculateDistance = useCallback(
+    async (fromCoords, destLatLng) => {
+      if (!fromCoords || !destLatLng) return null;
+      if (!GOOGLE_MAPS_API_KEY) return null;
 
-    setDeliveryCalculating(true);
-    try {
-      const routesLib = await importLibrary("routes");
-      const RouteMatrix = routesLib.RouteMatrix;
-      const { LatLng } = await importLibrary("core");
+      setDeliveryCalculating(true);
+      try {
+        const routesLib = await importLibrary("routes");
+        const RouteMatrix = routesLib.RouteMatrix;
+        const { LatLng } = await importLibrary("core");
 
-      if (!RouteMatrix || !LatLng) {
-        console.error("[Checkout] RouteMatrix or LatLng not available");
-        return null;
-      }
-
-      // Seller origin: [lng, lat] → LatLng(lat, lng)
-      const origin = new LatLng(fromCoords[1], fromCoords[0]);
-      // Delivery destination: {lat, lng} → LatLng(lat, lng)
-      const destination = new LatLng(destLatLng.lat, destLatLng.lng);
-
-      // IMPORTANT: computeRouteMatrix returns a Promise<{matrix: RouteMatrix}>
-      const response = await RouteMatrix.computeRouteMatrix({
-        origins: [origin],
-        destinations: [destination],
-        travelMode: "DRIVING",
-        routingPreference: "TRAFFIC_UNAWARE",
-        // Include 'condition' and 'distanceMeters' in fields
-        fields: ["distanceMeters", "condition"],
-      });
-
-      // Access the nested structure correctly
-      const matrix = response?.matrix;
-      const row = matrix?.rows?.[0];
-      const item = row?.items?.[0];
-
-      if (!item) {
-        console.warn("[Checkout] No route matrix item returned");
-        return null;
-      }
-
-      // Check the condition to ensure route exists
-      if (item.condition !== "ROUTE_EXISTS") {
-        console.warn(
-          "[Checkout] RouteMatrix condition:",
-          item.condition,
-          "— no route found"
-        );
-        return null;
-      }
-
-      const distanceMeters = item.distanceMeters;
-      if (typeof distanceMeters !== "number" || distanceMeters <= 0) {
-        console.warn("[Checkout] Invalid distanceMeters:", distanceMeters);
-        return null;
-      }
-
-      const distanceKm = distanceMeters / 1000;
-
-      if (storeDeliverySettings?.delivery_type === "self-delivery") {
-        const baseFee = Number(storeDeliverySettings.delivery_base_fee) || 100;
-        const ratePerKm = Number(storeDeliverySettings.delivery_rate_per_km) || 15;
-        setDeliveryBreakdown({
-          distance: distanceKm.toFixed(1),
-          type: "self-delivery",
-          baseFee,
-          ratePerKm,
-          total: Math.round(baseFee + distanceKm * ratePerKm),
-        });
-      } else {
-        const DELIVERY_RATES = {
-          BASE_FEE: 50,
-          ZONES: [
-            { maxDistance: 10, ratePerKm: 15 },
-            { maxDistance: 50, ratePerKm: 10 },
-            { maxDistance: Infinity, ratePerKm: 7 },
-          ],
-        };
-        let rate = DELIVERY_RATES.ZONES[2].ratePerKm;
-        let zone = "zone3";
-        if (distanceKm <= DELIVERY_RATES.ZONES[0].maxDistance) {
-          rate = DELIVERY_RATES.ZONES[0].ratePerKm;
-          zone = "zone1";
-        } else if (distanceKm <= DELIVERY_RATES.ZONES[1].maxDistance) {
-          rate = DELIVERY_RATES.ZONES[1].ratePerKm;
-          zone = "zone2";
+        if (!RouteMatrix || !LatLng) {
+          console.error("[Checkout] RouteMatrix or LatLng not available");
+          return null;
         }
-        setDeliveryBreakdown({
-          distance: distanceKm.toFixed(1),
-          type: "omniflow-managed",
-          zone,
-          rate,
-          baseFee: DELIVERY_RATES.BASE_FEE,
-          total: Math.round(DELIVERY_RATES.BASE_FEE + distanceKm * rate),
+
+        const origin = new LatLng(fromCoords[1], fromCoords[0]);
+        const destination = new LatLng(destLatLng.lat, destLatLng.lng);
+
+        const response = await RouteMatrix.computeRouteMatrix({
+          origins: [origin],
+          destinations: [destination],
+          travelMode: "DRIVING",
+          routingPreference: "TRAFFIC_UNAWARE",
+          fields: ["distanceMeters", "condition"],
         });
+
+        const matrix = response?.matrix;
+        const row = matrix?.rows?.[0];
+        const item = row?.items?.[0];
+
+        if (!item) {
+          console.warn("[Checkout] No route matrix item returned");
+          return null;
+        }
+
+        if (item.condition !== "ROUTE_EXISTS") {
+          console.warn(
+            "[Checkout] RouteMatrix condition:",
+            item.condition,
+            "— no route found"
+          );
+          return null;
+        }
+
+        const distanceMeters = item.distanceMeters;
+        if (typeof distanceMeters !== "number" || distanceMeters <= 0) {
+          console.warn("[Checkout] Invalid distanceMeters:", distanceMeters);
+          return null;
+        }
+
+        const distanceKm = distanceMeters / 1000;
+
+        if (storeDeliverySettings?.delivery_type === "self-delivery") {
+          const baseFee = Number(storeDeliverySettings.delivery_base_fee) || 100;
+          const ratePerKm = Number(storeDeliverySettings.delivery_rate_per_km) || 15;
+          setDeliveryBreakdown({
+            distance: distanceKm.toFixed(1),
+            type: "self-delivery",
+            baseFee,
+            ratePerKm,
+            total: Math.round(baseFee + distanceKm * ratePerKm),
+          });
+        } else {
+          const DELIVERY_RATES = {
+            BASE_FEE: 50,
+            ZONES: [
+              { maxDistance: 10, ratePerKm: 15 },
+              { maxDistance: 50, ratePerKm: 10 },
+              { maxDistance: Infinity, ratePerKm: 7 },
+            ],
+          };
+          let rate = DELIVERY_RATES.ZONES[2].ratePerKm;
+          let zone = "zone3";
+          if (distanceKm <= DELIVERY_RATES.ZONES[0].maxDistance) {
+            rate = DELIVERY_RATES.ZONES[0].ratePerKm;
+            zone = "zone1";
+          } else if (distanceKm <= DELIVERY_RATES.ZONES[1].maxDistance) {
+            rate = DELIVERY_RATES.ZONES[1].ratePerKm;
+            zone = "zone2";
+          }
+          setDeliveryBreakdown({
+            distance: distanceKm.toFixed(1),
+            type: "omniflow-managed",
+            zone,
+            rate,
+            baseFee: DELIVERY_RATES.BASE_FEE,
+            total: Math.round(DELIVERY_RATES.BASE_FEE + distanceKm * rate),
+          });
+        }
+        return distanceKm;
+      } catch (error) {
+        console.error("[Checkout] Route Matrix error:", error);
+        return null;
+      } finally {
+        setDeliveryCalculating(false);
       }
-      return distanceKm;
-    } catch (error) {
-      console.error("[Checkout] Route Matrix error:", error);
-      return null;
-    } finally {
-      setDeliveryCalculating(false);
-    }
-  },
-  [storeDeliverySettings]
-);
+    },
+    [storeDeliverySettings]
+  );
 
   useEffect(() => {
     async function updateDistance() {
@@ -758,6 +754,7 @@ const calculateDistance = useCallback(
           }
         } else {
           // ---- SINGLE PRODUCT ----
+          // Prefer product passed from ProductDetail (preserves discount)
           let p = location.state?.product || null;
           if (!p) {
             const { data, error } = await supabase
@@ -1596,9 +1593,7 @@ const calculateDistance = useCallback(
 
       <div className={styles.checkoutGrid}>
         <div className={styles.leftColumn}>
-          {/* ============================================================
-              PRODUCT DETAILS SECTION (no card — full page section)
-             ============================================================ */}
+          {/* PRODUCT DETAILS SECTION */}
           <section className={styles.section}>
             <div className={styles.sectionHeader}>
               <h3>

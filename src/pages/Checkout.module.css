@@ -1,5 +1,8 @@
-/* src/pages/Checkout.module.css */
+/* src/pages/Checkout.module.css - FULLY UPDATED */
 
+/* ============================================================
+   THEME VARIABLES
+   ============================================================ */
 .lightMode {
   --bg-primary: #ffffff;
   --bg-secondary: #f8fafc;
@@ -9,12 +12,12 @@
   --text-tertiary: #94a3b8;
   --border-color: #e2e8f0;
   --card-bg: #ffffff;
-  --accent-primary: #4F46E5;
-  --accent-secondary: #7C3AED;
-  --success: #10B981;
-  --error: #EF4444;
-  --warning: #F59E0B;
-  --info: #3B82F6;
+  --accent-primary: #4f46e5;
+  --accent-secondary: #7c3aed;
+  --success: #10b981;
+  --error: #ef4444;
+  --warning: #f59e0b;
+  --info: #3b82f6;
   --hover-bg: #f1f5f9;
 }
 
@@ -27,12 +30,12 @@
   --text-tertiary: #666666;
   --border-color: #1f1f1f;
   --card-bg: #0a0a0a;
-  --accent-primary: #6366F1;
-  --accent-secondary: #8B5CF6;
-  --success: #10B981;
-  --error: #EF4444;
-  --warning: #F59E0B;
-  --info: #3B82F6;
+  --accent-primary: #6366f1;
+  --accent-secondary: #8b5cf6;
+  --success: #10b981;
+  --error: #ef4444;
+  --warning: #f59e0b;
+  --info: #3b82f6;
   --hover-bg: #1a1a1a;
 }
 
@@ -88,7 +91,7 @@
 }
 
 /* ============================================================
-   CHECKOUT GRID — full page layout
+   CHECKOUT GRID
    ============================================================ */
 .checkoutGrid {
   display: grid;
@@ -127,7 +130,7 @@
 }
 
 /* ============================================================
-   SECTION — replaces old card, full-page clean blocks
+   SECTION
    ============================================================ */
 .section {
   padding: 24px 0;
@@ -163,7 +166,7 @@
    FLASH SALE BANNER
    ============================================================ */
 .flashSaleBanner {
-  background: linear-gradient(135deg, #EF4444 0%, #F59E0B 100%);
+  background: linear-gradient(135deg, #ef4444 0%, #f59e0b 100%);
   margin: 16px;
   border-radius: 16px;
   padding: 12px 16px;
@@ -182,8 +185,15 @@
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.8; transform: scale(1.05); }
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
 }
 
 .flashSaleText {
@@ -206,11 +216,11 @@
   opacity: 0.8;
   margin-top: 8px;
   padding-top: 8px;
-  border-top: 1px solid rgba(255,255,255,0.2);
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .flashBadge {
-  background: #EF4444;
+  background: #ef4444;
   color: white;
   padding: 4px 10px;
   border-radius: 20px;
@@ -282,17 +292,17 @@
 }
 
 /* ============================================================
-   QUANTITY ROW
+   QUANTITY ROW — no card, no placeholder
    ============================================================ */
 .productQuantityRow {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 12px;
-  background: var(--bg-secondary);
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
+  padding: 4px 0;
   flex-wrap: wrap;
+  background: transparent;
+  border: none;
+  border-radius: 0;
 }
 
 .quantityLabel {
@@ -305,17 +315,16 @@
 .quantityControls {
   display: flex;
   align-items: center;
-  gap: 6px;
-  background: var(--bg-primary);
+  gap: 4px;
+  background: transparent;
   border-radius: 10px;
-  padding: 3px;
-  border: 1px solid var(--border-color);
+  padding: 0;
 }
 
 .quantityBtn {
   width: 34px;
   height: 34px;
-  border: none;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   background: transparent;
   color: var(--text-primary);
@@ -324,11 +333,12 @@
   align-items: center;
   justify-content: center;
   transition: all 0.2s;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .quantityBtn:hover:not(:disabled) {
   background: var(--accent-primary);
+  border-color: var(--accent-primary);
   color: white;
 }
 
@@ -389,6 +399,9 @@
   font-weight: 700;
 }
 
+/* ============================================================
+   PRODUCT PRICING — unit + total, always green for current
+   ============================================================ */
 .productPricing {
   display: flex;
   justify-content: space-between;
@@ -397,12 +410,26 @@
   color: var(--text-secondary);
   padding-top: 10px;
   border-top: 1px dashed var(--border-color);
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .productPricing strong {
   font-size: 18px;
   font-weight: 800;
   color: var(--success);
+}
+
+.unitOriginal {
+  color: var(--text-tertiary);
+  text-decoration: line-through;
+  margin-right: 6px;
+  font-weight: 500;
+}
+
+.unitDiscounted {
+  color: var(--success);
+  font-weight: 700;
 }
 
 /* ============================================================
@@ -597,13 +624,13 @@
   overflow-y: auto;
   z-index: 100;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12),
-              0 4px 10px rgba(0, 0, 0, 0.08);
+    0 4px 10px rgba(0, 0, 0, 0.08);
   padding: 4px;
 }
 
 .darkMode .addressSuggestions {
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6),
-              0 4px 10px rgba(0, 0, 0, 0.4);
+    0 4px 10px rgba(0, 0, 0, 0.4);
 }
 
 .suggestionItem {
@@ -671,23 +698,23 @@
 }
 
 .selfDelivery {
-  background: #FEF3C7;
-  color: #D97706;
+  background: #fef3c7;
+  color: #d97706;
 }
 
 .omniflowDelivery {
-  background: #EFF6FF;
-  color: #2563EB;
+  background: #eff6ff;
+  color: #2563eb;
 }
 
 .darkMode .selfDelivery {
-  background: #2D1F0A;
-  color: #FBBF24;
+  background: #2d1f0a;
+  color: #fbbf24;
 }
 
 .darkMode .omniflowDelivery {
-  background: #0A1A2D;
-  color: #60A5FA;
+  background: #0a1a2d;
+  color: #60a5fa;
 }
 
 .deliveryRateDetail {
@@ -840,7 +867,7 @@
    FLASH SUMMARY
    ============================================================ */
 .flashSummaryAlert {
-  background: linear-gradient(135deg, #EF4444 0%, #F59E0B 100%);
+  background: linear-gradient(135deg, #ef4444 0%, #f59e0b 100%);
   color: white;
   padding: 10px 12px;
   border-radius: 12px;
@@ -908,7 +935,7 @@
 }
 
 .summaryProductPrice {
-  font-weight: 600;
+  font-weight: 700;
   color: var(--success);
   margin-top: 4px;
 }
@@ -986,7 +1013,9 @@
   gap: 10px;
 }
 
-.walletBtn, .mpesaBtn, .paypalBtn {
+.walletBtn,
+.mpesaBtn,
+.paypalBtn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1011,7 +1040,7 @@
 }
 
 .mpesaBtn {
-  background: #00A74E;
+  background: #00a74e;
   color: white;
 }
 
@@ -1021,7 +1050,7 @@
 }
 
 .paypalBtn {
-  background: #0070BA;
+  background: #0070ba;
   color: white;
 }
 
@@ -1061,15 +1090,15 @@
   display: flex;
   gap: 10px;
   padding: 12px;
-  background: #FEF3C7;
+  background: #fef3c7;
   border-radius: 12px;
   font-size: 11px;
-  color: #D97706;
+  color: #d97706;
 }
 
 .darkMode .deliveryNote {
-  background: #2D1F0A;
-  color: #FBBF24;
+  background: #2d1f0a;
+  color: #fbbf24;
 }
 
 /* ============================================================
@@ -1119,8 +1148,12 @@
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .paymentInstruction {
@@ -1229,7 +1262,12 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--border-color) 50%, var(--bg-secondary) 75%);
+  background: linear-gradient(
+    90deg,
+    var(--bg-secondary) 25%,
+    var(--border-color) 50%,
+    var(--bg-secondary) 75%
+  );
   background-size: 200% 100%;
   animation: loading 1.5s infinite;
 }
@@ -1238,7 +1276,12 @@
   width: 150px;
   height: 28px;
   border-radius: 12px;
-  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--border-color) 50%, var(--bg-secondary) 75%);
+  background: linear-gradient(
+    90deg,
+    var(--bg-secondary) 25%,
+    var(--border-color) 50%,
+    var(--bg-secondary) 75%
+  );
   background-size: 200% 100%;
   animation: loading 1.5s infinite;
 }
@@ -1266,14 +1309,23 @@
 .skeletonCard {
   height: 200px;
   border-radius: 20px;
-  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--border-color) 50%, var(--bg-secondary) 75%);
+  background: linear-gradient(
+    90deg,
+    var(--bg-secondary) 25%,
+    var(--border-color) 50%,
+    var(--bg-secondary) 75%
+  );
   background-size: 200% 100%;
   animation: loading 1.5s infinite;
 }
 
 @keyframes loading {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 /* ============================================================
@@ -1315,7 +1367,7 @@
 
   .productQuantityRow {
     gap: 10px;
-    padding: 8px 10px;
+    padding: 4px 0;
   }
 
   .quantityControls {

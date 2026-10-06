@@ -1,5 +1,8 @@
-/* src/pages/ProductDetail.module.css - COMPLETE WITH HORIZONTAL VARIANTS */
+/* src/pages/ProductDetail.module.css - FULLY UPDATED */
 
+/* ============================================================
+   THEME VARIABLES
+   ============================================================ */
 .lightMode {
   --bg-primary: #ffffff;
   --bg-secondary: #f8fafc;
@@ -9,11 +12,11 @@
   --text-tertiary: #94a3b8;
   --border-color: #e2e8f0;
   --card-bg: #ffffff;
-  --accent-primary: #4F46E5;
-  --accent-secondary: #7C3AED;
-  --success: #10B981;
-  --error: #EF4444;
-  --warning: #F59E0B;
+  --accent-primary: #4f46e5;
+  --accent-secondary: #7c3aed;
+  --success: #10b981;
+  --error: #ef4444;
+  --warning: #f59e0b;
 }
 
 .darkMode {
@@ -25,11 +28,11 @@
   --text-tertiary: #666666;
   --border-color: #1f1f1f;
   --card-bg: #0a0a0a;
-  --accent-primary: #6366F1;
-  --accent-secondary: #8B5CF6;
-  --success: #10B981;
-  --error: #EF4444;
-  --warning: #F59E0B;
+  --accent-primary: #6366f1;
+  --accent-secondary: #8b5cf6;
+  --success: #10b981;
+  --error: #ef4444;
+  --warning: #f59e0b;
 }
 
 .container {
@@ -39,6 +42,9 @@
   padding-bottom: 30px;
 }
 
+/* ============================================================
+   HEADER
+   ============================================================ */
 .header {
   display: flex;
   align-items: center;
@@ -92,6 +98,9 @@
   cursor: not-allowed;
 }
 
+/* ============================================================
+   IMAGE CAROUSEL
+   ============================================================ */
 .imageCarouselSection {
   position: relative;
   background: var(--bg-secondary);
@@ -171,6 +180,9 @@
   background: white;
 }
 
+/* ============================================================
+   CONTENT
+   ============================================================ */
 .content {
   padding: 20px 16px;
 }
@@ -187,6 +199,9 @@
   line-height: 1.3;
 }
 
+/* ============================================================
+   PRICE — all "current" prices in green
+   ============================================================ */
 .productPriceContainer {
   display: flex;
   align-items: center;
@@ -198,13 +213,13 @@
 .discountPrice {
   font-size: 24px;
   font-weight: 800;
-  color: #10B981;
+  color: #10b981;
 }
 
 .regularPrice {
   font-size: 24px;
   font-weight: 800;
-  color: var(--accent-primary);
+  color: #10b981;
 }
 
 .originalPrice {
@@ -215,7 +230,7 @@
 }
 
 .discountBadge {
-  background: #EF4444;
+  background: #ef4444;
   color: white;
   padding: 4px 10px;
   border-radius: 20px;
@@ -237,7 +252,7 @@
 }
 
 .starFilled {
-  color: #F59E0B;
+  color: #f59e0b;
   font-size: 16px;
 }
 
@@ -258,6 +273,9 @@
   margin-left: 4px;
 }
 
+/* ============================================================
+   INFO BUTTONS
+   ============================================================ */
 .infoButtons {
   display: flex;
   gap: 12px;
@@ -331,7 +349,9 @@
   margin-top: 8px;
 }
 
-/* Variants Section - HORIZONTAL SCROLL */
+/* ============================================================
+   VARIANTS
+   ============================================================ */
 .variantsSection {
   margin-bottom: 20px;
 }
@@ -412,7 +432,7 @@
 
 .variantStockLow {
   font-size: 9px;
-  color: #EF4444;
+  color: #ef4444;
   margin-left: 4px;
   padding: 2px 4px;
   background: rgba(239, 68, 68, 0.1);
@@ -425,6 +445,9 @@
   color: #ffcccc;
 }
 
+/* ============================================================
+   STOCK STATUS
+   ============================================================ */
 .stockStatus {
   margin-bottom: 20px;
   background: var(--bg-secondary);
@@ -441,17 +464,17 @@
 }
 
 .inStock {
-  color: #10B981;
+  color: #10b981;
   font-weight: 600;
 }
 
 .mediumStock {
-  color: #F59E0B;
+  color: #f59e0b;
   font-weight: 600;
 }
 
 .lowStock {
-  color: #EF4444;
+  color: #ef4444;
   font-weight: 600;
 }
 
@@ -483,6 +506,9 @@
   text-align: right;
 }
 
+/* ============================================================
+   SELLER CARD
+   ============================================================ */
 .sellerCard {
   background: var(--bg-secondary);
   border-radius: 20px;
@@ -569,6 +595,9 @@
   color: var(--accent-primary);
 }
 
+/* ============================================================
+   DESCRIPTION / USAGE
+   ============================================================ */
 .descriptionSection {
   margin-bottom: 20px;
 }
@@ -597,6 +626,9 @@
   border-radius: 16px;
 }
 
+/* ============================================================
+   ACTION BUTTONS
+   ============================================================ */
 .actionButtons {
   display: flex;
   gap: 12px;
@@ -604,7 +636,9 @@
   flex-wrap: wrap;
 }
 
-.buyBtn, .cartBtn, .wishlistBtn {
+.buyBtn,
+.cartBtn,
+.wishlistBtn {
   flex: 1;
   padding: 14px;
   border-radius: 30px;
@@ -636,16 +670,23 @@
   color: var(--text-primary);
 }
 
-.buyBtn:hover, .cartBtn:hover, .wishlistBtn:hover {
+.buyBtn:hover,
+.cartBtn:hover,
+.wishlistBtn:hover {
   transform: scale(1.02);
 }
 
-.buyBtn:disabled, .cartBtn:disabled, .wishlistBtn:disabled {
+.buyBtn:disabled,
+.cartBtn:disabled,
+.wishlistBtn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
   transform: none;
 }
 
+/* ============================================================
+   ASK SELLER
+   ============================================================ */
 .askSeller {
   margin-bottom: 24px;
   background: var(--bg-secondary);
@@ -700,6 +741,9 @@
   cursor: not-allowed;
 }
 
+/* ============================================================
+   RELATED PRODUCTS
+   ============================================================ */
 .relatedProductsSection {
   margin: 24px 0;
 }
@@ -772,7 +816,7 @@
   position: absolute;
   top: 8px;
   right: 8px;
-  background: #EF4444;
+  background: #ef4444;
   color: white;
   font-size: 10px;
   font-weight: 600;
@@ -805,7 +849,7 @@
 .relatedCurrentPrice {
   font-size: 14px;
   font-weight: 700;
-  color: #10B981;
+  color: #10b981;
 }
 
 .relatedRating {
@@ -820,6 +864,9 @@
   margin-left: 4px;
 }
 
+/* ============================================================
+   REVIEWS
+   ============================================================ */
 .reviewsSection {
   margin-top: 8px;
 }
@@ -864,6 +911,9 @@
   color: var(--text-tertiary);
 }
 
+/* ============================================================
+   SHARE MODAL
+   ============================================================ */
 .shareModal {
   position: fixed;
   top: 0;
@@ -906,6 +956,9 @@
   color: var(--text-primary);
 }
 
+/* ============================================================
+   ERROR
+   ============================================================ */
 .errorContainer {
   text-align: center;
   padding: 60px 20px;
@@ -938,6 +991,9 @@
   cursor: pointer;
 }
 
+/* ============================================================
+   SPINNER
+   ============================================================ */
 .spinning {
   animation: spin 1s linear infinite;
 }
@@ -951,6 +1007,9 @@
   }
 }
 
+/* ============================================================
+   SKELETON
+   ============================================================ */
 .skeletonHeader {
   display: flex;
   justify-content: space-between;
@@ -961,7 +1020,12 @@
   width: 120px;
   height: 24px;
   border-radius: 12px;
-  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--border-color) 50%, var(--bg-secondary) 75%);
+  background: linear-gradient(
+    90deg,
+    var(--bg-secondary) 25%,
+    var(--border-color) 50%,
+    var(--bg-secondary) 75%
+  );
   background-size: 200% 100%;
   animation: loading 1.5s infinite;
 }
@@ -975,14 +1039,24 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--border-color) 50%, var(--bg-secondary) 75%);
+  background: linear-gradient(
+    90deg,
+    var(--bg-secondary) 25%,
+    var(--border-color) 50%,
+    var(--bg-secondary) 75%
+  );
   background-size: 200% 100%;
   animation: loading 1.5s infinite;
 }
 
 .skeletonImage {
   height: 300px;
-  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--border-color) 50%, var(--bg-secondary) 75%);
+  background: linear-gradient(
+    90deg,
+    var(--bg-secondary) 25%,
+    var(--border-color) 50%,
+    var(--bg-secondary) 75%
+  );
   background-size: 200% 100%;
   animation: loading 1.5s infinite;
 }
@@ -996,7 +1070,12 @@
   width: 80%;
   border-radius: 8px;
   margin-bottom: 12px;
-  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--border-color) 50%, var(--bg-secondary) 75%);
+  background: linear-gradient(
+    90deg,
+    var(--bg-secondary) 25%,
+    var(--border-color) 50%,
+    var(--bg-secondary) 75%
+  );
   background-size: 200% 100%;
   animation: loading 1.5s infinite;
 }
@@ -1006,7 +1085,12 @@
   width: 40%;
   border-radius: 8px;
   margin-bottom: 12px;
-  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--border-color) 50%, var(--bg-secondary) 75%);
+  background: linear-gradient(
+    90deg,
+    var(--bg-secondary) 25%,
+    var(--border-color) 50%,
+    var(--bg-secondary) 75%
+  );
   background-size: 200% 100%;
   animation: loading 1.5s infinite;
 }
@@ -1016,7 +1100,12 @@
   width: 60%;
   border-radius: 8px;
   margin-bottom: 20px;
-  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--border-color) 50%, var(--bg-secondary) 75%);
+  background: linear-gradient(
+    90deg,
+    var(--bg-secondary) 25%,
+    var(--border-color) 50%,
+    var(--bg-secondary) 75%
+  );
   background-size: 200% 100%;
   animation: loading 1.5s infinite;
 }
@@ -1025,7 +1114,12 @@
   height: 80px;
   border-radius: 16px;
   margin-bottom: 20px;
-  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--border-color) 50%, var(--bg-secondary) 75%);
+  background: linear-gradient(
+    90deg,
+    var(--bg-secondary) 25%,
+    var(--border-color) 50%,
+    var(--bg-secondary) 75%
+  );
   background-size: 200% 100%;
   animation: loading 1.5s infinite;
 }
@@ -1035,7 +1129,12 @@
   width: 100%;
   border-radius: 8px;
   margin-bottom: 12px;
-  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--border-color) 50%, var(--bg-secondary) 75%);
+  background: linear-gradient(
+    90deg,
+    var(--bg-secondary) 25%,
+    var(--border-color) 50%,
+    var(--bg-secondary) 75%
+  );
   background-size: 200% 100%;
   animation: loading 1.5s infinite;
 }
@@ -1050,7 +1149,12 @@
   flex: 1;
   height: 48px;
   border-radius: 30px;
-  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--border-color) 50%, var(--bg-secondary) 75%);
+  background: linear-gradient(
+    90deg,
+    var(--bg-secondary) 25%,
+    var(--border-color) 50%,
+    var(--bg-secondary) 75%
+  );
   background-size: 200% 100%;
   animation: loading 1.5s infinite;
 }
@@ -1064,6 +1168,9 @@
   }
 }
 
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
 @media (min-width: 768px) {
   .content {
     max-width: 700px;
@@ -1118,7 +1225,9 @@
   .actionButtons {
     flex-direction: column;
   }
-  .buyBtn, .cartBtn, .wishlistBtn {
+  .buyBtn,
+  .cartBtn,
+  .wishlistBtn {
     width: 100%;
   }
   .shareOptions {

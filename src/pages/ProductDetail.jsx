@@ -1,4 +1,4 @@
-// src/pages/ProductDetail.jsx - FIXED RATING DISPLAY
+// src/pages/ProductDetail.jsx - FIXED RATING DISPLAY + CHECKOUT STATE
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -39,11 +39,9 @@ const formatKenyanPrice = (price) => {
 // Helper function to format rating without .0 for whole numbers
 const formatRating = (rating) => {
   if (rating === undefined || rating === null) return '0';
-  // Check if it's a whole number (e.g., 4.0, 5.0)
   if (rating % 1 === 0) {
     return Math.floor(rating).toString();
   }
-  // Show one decimal for non-whole numbers
   return rating.toFixed(1);
 };
 
@@ -530,8 +528,10 @@ export default function ProductDetail() {
       toast.error("Login to checkout");
       return;
     }
+    // Pass the full product object so Checkout can preserve discount info
     navigate(`/checkout/${product.id}`, { 
       state: { 
+        product: product, // ← Pass full product with discount info
         productId: product.id, 
         variant: selectedVariant, 
         seller, 
