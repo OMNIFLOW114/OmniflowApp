@@ -2,31 +2,38 @@ import React, { useState, useEffect, useCallback, Component } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { supabase } from "@/supabase";
+import { Capacitor } from "@capacitor/core";
+import { Browser } from "@capacitor/browser";
 import { Button } from "@/components/ui/button";
 import toast, { Toaster } from "react-hot-toast";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import "./Auth.css";
 
-// Get the correct base URL - remove trailing slash and ensure consistency
 const getBaseUrl = () => {
   const url = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
-  return url.replace(/\/$/, '');
+  return url.replace(/\/$/, "");
 };
 
 const APP_URL = getBaseUrl();
 
-// Detect system preference for dark mode
+// ================================================================
+// NATIVE DEEP LINK — must exactly match the AndroidManifest
+// intent-filter (scheme + host) and the Supabase Redirect URLs list.
+// ================================================================
+const NATIVE_DEEP_LINK = "ke.co.omniflowapp://login-callback";
+
+const isNativeApp = () => Capacitor.isNativePlatform();
+
 const isSystemDarkMode = () => {
-  if (typeof window !== 'undefined') {
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  if (typeof window !== "undefined") {
+    return window.matchMedia("(prefers-color-scheme: dark)").matches;
   }
   return false;
 };
 
-// Data URI fallback logo (base64 encoded simple logo - will always work)
-const FALLBACK_LOGO_DATA_URI = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='44' viewBox='0 0 44 44'%3E%3Crect width='44' height='44' rx='12' fill='%23667eea'/%3E%3Cpath d='M22 12L12 17V27L22 32L32 27V17L22 12Z' stroke='white' stroke-width='2' fill='none'/%3E%3Ccircle cx='22' cy='22' r='3' fill='white'/%3E%3Cpath d='M12 17L22 22L32 17' stroke='white' stroke-width='2' fill='none'/%3E%3C/svg%3E";
+const FALLBACK_LOGO_DATA_URI =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='44' viewBox='0 0 44 44'%3E%3Crect width='44' height='44' rx='12' fill='%23667eea'/%3E%3Cpath d='M22 12L12 17V27L22 32L32 27V17L22 12Z' stroke='white' stroke-width='2' fill='none'/%3E%3Ccircle cx='22' cy='22' r='3' fill='white'/%3E%3Cpath d='M12 17L22 22L32 17' stroke='white' stroke-width='2' fill='none'/%3E%3C/svg%3E";
 
-// Error Boundary Component
 class AuthErrorBoundary extends Component {
   state = { hasError: false, error: null };
 
@@ -57,11 +64,11 @@ export default function Auth() {
   const navigate = useNavigate();
   const [mode, setMode] = useState("login");
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({ 
-    name: "", 
-    phone: "", 
-    email: "", 
-    password: "" 
+  const [formData, setFormData] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    password: "",
   });
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
@@ -73,67 +80,56 @@ export default function Auth() {
   const [logoUrl, setLogoUrl] = useState(FALLBACK_LOGO_DATA_URI);
   const [logoLoading, setLogoLoading] = useState(true);
 
-  // Try to load the actual logo file
+  // ---- Logo loader ----
   useEffect(() => {
     const tryLoadLogo = async () => {
       const logoPaths = [
-        '/icons/logo.png',
-        '/logo.png',
-        '/images/logo.png',
-        '/assets/logo.png'
+        "/icons/logo.png",
+        "/logo.png",
+        "/images/logo.png",
+        "/assets/logo.png",
       ];
-
       for (const path of logoPaths) {
         try {
           const img = new Image();
           img.crossOrigin = "Anonymous";
-          
           await new Promise((resolve, reject) => {
             img.onload = () => resolve(true);
             img.onerror = () => reject(false);
             img.src = path;
           });
-          
           setLogoUrl(path);
           setLogoLoading(false);
           return;
-        } catch (err) {
+        } catch {
           console.log(`Logo not found at ${path}`);
         }
       }
-      
       setLogoLoading(false);
     };
-    
     tryLoadLogo();
   }, []);
 
-  // Check and apply dark mode based on system preference
+  // ---- Dark mode ----
   useEffect(() => {
     const darkModePreference = isSystemDarkMode();
     setIsDarkMode(darkModePreference);
-    
     if (darkModePreference) {
-      document.body.classList.add('dark-mode');
+      document.body.classList.add("dark-mode");
     } else {
-      document.body.classList.remove('dark-mode');
+      document.body.classList.remove("dark-mode");
     }
-
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
     const handleChange = (e) => {
       setIsDarkMode(e.matches);
-      if (e.matches) {
-        document.body.classList.add('dark-mode');
-      } else {
-        document.body.classList.remove('dark-mode');
-      }
+      if (e.matches) document.body.classList.add("dark-mode");
+      else document.body.classList.remove("dark-mode");
     };
-    
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
   }, []);
 
-  // Hidden Developer Shortcut — ALT + A → Admin Login
+  // ---- ALT + A -> admin ----
   useEffect(() => {
     const handleKeyShortcut = (e) => {
       if (e.altKey && e.key.toLowerCase() === "a") {
@@ -145,13 +141,13 @@ export default function Auth() {
     return () => window.removeEventListener("keydown", handleKeyShortcut);
   }, [navigate]);
 
-  // Validate environment variables
+  // ---- Env check ----
   useEffect(() => {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-    
     if (!supabaseUrl || !supabaseKey) {
-      const errorMessage = "Missing Supabase configuration. Please check your .env file.";
+      const errorMessage =
+        "Missing Supabase configuration. Please check your .env file.";
       setEnvError(errorMessage);
       toast.error(errorMessage);
       console.error("Missing environment variables");
@@ -160,15 +156,49 @@ export default function Auth() {
     }
   }, []);
 
-  // Handle OAuth callback and password reset
+  // ---- Sync user row ----
+  const syncUserData = async (user) => {
+    try {
+      if (!user?.id) return;
+      const userData = {
+        id: user.id,
+        email: user.email,
+        full_name:
+          user.user_metadata?.full_name ||
+          formData.name ||
+          user.email?.split("@")[0] ||
+          "User",
+        phone: formData.phone || user.user_metadata?.phone,
+        updated_at: new Date().toISOString(),
+      };
+      if (mode === "signup" && acceptedTerms) {
+        userData.accepted_terms = acceptedTerms;
+        userData.accepted_terms_at = new Date().toISOString();
+      }
+      const { error } = await supabase
+        .from("users")
+        .upsert(userData, { onConflict: "id" });
+      if (error) console.error("Error syncing user:", error);
+    } catch (err) {
+      console.error("Sync error:", err);
+    }
+  };
+
+  // ================================================================
+  // OAUTH CALLBACK HANDLER — WEB only.
+  // On native, the deep-link listener in App.jsx handles the code.
+  // ================================================================
   useEffect(() => {
     const handleAuthCallback = async () => {
       if (envError) return;
 
+      // On native: skip entirely. The deep-link listener handles it.
+      if (isNativeApp()) return;
+
       const hash = window.location.hash;
       const urlParams = new URLSearchParams(hash.substring(1));
-      const type = urlParams.get('type');
-      const tokenHash = urlParams.get('token_hash');
+      const type = urlParams.get("type");
+      const tokenHash = urlParams.get("token_hash");
 
       const searchParamsObj = new URLSearchParams(window.location.search);
       const code = searchParamsObj.get("code");
@@ -176,7 +206,9 @@ export default function Auth() {
       if (code) {
         try {
           setLoading(true);
-          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+          const { data, error } = await supabase.auth.exchangeCodeForSession(
+            code
+          );
           if (error) {
             if (error.message.includes("already registered")) {
               toast.error("This email is already registered. Please sign in.");
@@ -185,11 +217,11 @@ export default function Auth() {
             }
             throw error;
           }
-
           if (data?.session?.user) {
             await syncUserData(data.session.user);
             toast.success("Successfully signed in!");
-            navigate("/home");
+            window.history.replaceState({}, "", "/");
+            navigate("/", { replace: true });
           }
         } catch (err) {
           console.error("OAuth error:", err);
@@ -204,18 +236,19 @@ export default function Auth() {
         navigate("/reset-password", { replace: true });
         return;
       }
-      
+
       if (tokenHash && type === "signup") {
         try {
           const { data, error } = await supabase.auth.verifyOtp({
-            type: 'signup',
+            type: "signup",
             token_hash: tokenHash,
           });
           if (error) throw error;
           if (data.session) {
             await syncUserData(data.session.user);
             toast.success("Email confirmed successfully!");
-            navigate("/home");
+            window.history.replaceState({}, "", "/");
+            navigate("/", { replace: true });
           }
         } catch (err) {
           toast.error("Error confirming email: " + err.message);
@@ -225,17 +258,23 @@ export default function Auth() {
     };
 
     handleAuthCallback();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, navigate, envError]);
 
-  // Auto-redirect logged-in users
+  // ---- Auto-redirect logged-in users + listen for auth state ----
   useEffect(() => {
     const checkSession = async () => {
       if (envError) return;
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const isResetFlow = window.location.pathname.includes("/reset-password");
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        const isResetFlow = window.location.pathname.includes(
+          "/reset-password"
+        );
         if (session?.user && !isResetFlow) {
-          navigate("/home");
+          setLoading(false);
+          navigate("/", { replace: true });
         }
       } catch (err) {
         console.error("Session check error:", err);
@@ -244,26 +283,41 @@ export default function Auth() {
 
     checkSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (envError) return;
-      
+
       if (event === "SIGNED_IN" && session?.user) {
-        const isResetFlow = window.location.pathname.includes("/reset-password");
+        const isResetFlow = window.location.pathname.includes(
+          "/reset-password"
+        );
         if (!isResetFlow) {
           await syncUserData(session.user);
-          navigate("/home");
+          setLoading(false);
+          navigate("/", { replace: true });
         }
       }
-      
+
       if (event === "PASSWORD_RECOVERY") {
         navigate("/reset-password", { replace: true });
       }
     });
 
-    return () => subscription.unsubscribe();
+    // Safety net: re-check session when the app regains focus (native case)
+    const onFocus = () => checkSession();
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+
+    return () => {
+      subscription.unsubscribe();
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate, searchParams, envError]);
 
-  // Validation functions
+  // ---- Validation helpers ----
   const validatePhone = (phone) => {
     if (!phone) return true;
     return /^(\+254|0)[17]\d{8}$/.test(phone);
@@ -271,41 +325,38 @@ export default function Auth() {
   const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   const isValidPassword = (pwd) => {
     if (!pwd) return false;
-    return /[a-z]/.test(pwd) && /[A-Z]/.test(pwd) && /[0-9]/.test(pwd) && pwd.length >= 8;
+    return (
+      /[a-z]/.test(pwd) &&
+      /[A-Z]/.test(pwd) &&
+      /[0-9]/.test(pwd) &&
+      pwd.length >= 8
+    );
   };
-  const sanitizeInput = (input) => input?.replace(/[<>{}]/g, "").trim() || "";
+  const sanitizeInput = (input) =>
+    input?.replace(/[<>{}]/g, "").trim() || "";
 
   const getErrorMessage = (error) => {
     const message = error?.message?.toLowerCase() || "";
-    
-    if (message.includes("database error") || message.includes("relation") || message.includes("column")) {
-      return {
-        message: "System error. Please contact support.",
-        type: "database_error",
-      };
+    if (
+      message.includes("database error") ||
+      message.includes("relation") ||
+      message.includes("column")
+    ) {
+      return { message: "System error. Please contact support.", type: "database_error" };
     }
-    if (message.includes("already registered") || message.includes("user already exists")) {
-      return {
-        message: "This email is already registered. Please sign in.",
-        type: "user_exists",
-      };
+    if (
+      message.includes("already registered") ||
+      message.includes("user already exists")
+    ) {
+      return { message: "This email is already registered. Please sign in.", type: "user_exists" };
     }
     if (message.includes("invalid login credentials")) {
-      return {
-        message: "Invalid email or password. Please try again.",
-        type: "invalid_credentials",
-      };
+      return { message: "Invalid email or password. Please try again.", type: "invalid_credentials" };
     }
     if (message.includes("rate limit")) {
-      return {
-        message: "Too many attempts. Please wait a moment.",
-        type: "rate_limit",
-      };
+      return { message: "Too many attempts. Please wait a moment.", type: "rate_limit" };
     }
-    return {
-      message: error?.message || "Something went wrong. Please try again.",
-      type: "generic",
-    };
+    return { message: error?.message || "Something went wrong. Please try again.", type: "generic" };
   };
 
   const handleChange = useCallback((e) => {
@@ -315,20 +366,27 @@ export default function Auth() {
     setErrors((prev) => ({ ...prev, [name]: "" }));
   }, []);
 
-  const handleBlur = useCallback((field) => {
-    const value = formData[field];
-    if (!value) return;
-    
-    if (field === "email" && !validateEmail(value)) {
-      setErrors(prev => ({ ...prev, email: "Please enter a valid email address" }));
-    } else if (field === "phone" && value && !validatePhone(value)) {
-      setErrors(prev => ({ ...prev, phone: "Enter valid phone (e.g., 0712345678 or +254712345678)" }));
-    } else if (field === "password" && mode === "signup" && value && !isValidPassword(value)) {
-      setErrors(prev => ({ ...prev, password: "Must contain uppercase, lowercase, number, and be 8+ characters" }));
-    } else if (field === "name" && mode === "signup" && value && value.length < 2) {
-      setErrors(prev => ({ ...prev, name: "Name must be at least 2 characters" }));
-    }
-  }, [formData, mode]);
+  const handleBlur = useCallback(
+    (field) => {
+      const value = formData[field];
+      if (!value) return;
+      if (field === "email" && !validateEmail(value)) {
+        setErrors((prev) => ({ ...prev, email: "Please enter a valid email address" }));
+      } else if (field === "phone" && value && !validatePhone(value)) {
+        setErrors((prev) => ({ ...prev, phone: "Enter valid phone (e.g., 0712345678 or +254712345678)" }));
+      } else if (
+        field === "password" &&
+        mode === "signup" &&
+        value &&
+        !isValidPassword(value)
+      ) {
+        setErrors((prev) => ({ ...prev, password: "Must contain uppercase, lowercase, number, and be 8+ characters" }));
+      } else if (field === "name" && mode === "signup" && value && value.length < 2) {
+        setErrors((prev) => ({ ...prev, name: "Name must be at least 2 characters" }));
+      }
+    },
+    [formData, mode]
+  );
 
   const checkEmailExists = async (email) => {
     try {
@@ -345,68 +403,22 @@ export default function Auth() {
     }
   };
 
-  const syncUserData = async (user) => {
-    try {
-      if (!user?.id) return;
-
-      const userData = {
-        id: user.id,
-        email: user.email,
-        full_name: user.user_metadata?.full_name || formData.name || user.email?.split("@")[0] || "User",
-        phone: formData.phone || user.user_metadata?.phone,
-        updated_at: new Date().toISOString(),
-      };
-
-      if (mode === "signup" && acceptedTerms) {
-        userData.accepted_terms = acceptedTerms;
-        userData.accepted_terms_at = new Date().toISOString();
-      }
-
-      const { error } = await supabase
-        .from("users")
-        .upsert(userData, { onConflict: 'id' });
-
-      if (error) console.error("Error syncing user:", error);
-    } catch (err) {
-      console.error("Sync error:", err);
-    }
-  };
-
   const handleSignup = async (e) => {
     e.preventDefault();
-    
-    if (envError) {
-      toast.error("Service unavailable. Please try again later.");
-      return;
-    }
-    if (attemptCount >= 5) {
-      toast.error("Too many attempts. Please wait a minute.");
-      return;
-    }
 
-    if (!formData.name || formData.name.length < 2) {
-      toast.error("Please enter your full name");
-      return;
-    }
-    if (!validateEmail(formData.email)) {
-      toast.error("Please enter a valid email address");
-      return;
-    }
-    if (!isValidPassword(formData.password)) {
-      toast.error("Password must be 8+ characters with uppercase, lowercase, and number");
-      return;
-    }
-    if (formData.phone && !validatePhone(formData.phone)) {
-      toast.error("Phone must be in valid Kenyan format (e.g., 0712345678)");
-      return;
-    }
-    if (!acceptedTerms) {
-      toast.error("Please accept the Terms & Conditions");
-      return;
-    }
+    if (envError) return toast.error("Service unavailable. Please try again later.");
+    if (attemptCount >= 5) return toast.error("Too many attempts. Please wait a minute.");
+
+    if (!formData.name || formData.name.length < 2) return toast.error("Please enter your full name");
+    if (!validateEmail(formData.email)) return toast.error("Please enter a valid email address");
+    if (!isValidPassword(formData.password))
+      return toast.error("Password must be 8+ characters with uppercase, lowercase, and number");
+    if (formData.phone && !validatePhone(formData.phone))
+      return toast.error("Phone must be in valid Kenyan format (e.g., 0712345678)");
+    if (!acceptedTerms) return toast.error("Please accept the Terms & Conditions");
 
     setLoading(true);
-    
+
     try {
       const emailExists = await checkEmailExists(formData.email);
       if (emailExists) {
@@ -415,22 +427,24 @@ export default function Auth() {
         return;
       }
 
-      const redirectUrl = `${window.location.origin}/auth`;
-      console.log("Redirect URL:", redirectUrl);
+      const redirectUrl = isNativeApp()
+        ? NATIVE_DEEP_LINK
+        : `${window.location.origin}/auth`;
+      console.log("Signup redirect URL:", redirectUrl);
 
       const { data, error } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: {
-          data: { 
-            full_name: formData.name, 
+          data: {
+            full_name: formData.name,
             phone: formData.phone,
             accepted_terms: acceptedTerms,
           },
           emailRedirectTo: redirectUrl,
         },
       });
-      
+
       if (error) {
         console.error("Supabase signup error:", error);
         throw error;
@@ -453,7 +467,7 @@ export default function Auth() {
       console.error("Signup error:", err);
       const errorInfo = getErrorMessage(err);
       toast.error(errorInfo.message);
-      setAttemptCount(prev => prev + 1);
+      setAttemptCount((prev) => prev + 1);
     } finally {
       setLoading(false);
     }
@@ -461,32 +475,20 @@ export default function Auth() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    
-    if (envError) {
-      toast.error("Service unavailable. Please try again later.");
-      return;
-    }
-    if (attemptCount >= 5) {
-      toast.error("Too many attempts. Please wait a minute.");
-      return;
-    }
-    if (!validateEmail(formData.email)) {
-      toast.error("Please enter a valid email address");
-      return;
-    }
-    if (!formData.password) {
-      toast.error("Please enter your password");
-      return;
-    }
+
+    if (envError) return toast.error("Service unavailable. Please try again later.");
+    if (attemptCount >= 5) return toast.error("Too many attempts. Please wait a minute.");
+    if (!validateEmail(formData.email)) return toast.error("Please enter a valid email address");
+    if (!formData.password) return toast.error("Please enter your password");
 
     setLoading(true);
-    
+
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password,
       });
-      
+
       if (error) {
         const errorInfo = getErrorMessage(error);
         if (errorInfo.type === "invalid_credentials") {
@@ -494,7 +496,7 @@ export default function Auth() {
           setTimeout(() => {
             if (window.confirm("No account found? Create one?")) {
               setMode("signup");
-              setFormData(prev => ({ ...prev, password: "" }));
+              setFormData((prev) => ({ ...prev, password: "" }));
             }
           }, 1500);
           return;
@@ -505,14 +507,14 @@ export default function Auth() {
       if (data?.user) {
         await syncUserData(data.user);
         toast.success("Welcome back!");
-        navigate("/home");
+        navigate("/", { replace: true });
         setAttemptCount(0);
       }
     } catch (err) {
       console.error("Login error:", err);
       const errorInfo = getErrorMessage(err);
       toast.error(errorInfo.message);
-      setAttemptCount(prev => prev + 1);
+      setAttemptCount((prev) => prev + 1);
     } finally {
       setLoading(false);
     }
@@ -520,29 +522,24 @@ export default function Auth() {
 
   const handleForgotPassword = async (e) => {
     e.preventDefault();
-    
-    if (envError) {
-      toast.error("Service unavailable. Please try again later.");
-      return;
-    }
-    if (!formData.email || !validateEmail(formData.email)) {
-      toast.error("Please enter a valid email address");
-      return;
-    }
+
+    if (envError) return toast.error("Service unavailable. Please try again later.");
+    if (!formData.email || !validateEmail(formData.email))
+      return toast.error("Please enter a valid email address");
 
     setLoading(true);
-    
+
     try {
-      const redirectUrl = `${window.location.origin}/auth`;
+      const redirectUrl = isNativeApp()
+        ? NATIVE_DEEP_LINK
+        : `${window.location.origin}/auth`;
       const { error } = await supabase.auth.resetPasswordForEmail(formData.email, {
         redirectTo: redirectUrl,
       });
-      
       if (error) throw error;
-      
       toast.success("Password reset link sent! Check your email.");
       setMode("login");
-      setFormData(prev => ({ ...prev, password: "" }));
+      setFormData((prev) => ({ ...prev, password: "" }));
     } catch (err) {
       console.error("Reset password error:", err);
       toast.error(err.message || "Failed to send reset link");
@@ -551,27 +548,53 @@ export default function Auth() {
     }
   };
 
+  // ================================================================
+  // ⭐ GOOGLE OAUTH — THIS IS THE FIX
+  //
+  // On native we:
+  //   1. Send the deep link as redirectTo (Supabase allows it)
+  //   2. Suppress the SDK's own browser open (skipBrowserRedirect)
+  //   3. Open the URL ourselves with @capacitor/browser, which uses a
+  //      Chrome Custom Tab that the OS can hand back to our app when
+  //      it receives ke.co.omniflowapp://login-callback
+  // ================================================================
   const handleGoogle = async () => {
     if (envError) {
       toast.error("Service unavailable. Please try again later.");
       return;
     }
-    
+
     setLoading(true);
-    
+
     try {
-      const redirectUrl = `${window.location.origin}/auth`;
-      const { error } = await supabase.auth.signInWithOAuth({
+      const native = isNativeApp();
+      const redirectUrl = native
+        ? NATIVE_DEEP_LINK
+        : `${window.location.origin}/auth`;
+
+      console.log("🟣 Google OAuth redirectTo:", redirectUrl, "native:", native);
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
           redirectTo: redirectUrl,
+          skipBrowserRedirect: native, // ← let Capacitor open the tab
           queryParams: {
             access_type: "offline",
             prompt: "select_account",
           },
         },
       });
+
       if (error) throw error;
+
+      if (native && data?.url) {
+        // Open in a Chrome Custom Tab (Android) / SFSafariViewController (iOS)
+        await Browser.open({ url: data.url });
+        // Do NOT setLoading(false) here — the deep link handler will
+        // wake the app up and finish the login.
+      }
+      // On web, the SDK already navigated the browser away.
     } catch (err) {
       console.error("Google OAuth error:", err);
       toast.error(err.message || "Google login failed. Please try again.");
@@ -640,7 +663,9 @@ export default function Auth() {
                 value={formData.phone}
               />
               {errors.phone && <span className="error-text">{errors.phone}</span>}
-              <small className="input-hint">Format: 0712345678 or +254712345678</small>
+              <small className="input-hint">
+                Format: 0712345678 or +254712345678
+              </small>
             </div>
 
             <div className="form-group">
@@ -665,7 +690,9 @@ export default function Auth() {
                 </button>
               </div>
               {errors.password && <span className="error-text">{errors.password}</span>}
-              <small className="input-hint">Must contain uppercase, lowercase, number, and be 8+ characters</small>
+              <small className="input-hint">
+                Must contain uppercase, lowercase, number, and be 8+ characters
+              </small>
             </div>
 
             <div className="terms-checkbox">
@@ -677,7 +704,14 @@ export default function Auth() {
                 />
                 <span className="checkbox-custom"></span>
                 <span className="checkbox-text">
-                  I agree to the <button type="button" className="terms-link" onClick={() => navigate('/terms')}>Terms</button> and <button type="button" className="terms-link" onClick={() => navigate('/privacy')}>Privacy Policy</button>
+                  I agree to the{" "}
+                  <button type="button" className="terms-link" onClick={() => navigate("/terms")}>
+                    Terms
+                  </button>{" "}
+                  and{" "}
+                  <button type="button" className="terms-link" onClick={() => navigate("/privacy")}>
+                    Privacy Policy
+                  </button>
                 </span>
               </label>
             </div>
@@ -797,22 +831,22 @@ export default function Auth() {
   return (
     <AuthErrorBoundary>
       <motion.div
-        className={`auth-container ${isDarkMode ? 'dark-mode' : ''}`}
+        className={`auth-container ${isDarkMode ? "dark-mode" : ""}`}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3 }}
       >
-        <Toaster 
+        <Toaster
           position="top-center"
           toastOptions={{
             duration: 4000,
             style: {
-              background: '#fff',
-              color: '#363636',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-              borderRadius: '12px',
-              padding: '12px 16px',
-              fontSize: '14px',
+              background: "#fff",
+              color: "#363636",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+              borderRadius: "12px",
+              padding: "12px 16px",
+              fontSize: "14px",
             },
           }}
         />
@@ -821,21 +855,21 @@ export default function Auth() {
           <div className="auth-header">
             <div className="brand">
               {!logoLoading && (
-                <img 
-                  src={logoUrl}
-                  alt="Omniflow Logo" 
-                  className="auth-logo"
-                />
+                <img src={logoUrl} alt="Omniflow Logo" className="auth-logo" />
               )}
               <span className="auth-brand-name">Omniflow</span>
             </div>
 
             <h1 className="auth-title">
-              {mode === "signup" ? "Create account" : mode === "forgot" ? "Reset password" : "Welcome back"}
+              {mode === "signup"
+                ? "Create account"
+                : mode === "forgot"
+                ? "Reset password"
+                : "Welcome back"}
             </h1>
             <p className="auth-subtitle">
-              {mode === "signup" 
-                ? "Sign up to get started" 
+              {mode === "signup"
+                ? "Sign up to get started"
                 : mode === "forgot"
                 ? "Enter your email to reset your password"
                 : "Sign in to your account"}
@@ -852,7 +886,13 @@ export default function Auth() {
             <div className="success-message">
               <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
                 <circle cx="9" cy="9" r="9" fill="#10B981" fillOpacity="0.1" />
-                <path d="M5 9L7.5 11.5L13 6" stroke="#10B981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <path
+                  d="M5 9L7.5 11.5L13 6"
+                  stroke="#10B981"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
               </svg>
               <span>{successMessage}</span>
             </div>
@@ -882,7 +922,9 @@ export default function Auth() {
 
               <div className="auth-footer">
                 <p>
-                  {mode === "signup" ? "Already have an account?" : "Don't have an account?"}
+                  {mode === "signup"
+                    ? "Already have an account?"
+                    : "Don't have an account?"}
                   <button
                     onClick={() => setMode(mode === "signup" ? "login" : "signup")}
                     className="toggle-mode"
