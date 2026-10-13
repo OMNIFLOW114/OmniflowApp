@@ -3152,3 +3152,95 @@
     break-inside: avoid;
   }
 }
+/* ========== ANALYTICS EXTRAS ========== */
+.v2-chart-subtitle {
+  margin: -6px 0 12px;
+  font-size: 0.7rem;
+  color: var(--v2-text-light);
+  line-height: 1.4;
+}
+
+.v2-insights-box {
+  background: var(--v2-card);
+  border: 1px solid var(--v2-border);
+  border-left: 4px solid var(--v2-primary);
+  border-radius: var(--v2-radius-sm);
+  padding: 14px 16px;
+  margin-top: 8px;
+}
+
+.v2-insights-box h4 {
+  margin: 0 0 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--v2-text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.v2-insights-box ul {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.v2-insights-box li {
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--v2-text-light);
+}
+
+.v2-insights-box li strong {
+  color: var(--v2-text);
+  font-weight: 700;
+}
+
+.v2-growth-positive {
+  color: var(--v2-success) !important;
+}
+
+.v2-growth-negative {
+  color: var(--v2-danger) !important;
+}
+
+/* Make chart container slightly taller and cleaner */
+.v2-chart-container {
+  overflow: hidden;
+}
+
+.v2-chart-container h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+
+/* Recharts tweaks for dark mode */
+.v2-dashboard.v2-dark .recharts-cartesian-grid line {
+  stroke: var(--v2-border);
+}
+
+.v2-dashboard.v2-dark .recharts-text {
+  fill: var(--v2-text-light);
+}
+
+.v2-dashboard.v2-dark .recharts-legend-item-text {
+  color: var(--v2-text) !important;
+}
+
+.v2-dashboard.v2-dark .recharts-default-tooltip {
+  background: var(--v2-card) !important;
+  border: 1px solid var(--v2-border) !important;
+  color: var(--v2-text) !important;
+  border-radius: var(--v2-radius-sm) !important;
+}
+
+/* Growth values need bigger presence on the analytics cards */
+.v2-analytics-card .v2-analytics-value.v2-growth-positive,
+.v2-analytics-card .v2-analytics-value.v2-growth-negative {
+  font-size: 1.3rem;
+  font-weight: 800;
+}

@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useCallback, Component } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { supabase } from "@/supabase";
+import {
+  supabase,
+  captureSupabasePkceVerifier,
+  clearOurPkceVerifier,
+} from "@/supabase";
 import { Capacitor } from "@capacitor/core";
 import { Browser } from "@capacitor/browser";
 import { Button } from "@/components/ui/button";
@@ -16,12 +20,7 @@ const getBaseUrl = () => {
 
 const APP_URL = getBaseUrl();
 
-// ================================================================
-// NATIVE DEEP LINK — must exactly match the AndroidManifest
-// intent-filter (scheme + host) and the Supabase Redirect URLs list.
-// ================================================================
 const NATIVE_DEEP_LINK = "ke.co.omniflowapp://login-callback";
-
 const isNativeApp = () => Capacitor.isNativePlatform();
 
 const isSystemDarkMode = () => {
@@ -36,15 +35,12 @@ const FALLBACK_LOGO_DATA_URI =
 
 class AuthErrorBoundary extends Component {
   state = { hasError: false, error: null };
-
   static getDerivedStateFromError(error) {
     return { hasError: true, error };
   }
-
   componentDidCatch(error, errorInfo) {
     console.error("Auth Error Boundary:", error, errorInfo);
   }
-
   render() {
     if (this.state.hasError) {
       return (
@@ -80,7 +76,6 @@ export default function Auth() {
   const [logoUrl, setLogoUrl] = useState(FALLBACK_LOGO_DATA_URI);
   const [logoLoading, setLogoLoading] = useState(true);
 
-  // ---- Logo loader ----
   useEffect(() => {
     const tryLoadLogo = async () => {
       const logoPaths = [
@@ -110,15 +105,12 @@ export default function Auth() {
     tryLoadLogo();
   }, []);
 
-  // ---- Dark mode ----
   useEffect(() => {
     const darkModePreference = isSystemDarkMode();
     setIsDarkMode(darkModePreference);
-    if (darkModePreference) {
-      document.body.classList.add("dark-mode");
-    } else {
-      document.body.classList.remove("dark-mode");
-    }
+    if (darkModePreference) document.body.classList.add("dark-mode");
+    else document.body.classList.remove("dark-mode");
+
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
     const handleChange = (e) => {
       setIsDarkMode(e.matches);
@@ -129,7 +121,6 @@ export default function Auth() {
     return () => mediaQuery.removeEventListener("change", handleChange);
   }, []);
 
-  // ---- ALT + A -> admin ----
   useEffect(() => {
     const handleKeyShortcut = (e) => {
       if (e.altKey && e.key.toLowerCase() === "a") {
@@ -141,7 +132,6 @@ export default function Auth() {
     return () => window.removeEventListener("keydown", handleKeyShortcut);
   }, [navigate]);
 
-  // ---- Env check ----
   useEffect(() => {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -156,7 +146,6 @@ export default function Auth() {
     }
   }, []);
 
-  // ---- Sync user row ----
   const syncUserData = async (user) => {
     try {
       if (!user?.id) return;
@@ -184,15 +173,10 @@ export default function Auth() {
     }
   };
 
-  // ================================================================
-  // OAUTH CALLBACK HANDLER — WEB only.
-  // On native, the deep-link listener in App.jsx handles the code.
-  // ================================================================
+  // WEB ONLY callback
   useEffect(() => {
     const handleAuthCallback = async () => {
       if (envError) return;
-
-      // On native: skip entirely. The deep-link listener handles it.
       if (isNativeApp()) return;
 
       const hash = window.location.hash;
@@ -206,17 +190,8 @@ export default function Auth() {
       if (code) {
         try {
           setLoading(true);
-          const { data, error } = await supabase.auth.exchangeCodeForSession(
-            code
-          );
-          if (error) {
-            if (error.message.includes("already registered")) {
-              toast.error("This email is already registered. Please sign in.");
-              setMode("login");
-              return;
-            }
-            throw error;
-          }
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) throw error;
           if (data?.session?.user) {
             await syncUserData(data.session.user);
             toast.success("Successfully signed in!");
@@ -236,7 +211,6 @@ export default function Auth() {
         navigate("/reset-password", { replace: true });
         return;
       }
-
       if (tokenHash && type === "signup") {
         try {
           const { data, error } = await supabase.auth.verifyOtp({
@@ -253,15 +227,13 @@ export default function Auth() {
         } catch (err) {
           toast.error("Error confirming email: " + err.message);
         }
-        return;
       }
     };
-
     handleAuthCallback();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, navigate, envError]);
 
-  // ---- Auto-redirect logged-in users + listen for auth state ----
+  // Auto-redirect if session exists
   useEffect(() => {
     const checkSession = async () => {
       if (envError) return;
@@ -269,9 +241,7 @@ export default function Auth() {
         const {
           data: { session },
         } = await supabase.auth.getSession();
-        const isResetFlow = window.location.pathname.includes(
-          "/reset-password"
-        );
+        const isResetFlow = window.location.pathname.includes("/reset-password");
         if (session?.user && !isResetFlow) {
           setLoading(false);
           navigate("/", { replace: true });
@@ -280,31 +250,25 @@ export default function Auth() {
         console.error("Session check error:", err);
       }
     };
-
     checkSession();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (envError) return;
-
       if (event === "SIGNED_IN" && session?.user) {
-        const isResetFlow = window.location.pathname.includes(
-          "/reset-password"
-        );
+        const isResetFlow = window.location.pathname.includes("/reset-password");
         if (!isResetFlow) {
           await syncUserData(session.user);
           setLoading(false);
           navigate("/", { replace: true });
         }
       }
-
       if (event === "PASSWORD_RECOVERY") {
         navigate("/reset-password", { replace: true });
       }
     });
 
-    // Safety net: re-check session when the app regains focus (native case)
     const onFocus = () => checkSession();
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onFocus);
@@ -317,7 +281,6 @@ export default function Auth() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate, searchParams, envError]);
 
-  // ---- Validation helpers ----
   const validatePhone = (phone) => {
     if (!phone) return true;
     return /^(\+254|0)[17]\d{8}$/.test(phone);
@@ -332,30 +295,18 @@ export default function Auth() {
       pwd.length >= 8
     );
   };
-  const sanitizeInput = (input) =>
-    input?.replace(/[<>{}]/g, "").trim() || "";
+  const sanitizeInput = (input) => input?.replace(/[<>{}]/g, "").trim() || "";
 
   const getErrorMessage = (error) => {
     const message = error?.message?.toLowerCase() || "";
-    if (
-      message.includes("database error") ||
-      message.includes("relation") ||
-      message.includes("column")
-    ) {
+    if (message.includes("database error") || message.includes("relation") || message.includes("column"))
       return { message: "System error. Please contact support.", type: "database_error" };
-    }
-    if (
-      message.includes("already registered") ||
-      message.includes("user already exists")
-    ) {
+    if (message.includes("already registered") || message.includes("user already exists"))
       return { message: "This email is already registered. Please sign in.", type: "user_exists" };
-    }
-    if (message.includes("invalid login credentials")) {
+    if (message.includes("invalid login credentials"))
       return { message: "Invalid email or password. Please try again.", type: "invalid_credentials" };
-    }
-    if (message.includes("rate limit")) {
+    if (message.includes("rate limit"))
       return { message: "Too many attempts. Please wait a moment.", type: "rate_limit" };
-    }
     return { message: error?.message || "Something went wrong. Please try again.", type: "generic" };
   };
 
@@ -370,20 +321,14 @@ export default function Auth() {
     (field) => {
       const value = formData[field];
       if (!value) return;
-      if (field === "email" && !validateEmail(value)) {
+      if (field === "email" && !validateEmail(value))
         setErrors((prev) => ({ ...prev, email: "Please enter a valid email address" }));
-      } else if (field === "phone" && value && !validatePhone(value)) {
+      else if (field === "phone" && value && !validatePhone(value))
         setErrors((prev) => ({ ...prev, phone: "Enter valid phone (e.g., 0712345678 or +254712345678)" }));
-      } else if (
-        field === "password" &&
-        mode === "signup" &&
-        value &&
-        !isValidPassword(value)
-      ) {
+      else if (field === "password" && mode === "signup" && value && !isValidPassword(value))
         setErrors((prev) => ({ ...prev, password: "Must contain uppercase, lowercase, number, and be 8+ characters" }));
-      } else if (field === "name" && mode === "signup" && value && value.length < 2) {
+      else if (field === "name" && mode === "signup" && value && value.length < 2)
         setErrors((prev) => ({ ...prev, name: "Name must be at least 2 characters" }));
-      }
     },
     [formData, mode]
   );
@@ -405,10 +350,8 @@ export default function Auth() {
 
   const handleSignup = async (e) => {
     e.preventDefault();
-
     if (envError) return toast.error("Service unavailable. Please try again later.");
     if (attemptCount >= 5) return toast.error("Too many attempts. Please wait a minute.");
-
     if (!formData.name || formData.name.length < 2) return toast.error("Please enter your full name");
     if (!validateEmail(formData.email)) return toast.error("Please enter a valid email address");
     if (!isValidPassword(formData.password))
@@ -418,7 +361,6 @@ export default function Auth() {
     if (!acceptedTerms) return toast.error("Please accept the Terms & Conditions");
 
     setLoading(true);
-
     try {
       const emailExists = await checkEmailExists(formData.email);
       if (emailExists) {
@@ -426,12 +368,9 @@ export default function Auth() {
         setTimeout(() => setMode("login"), 2000);
         return;
       }
-
       const redirectUrl = isNativeApp()
         ? NATIVE_DEEP_LINK
         : `${window.location.origin}/auth`;
-      console.log("Signup redirect URL:", redirectUrl);
-
       const { data, error } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -444,18 +383,12 @@ export default function Auth() {
           emailRedirectTo: redirectUrl,
         },
       });
-
-      if (error) {
-        console.error("Supabase signup error:", error);
-        throw error;
-      }
-
+      if (error) throw error;
       if (data?.user && (!data.user.identities || data.user.identities.length === 0)) {
         toast.error("Account already exists. Please sign in.");
         setMode("login");
         return;
       }
-
       if (data?.user) {
         toast.success("Account created! Please check your email to confirm.");
         setMode("login");
@@ -475,20 +408,17 @@ export default function Auth() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-
     if (envError) return toast.error("Service unavailable. Please try again later.");
     if (attemptCount >= 5) return toast.error("Too many attempts. Please wait a minute.");
     if (!validateEmail(formData.email)) return toast.error("Please enter a valid email address");
     if (!formData.password) return toast.error("Please enter your password");
 
     setLoading(true);
-
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password,
       });
-
       if (error) {
         const errorInfo = getErrorMessage(error);
         if (errorInfo.type === "invalid_credentials") {
@@ -503,7 +433,6 @@ export default function Auth() {
         }
         throw error;
       }
-
       if (data?.user) {
         await syncUserData(data.user);
         toast.success("Welcome back!");
@@ -522,13 +451,11 @@ export default function Auth() {
 
   const handleForgotPassword = async (e) => {
     e.preventDefault();
-
     if (envError) return toast.error("Service unavailable. Please try again later.");
     if (!formData.email || !validateEmail(formData.email))
       return toast.error("Please enter a valid email address");
 
     setLoading(true);
-
     try {
       const redirectUrl = isNativeApp()
         ? NATIVE_DEEP_LINK
@@ -549,28 +476,22 @@ export default function Auth() {
   };
 
   // ================================================================
-  // ⭐ GOOGLE OAUTH — THIS IS THE FIX
-  //
-  // On native we:
-  //   1. Send the deep link as redirectTo (Supabase allows it)
-  //   2. Suppress the SDK's own browser open (skipBrowserRedirect)
-  //   3. Open the URL ourselves with @capacitor/browser, which uses a
-  //      Chrome Custom Tab that the OS can hand back to our app when
-  //      it receives ke.co.omniflowapp://login-callback
+  // GOOGLE OAUTH — capture the PKCE verifier immediately
   // ================================================================
   const handleGoogle = async () => {
     if (envError) {
       toast.error("Service unavailable. Please try again later.");
       return;
     }
-
     setLoading(true);
-
     try {
       const native = isNativeApp();
       const redirectUrl = native
         ? NATIVE_DEEP_LINK
         : `${window.location.origin}/auth`;
+
+      // Clear any stale verifier from a previous attempt
+      clearOurPkceVerifier();
 
       console.log("🟣 Google OAuth redirectTo:", redirectUrl, "native:", native);
 
@@ -578,7 +499,7 @@ export default function Auth() {
         provider: "google",
         options: {
           redirectTo: redirectUrl,
-          skipBrowserRedirect: native, // ← let Capacitor open the tab
+          skipBrowserRedirect: native,
           queryParams: {
             access_type: "offline",
             prompt: "select_account",
@@ -588,13 +509,16 @@ export default function Auth() {
 
       if (error) throw error;
 
-      if (native && data?.url) {
-        // Open in a Chrome Custom Tab (Android) / SFSafariViewController (iOS)
-        await Browser.open({ url: data.url });
-        // Do NOT setLoading(false) here — the deep link handler will
-        // wake the app up and finish the login.
+      if (native) {
+        // Give Supabase a tick to persist the verifier, then capture it
+        await new Promise((r) => setTimeout(r, 50));
+        const verifier = captureSupabasePkceVerifier();
+        console.log("🟣 captured verifier?", !!verifier);
+
+        if (data?.url) {
+          await Browser.open({ url: data.url });
+        }
       }
-      // On web, the SDK already navigated the browser away.
     } catch (err) {
       console.error("Google OAuth error:", err);
       toast.error(err.message || "Google login failed. Please try again.");
@@ -623,104 +547,57 @@ export default function Auth() {
           <form onSubmit={handleSignup} className="auth-form">
             <div className="form-group">
               <label htmlFor="name">Full name</label>
-              <input
-                id="name"
-                name="name"
-                type="text"
-                placeholder="Enter your full name"
-                onChange={handleChange}
-                onBlur={() => handleBlur("name")}
-                value={formData.name}
-                required
-              />
+              <input id="name" name="name" type="text" placeholder="Enter your full name"
+                onChange={handleChange} onBlur={() => handleBlur("name")}
+                value={formData.name} required />
               {errors.name && <span className="error-text">{errors.name}</span>}
             </div>
-
             <div className="form-group">
               <label htmlFor="email">Email</label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="Enter your email"
-                onChange={handleChange}
-                onBlur={() => handleBlur("email")}
-                value={formData.email}
-                required
-              />
+              <input id="email" name="email" type="email" placeholder="Enter your email"
+                onChange={handleChange} onBlur={() => handleBlur("email")}
+                value={formData.email} required />
               {errors.email && <span className="error-text">{errors.email}</span>}
             </div>
-
             <div className="form-group">
               <label htmlFor="phone">Phone (optional)</label>
-              <input
-                id="phone"
-                name="phone"
-                type="tel"
-                placeholder="0712345678"
-                onChange={handleChange}
-                onBlur={() => handleBlur("phone")}
-                value={formData.phone}
-              />
+              <input id="phone" name="phone" type="tel" placeholder="0712345678"
+                onChange={handleChange} onBlur={() => handleBlur("phone")}
+                value={formData.phone} />
               {errors.phone && <span className="error-text">{errors.phone}</span>}
-              <small className="input-hint">
-                Format: 0712345678 or +254712345678
-              </small>
+              <small className="input-hint">Format: 0712345678 or +254712345678</small>
             </div>
-
             <div className="form-group">
               <label htmlFor="password">Password</label>
               <div className="password-wrapper">
-                <input
-                  id="password"
-                  name="password"
+                <input id="password" name="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="Create a password"
-                  onChange={handleChange}
+                  placeholder="Create a password" onChange={handleChange}
                   onBlur={() => handleBlur("password")}
-                  value={formData.password}
-                  required
-                />
-                <button
-                  type="button"
-                  className="password-toggle"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
+                  value={formData.password} required />
+                <button type="button" className="password-toggle"
+                  onClick={() => setShowPassword(!showPassword)}>
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
               {errors.password && <span className="error-text">{errors.password}</span>}
-              <small className="input-hint">
-                Must contain uppercase, lowercase, number, and be 8+ characters
-              </small>
+              <small className="input-hint">Must contain uppercase, lowercase, number, and be 8+ characters</small>
             </div>
-
             <div className="terms-checkbox">
               <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={acceptedTerms}
-                  onChange={(e) => setAcceptedTerms(e.target.checked)}
-                />
+                <input type="checkbox" checked={acceptedTerms}
+                  onChange={(e) => setAcceptedTerms(e.target.checked)} />
                 <span className="checkbox-custom"></span>
                 <span className="checkbox-text">
                   I agree to the{" "}
-                  <button type="button" className="terms-link" onClick={() => navigate("/terms")}>
-                    Terms
-                  </button>{" "}
+                  <button type="button" className="terms-link" onClick={() => navigate("/terms")}>Terms</button>{" "}
                   and{" "}
-                  <button type="button" className="terms-link" onClick={() => navigate("/privacy")}>
-                    Privacy Policy
-                  </button>
+                  <button type="button" className="terms-link" onClick={() => navigate("/privacy")}>Privacy Policy</button>
                 </span>
               </label>
             </div>
-
-            <button
-              type="submit"
-              className="auth-button"
-              disabled={loading || envError || !acceptedTerms}
-            >
+            <button type="submit" className="auth-button"
+              disabled={loading || envError || !acceptedTerms}>
               {loading ? <Loader2 className="animate-spin" size={18} /> : "Create account"}
             </button>
           </form>
@@ -731,57 +608,32 @@ export default function Auth() {
           <form onSubmit={handleLogin} className="auth-form">
             <div className="form-group">
               <label htmlFor="email">Email</label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="Enter your email"
-                onChange={handleChange}
-                onBlur={() => handleBlur("email")}
-                value={formData.email}
-                required
-              />
+              <input id="email" name="email" type="email" placeholder="Enter your email"
+                onChange={handleChange} onBlur={() => handleBlur("email")}
+                value={formData.email} required />
               {errors.email && <span className="error-text">{errors.email}</span>}
             </div>
-
             <div className="form-group">
               <div className="password-header">
                 <label htmlFor="password">Password</label>
-                <button
-                  type="button"
-                  onClick={() => setMode("forgot")}
-                  className="forgot-link"
-                >
+                <button type="button" onClick={() => setMode("forgot")} className="forgot-link">
                   Forgot password?
                 </button>
               </div>
               <div className="password-wrapper">
-                <input
-                  id="password"
-                  name="password"
+                <input id="password" name="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="Enter your password"
-                  onChange={handleChange}
+                  placeholder="Enter your password" onChange={handleChange}
                   onBlur={() => handleBlur("password")}
-                  value={formData.password}
-                  required
-                />
-                <button
-                  type="button"
-                  className="password-toggle"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
+                  value={formData.password} required />
+                <button type="button" className="password-toggle"
+                  onClick={() => setShowPassword(!showPassword)}>
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
               {errors.password && <span className="error-text">{errors.password}</span>}
             </div>
-
-            <button
-              type="submit"
-              className="auth-button"
-              disabled={loading || envError}
-            >
+            <button type="submit" className="auth-button" disabled={loading || envError}>
               {loading ? <Loader2 className="animate-spin" size={18} /> : "Sign in"}
             </button>
           </form>
@@ -792,32 +644,15 @@ export default function Auth() {
           <form onSubmit={handleForgotPassword} className="auth-form">
             <div className="form-group">
               <label htmlFor="email">Email</label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="Enter your email"
-                onChange={handleChange}
-                onBlur={() => handleBlur("email")}
-                value={formData.email}
-                required
-              />
+              <input id="email" name="email" type="email" placeholder="Enter your email"
+                onChange={handleChange} onBlur={() => handleBlur("email")}
+                value={formData.email} required />
               {errors.email && <span className="error-text">{errors.email}</span>}
             </div>
-
-            <button
-              type="submit"
-              className="auth-button"
-              disabled={loading || envError}
-            >
+            <button type="submit" className="auth-button" disabled={loading || envError}>
               {loading ? <Loader2 className="animate-spin" size={18} /> : "Send reset link"}
             </button>
-
-            <button
-              type="button"
-              onClick={() => setMode("login")}
-              className="back-to-login"
-            >
+            <button type="button" onClick={() => setMode("login")} className="back-to-login">
               ← Back to sign in
             </button>
           </form>
@@ -836,17 +671,13 @@ export default function Auth() {
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3 }}
       >
-        <Toaster
-          position="top-center"
+        <Toaster position="top-center"
           toastOptions={{
             duration: 4000,
             style: {
-              background: "#fff",
-              color: "#363636",
+              background: "#fff", color: "#363636",
               boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-              borderRadius: "12px",
-              padding: "12px 16px",
-              fontSize: "14px",
+              borderRadius: "12px", padding: "12px 16px", fontSize: "14px",
             },
           }}
         />
@@ -859,40 +690,23 @@ export default function Auth() {
               )}
               <span className="auth-brand-name">Omniflow</span>
             </div>
-
             <h1 className="auth-title">
-              {mode === "signup"
-                ? "Create account"
-                : mode === "forgot"
-                ? "Reset password"
-                : "Welcome back"}
+              {mode === "signup" ? "Create account" : mode === "forgot" ? "Reset password" : "Welcome back"}
             </h1>
             <p className="auth-subtitle">
-              {mode === "signup"
-                ? "Sign up to get started"
-                : mode === "forgot"
-                ? "Enter your email to reset your password"
+              {mode === "signup" ? "Sign up to get started"
+                : mode === "forgot" ? "Enter your email to reset your password"
                 : "Sign in to your account"}
             </p>
           </div>
 
-          {envError && (
-            <div className="env-error">
-              <p>{envError}</p>
-            </div>
-          )}
-
+          {envError && <div className="env-error"><p>{envError}</p></div>}
           {successMessage && (
             <div className="success-message">
               <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
                 <circle cx="9" cy="9" r="9" fill="#10B981" fillOpacity="0.1" />
-                <path
-                  d="M5 9L7.5 11.5L13 6"
-                  stroke="#10B981"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
+                <path d="M5 9L7.5 11.5L13 6" stroke="#10B981" strokeWidth="2"
+                  strokeLinecap="round" strokeLinejoin="round" />
               </svg>
               <span>{successMessage}</span>
             </div>
@@ -902,15 +716,9 @@ export default function Auth() {
 
           {(mode === "login" || mode === "signup") && (
             <>
-              <div className="divider">
-                <span>or</span>
-              </div>
-
-              <button
-                onClick={handleGoogle}
-                className="google-btn"
-                disabled={loading || envError}
-              >
+              <div className="divider"><span>or</span></div>
+              <button onClick={handleGoogle} className="google-btn"
+                disabled={loading || envError}>
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                   <path d="M18.171 10.1709C18.171 9.58002 18.1165 8.99002 18.0065 8.41504H10.222V11.7551H14.659C14.4815 12.7101 13.933 13.5551 13.1345 14.1151V16.0651H15.747C17.281 14.6251 18.171 12.5501 18.171 10.1709Z" fill="#4285F4"/>
                   <path d="M10.222 18.5C12.385 18.5 14.1945 17.765 15.747 16.065L13.1345 14.115C12.295 14.68 11.3065 15.005 10.222 15.005C8.135 15.005 6.3705 13.595 5.7285 11.695H3.035V13.705C4.576 16.75 7.7 18.5 10.222 18.5Z" fill="#34A853"/>
@@ -919,16 +727,11 @@ export default function Auth() {
                 </svg>
                 Continue with Google
               </button>
-
               <div className="auth-footer">
                 <p>
-                  {mode === "signup"
-                    ? "Already have an account?"
-                    : "Don't have an account?"}
-                  <button
-                    onClick={() => setMode(mode === "signup" ? "login" : "signup")}
-                    className="toggle-mode"
-                  >
+                  {mode === "signup" ? "Already have an account?" : "Don't have an account?"}
+                  <button onClick={() => setMode(mode === "signup" ? "login" : "signup")}
+                    className="toggle-mode">
                     {mode === "signup" ? "Sign in" : "Sign up"}
                   </button>
                 </p>

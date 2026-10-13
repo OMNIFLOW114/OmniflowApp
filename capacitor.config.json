@@ -1,5 +1,10 @@
 {
   "appId": "ke.co.omniflowapp",
   "appName": "Omniflow",
-  "webDir": "dist"
+  "webDir": "dist",
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": false
+    }
+  }
 }

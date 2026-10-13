@@ -46,6 +46,7 @@ import TermsPage from "@/components/TermsPage";
 import FlashSalesPage from './components/FlashSalesPage';
 import OrderDetail from "@/pages/OrderDetail";
 import PrivacyPage from './pages/PrivacyPage';
+import FeaturedPage from "./pages/FeaturedPage";
 // Main Features
 import OmniPayWallet from "./pages/OmniPayWallet";
 import CurrencyConverter from "@/pages/CurrencyConverter";
@@ -130,10 +131,19 @@ function ScrollToTop() {
 
 // ================================================================
 // NATIVE DEEP LINK LISTENER
-// Attaches appUrlOpen listener on native platforms only. When the
-// in-app browser redirects back to ke.co.omniflowapp://login-callback
-// with ?code=..., this handler exchanges the code for a session.
-// On web, this component renders nothing and does nothing.
+//
+// The problem: supabase.auth.exchangeCodeForSession() and
+// supabase.auth.setSession() both internally `await` every
+// onAuthStateChange subscriber. If any subscriber's callback
+// re-renders and re-subscribes, the chain can deadlock forever —
+// which is exactly what happened on Transsion/Infinix WebViews.
+//
+// The solution: manually exchange the code for tokens, then write
+// the session blob directly to localStorage under the exact key
+// Supabase uses. Then reload the WebView. On cold boot,
+// AuthContext.getSession() reads from storage without any
+// notification chain to hang on. Same reason "close the app and
+// reopen" works today — this just automates it.
 // ================================================================
 function NativeDeepLinkHandler() {
   useEffect(() => {
@@ -146,17 +156,9 @@ function NativeDeepLinkHandler() {
         listener = await CapacitorApp.addListener("appUrlOpen", async (event) => {
           console.log("🔗 [deep-link] appUrlOpen:", event.url);
 
-          // Only handle our own scheme — ignore anything else
           if (!event.url.startsWith(NATIVE_DEEP_LINK)) {
             console.log("🔗 [deep-link] ignoring — not our scheme");
             return;
-          }
-
-          try {
-            // Close the in-app browser opened for OAuth
-            await Browser.close().catch(() => {});
-          } catch (_) {
-            /* ignore */
           }
 
           try {
@@ -172,27 +174,145 @@ function NativeDeepLinkHandler() {
               );
               return;
             }
-
             if (!code) {
               console.warn("🟡 [deep-link] no code in URL:", event.url);
               return;
             }
 
-            console.log("🔑 [deep-link] exchanging code for session...");
-            const { data, error: exchangeError } =
-              await supabase.auth.exchangeCodeForSession(code);
+            console.log("🔑 [deep-link] code received, closing browser...");
+            try {
+              await Browser.close();
+            } catch (err) {
+              console.warn("🟡 [deep-link] Browser.close failed:", err);
+            }
 
-            if (exchangeError) {
-              console.error("🔴 [deep-link] exchange error:", exchangeError);
+            await new Promise((r) => setTimeout(r, 600));
+
+            // ------------------------------------------------------
+            // Step 1: Read our captured PKCE verifier
+            // ------------------------------------------------------
+            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+            const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+            const projectRef = new URL(supabaseUrl).hostname.split(".")[0];
+            const storageKey = `sb-${projectRef}-auth-token`;
+
+            let codeVerifier = null;
+            try {
+              codeVerifier = localStorage.getItem("__omniflow_pkce_verifier__");
+            } catch {
+              /* ignore */
+            }
+
+            if (!codeVerifier) {
+              const candidates = [
+                `sb-${projectRef}-auth-token-code-verifier`,
+                `sb-${projectRef}-pkce-code-verifier`,
+              ];
+              for (const k of candidates) {
+                try {
+                  const v = localStorage.getItem(k);
+                  if (v) {
+                    try {
+                      const parsed = JSON.parse(v);
+                      codeVerifier = typeof parsed === "string" ? parsed : v;
+                    } catch {
+                      codeVerifier = v;
+                    }
+                    if (codeVerifier) break;
+                  }
+                } catch {
+                  /* ignore */
+                }
+              }
+            }
+
+            if (!codeVerifier) {
+              console.error("🔴 [deep-link] no code_verifier found");
+              console.log(
+                "🔵 [deep-link] available auth keys:",
+                Object.keys(localStorage).filter(
+                  (k) => k.startsWith("sb-") || k.includes("verifier")
+                )
+              );
               return;
             }
 
-            console.log(
-              "✅ [deep-link] signed in as:",
-              data?.session?.user?.email
+            // ------------------------------------------------------
+            // Step 2: POST the code + verifier to Supabase
+            // ------------------------------------------------------
+            console.log("🔑 [deep-link] posting to /auth/v1/token...");
+            const tokenResp = await fetch(
+              `${supabaseUrl}/auth/v1/token?grant_type=pkce`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  apikey: supabaseKey,
+                  Authorization: `Bearer ${supabaseKey}`,
+                },
+                body: JSON.stringify({
+                  auth_code: code,
+                  code_verifier: codeVerifier,
+                }),
+              }
             );
-            // AuthContext / onAuthStateChange in Auth.jsx will pick up the
-            // new session and route the user accordingly.
+
+            if (!tokenResp.ok) {
+              const errText = await tokenResp.text().catch(() => "");
+              console.error(
+                "🔴 [deep-link] token endpoint error:",
+                tokenResp.status,
+                errText
+              );
+              return;
+            }
+
+            const tokens = await tokenResp.json();
+            console.log(
+              "🟢 [deep-link] tokens received — writing to storage directly"
+            );
+
+            // ------------------------------------------------------
+            // Step 3: Write the session blob directly to localStorage
+            //         in the exact shape Supabase expects on read
+            // ------------------------------------------------------
+            const now = Math.floor(Date.now() / 1000);
+            const sessionPayload = {
+              access_token: tokens.access_token,
+              token_type: tokens.token_type || "bearer",
+              expires_in: tokens.expires_in || 3600,
+              expires_at:
+                tokens.expires_at ||
+                now + (tokens.expires_in || 3600),
+              refresh_token: tokens.refresh_token,
+              user: tokens.user,
+            };
+
+            try {
+              localStorage.setItem(storageKey, JSON.stringify(sessionPayload));
+              localStorage.removeItem("__omniflow_pkce_verifier__");
+              try {
+                localStorage.removeItem(
+                  `sb-${projectRef}-auth-token-code-verifier`
+                );
+              } catch {
+                /* ignore */
+              }
+              console.log(
+                "✅ [deep-link] session written — reloading WebView"
+              );
+            } catch (err) {
+              console.error("🔴 [deep-link] storage write failed:", err);
+              return;
+            }
+
+            // ------------------------------------------------------
+            // Step 4: Reload the WebView so AuthContext reads the
+            //         session on cold start — no subscriber chain
+            // ------------------------------------------------------
+            setTimeout(() => {
+              window.location.replace("/");
+            }, 100);
           } catch (err) {
             console.error("🔴 [deep-link] handler error:", err);
           }
@@ -219,9 +339,13 @@ function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
   const { isOnline } = useNetwork();
 
-  if (loading) return <div className="flex items-center justify-center min-h-screen text-lg">Loading...</div>;
+  if (loading)
+    return (
+      <div className="flex items-center justify-center min-h-screen text-lg">
+        Loading...
+      </div>
+    );
 
-  // Show offline page when no internet connection
   if (!isOnline) {
     return <NoInternetConnection />;
   }
@@ -248,7 +372,6 @@ function AdminRoute({ children }) {
       try {
         console.log("🔍 AdminRoute checking user:", user.id, user.email);
 
-        // Check if user is in admin_users table
         let { data: adminData, error } = await supabase
           .from("admin_users")
           .select("id, role, is_active")
@@ -256,7 +379,6 @@ function AdminRoute({ children }) {
           .eq("is_active", true)
           .maybeSingle();
 
-        // If not found by user_id, try by email
         if (!adminData && !error) {
           console.log("🔍 Not found by user_id, trying by email:", user.email);
           const { data: adminByEmail } = await supabase
@@ -268,7 +390,6 @@ function AdminRoute({ children }) {
 
           if (adminByEmail) {
             adminData = adminByEmail;
-            // Update user_id if null
             if (!adminByEmail.user_id) {
               console.log("🔄 Updating user_id for admin:", adminByEmail.id);
               await supabase
@@ -297,17 +418,18 @@ function AdminRoute({ children }) {
     checkAdmin();
   }, [user]);
 
-  // Show loading while checking
   if (loading || checking) {
-    return <div className="flex items-center justify-center min-h-screen text-lg">Checking admin access...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen text-lg">
+        Checking admin access...
+      </div>
+    );
   }
 
-  // Show offline page when no internet connection
   if (!isOnline) {
     return <NoInternetConnection />;
   }
 
-  // Redirect if not admin
   if (!user || !isAdmin) {
     console.log("🚫 AdminRoute: Redirecting to home - not admin");
     return <Navigate to="/" replace />;
@@ -336,6 +458,7 @@ function AppRoutes() {
         <Route path="/checkout/:id" element={<Checkout />} />
         <Route path="/order/:orderId" element={<OrderDetail />} />
         <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/featured" element={<FeaturedPage />} />
 
         {/* Protected User Routes - Require internet */}
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
@@ -356,7 +479,6 @@ function AppRoutes() {
         <Route path="/store/create" element={<ProtectedRoute><CreateStore /></ProtectedRoute>} />
         <Route path="/dashboard/store/:storeId" element={<ProtectedRoute><StoreDashboard /></ProtectedRoute>} />
         <Route path="/premium" element={<ProtectedRoute><Premium /></ProtectedRoute>} />
-        
 
         {/* Student Routes */}
         <Route path="/student" element={<ProtectedRoute><StudentDashboard /></ProtectedRoute>} />

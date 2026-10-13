@@ -1,18 +1,18 @@
-// src/components/PromotedCarousel.jsx - CLEAN CLASSIC VERSION
+// src/components/PromotedCarousel.jsx - CONSTANT FRAME, SWAPPING IMAGE
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/supabase";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronRight } from "lucide-react";
 import "./PromotedCarousel.css";
 
 // Cache keys
 const PROMOTED_CACHE_KEYS = {
-  ITEMS: 'promoted_items_v3',
-  CACHE_TIMESTAMP: 'promoted_cache_timestamp_v3'
+  ITEMS: "promoted_items_v5",
+  CACHE_TIMESTAMP: "promoted_cache_timestamp_v5",
 };
 
-const CACHE_EXPIRY = 10 * 60 * 1000; // 10 minutes
+const CACHE_EXPIRY = 10 * 60 * 1000;
 
 const loadFromCache = (key, defaultValue = null) => {
   try {
@@ -38,16 +38,21 @@ const saveToCache = (key, data) => {
   }
 };
 
-// Skeleton Component
+// Skeleton — same constant frame
 const PromotedCarouselSkeleton = () => (
-  <div className="promoted-carousel-skeleton">
-    <div className="skeleton-slide">
-      <div className="skeleton-image"></div>
+  <div className="promoted-carousel-clean">
+    <div className="promoted-frame promoted-skeleton">
+      <div className="skeleton-image" />
       <div className="skeleton-content">
-        <div className="skeleton-title"></div>
-        <div className="skeleton-subtitle"></div>
-        <div className="skeleton-button"></div>
+        <div className="skeleton-title" />
+        <div className="skeleton-subtitle" />
+        <div className="skeleton-button" />
       </div>
+    </div>
+    <div className="dots-indicator">
+      {[1, 2, 3].map((i) => (
+        <span key={i} className="dot" />
+      ))}
     </div>
   </div>
 );
@@ -58,19 +63,19 @@ const PromotedCarousel = () => {
   const [imageErrors, setImageErrors] = useState({});
   const [isHovered, setIsHovered] = useState(false);
   const [loading, setLoading] = useState(true);
-  const sliderRef = useRef(null);
   const navigate = useNavigate();
 
   const getImageUrl = (path) => {
     if (!path) return null;
     if (path.startsWith("http")) return path;
-    return supabase.storage.from("product-images").getPublicUrl(path).data.publicUrl;
+    return supabase.storage.from("product-images").getPublicUrl(path).data
+      .publicUrl;
   };
 
+  // ---- Fetch ----
   useEffect(() => {
     const fetchPromotions = async () => {
       try {
-        // Try to load from cache first
         const cachedItems = loadFromCache(PROMOTED_CACHE_KEYS.ITEMS, null);
         if (cachedItems && cachedItems.length > 0) {
           setItems(cachedItems);
@@ -81,25 +86,24 @@ const PromotedCarousel = () => {
 
         const { data, error } = await supabase
           .from("promoted_products")
-          .select(`
+          .select(
+            `
             *,
-            products (
-              id, name, price, discount, flash_sale_ends_at, image_gallery
-            )
-          `)
+            products (id, name, price, discount, flash_sale_ends_at, image_gallery)
+          `
+          )
           .eq("active", true)
           .or(`ends_at.is.null,ends_at.gt.${now}`)
           .order("priority", { ascending: false })
-          .limit(5);
+          .limit(6);
 
         if (!error && data && data.length > 0) {
-          // Process images
-          const processedItems = data.map(item => ({
+          const processedItems = data.map((item) => ({
             ...item,
             imageUrl: getImageUrl(item.image_url),
-            productImageUrl: item.products?.image_gallery?.[0] 
+            productImageUrl: item.products?.image_gallery?.[0]
               ? getImageUrl(item.products.image_gallery[0])
-              : null
+              : null,
           }));
           setItems(processedItems);
           saveToCache(PROMOTED_CACHE_KEYS.ITEMS, processedItems);
@@ -114,19 +118,19 @@ const PromotedCarousel = () => {
     fetchPromotions();
   }, []);
 
-  // Auto-play with pause on hover
+  // ---- Auto-play (5s, pause on hover) ----
   useEffect(() => {
     if (items.length <= 1 || isHovered) return;
-    
+
     const interval = setInterval(() => {
-      const next = (currentSlide + 1) % items.length;
-      setCurrentSlide(next);
+      setCurrentSlide((prev) => (prev + 1) % items.length);
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [currentSlide, items, isHovered]);
+  }, [items, isHovered]);
 
   const handleClick = (item) => {
+    if (!item) return;
     if (item.link_url) {
       window.open(item.link_url, "_blank", "noopener,noreferrer");
     } else if (item.product_id) {
@@ -135,109 +139,91 @@ const PromotedCarousel = () => {
   };
 
   const handleImageError = (itemId) => {
-    setImageErrors(prev => ({ ...prev, [itemId]: true }));
+    setImageErrors((prev) => ({ ...prev, [itemId]: true }));
   };
 
-  const goToPrev = () => {
-    const prev = (currentSlide - 1 + items.length) % items.length;
-    setCurrentSlide(prev);
-  };
+  const goToSlide = useCallback((idx) => {
+    setCurrentSlide(idx);
+  }, []);
 
-  const goToNext = () => {
-    const next = (currentSlide + 1) % items.length;
-    setCurrentSlide(next);
-  };
+  if (!loading && items.length === 0) return null;
+  if (loading && items.length === 0) return <PromotedCarouselSkeleton />;
 
-  // Don't render anything if no items and not loading
-  if (!loading && items.length === 0) {
-    return null;
-  }
-
-  if (loading && items.length === 0) {
-    return <PromotedCarouselSkeleton />;
-  }
+  const current = items[currentSlide];
 
   return (
-    <div className="promoted-carousel-clean">
-      <div 
-        className="carousel-container"
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-      >
+    <div
+      className="promoted-carousel-clean"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <div className="promoted-frame" onClick={() => handleClick(current)}>
         <AnimatePresence mode="wait">
           <motion.div
             key={currentSlide}
-            className="carousel-slide"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
+            className="promoted-slide"
+            initial={{ opacity: 0, scale: 1.02 }}
+            animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.5 }}
+            transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
           >
-            {items[currentSlide] && (
-              <div 
-                className="slide-wrapper"
-                onClick={() => handleClick(items[currentSlide])}
-              >
-                <div className="slide-image-container">
-                  {!imageErrors[items[currentSlide].id] ? (
-                    <img
-                      src={items[currentSlide].imageUrl || items[currentSlide].productImageUrl}
-                      alt={items[currentSlide].title}
-                      className="slide-image"
-                      onError={() => handleImageError(items[currentSlide].id)}
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="fallback-image">
-                      <span>{items[currentSlide].title?.charAt(0) || 'P'}</span>
-                    </div>
-                  )}
-                </div>
+            {current && !imageErrors[current.id] && (
+              <img
+                src={current.imageUrl || current.productImageUrl}
+                alt={current.title}
+                className="promoted-image"
+                loading={currentSlide === 0 ? "eager" : "lazy"}
+                onError={() => handleImageError(current.id)}
+              />
+            )}
 
-                <div className="slide-content">
-                  <h2 className="slide-title">{items[currentSlide].title}</h2>
-                  
-                  {items[currentSlide].description && (
-                    <p className="slide-description">{items[currentSlide].description}</p>
-                  )}
+            {current && imageErrors[current.id] && (
+              <div className="fallback-image">
+                <span>{current.title?.charAt(0) || "P"}</span>
+              </div>
+            )}
 
-                  {items[currentSlide].cta_text && (
-                    <button className="slide-cta">
-                      {items[currentSlide].cta_text}
-                      <ChevronRight size={16} />
-                    </button>
-                  )}
-                </div>
+            {current && (
+              <div className="promoted-content">
+                <h2 className="promoted-title">{current.title}</h2>
+
+                {current.description && (
+                  <p className="promoted-description">
+                    {current.description}
+                  </p>
+                )}
+
+                {current.cta_text && (
+                  <button
+                    className="promoted-cta"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleClick(current);
+                    }}
+                  >
+                    {current.cta_text}
+                    <ChevronRight size={14} />
+                  </button>
+                )}
               </div>
             )}
           </motion.div>
         </AnimatePresence>
-
-        {/* Navigation Arrows */}
-        {items.length > 1 && (
-          <>
-            <button className="nav-arrow prev" onClick={goToPrev}>
-              <ChevronLeft size={24} />
-            </button>
-            <button className="nav-arrow next" onClick={goToNext}>
-              <ChevronRight size={24} />
-            </button>
-          </>
-        )}
-
-        {/* Dots Indicator */}
-        {items.length > 1 && (
-          <div className="dots-indicator">
-            {items.map((_, idx) => (
-              <button
-                key={idx}
-                className={`dot ${idx === currentSlide ? 'active' : ''}`}
-                onClick={() => setCurrentSlide(idx)}
-              />
-            ))}
-          </div>
-        )}
       </div>
+
+      {/* Dots — still there for manual navigation */}
+      {items.length > 1 && (
+        <div className="dots-indicator">
+          {items.map((_, idx) => (
+            <button
+              key={idx}
+              className={`dot ${idx === currentSlide ? "active" : ""}`}
+              onClick={() => goToSlide(idx)}
+              aria-label={`Go to slide ${idx + 1}`}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 };

@@ -1,8 +1,5 @@
-/* src/pages/TradeStore.css - FULLY UPDATED, PRODUCTION READY */
+/* src/pages/TradeStore.css - PHASE 1 SOFT & FAST */
 
-/* ==============================================================
-   THEME VARIABLES
-   ============================================================== */
 :root {
   --bg-primary: #f8fafc;
   --bg-secondary: #ffffff;
@@ -13,15 +10,11 @@
   --border-color: #e2e8f0;
   --card-bg: #ffffff;
   --nav-bg: rgba(255, 255, 255, 0.96);
-  --tab-bg: #ffffff;
   --tab-bg-inactive: #ffffff;
   --tab-border: #e2e8f0;
   --tab-active-bg: #0f172a;
   --tab-active-text: #ffffff;
   --shadow-color: rgba(15, 23, 42, 0.06);
-  --success-color: #10b981;
-  --warning-color: #f59e0b;
-  --danger-color: #ef4444;
   --bottom-nav-height: 70px;
   --skeleton-base: #e5e7eb;
   --skeleton-highlight: rgba(255, 255, 255, 0.5);
@@ -41,15 +34,11 @@ html.dark {
   --border-color: #1c1c1c;
   --card-bg: #0a0a0a;
   --nav-bg: rgba(0, 0, 0, 0.96);
-  --tab-bg: #0a0a0a;
   --tab-bg-inactive: #131313;
   --tab-border: #1f1f1f;
   --tab-active-bg: #ffffff;
   --tab-active-text: #000000;
   --shadow-color: rgba(0, 0, 0, 0.4);
-  --success-color: #34d399;
-  --warning-color: #fbbf24;
-  --danger-color: #f87171;
   --skeleton-base: #161616;
   --skeleton-highlight: rgba(255, 255, 255, 0.06);
   --tagline-bg: #0a0a0a;
@@ -57,9 +46,6 @@ html.dark {
   --tagline-border: #1f1f1f;
 }
 
-/* ==============================================================
-   GLOBAL
-   ============================================================== */
 * {
   margin: 0;
   padding: 0;
@@ -71,11 +57,9 @@ body {
     sans-serif;
   line-height: 1.4;
   -webkit-font-smoothing: antialiased;
+  scroll-behavior: smooth;
 }
 
-/* ==============================================================
-   WRAPPER
-   ============================================================== */
 .marketplace-wrapper {
   max-width: 1440px;
   margin: 0 auto;
@@ -92,15 +76,12 @@ body {
   }
 }
 
-/* ==============================================================
-   SKELETON
-   ============================================================== */
+/* ---------- SKELETON ---------- */
 .skeleton {
   position: relative;
   overflow: hidden;
   background: var(--skeleton-base);
 }
-
 .skeleton::after {
   content: "";
   position: absolute;
@@ -112,9 +93,8 @@ body {
     var(--skeleton-highlight) 50%,
     transparent 100%
   );
-  animation: shimmer 2s infinite;
+  animation: shimmer 1.4s infinite;
 }
-
 @keyframes shimmer {
   100% {
     transform: translateX(100%);
@@ -135,7 +115,6 @@ body {
 .nav-right-skeleton {
   gap: 0.3rem;
 }
-
 .skeleton-circle {
   width: 34px;
   height: 34px;
@@ -245,9 +224,7 @@ html.dark .skeleton-tagline {
   }
 }
 
-/* ==============================================================
-   NAVBAR
-   ============================================================== */
+/* ---------- NAVBAR ---------- */
 .premium-navbar.compact {
   display: flex;
   align-items: center;
@@ -281,22 +258,6 @@ html.dark .skeleton-tagline {
   width: 100%;
   max-width: 280px;
   padding: 0.35rem 0.6rem;
-  background: var(--bg-secondary);
-  border-radius: 1rem;
-  box-shadow: 0 1px 3px var(--shadow-color);
-  transition: all 0.3s ease;
-  border: 1px solid var(--border-color);
-  cursor: pointer;
-  position: relative;
-}
-
-.search-bar.compact {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-  width: 100%;
-  max-width: 280px;
-  padding: 0.35rem 0.6rem;
   background: #ffffff;
   border-radius: 1rem;
   box-shadow: 0 1px 3px var(--shadow-color);
@@ -305,13 +266,10 @@ html.dark .skeleton-tagline {
   cursor: pointer;
   position: relative;
 }
-
-/* Dark mode override */
 html.dark .search-bar.compact {
   background: #0a0a0a;
   border-color: #1f1f1f;
 }
-
 .search-bar.compact input {
   flex: 1;
   border: none;
@@ -321,28 +279,22 @@ html.dark .search-bar.compact {
   padding: 0.15rem 0;
   cursor: pointer;
 }
-
 html.dark .search-bar.compact input {
   color: #ffffff;
 }
-
 .search-bar.compact input::placeholder {
   color: #94a3b8;
 }
-
 html.dark .search-bar.compact input::placeholder {
   color: #6b7280;
 }
-
 .search-bar.compact input:focus {
   outline: none;
 }
-
 .search-bar.compact svg {
   color: #94a3b8;
   font-size: 0.75rem;
 }
-
 html.dark .search-bar.compact svg {
   color: #6b7280;
 }
@@ -389,7 +341,6 @@ html.dark .search-bar.compact svg {
   width: 34px;
   height: 34px;
 }
-
 .nav-icon:hover {
   background: rgba(0, 0, 0, 0.05);
 }
@@ -397,7 +348,6 @@ html.dark .nav-icon:hover {
   background: rgba(255, 255, 255, 0.08);
 }
 
-/* Store button */
 .store-button {
   position: relative;
   background: none;
@@ -456,9 +406,7 @@ html.dark .nav-icon:hover {
   border: 1.5px solid var(--bg-secondary);
 }
 
-/* ==============================================================
-   TAGLINE
-   ============================================================== */
+/* ---------- TAGLINE ---------- */
 .marketplace-tagline {
   text-align: center;
   padding: 0.55rem 0.6rem;
@@ -468,7 +416,6 @@ html.dark .nav-icon:hover {
   box-shadow: 0 2px 4px var(--shadow-color);
   border: 1px solid var(--tagline-border);
 }
-
 .tagline-text {
   font-size: 0.72rem;
   color: var(--tagline-text);
@@ -477,21 +424,16 @@ html.dark .nav-icon:hover {
   letter-spacing: 0.2px;
 }
 
-/* ==============================================================
-   PROMOTED CAROUSEL
-   ============================================================== */
+/* ---------- PROMOTED ---------- */
 .promoted-section-fixed {
   width: 100%;
   border-radius: 0.6rem;
   position: relative;
   margin-bottom: 0.5rem;
   overflow: hidden;
-  box-shadow: 0 2px 8px var(--shadow-color);
 }
 
-/* ==============================================================
-   TABS
-   ============================================================== */
+/* ---------- TABS ---------- */
 .tab-bar-permanent-wrapper {
   position: sticky;
   top: 52px;
@@ -504,7 +446,6 @@ html.dark .nav-icon:hover {
   padding: 0.4rem 0.5rem;
   box-shadow: 0 2px 6px var(--shadow-color);
 }
-
 .tab-bar-scrollable.permanent {
   display: flex;
   gap: 0.35rem;
@@ -515,11 +456,11 @@ html.dark .nav-icon:hover {
   background: transparent;
   max-width: 1400px;
   margin: 0 auto;
+  -webkit-overflow-scrolling: touch;
 }
 .tab-bar-scrollable.permanent::-webkit-scrollbar {
   display: none;
 }
-
 .tab-button.permanent {
   padding: 0.45rem 0.9rem;
   border: 1px solid var(--tab-border);
@@ -538,12 +479,10 @@ html.dark .nav-icon:hover {
   gap: 4px;
   letter-spacing: 0.1px;
 }
-
 .tab-button.permanent:hover {
   color: var(--text-primary);
   border-color: var(--text-tertiary);
 }
-
 .tab-button.permanent.active {
   background: var(--tab-active-bg);
   color: var(--tab-active-text);
@@ -551,27 +490,28 @@ html.dark .nav-icon:hover {
   box-shadow: 0 4px 12px var(--shadow-color);
 }
 
-/* ==============================================================
-   PRODUCT CARD
-   ============================================================== */
+/* ---------- PRODUCT CARD ---------- */
 .product-card {
   background: var(--card-bg);
-  border-radius: 0.75rem;
+  border-radius: 14px;
   overflow: hidden;
   box-shadow: 0 2px 8px var(--shadow-color);
   cursor: pointer;
-  transition: all 0.25s ease;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   flex-direction: column;
   position: relative;
   border: none;
+  contain: content;
+  content-visibility: auto;
+  contain-intrinsic-size: 240px 340px;
+  will-change: transform;
 }
-
 .product-card:hover {
   transform: translateY(-3px);
   box-shadow: 0 10px 24px var(--shadow-color);
 }
-
 .product-img-wrapper {
   position: relative;
   width: 100%;
@@ -580,7 +520,6 @@ html.dark .nav-icon:hover {
   background: var(--bg-secondary);
   flex-shrink: 0;
 }
-
 .product-img-wrapper img {
   width: 100%;
   height: 100%;
@@ -589,11 +528,9 @@ html.dark .nav-icon:hover {
   transition: transform 0.3s ease;
   display: block;
 }
-
 .product-card:hover .product-img-wrapper img {
   transform: scale(1.05);
 }
-
 .badge {
   position: absolute;
   top: 0.4rem;
@@ -610,7 +547,6 @@ html.dark .nav-icon:hover {
   text-transform: uppercase;
   letter-spacing: 0.3px;
 }
-
 .badge.flash {
   background: var(--flash-red);
   color: #fff;
@@ -628,7 +564,6 @@ html.dark .nav-icon:hover {
   background: linear-gradient(135deg, #059669, #10b981);
   color: #fff;
 }
-
 .product-card-content {
   padding: 0.55rem 0.5rem;
   display: flex;
@@ -636,7 +571,6 @@ html.dark .nav-icon:hover {
   gap: 0.28rem;
   flex: 1;
 }
-
 .product-card h3 {
   font-size: 0.72rem;
   font-weight: 600;
@@ -649,7 +583,6 @@ html.dark .nav-icon:hover {
   margin: 0;
   min-height: 1.9rem;
 }
-
 .compact-price {
   display: flex;
   align-items: center;
@@ -669,7 +602,6 @@ html.dark .nav-icon:hover {
   white-space: nowrap;
   font-weight: 500;
 }
-
 .compact-meta {
   display: flex;
   align-items: center;
@@ -691,14 +623,12 @@ html.dark .nav-icon:hover {
 html.dark .star-empty {
   color: #4b5563;
 }
-
 .stock-indicator {
   font-size: 0.6rem;
   font-weight: 600;
   color: #10b981;
   white-space: nowrap;
 }
-
 .compact-distance {
   font-size: 0.6rem;
   font-weight: 500;
@@ -711,9 +641,7 @@ html.dark .star-empty {
   color: var(--text-tertiary);
 }
 
-/* ==============================================================
-   EMPTY STATE
-   ============================================================== */
+/* ---------- EMPTY ---------- */
 .empty-tab-state {
   grid-column: 1 / -1;
   text-align: center;
@@ -723,7 +651,6 @@ html.dark .star-empty {
   background: var(--bg-secondary);
   border: 1px dashed var(--border-color);
 }
-
 .empty-tab-icon {
   font-size: 2.5rem;
   color: var(--text-tertiary);
@@ -744,9 +671,7 @@ html.dark .star-empty {
   line-height: 1.4;
 }
 
-/* ==============================================================
-   LOADING
-   ============================================================== */
+/* ---------- LOADING ---------- */
 .loading-section {
   display: flex;
   flex-direction: column;
@@ -755,7 +680,6 @@ html.dark .star-empty {
   padding: 1.2rem;
   grid-column: 1 / -1;
 }
-
 .end-message {
   text-align: center;
   padding: 1.5rem;
@@ -764,9 +688,7 @@ html.dark .star-empty {
   grid-column: 1 / -1;
 }
 
-/* ==============================================================
-   MODAL
-   ============================================================== */
+/* ---------- MODAL ---------- */
 .modal-overlay {
   background: rgba(0, 0, 0, 0.65);
   position: fixed;
@@ -778,7 +700,6 @@ html.dark .star-empty {
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
 }
-
 .premium-modal {
   background: var(--bg-secondary);
   border-radius: 1rem;
@@ -789,7 +710,6 @@ html.dark .star-empty {
   animation: slideUp 0.35s ease;
   border: 1px solid var(--border-color);
 }
-
 @keyframes slideUp {
   from {
     opacity: 0;
@@ -801,9 +721,7 @@ html.dark .star-empty {
   }
 }
 
-/* ==============================================================
-   SIDEBAR WRAPPER
-   ============================================================== */
+/* ---------- SIDEBAR WRAPPER ---------- */
 .sidebar-wrapper {
   position: fixed;
   top: 0;
@@ -812,18 +730,14 @@ html.dark .star-empty {
   height: 100vh;
 }
 
-/* ==============================================================
-   HOME SECTIONS
-   ============================================================== */
+/* ---------- HOME ---------- */
 .home-sections-wrapper {
   padding: 0.8rem 0.6rem;
   max-width: 1400px;
   margin: 0 auto;
 }
 
-/* ==============================================================
-   PULL TO REFRESH INDICATOR
-   ============================================================== */
+/* ---------- PULL TO REFRESH ---------- */
 .pull-to-refresh-indicator {
   position: fixed;
   top: 1rem;
@@ -840,7 +754,6 @@ html.dark .star-empty {
   z-index: 3000;
   animation: fadeInDown 0.25s ease;
 }
-
 @keyframes fadeInDown {
   from {
     opacity: 0;
@@ -852,9 +765,55 @@ html.dark .star-empty {
   }
 }
 
-/* ==============================================================
-   RESPONSIVE
-   ============================================================== */
+/* ---------- OFFLINE BANNER ---------- */
+.offline-banner {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.6rem 1rem;
+  margin: 0.5rem 0;
+  background: rgba(245, 158, 11, 0.12);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  animation: fadeInDown 0.25s ease;
+}
+
+/* ---------- GRID ---------- */
+.product-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+  padding: 0.3rem 0;
+}
+@media (min-width: 640px) {
+  .product-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.6rem;
+  }
+}
+@media (min-width: 768px) {
+  .product-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.8rem;
+  }
+}
+@media (min-width: 1024px) {
+  .product-grid {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1rem;
+  }
+}
+@media (min-width: 1280px) {
+  .product-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+
+/* ---------- RESPONSIVE ---------- */
 @media (max-width: 480px) {
   .premium-navbar.compact {
     padding: 0.4rem 0.5rem;
@@ -901,38 +860,5 @@ html.dark .star-empty {
     padding: 0.4rem 0.75rem;
     font-size: 0.68rem;
     height: 30px;
-  }
-}
-
-/* ==============================================================
-   PRODUCT GRID
-   ============================================================== */
-.product-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0.5rem;
-  padding: 0.3rem 0;
-}
-@media (min-width: 640px) {
-  .product-grid {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 0.6rem;
-  }
-}
-@media (min-width: 768px) {
-  .product-grid {
-    grid-template-columns: repeat(4, 1fr);
-    gap: 0.8rem;
-  }
-}
-@media (min-width: 1024px) {
-  .product-grid {
-    grid-template-columns: repeat(5, 1fr);
-    gap: 1rem;
-  }
-}
-@media (min-width: 1280px) {
-  .product-grid {
-    grid-template-columns: repeat(6, 1fr);
   }
 }

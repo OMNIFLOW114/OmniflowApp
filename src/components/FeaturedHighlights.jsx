@@ -1,63 +1,131 @@
-// src/components/FeaturedHighlights.jsx - MINIMIZED WITH CACHING
-import React, { useEffect, useState, useCallback, useRef, memo } from "react";
+// src/components/FeaturedHighlights.jsx - RATINGS, CENTERED NAME, FIT IMAGES
+import React, {
+  useEffect,
+  useState,
+  useCallback,
+  useRef,
+  memo,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/supabase";
 import { motion } from "framer-motion";
-import { FaStar, FaCrown, FaChevronLeft, FaChevronRight } from "react-icons/fa";
+import { FaCrown, FaArrowRight, FaStar, FaImage } from "react-icons/fa";
 import "./FeaturedHighlights.css";
 
-// Kenyan Money Formatter
-const formatKenyanMoney = (amount) => {
-  if (!amount && amount !== 0) return "KSh 0";
-  return `KSh ${Number(amount).toLocaleString("en-KE")}`;
+const formatKSH = (amount) => {
+  const num = Number(amount || 0);
+  return `KSh ${num.toLocaleString("en-KE", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  })}`;
 };
 
-// Cache keys for localStorage
-const FEATURED_CACHE_KEYS = {
-  PRODUCTS: 'featured_products_v3',
-  CACHE_TIMESTAMP: 'featured_cache_timestamp_v3',
+const formatRating = (r) => {
+  const num = Number(r);
+  if (!Number.isFinite(num)) return "0";
+  if (num % 1 === 0) return Math.floor(num).toString();
+  return num.toFixed(1);
 };
 
-const FEATURED_CACHE_EXPIRY = 10 * 60 * 1000; // 10 minutes cache
+const CACHE_KEY = "featured_products_v6"; // bumped due to shape change
+const CACHE_EXPIRY = 10 * 60 * 1000;
+const MAX_PREVIEW = 6;
 
-const loadFeaturedFromCache = (key, defaultValue = null) => {
+const loadCache = (key, fallback = null) => {
   try {
-    const cached = localStorage.getItem(key);
-    if (!cached) return defaultValue;
-    const { data, timestamp } = JSON.parse(cached);
-    if (Date.now() - timestamp > FEATURED_CACHE_EXPIRY) {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    const { data, timestamp } = JSON.parse(raw);
+    if (Date.now() - timestamp > CACHE_EXPIRY) {
       localStorage.removeItem(key);
-      return defaultValue;
+      return fallback;
     }
     return data;
-  } catch (error) {
+  } catch {
     localStorage.removeItem(key);
-    return defaultValue;
+    return fallback;
   }
 };
 
-const saveFeaturedToCache = (key, data) => {
+const saveCache = (key, data) => {
   try {
     localStorage.setItem(key, JSON.stringify({ data, timestamp: Date.now() }));
-  } catch (error) {
-    console.error(`Error saving cache ${key}:`, error);
+  } catch (err) {
+    console.error("Featured cache save failed:", err);
   }
 };
 
-// Minimized Skeleton Component
-const FeaturedSkeleton = () => (
-  <section className="featured-highlights loading">
-    <div className="featured-section-header">
-      <div className="skeleton-icon"></div>
-      <div className="skeleton-title"></div>
+// ---------- Small inline rating stars ----------
+const MiniStars = ({ rating, count }) => {
+  const numericRating = Number(rating);
+  const safeRating = Number.isFinite(numericRating)
+    ? Math.min(Math.max(numericRating, 0), 5)
+    : 0;
+
+  const fullStars = Math.floor(safeRating);
+  const hasHalfStar = safeRating - fullStars >= 0.5;
+  const emptyStars = Math.max(0, 5 - fullStars - (hasHalfStar ? 1 : 0));
+
+  const safeCount = Number(count);
+  const hasCount = Number.isFinite(safeCount) && safeCount > 0;
+
+  return (
+    <div className="featured-rating-row">
+      <div className="featured-stars">
+        {Array.from({ length: fullStars }, (_, i) => (
+          <FaStar key={`f-${i}`} className="star-filled" />
+        ))}
+        {hasHalfStar && <FaStar className="star-half" />}
+        {Array.from({ length: emptyStars }, (_, i) => (
+          <FaStar key={`e-${i}`} className="star-empty" />
+        ))}
+      </div>
+      <span className="featured-rating-value">{formatRating(safeRating)}</span>
+      {hasCount && (
+        <span className="featured-rating-count">({safeCount})</span>
+      )}
     </div>
-    <div className="featured-carousel">
-      {[...Array(4)].map((_, index) => (
-        <div className="featured-card-skeleton" key={index}>
-          <div className="featured-image-skeleton"></div>
-          <div className="featured-card-info-skeleton">
-            <div className="skeleton-name"></div>
-            <div className="skeleton-price"></div>
+  );
+};
+
+// ---------- Featured image with graceful fallback ----------
+const FeaturedImage = ({ src, alt }) => {
+  const [errored, setErrored] = useState(false);
+
+  if (!src || errored) {
+    return (
+      <div className="featured-image-fallback" aria-label={alt}>
+        <FaImage />
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className="featured-image"
+      loading="lazy"
+      decoding="async"
+      onError={() => setErrored(true)}
+    />
+  );
+};
+
+const FeaturedSkeleton = () => (
+  <section className="featured-v2 featured-skeleton">
+    <div className="featured-header">
+      <div className="sk-icon" />
+      <div className="sk-line sk-title" />
+    </div>
+    <div className="featured-scroll">
+      {[1, 2, 3, 4].map((i) => (
+        <div key={i} className="featured-card-skeleton">
+          <div className="sk-image" />
+          <div className="sk-body">
+            <div className="sk-line sk-name" />
+            <div className="sk-line sk-price" />
+            <div className="sk-line sk-rating" />
           </div>
         </div>
       ))}
@@ -65,188 +133,201 @@ const FeaturedSkeleton = () => (
   </section>
 );
 
-// Main Component
-const FeaturedHighlights = memo(() => {
+const FeaturedHighlights = memo(({ showViewMore = false }) => {
   const navigate = useNavigate();
-  const [products, setProducts] = useState(() => loadFeaturedFromCache(FEATURED_CACHE_KEYS.PRODUCTS, []));
-  const [loading, setLoading] = useState(() => loadFeaturedFromCache(FEATURED_CACHE_KEYS.PRODUCTS, []).length === 0);
-  const scrollContainerRef = useRef(null);
-  const [showLeftArrow, setShowLeftArrow] = useState(false);
-  const [showRightArrow, setShowRightArrow] = useState(true);
-  const [isMobile, setIsMobile] = useState(false);
-  const initialLoadDone = useRef(false);
-
-  // Check if mobile
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth <= 768);
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-
-  // Check scroll position for arrows
-  const checkScrollPosition = useCallback(() => {
-    if (scrollContainerRef.current) {
-      const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current;
-      setShowLeftArrow(scrollLeft > 0);
-      setShowRightArrow(scrollLeft + clientWidth < scrollWidth - 10);
-    }
-  }, []);
-
-  useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (container) {
-      container.addEventListener('scroll', checkScrollPosition);
-      checkScrollPosition();
-      return () => container.removeEventListener('scroll', checkScrollPosition);
-    }
-  }, [checkScrollPosition, products]);
-
-  const scroll = (direction) => {
-    if (scrollContainerRef.current) {
-      const scrollAmount = direction === 'left' ? -250 : 250;
-      scrollContainerRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-    }
-  };
+  const [products, setProducts] = useState(() => loadCache(CACHE_KEY, []));
+  const [totalCount, setTotalCount] = useState(0);
+  const [loading, setLoading] = useState(
+    () => loadCache(CACHE_KEY, []).length === 0
+  );
+  const initialFetchDone = useRef(false);
 
   const getImageUrl = useCallback((path) => {
-    if (!path) return "/placeholder.jpg";
+    if (!path) return null;
     if (path.startsWith("http")) return path;
-    return supabase.storage.from("product-images").getPublicUrl(path).data.publicUrl;
+    return supabase.storage.from("product-images").getPublicUrl(path).data
+      .publicUrl;
   }, []);
 
-  const fetchFeaturedProducts = useCallback(async () => {
-    // Skip if already loaded
-    if (initialLoadDone.current && products.length > 0) return;
-    
+  const fetchFeatured = useCallback(async () => {
+    if (initialFetchDone.current && products.length > 0) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      const { data, error, count } = await supabase
         .from("products")
-        .select(`
+        .select(
+          `
           id, name, price, discount, stock_quantity,
-          image_gallery, is_featured,
-          stores(id, name, is_active)
-        `)
+          image_gallery, image_url, is_featured, rating,
+          stores!inner(id, name, is_active)
+        `,
+          { count: "exact" }
+        )
         .eq("is_featured", true)
         .eq("visibility", "public")
         .eq("status", "active")
         .eq("stores.is_active", true)
         .order("created_at", { ascending: false })
-        .limit(6);
+        .limit(MAX_PREVIEW);
 
       if (error) throw error;
 
-      const validProducts = (data || []).filter(p => p.stores?.is_active);
-      const productsWithDetails = validProducts.map((p) => ({
-        ...p,
-        imageUrl: getImageUrl(p.image_gallery?.[0]),
-        hasDiscount: parseFloat(p.discount || 0) > 0,
-        discountedPrice: parseFloat(p.discount || 0) > 0
-          ? parseFloat(p.price) * (1 - parseFloat(p.discount) / 100)
-          : parseFloat(p.price)
-      }));
+      const validProducts = data || [];
+      const productIds = validProducts.map((p) => p.id);
 
-      setProducts(productsWithDetails);
-      saveFeaturedToCache(FEATURED_CACHE_KEYS.PRODUCTS, productsWithDetails);
-      initialLoadDone.current = true;
-    } catch (error) {
-      console.error("Error fetching featured products:", error);
+      // ---- Fetch ratings for these products ----
+      let ratingsMap = new Map();
+      if (productIds.length > 0) {
+        const { data: ratingsData, error: ratingsErr } = await supabase
+          .from("ratings")
+          .select("product_id, rating")
+          .in("product_id", productIds);
+
+        if (ratingsErr) {
+          console.error("[FeaturedHighlights] ratings fetch error:", ratingsErr);
+        } else {
+          ratingsData?.forEach((r) => {
+            if (!r.product_id) return;
+            const num = Number(r.rating);
+            if (!Number.isFinite(num) || num <= 0) return;
+            if (!ratingsMap.has(r.product_id))
+              ratingsMap.set(r.product_id, { total: 0, count: 0 });
+            const cur = ratingsMap.get(r.product_id);
+            cur.total += num;
+            cur.count += 1;
+          });
+        }
+      }
+
+      const enriched = validProducts.map((p) => {
+        const firstImg =
+          (Array.isArray(p.image_gallery) && p.image_gallery[0]) ||
+          p.image_url ||
+          null;
+        const hasDiscount = parseFloat(p.discount || 0) > 0;
+
+        const ratingInfo = ratingsMap.get(p.id);
+        const rawAvg = ratingInfo
+          ? ratingInfo.total / ratingInfo.count
+          : parseFloat(p.rating || 0) || 0;
+        const avgRating = Number.isFinite(rawAvg)
+          ? Math.min(Math.max(rawAvg, 0), 5)
+          : 0;
+        const ratingCount = ratingInfo ? ratingInfo.count : 0;
+
+        return {
+          ...p,
+          imageUrl: getImageUrl(firstImg),
+          hasDiscount,
+          discountedPrice: hasDiscount
+            ? parseFloat(p.price) * (1 - parseFloat(p.discount) / 100)
+            : parseFloat(p.price),
+          average_rating: avgRating,
+          rating_count: ratingCount,
+        };
+      });
+
+      setProducts(enriched);
+      setTotalCount(count || enriched.length);
+      saveCache(CACHE_KEY, enriched);
+      initialFetchDone.current = true;
+    } catch (err) {
+      console.error("[FeaturedHighlights] fetch error:", err);
     } finally {
       setLoading(false);
     }
   }, [getImageUrl, products.length]);
 
   useEffect(() => {
-    if (products.length === 0 && !initialLoadDone.current) {
-      fetchFeaturedProducts();
-    } else {
-      setLoading(false);
-      initialLoadDone.current = true;
-    }
-  }, [fetchFeaturedProducts, products.length]);
+    fetchFeatured();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const handleClick = useCallback((id) => {
-    navigate(`/product/${id}`);
-  }, [navigate]);
+  if (loading && products.length === 0) return <FeaturedSkeleton />;
+  if (products.length === 0 && !loading) return null;
 
-  if (loading && products.length === 0) {
-    return <FeaturedSkeleton />;
-  }
-
-  if (products.length === 0 && !loading) {
-    return null;
-  }
+  const shouldShowViewMore = showViewMore && totalCount > MAX_PREVIEW;
 
   return (
-    <section className="featured-highlights">
-      <div className="featured-section-header">
-        <div className="featured-title-wrapper">
-          <FaCrown className="featured-section-icon" />
-          <h2 className="featured-section-title">Featured</h2>
+    <section className="featured-v2">
+      <div className="featured-header">
+        <div className="featured-title-wrap">
+          <span className="featured-icon-wrap">
+            <FaCrown size={11} />
+          </span>
+          <h2 className="featured-title">Featured</h2>
         </div>
-      </div>
 
-      <div className="featured-carousel-wrapper">
-        {!isMobile && showLeftArrow && (
-          <button className="featured-scroll-btn left" onClick={() => scroll('left')}>
-            <FaChevronLeft />
+        {shouldShowViewMore && (
+          <button
+            className="featured-view-more"
+            onClick={() => navigate("/featured")}
+          >
+            View all {totalCount} <FaArrowRight size={10} />
           </button>
         )}
+      </div>
 
-        <div className="featured-carousel" ref={scrollContainerRef}>
-          {products.map((product, index) => (
-            <motion.div
-              className="featured-card"
-              key={product.id}
-              onClick={() => handleClick(product.id)}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
-              whileHover={{ y: -2 }}
-            >
-              <div className="featured-image-container">
-                <img
-                  src={product.imageUrl}
-                  alt={product.name}
-                  className="featured-image"
-                  loading="lazy"
-                  onError={(e) => (e.target.src = "/placeholder.jpg")}
-                />
+      <div className="featured-scroll">
+        {products.map((product, index) => (
+          <motion.div
+            key={product.id}
+            className="featured-card"
+            onClick={() => navigate(`/product/${product.id}`)}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.05, duration: 0.3 }}
+          >
+            <div className="featured-media">
+              <FeaturedImage src={product.imageUrl} alt={product.name} />
+              {product.hasDiscount && (
+                <span className="featured-discount">
+                  -{Number(product.discount).toFixed(0)}%
+                </span>
+              )}
+            </div>
+
+            <div className="featured-body">
+              <h3 className="featured-name" title={product.name}>
+                {product.name}
+              </h3>
+
+              <MiniStars
+                rating={product.average_rating}
+                count={product.rating_count}
+              />
+
+              <div className="featured-prices">
+                <span className="featured-price-current">
+                  {formatKSH(product.discountedPrice)}
+                </span>
                 {product.hasDiscount && (
-                  <span className="featured-discount-badge">-{product.discount}%</span>
+                  <span className="featured-price-old">
+                    {formatKSH(product.price)}
+                  </span>
                 )}
               </div>
-
-              <div className="featured-card-info">
-                <h3 className="featured-product-name" title={product.name}>
-                  {product.name.length > 30 ? product.name.substring(0, 27) + "..." : product.name}
-                </h3>
-
-                <div className="featured-price-container">
-                  <span className="featured-current-price">
-                    {formatKenyanMoney(product.discountedPrice)}
-                  </span>
-                  {product.hasDiscount && (
-                    <span className="featured-original-price">
-                      {formatKenyanMoney(product.price)}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-
-        {!isMobile && showRightArrow && (
-          <button className="featured-scroll-btn right" onClick={() => scroll('right')}>
-            <FaChevronRight />
-          </button>
-        )}
+            </div>
+          </motion.div>
+        ))}
       </div>
+
+      {shouldShowViewMore && (
+        <button
+          className="featured-view-all-bottom"
+          onClick={() => navigate("/featured")}
+        >
+          View all {totalCount} featured products
+          <FaArrowRight size={11} />
+        </button>
+      )}
     </section>
   );
 });
 
-FeaturedHighlights.displayName = 'FeaturedHighlights';
+FeaturedHighlights.displayName = "FeaturedHighlights";
 export default FeaturedHighlights;

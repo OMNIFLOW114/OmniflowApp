@@ -736,139 +736,172 @@ const StoreDashboardV2 = () => {
     }
   };
 
-  const fetchDashboardData = async () => {
-    if (!store || !user) return;
-    setLoadingEarnings(true);
-    try {
-      // Get store data including seller_score from stores table
-      const { data: storeData } = await supabase
-        .from('stores')
-        .select('seller_score, total_orders, successful_orders')
-        .eq('id', store.id)
-        .maybeSingle();
+const fetchDashboardData = async () => {
+  if (!store || !user) return;
+  setLoadingEarnings(true);
+  try {
+    // ── Step 1: Fetch store meta (keeps total_orders / successful_orders in sync) ──
+    const { data: storeMeta } = await supabase
+      .from('stores')
+      .select('total_orders, successful_orders')
+      .eq('id', store.id)
+      .maybeSingle();
 
-      if (storeData) {
-        setStorePerformance({
-          sellerScore: storeData.seller_score || 0,
-          totalRatings: storeData.successful_orders || 0,
-          averageRating: storeData.seller_score || 0,
-          totalViews: 0
-        });
+    // ── Step 2: Compute seller score from the ratings table (source of truth) ──
+    // Get all product IDs for this store
+    const { data: storeProducts } = await supabase
+      .from('products')
+      .select('id')
+      .eq('store_id', store.id);
+
+    const productIds = (storeProducts || []).map(p => p.id);
+
+    let sellerScore = 0;
+    let totalRatings = 0;
+    let avgRating = 0;
+
+    if (productIds.length > 0) {
+      const { data: ratingsData, error: ratingsErr } = await supabase
+        .from('ratings')
+        .select('rating')
+        .in('product_id', productIds);
+
+      if (ratingsErr) {
+        console.error('[SellerScore] ratings fetch error:', ratingsErr);
+      } else if (ratingsData && ratingsData.length > 0) {
+        const valid = ratingsData
+          .map(r => Number(r.rating))
+          .filter(n => Number.isFinite(n) && n > 0);
+        if (valid.length > 0) {
+          const sum = valid.reduce((a, b) => a + b, 0);
+          avgRating = sum / valid.length;
+          totalRatings = valid.length;
+          // 5★ → 10.0,  4.5★ → 9.0,  4★ → 8.0, etc.
+          sellerScore = Math.min(10, avgRating * 2);
+        }
       }
-
-      const { data: ordersData } = await supabase
-        .from('orders')
-        .select('total_price, status, created_at, escrow_released, price_paid, delivery_fee, commission_amount')
-        .eq('store_id', store.id);
-      
-      const hasNewOrders = ordersData?.some(order => {
-        const diffHours = Math.abs(new Date() - new Date(order.created_at)) / (1000 * 60 * 60);
-        return diffHours < 24;
-      });
-      
-      const pendingOrders = ordersData?.filter(o => 
-        !['delivered', 'completed', 'cancelled'].includes(o.status?.toLowerCase())
-      ).length || 0;
-
-      setNewOrderNotification(hasNewOrders);
-
-      const totalRevenue = ordersData?.reduce((sum, o) => sum + (o.total_price || 0), 0) || 0;
-      const totalEarnings = ordersData?.reduce((sum, o) => sum + (o.price_paid || 0), 0) || 0;
-      const pendingPayouts = ordersData?.filter(o => !o.escrow_released && ['delivered', 'completed'].includes(o.status?.toLowerCase()))
-        .reduce((sum, o) => sum + ((o.price_paid || 0) - (o.commission_amount || 0)), 0) || 0;
-      const completedPayouts = ordersData?.filter(o => o.escrow_released)
-        .reduce((sum, o) => sum + ((o.price_paid || 0) - (o.commission_amount || 0)), 0) || 0;
-      
-      const now = new Date();
-      const thisMonthEarnings = ordersData?.filter(o => {
-        const d = new Date(o.created_at);
-        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-      }).reduce((sum, o) => sum + (o.price_paid || 0), 0) || 0;
-
-      const { data: installmentData } = await supabase
-        .from('installment_orders')
-        .select('total_price, amount_paid, status')
-        .eq('seller_id', user.id);
-      
-      const lipaPolepoleEarnings = installmentData?.filter(o => o.status === 'completed')
-        .reduce((sum, o) => sum + (o.amount_paid || 0), 0) || 0;
-
-      const { data: walletData } = await supabase
-        .from('wallets')
-        .select('balance')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      
-      const walletBalance = walletData?.balance || 0;
-
-      const successfulOrders = ordersData?.filter(o => ['delivered', 'completed'].includes(o.status?.toLowerCase())).length || 0;
-
-      const { data: productsData } = await supabase
-        .from('products')
-        .select('id, name, warranty, return_policy, delivery_methods, views')
-        .eq('store_id', store.id);
-      
-      const incompleteProducts = productsData?.filter(p => 
-        !p.warranty || !p.return_policy || !p.delivery_methods
-      ).length || 0;
-
-      const totalViews = productsData?.reduce((sum, p) => sum + (p.views || 0), 0) || 0;
-
-      const { data: messagesData } = await supabase
-        .from('store_messages')
-        .select('id')
-        .eq('store_id', store.id);
-      
-      const unreadMessages = messagesData?.length || 0;
-
-      setDashboardStats({
-        totalEarnings, pendingPayouts, completedPayouts, lipaPolepoleEarnings,
-        thisMonthEarnings, totalOrders: ordersData?.length || 0,
-        successfulOrders, totalRevenue, walletBalance,
-        pendingOrders, incompleteProducts, unreadMessages,
-        totalViews,
-        conversionRate: totalViews > 0 ? ((successfulOrders / totalViews) * 100).toFixed(1) : 0
-      });
-
-      const incomplete = [];
-      if (pendingOrders > 0) incomplete.push({ type: 'orders', count: pendingOrders, message: `${pendingOrders} pending orders` });
-      if (incompleteProducts > 0) incomplete.push({ type: 'products', count: incompleteProducts, message: `${incompleteProducts} products need warranty/return policy` });
-      if (unreadMessages > 0) incomplete.push({ type: 'messages', count: unreadMessages, message: `${unreadMessages} unread messages` });
-      if (lowStockAlerts.length > 0) incomplete.push({ type: 'stock', count: lowStockAlerts.length, message: `${lowStockAlerts.length} products low on stock` });
-      setIncompleteItems(incomplete);
-
-      const { data: paymentData } = await supabase
-        .from('wallet_transactions')
-        .select('*')
-        .eq('seller_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(10);
-      
-      setNewPaymentNotification(paymentData && paymentData.length > 0);
-
-      if (paymentData) {
-        setPaymentHistory(paymentData.map(p => ({
-          id: p.id, amount: p.amount, created_at: p.created_at, status: p.status,
-          payment_method: p.payment_method || 'Wallet',
-          reference_id: p.reference || `TXN-${p.id.slice(0, 8)}`,
-          type: p.type, description: p.description
-        })));
-      }
-      
-      await fetchSellerPayouts();
-      await fetchAnalytics();
-      await fetchCoupons();
-      await fetchCustomers();
-      await fetchReturns();
-      await fetchLowStockAlerts();
-      await fetchStoreSettings();
-      
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-    } finally {
-      setLoadingEarnings(false);
     }
-  };
+
+    setStorePerformance({
+      sellerScore: Number(sellerScore.toFixed(2)),
+      totalRatings,
+      averageRating: Number(avgRating.toFixed(2)),
+      totalViews: 0
+    });
+
+    // ── Step 3: Orders + earnings (unchanged) ──
+    const { data: ordersData } = await supabase
+      .from('orders')
+      .select('total_price, status, created_at, escrow_released, price_paid, delivery_fee, commission_amount')
+      .eq('store_id', store.id);
+
+    const hasNewOrders = ordersData?.some(order => {
+      const diffHours = Math.abs(new Date() - new Date(order.created_at)) / (1000 * 60 * 60);
+      return diffHours < 24;
+    });
+
+    const pendingOrders = ordersData?.filter(o =>
+      !['delivered', 'completed', 'cancelled'].includes(o.status?.toLowerCase())
+    ).length || 0;
+
+    setNewOrderNotification(hasNewOrders);
+
+    const totalRevenue = ordersData?.reduce((sum, o) => sum + (o.total_price || 0), 0) || 0;
+    const totalEarnings = ordersData?.reduce((sum, o) => sum + (o.price_paid || 0), 0) || 0;
+    const pendingPayouts = ordersData?.filter(o => !o.escrow_released && ['delivered', 'completed'].includes(o.status?.toLowerCase()))
+      .reduce((sum, o) => sum + ((o.price_paid || 0) - (o.commission_amount || 0)), 0) || 0;
+    const completedPayouts = ordersData?.filter(o => o.escrow_released)
+      .reduce((sum, o) => sum + ((o.price_paid || 0) - (o.commission_amount || 0)), 0) || 0;
+
+    const now = new Date();
+    const thisMonthEarnings = ordersData?.filter(o => {
+      const d = new Date(o.created_at);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    }).reduce((sum, o) => sum + (o.price_paid || 0), 0) || 0;
+
+    const { data: installmentData } = await supabase
+      .from('installment_orders')
+      .select('total_price, amount_paid, status')
+      .eq('seller_id', user.id);
+
+    const lipaPolepoleEarnings = installmentData?.filter(o => o.status === 'completed')
+      .reduce((sum, o) => sum + (o.amount_paid || 0), 0) || 0;
+
+    const { data: walletData } = await supabase
+      .from('wallets')
+      .select('balance')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    const walletBalance = walletData?.balance || 0;
+    const successfulOrders = ordersData?.filter(o => ['delivered', 'completed'].includes(o.status?.toLowerCase())).length || 0;
+
+    const { data: productsData } = await supabase
+      .from('products')
+      .select('id, name, warranty, return_policy, delivery_methods, views')
+      .eq('store_id', store.id);
+
+    const incompleteProducts = productsData?.filter(p =>
+      !p.warranty || !p.return_policy || !p.delivery_methods
+    ).length || 0;
+
+    const totalViews = productsData?.reduce((sum, p) => sum + (p.views || 0), 0) || 0;
+
+    const { data: messagesData } = await supabase
+      .from('store_messages')
+      .select('id')
+      .eq('store_id', store.id);
+
+    const unreadMessages = messagesData?.length || 0;
+
+    setDashboardStats({
+      totalEarnings, pendingPayouts, completedPayouts, lipaPolepoleEarnings,
+      thisMonthEarnings, totalOrders: ordersData?.length || 0,
+      successfulOrders, totalRevenue, walletBalance,
+      pendingOrders, incompleteProducts, unreadMessages,
+      totalViews,
+      conversionRate: totalViews > 0 ? ((successfulOrders / totalViews) * 100).toFixed(1) : 0
+    });
+
+    const incomplete = [];
+    if (pendingOrders > 0) incomplete.push({ type: 'orders', count: pendingOrders, message: `${pendingOrders} pending orders` });
+    if (incompleteProducts > 0) incomplete.push({ type: 'products', count: incompleteProducts, message: `${incompleteProducts} products need warranty/return policy` });
+    if (unreadMessages > 0) incomplete.push({ type: 'messages', count: unreadMessages, message: `${unreadMessages} unread messages` });
+    if (lowStockAlerts.length > 0) incomplete.push({ type: 'stock', count: lowStockAlerts.length, message: `${lowStockAlerts.length} products low on stock` });
+    setIncompleteItems(incomplete);
+
+    const { data: paymentData } = await supabase
+      .from('wallet_transactions')
+      .select('*')
+      .eq('seller_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    setNewPaymentNotification(paymentData && paymentData.length > 0);
+
+    if (paymentData) {
+      setPaymentHistory(paymentData.map(p => ({
+        id: p.id, amount: p.amount, created_at: p.created_at, status: p.status,
+        payment_method: p.payment_method || 'Wallet',
+        reference_id: p.reference || `TXN-${p.id.slice(0, 8)}`,
+        type: p.type, description: p.description
+      })));
+    }
+
+    await fetchSellerPayouts();
+    await fetchAnalytics();
+    await fetchCoupons();
+    await fetchCustomers();
+    await fetchReturns();
+    await fetchLowStockAlerts();
+    await fetchStoreSettings();
+
+  } catch (error) {
+    console.error('Error fetching dashboard data:', error);
+  } finally {
+    setLoadingEarnings(false);
+  }
+};
 
   const updateOrderStatus = async (orderId, newStatus) => {
     setUpdatingOrderId(orderId);

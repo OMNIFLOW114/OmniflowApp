@@ -1,279 +1,274 @@
-/* src/components/FlashDeals.css - FIXED IMAGE DISPLAY WITH CONTAIN */
+/* src/components/FlashDeals.css - PROPER IMAGE FIT */
 
-/* ========== LIGHT MODE VARIABLES ========== */
-.flash-deals-section {
+/* ==========================================================
+   VARIABLES
+   ========================================================== */
+.flash-deals-v2 {
   --bg-card: #ffffff;
+  --bg-strip: #ffffff;
+  --bg-media: #f8fafc;
   --text-primary: #0f172a;
   --text-secondary: #475569;
-  --text-tertiary: #64748b;
+  --text-tertiary: #94a3b8;
   --border-color: #e2e8f0;
-  --shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-  --shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.08);
-  --accent-primary: #10b981;
+  --cta-red: #ef4444;
+  --cta-red-dark: #dc2626;
   --success: #10b981;
-  --error: #ef4444;
-  --warning: #f59e0b;
-  --flash-gradient: linear-gradient(135deg, #dc2626, #b91c1c);
-  --skeleton-base: #e5e7eb;
-  --skeleton-highlight: rgba(255, 255, 255, 0.2);
+  --timer-bg: #0f172a;
+  --timer-text: #ffffff;
 }
 
-/* ========== DARK MODE VARIABLES - PURE BLACK ========== */
-html.dark .flash-deals-section {
+html.dark .flash-deals-v2 {
   --bg-card: #0a0a0a;
+  --bg-strip: #0a0a0a;
+  --bg-media: #141414;
   --text-primary: #ffffff;
   --text-secondary: #a3a3a3;
   --text-tertiary: #6b7280;
   --border-color: #1f1f1f;
-  --shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  --shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.5);
-  --accent-primary: #34d399;
+  --cta-red: #ef4444;
+  --cta-red-dark: #dc2626;
   --success: #34d399;
-  --error: #f87171;
-  --warning: #fbbf24;
-  --flash-gradient: linear-gradient(135deg, #dc2626, #b91c1c);
-  --skeleton-base: #1a1a1a;
-  --skeleton-highlight: rgba(255, 255, 255, 0.05);
+  --timer-bg: #ffffff;
+  --timer-text: #000000;
 }
 
-/* Main Section */
-.flash-deals-section {
-  margin: 0.5rem 0;
-  padding: 0;
+.flash-deals-v2 {
+  margin: 0.75rem 0;
   width: 100%;
 }
 
-/* Header - Minimized */
+/* ==========================================================
+   HEADER
+   ========================================================== */
 .flash-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.75rem;
-  flex-wrap: wrap;
   gap: 0.5rem;
+  margin-bottom: 0.55rem;
+  flex-wrap: wrap;
 }
 
 .flash-header-left {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.55rem;
 }
 
-.flash-icon-wrapper {
-  width: 28px;
-  height: 28px;
-  background: var(--flash-gradient);
-  border-radius: 50%;
+.flash-icon-wrap {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: var(--cta-red);
+  color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  animation: pulse 2s infinite;
+  flex-shrink: 0;
+  box-shadow: 0 3px 10px rgba(239, 68, 68, 0.35);
+  animation: flash-pulse 2s ease-in-out infinite;
 }
 
-@keyframes pulse {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.05); opacity: 0.9; }
+@keyframes flash-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 3px 10px rgba(239, 68, 68, 0.35);
+  }
+  50% {
+    transform: scale(1.06);
+    box-shadow: 0 3px 16px rgba(239, 68, 68, 0.55);
+  }
 }
 
-.flash-icon {
-  font-size: 0.875rem;
-  color: white;
-}
-
-.flash-header-text h2 {
-  font-size: 0.9rem;
-  font-weight: 700;
+.flash-title {
+  font-size: 0.88rem;
+  font-weight: 800;
   margin: 0;
   color: var(--text-primary);
+  letter-spacing: -0.01em;
 }
 
-.flash-header-text p {
-  font-size: 0.6rem;
+.flash-subtitle {
+  font-size: 0.62rem;
   color: var(--text-tertiary);
-  margin: 0;
+  margin: 0.08rem 0 0;
 }
 
 .flash-view-more {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  padding: 0.25rem 0.75rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
   background: transparent;
   border: 1px solid var(--border-color);
-  border-radius: 1rem;
+  color: var(--text-secondary);
   font-size: 0.65rem;
-  font-weight: 500;
-  color: var(--accent-primary);
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
 }
 
 .flash-view-more:hover {
-  background: var(--accent-primary);
-  color: white;
-  border-color: var(--accent-primary);
+  background: var(--cta-red);
+  color: #ffffff;
+  border-color: var(--cta-red);
 }
 
-/* Carousel Wrapper */
-.flash-carousel-wrapper {
-  position: relative;
+/* ==========================================================
+   STRIP
+   ========================================================== */
+.flash-strip {
   display: flex;
-  align-items: center;
+  gap: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x proximity;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  padding: 0;
+  scrollbar-width: none;
+  border-radius: 14px;
+  background: var(--bg-strip);
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05);
 }
 
-/* Scroll Buttons - Smaller */
-.flash-scroll-btn {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
+.flash-strip::-webkit-scrollbar {
+  display: none;
+}
+
+html.dark .flash-strip {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+}
+
+/* ==========================================================
+   TILE — bigger, wider media area
+   ========================================================== */
+.flash-tile {
+  flex: 0 0 150px;
+  scroll-snap-align: start;
+  position: relative;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--border-color);
+  transition: background 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
+.flash-tile:last-child {
+  border-right: none;
+}
+
+.flash-tile:hover {
+  background: rgba(239, 68, 68, 0.04);
+}
+
+html.dark .flash-tile:hover {
+  background: rgba(239, 68, 68, 0.08);
+}
+
+@media (min-width: 480px) {
+  .flash-tile {
+    flex: 0 0 160px;
+  }
+}
+
+@media (min-width: 768px) {
+  .flash-tile {
+    flex: 0 0 175px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .flash-tile {
+    flex: 0 0 190px;
+  }
+}
+
+/* ==========================================================
+   MEDIA — rectangular (4:3), image fills nicely
+   ========================================================== */
+.flash-media {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: var(--bg-media);
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  z-index: 10;
-  transition: all 0.2s;
-  color: var(--text-secondary);
-  font-size: 10px;
+  border-radius: 12px 12px 0 0;
 }
 
-.flash-scroll-btn:hover {
-  background: var(--accent-primary);
-  color: white;
-  border-color: var(--accent-primary);
-}
-
-.flash-scroll-btn.left {
-  left: -6px;
-}
-
-.flash-scroll-btn.right {
-  right: -6px;
-}
-
-/* Carousel Container */
-.flash-carousel {
-  display: flex;
-  gap: 0.75rem;
-  overflow-x: auto;
-  scroll-behavior: smooth;
-  scrollbar-width: thin;
-  padding: 0.25rem 0;
-  -webkit-overflow-scrolling: touch;
-}
-
-.flash-carousel::-webkit-scrollbar {
-  height: 3px;
-}
-
-.flash-carousel::-webkit-scrollbar-track {
-  background: var(--border-color);
-  border-radius: 3px;
-}
-
-.flash-carousel::-webkit-scrollbar-thumb {
-  background: var(--accent-primary);
-  border-radius: 3px;
-}
-
-/* ========== FIXED: Flash Card with Proper Image Display ========== */
-.flash-card {
-  flex: 0 0 140px;
-  background: var(--bg-card);
-  border-radius: 0.75rem;
-  overflow: hidden;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border: 1px solid var(--border-color);
-  position: relative;
-  display: flex;
-  flex-direction: column;
-}
-
-.flash-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-hover);
-  border-color: var(--accent-primary);
-}
-
-/* ========== FIXED: Image Container - Full Display ========== */
-.flash-image-container {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  overflow: hidden;
-  background: var(--bg-secondary);
-  flex-shrink: 0;
-}
-
-/* ========== FIXED: Image - CONTAIN to show full image without cropping ========== */
 .flash-image {
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
   object-position: center;
-  transition: transform 0.3s ease;
   display: block;
-  background: var(--bg-secondary);
-  padding: 4px;
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.flash-card:hover .flash-image {
-  transform: scale(1.03);
+.flash-tile:hover .flash-image {
+  transform: scale(1.05);
 }
 
-/* Discount Badge - Red */
-.flash-discount-badge {
+/* ---- Discount badge (red) ---- */
+.flash-discount {
   position: absolute;
-  top: 0.25rem;
-  left: 0.25rem;
-  background: var(--flash-gradient);
-  color: white;
-  padding: 0.1rem 0.35rem;
-  border-radius: 0.3rem;
-  font-size: 0.55rem;
-  font-weight: 700;
-  z-index: 5;
-  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3);
+  top: 6px;
+  left: 6px;
+  padding: 0.14rem 0.4rem;
+  border-radius: 5px;
+  background: var(--cta-red);
+  color: #ffffff;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+  z-index: 2;
 }
 
-/* Timer - Smaller */
+/* ==========================================================
+   TIMER — neutral
+   ========================================================== */
 .flash-timer {
   position: absolute;
-  bottom: 0.25rem;
-  right: 0.25rem;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(4px);
-  color: white;
-  padding: 0.1rem 0.35rem;
-  border-radius: 0.3rem;
-  font-size: 0.55rem;
-  font-weight: 600;
-  display: flex;
+  bottom: 6px;
+  right: 6px;
+  display: inline-flex;
   align-items: center;
   gap: 0.2rem;
-  z-index: 5;
-  font-family: monospace;
+  padding: 0.16rem 0.4rem;
+  border-radius: 5px;
+  background: var(--timer-bg);
+  color: var(--timer-text);
+  font-size: 0.56rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  z-index: 2;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
 }
 
 .flash-timer svg {
-  font-size: 0.45rem;
+  font-size: 0.48rem;
 }
 
-/* Card Info - Minimized */
-.flash-card-info {
-  padding: 0.5rem;
+/* ==========================================================
+   BODY — compact with padding
+   ========================================================== */
+.flash-body {
+  padding: 0.55rem 0.6rem 0.6rem;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  flex: 1;
+  gap: 0.3rem;
 }
 
-.flash-product-name {
+.flash-name {
   font-size: 0.7rem;
   font-weight: 600;
   color: var(--text-primary);
@@ -286,221 +281,150 @@ html.dark .flash-deals-section {
   min-height: 1.8rem;
 }
 
-/* Price Container - Minimized */
-.flash-price-container {
+/* Prices row: old left (strikethrough), new right (green) */
+.flash-prices {
   display: flex;
   align-items: baseline;
-  gap: 0.25rem;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.3rem;
+  width: 100%;
+  flex-wrap: nowrap;
 }
 
-.flash-current-price {
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: var(--accent-primary);
-}
-
-.flash-original-price {
-  font-size: 0.55rem;
+.flash-price-old {
+  font-size: 0.6rem;
   color: var(--text-tertiary);
   text-decoration: line-through;
-}
-
-/* Footer Button - Minimized */
-.flash-footer {
-  display: flex;
-  justify-content: center;
-  margin-top: 0.75rem;
-  padding-top: 0.5rem;
-  border-top: 1px solid var(--border-color);
-}
-
-.flash-view-all-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.4rem 1rem;
-  background: transparent;
-  border: 1px solid var(--border-color);
-  border-radius: 1.5rem;
-  font-size: 0.7rem;
   font-weight: 500;
-  color: var(--accent-primary);
-  cursor: pointer;
-  transition: all 0.2s;
+  white-space: nowrap;
+  flex-shrink: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.flash-view-all-btn:hover {
-  background: var(--accent-primary);
-  color: white;
-  border-color: var(--accent-primary);
+.flash-price-current {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--success);
+  white-space: nowrap;
+  margin-left: auto;
 }
 
-/* ========== SKELETON LOADING - MINIMIZED ========== */
-.flash-deals-section.loading .skeleton-icon {
-  width: 28px;
-  height: 28px;
-  background: linear-gradient(90deg, var(--skeleton-base) 25%, var(--skeleton-highlight) 50%, var(--skeleton-base) 75%);
+/* ==========================================================
+   SKELETON
+   ========================================================== */
+.flash-skeleton .sk-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: linear-gradient(
+    90deg,
+    var(--skeleton-base, #e5e7eb) 25%,
+    var(--skeleton-highlight, #f1f5f9) 50%,
+    var(--skeleton-base, #e5e7eb) 75%
+  );
   background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-  border-radius: 50%;
+  animation: flash-shimmer 1.4s infinite;
 }
 
-.flash-deals-section.loading .skeleton-title {
+.flash-skeleton .sk-line {
+  height: 10px;
+  border-radius: 5px;
+  background: linear-gradient(
+    90deg,
+    var(--skeleton-base, #e5e7eb) 25%,
+    var(--skeleton-highlight, #f1f5f9) 50%,
+    var(--skeleton-base, #e5e7eb) 75%
+  );
+  background-size: 200% 100%;
+  animation: flash-shimmer 1.4s infinite;
+}
+
+.flash-skeleton .sk-title {
   width: 70px;
   height: 12px;
-  background: linear-gradient(90deg, var(--skeleton-base) 25%, var(--skeleton-highlight) 50%, var(--skeleton-base) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-  border-radius: 0.25rem;
-  margin-bottom: 0.2rem;
 }
 
-.flash-deals-section.loading .skeleton-subtitle {
-  width: 90px;
-  height: 8px;
-  background: linear-gradient(90deg, var(--skeleton-base) 25%, var(--skeleton-highlight) 50%, var(--skeleton-base) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-  border-radius: 0.25rem;
+.flash-skeleton .sk-sub {
+  width: 50px;
+  margin-top: 5px;
 }
 
-.flash-card-skeleton {
-  flex: 0 0 140px;
-  background: var(--bg-card);
-  border-radius: 0.75rem;
-  overflow: hidden;
-  border: 1px solid var(--border-color);
+.flash-tile-skeleton {
+  flex: 0 0 150px;
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
 }
 
-.flash-image-skeleton {
+.flash-tile-skeleton:last-child {
+  border-right: none;
+}
+
+.flash-tile-skeleton .sk-image {
   width: 100%;
-  aspect-ratio: 1 / 1;
-  background: linear-gradient(90deg, var(--skeleton-base) 25%, var(--skeleton-highlight) 50%, var(--skeleton-base) 75%);
+  aspect-ratio: 4 / 3;
+  border-radius: 12px 12px 0 0;
+  background: linear-gradient(
+    90deg,
+    var(--skeleton-base, #e5e7eb) 25%,
+    var(--skeleton-highlight, #f1f5f9) 50%,
+    var(--skeleton-base, #e5e7eb) 75%
+  );
   background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
+  animation: flash-shimmer 1.4s infinite;
 }
 
-.flash-content-skeleton {
-  padding: 0.5rem;
+.flash-tile-skeleton .sk-body {
+  padding: 0.55rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
 }
 
-.skeleton-name {
-  height: 24px;
+.flash-tile-skeleton .sk-name {
   width: 90%;
-  background: linear-gradient(90deg, var(--skeleton-base) 25%, var(--skeleton-highlight) 50%, var(--skeleton-base) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-  border-radius: 0.25rem;
-  margin-bottom: 0.5rem;
+  height: 12px;
 }
 
-.skeleton-price {
-  height: 14px;
-  width: 60%;
-  background: linear-gradient(90deg, var(--skeleton-base) 25%, var(--skeleton-highlight) 50%, var(--skeleton-base) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-  border-radius: 0.25rem;
+.flash-tile-skeleton .sk-price {
+  width: 55%;
+  height: 12px;
 }
 
-@keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-
-/* ========== RESPONSIVE ========== */
-@media (max-width: 768px) {
-  .flash-card {
-    flex: 0 0 130px;
+@keyframes flash-shimmer {
+  0% {
+    background-position: 200% 0;
   }
-  
-  .flash-product-name {
-    font-size: 0.65rem;
-  }
-  
-  .flash-current-price {
-    font-size: 0.75rem;
-  }
-  
-  .flash-scroll-btn {
-    display: none;
-  }
-  
-  .flash-carousel {
-    scrollbar-width: thin;
-  }
-  
-  .flash-header {
-    flex-direction: row;
-    align-items: center;
-  }
-  
-  .flash-view-more {
-    padding: 0.2rem 0.6rem;
-    font-size: 0.6rem;
+  100% {
+    background-position: -200% 0;
   }
 }
 
-@media (max-width: 480px) {
-  .flash-card {
-    flex: 0 0 120px;
+@media (min-width: 480px) {
+  .flash-tile-skeleton {
+    flex: 0 0 160px;
   }
-  
-  .flash-product-name {
-    font-size: 0.6rem;
-  }
-  
-  .flash-current-price {
-    font-size: 0.7rem;
-  }
-  
-  .flash-original-price {
-    font-size: 0.5rem;
-  }
-  
-  .flash-timer {
-    font-size: 0.5rem;
-    padding: 0.1rem 0.3rem;
-  }
-  
-  .flash-discount-badge {
-    font-size: 0.5rem;
-    padding: 0.1rem 0.3rem;
-  }
-  
-  .flash-card-info {
-    padding: 0.4rem;
-  }
-  
-  .flash-header-text h2 {
-    font-size: 0.8rem;
-  }
-  
-  .flash-header-text p {
-    font-size: 0.55rem;
-  }
-  
-  .flash-icon-wrapper {
-    width: 24px;
-    height: 24px;
-  }
-  
-  .flash-icon {
-    font-size: 0.75rem;
+}
+
+@media (min-width: 768px) {
+  .flash-tile-skeleton {
+    flex: 0 0 175px;
   }
 }
 
 @media (min-width: 1024px) {
-  .flash-card {
-    flex: 0 0 160px;
+  .flash-tile-skeleton {
+    flex: 0 0 190px;
   }
-  
-  .flash-product-name {
-    font-size: 0.75rem;
-  }
-  
-  .flash-current-price {
-    font-size: 0.85rem;
-  }
+}
+
+/* ==========================================================
+   DARK MODE
+   ========================================================== */
+html.dark .flash-skeleton .sk-icon,
+html.dark .flash-skeleton .sk-line,
+html.dark .flash-tile-skeleton .sk-image {
+  background: linear-gradient(90deg, #161616 25%, #1f1f1f 50%, #161616 75%);
+  background-size: 200% 100%;
 }

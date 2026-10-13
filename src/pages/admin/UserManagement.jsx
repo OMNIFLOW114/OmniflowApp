@@ -11,7 +11,7 @@ import {
   FiSearch, FiBell, FiLogOut, FiUser, FiAward, FiPackage, FiCreditCard,
   FiFileText, FiDatabase, FiHome, FiShield, FiChevronLeft, FiChevronRight,
   FiTrendingDown, FiRefreshCw, FiEye, FiDownload, FiAlertCircle,
-  FiMail, FiPhone, FiMapPin, FiBox, FiClock
+  FiMail, FiPhone, FiMapPin, FiBox, FiClock,
 } from "react-icons/fi";
 import { FaCrown, FaShieldAlt } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
@@ -715,7 +715,7 @@ const UserManagement = () => {
                         </span>
                         {isPremium && (
                           <span className="store-badge premium">
-                            <FiCrown size={10} /> Premium
+                            <FaCrown size={10} /> Premium
                           </span>
                         )}
                       </div>

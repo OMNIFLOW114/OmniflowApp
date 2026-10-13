@@ -1,278 +1,273 @@
-/* src/components/PromotedCarousel.css - CLEAN CLASSIC VERSION */
+/* src/components/PromotedCarousel.css - CONSTANT FRAME, SWAPPING IMAGE */
 
-/* ========== LIGHT MODE ========== */
 .promoted-carousel-clean {
-  --shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  --overlay: rgba(0, 0, 0, 0.4);
+  --shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
   --text-light: #ffffff;
-  --text-dark: #1a1a1a;
-  --accent: #ff0000;
+  --image-bg: #f1f5f9;
+  --card-bg: #ffffff;
+  --cta-red: #ef4444;      /* 🔴 Always red */
+  --cta-red-hover: #dc2626;
 }
 
-/* ========== DARK MODE ========== */
 html.dark .promoted-carousel-clean {
-  --shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-  --overlay: rgba(0, 0, 0, 0.5);
-  --accent: #ff0000;
+  --shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+  --image-bg: #111111;
+  --card-bg: #0a0a0a;
+  /* Keep the same red in dark too */
+  --cta-red: #ef4444;
+  --cta-red-hover: #dc2626;
 }
 
-/* Main Container */
 .promoted-carousel-clean {
   margin: 0.5rem 0;
   width: 100%;
-}
-
-/* Carousel Container */
-.carousel-container {
   position: relative;
-  border-radius: 1rem;
-  overflow: hidden;
-  box-shadow: var(--shadow);
 }
 
-/* Slide Wrapper */
-.slide-wrapper {
-  position: relative;
-  cursor: pointer;
-  overflow: hidden;
-}
-
-/* Image Container */
-.slide-image-container {
+/* ==========================================================
+   ONE CONSTANT FRAME — never changes size, only the image inside
+   ========================================================== */
+.promoted-frame {
   position: relative;
   width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
   height: 180px;
+  border-radius: 16px;
   overflow: hidden;
+  cursor: pointer;
+  background: var(--card-bg);
+  box-shadow: var(--shadow);
+  border: 1px solid rgba(0, 0, 0, 0.05);
 }
 
-@media (min-width: 640px) {
-  .slide-image-container {
+@media (min-width: 480px) {
+  .promoted-frame {
     height: 220px;
   }
 }
 
-@media (min-width: 768px) {
-  .slide-image-container {
-    height: 280px;
+@media (min-width: 640px) {
+  .promoted-frame {
+    height: 260px;
   }
 }
 
-@media (min-width: 1024px) {
-  .slide-image-container {
-    height: 340px;
+@media (min-width: 900px) {
+  .promoted-frame {
+    height: 320px;
   }
 }
 
-.slide-image {
+@media (min-width: 1200px) {
+  .promoted-frame {
+    height: 380px;
+  }
+}
+
+html.dark .promoted-frame {
+  border-color: #1f1f1f;
+}
+
+/* Slide — fills the entire frame */
+.promoted-slide {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Image — cover, edge to edge */
+.promoted-image {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.5s ease;
+  object-position: center;
+  display: block;
 }
 
-.slide-wrapper:hover .slide-image {
-  transform: scale(1.03);
-}
-
-/* Fallback Image */
 .fallback-image {
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(135deg, #667eea, #764ba2);
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, #0f172a, #1e293b);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 48px;
-  font-weight: 700;
-  color: white;
+  font-size: 64px;
+  font-weight: 800;
+  color: #ffffff;
 }
 
-/* Slide Content - Clean Overlay */
-.slide-content {
+/* Content overlay */
+.promoted-content {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 1.5rem;
-  background: linear-gradient(0deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.3) 50%, rgba(0,0,0,0) 100%);
+  padding: 2.5rem 1.25rem 1.25rem;
+  background: linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.88) 0%,
+    rgba(0, 0, 0, 0.55) 55%,
+    rgba(0, 0, 0, 0) 100%
+  );
   color: var(--text-light);
-}
-
-@media (min-width: 768px) {
-  .slide-content {
-    padding: 2rem;
-  }
-}
-
-/* Slide Title */
-.slide-title {
-  font-size: 1.25rem;
-  font-weight: 700;
-  margin: 0 0 0.5rem;
-  line-height: 1.3;
-}
-
-@media (min-width: 768px) {
-  .slide-title {
-    font-size: 1.5rem;
-  }
-}
-
-@media (min-width: 1024px) {
-  .slide-title {
-    font-size: 1.75rem;
-  }
-}
-
-/* Slide Description */
-.slide-description {
-  font-size: 0.8rem;
-  color: rgba(255,255,255,0.9);
-  margin: 0 0 1rem;
-  line-height: 1.4;
-  max-width: 80%;
-}
-
-@media (min-width: 768px) {
-  .slide-description {
-    font-size: 0.9rem;
-    max-width: 70%;
-  }
-}
-
-/* CTA Button */
-.slide-cta {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: white;
-  color: #1a1a1a;
-  border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 30px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-html.dark .slide-cta {
-  background: var(--accent);
-  color: white;
-}
-
-.slide-cta:hover {
-  transform: translateX(4px);
-  background: var(--accent);
-  color: white;
-}
-
-/* Navigation Arrows */
-.nav-arrow {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: rgba(0,0,0,0.5);
-  backdrop-filter: blur(4px);
-  border: none;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: white;
-  transition: all 0.2s;
-  z-index: 10;
+  flex-direction: column;
+  gap: 0.4rem;
 }
 
-.nav-arrow:hover {
-  background: var(--accent);
-  transform: translateY(-50%) scale(1.05);
-}
-
-.nav-arrow.prev {
-  left: 16px;
-}
-
-.nav-arrow.next {
-  right: 16px;
-}
-
-@media (max-width: 640px) {
-  .nav-arrow {
-    width: 30px;
-    height: 30px;
-  }
-  
-  .nav-arrow.prev {
-    left: 8px;
-  }
-  
-  .nav-arrow.next {
-    right: 8px;
+@media (min-width: 768px) {
+  .promoted-content {
+    padding: 3rem 2rem 1.75rem;
   }
 }
 
-/* Dots Indicator */
-.dots-indicator {
-  position: absolute;
-  bottom: 16px;
-  left: 0;
-  right: 0;
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-  z-index: 10;
-}
-
-.dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 3px;
-  background: rgba(255,255,255,0.5);
-  border: none;
-  cursor: pointer;
-  transition: all 0.2s;
-  padding: 0;
-}
-
-.dot.active {
-  width: 24px;
-  background: white;
-}
-
-/* Skeleton Loading */
-.promoted-carousel-skeleton {
-  margin: 0.5rem 0;
-  border-radius: 1rem;
+.promoted-title {
+  font-size: 1.15rem;
+  font-weight: 800;
+  margin: 0;
+  line-height: 1.25;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-.skeleton-slide {
-  position: relative;
-  height: 180px;
+@media (min-width: 640px) {
+  .promoted-title {
+    font-size: 1.4rem;
+  }
 }
 
-@media (min-width: 640px) {
-  .skeleton-slide {
-    height: 220px;
+@media (min-width: 900px) {
+  .promoted-title {
+    font-size: 1.6rem;
   }
+}
+
+.promoted-description {
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.92);
+  margin: 0;
+  line-height: 1.4;
+  max-width: 70%;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 @media (min-width: 768px) {
-  .skeleton-slide {
-    height: 280px;
+  .promoted-description {
+    font-size: 0.92rem;
   }
 }
 
+/* ==========================================================
+   CTA — always red
+   ========================================================== */
+.promoted-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  align-self: flex-start;
+  margin-top: 0.5rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 999px;
+  border: none;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease;
+  background: var(--cta-red);
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.4);
+}
+
+.promoted-cta:hover {
+  background: var(--cta-red-hover);
+  transform: translateX(3px);
+}
+
+.promoted-cta:active {
+  transform: scale(0.97);
+}
+
+/* Force red even inside html.dark in case of specificity issues */
+html.dark .promoted-cta {
+  background: var(--cta-red);
+  color: #ffffff;
+}
+
+html.dark .promoted-cta:hover {
+  background: var(--cta-red-hover);
+}
+
+/* ==========================================================
+   Dots
+   ========================================================== */
+.dots-indicator {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  margin-top: 0.5rem;
+  padding: 0.25rem 0;
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.2);
+  border: none;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  padding: 0;
+}
+
+html.dark .dot {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.dot.active {
+  width: 22px;
+  background: #0f172a;
+}
+
+html.dark .dot.active {
+  background: #ffffff;
+}
+
+/* ==========================================================
+   Skeleton — same constant frame
+   ========================================================== */
+.promoted-skeleton {
+  pointer-events: none;
+}
+
 .skeleton-image {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--border-color) 50%, var(--bg-tertiary) 75%);
+  background: linear-gradient(
+    90deg,
+    var(--skeleton-base, #e5e7eb) 25%,
+    var(--skeleton-highlight, #f1f5f9) 50%,
+    var(--skeleton-base, #e5e7eb) 75%
+  );
   background-size: 200% 100%;
-  animation: loading 1.5s infinite;
+  animation: promoted-loading 1.4s infinite;
+}
+
+html.dark .skeleton-image {
+  background: linear-gradient(90deg, #161616 25%, #1f1f1f 50%, #161616 75%);
+  background-size: 200% 100%;
 }
 
 .skeleton-content {
@@ -280,65 +275,44 @@ html.dark .slide-cta {
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 1.5rem;
+  padding: 2.5rem 1.25rem 1.25rem;
+  background: linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.5) 0%,
+    rgba(0, 0, 0, 0) 100%
+  );
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .skeleton-title {
   width: 60%;
-  height: 24px;
-  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--border-color) 50%, var(--bg-tertiary) 75%);
-  background-size: 200% 100%;
-  animation: loading 1.5s infinite;
-  border-radius: 4px;
-  margin-bottom: 8px;
+  height: 20px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .skeleton-subtitle {
   width: 40%;
-  height: 16px;
-  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--border-color) 50%, var(--bg-tertiary) 75%);
-  background-size: 200% 100%;
-  animation: loading 1.5s infinite;
-  border-radius: 4px;
-  margin-bottom: 16px;
+  height: 12px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .skeleton-button {
-  width: 100px;
-  height: 32px;
-  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--border-color) 50%, var(--bg-tertiary) 75%);
-  background-size: 200% 100%;
-  animation: loading 1.5s infinite;
-  border-radius: 30px;
+  width: 110px;
+  height: 34px;
+  border-radius: 999px;
+  background: rgba(239, 68, 68, 0.35);
+  margin-top: 0.35rem;
 }
 
-@keyframes loading {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-
-/* Responsive */
-@media (max-width: 480px) {
-  .slide-title {
-    font-size: 1rem;
+@keyframes promoted-loading {
+  0% {
+    background-position: 200% 0;
   }
-  
-  .slide-description {
-    font-size: 0.7rem;
-    max-width: 90%;
-    margin-bottom: 0.5rem;
-  }
-  
-  .slide-content {
-    padding: 1rem;
-  }
-  
-  .slide-cta {
-    padding: 0.35rem 0.8rem;
-    font-size: 0.7rem;
-  }
-  
-  .dots-indicator {
-    bottom: 10px;
+  100% {
+    background-position: -200% 0;
   }
 }
