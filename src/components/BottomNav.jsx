@@ -1,3 +1,4 @@
+// src/components/BottomNavbar.jsx - hidden on /product/:id and /checkout/:id
 import React, { useEffect, useState, useCallback } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { FaHome, FaShoppingCart, FaHeart, FaBell } from "react-icons/fa";
@@ -15,11 +16,11 @@ const BottomNavbar = () => {
   const [wishlistItemsCount, setWishlistItemsCount] = useState(0);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Hide navbar on auth-related routes, admin routes, and search page
+  // Hide navbar on auth-related routes, admin routes, search, product detail, and checkout
   const hiddenRoutes = [
-    "/login", 
-    "/signup", 
-    "/reset-password", 
+    "/login",
+    "/signup",
+    "/reset-password",
     "/auth",
     "/admin",
     "/admin-dashboard",
@@ -44,30 +45,28 @@ const BottomNavbar = () => {
     "/messages",
     "/chat",
     "/store-dashboard",
-    "/seller",  
+    "/seller",
     "/seller/*",
     "/store-dashboard/*",
-    "/search"
+    "/search",
+    "/product",   // ← Hides bottom nav on ProductDetail
+    "/checkout",  // ← NEW: Hides bottom nav on Checkout
   ];
 
-  // Check if current path starts with any hidden route
-  const shouldHide = hiddenRoutes.some(route => 
+  const shouldHide = hiddenRoutes.some((route) =>
     location.pathname.startsWith(route)
   );
 
-  // Load counts from localStorage on initial load
   useEffect(() => {
     if (user?.id) {
       const savedCartCount = localStorage.getItem(`cart_count_${user.id}`);
       const savedWishlistCount = localStorage.getItem(`wishlist_count_${user.id}`);
-      
       if (savedCartCount) setCartItemsCount(parseInt(savedCartCount));
       if (savedWishlistCount) setWishlistItemsCount(parseInt(savedWishlistCount));
     }
     setIsInitialized(true);
   }, [user]);
 
-  // Save counts to localStorage whenever they change
   useEffect(() => {
     if (user?.id && isInitialized) {
       localStorage.setItem(`cart_count_${user.id}`, cartItemsCount.toString());
@@ -80,94 +79,74 @@ const BottomNavbar = () => {
     }
   }, [wishlistItemsCount, user, isInitialized]);
 
-  // Fetch initial cart and wishlist counts
   const fetchCounts = useCallback(async () => {
     if (!user?.id) {
       setCartItemsCount(0);
       setWishlistItemsCount(0);
       return;
     }
-
     try {
-      // Fetch cart count
       const { count: cartCount, error: cartError } = await supabase
         .from("cart_items")
         .select("*", { count: "exact", head: true })
         .eq("user_id", user.id);
+      if (!cartError) setCartItemsCount(cartCount || 0);
 
-      if (!cartError) {
-        setCartItemsCount(cartCount || 0);
-      }
-
-      // Fetch wishlist count
       const { count: wishlistCount, error: wishlistError } = await supabase
         .from("wishlist_items")
         .select("*", { count: "exact", head: true })
         .eq("user_id", user.id);
-
-      if (!wishlistError) {
-        setWishlistItemsCount(wishlistCount || 0);
-      }
+      if (!wishlistError) setWishlistItemsCount(wishlistCount || 0);
     } catch (error) {
       console.error("Error fetching counts:", error);
     }
   }, [user]);
 
-  // Real-time subscriptions for cart items
   useEffect(() => {
     if (!user?.id) return;
-
     let cartSubscription;
     let wishlistSubscription;
 
     const setupSubscriptions = async () => {
-      // Cart subscription
       cartSubscription = supabase
-        .channel('cart_changes')
+        .channel("cart_changes")
         .on(
-          'postgres_changes',
+          "postgres_changes",
           {
-            event: '*',
-            schema: 'public',
-            table: 'cart_items',
-            filter: `user_id=eq.${user.id}`
+            event: "*",
+            schema: "public",
+            table: "cart_items",
+            filter: `user_id=eq.${user.id}`,
           },
-          async (payload) => {
+          async () => {
             setTimeout(async () => {
               const { count, error } = await supabase
                 .from("cart_items")
                 .select("*", { count: "exact", head: true })
                 .eq("user_id", user.id);
-
-              if (!error) {
-                setCartItemsCount(count || 0);
-              }
+              if (!error) setCartItemsCount(count || 0);
             }, 100);
           }
         )
         .subscribe();
 
-      // Wishlist subscription
       wishlistSubscription = supabase
-        .channel('wishlist_changes')
+        .channel("wishlist_changes")
         .on(
-          'postgres_changes',
+          "postgres_changes",
           {
-            event: '*',
-            schema: 'public',
-            table: 'wishlist_items',
-            filter: `user_id=eq.${user.id}`
+            event: "*",
+            schema: "public",
+            table: "wishlist_items",
+            filter: `user_id=eq.${user.id}`,
           },
-          async (payload) => {
+          async () => {
             setTimeout(async () => {
               const { count, error } = await supabase
                 .from("wishlist_items")
                 .select("*", { count: "exact", head: true })
                 .eq("user_id", user.id);
-
-              if (!error) {
-                setWishlistItemsCount(count || 0);
-              }
+              if (!error) setWishlistItemsCount(count || 0);
             }, 100);
           }
         )
@@ -177,21 +156,14 @@ const BottomNavbar = () => {
     setupSubscriptions();
 
     return () => {
-      if (cartSubscription) {
-        supabase.removeChannel(cartSubscription);
-      }
-      if (wishlistSubscription) {
-        supabase.removeChannel(wishlistSubscription);
-      }
+      if (cartSubscription) supabase.removeChannel(cartSubscription);
+      if (wishlistSubscription) supabase.removeChannel(wishlistSubscription);
     };
   }, [user]);
 
-  // Initial fetch and periodic refresh
   useEffect(() => {
     fetchCounts();
-    
     const interval = setInterval(fetchCounts, 30000);
-    
     return () => clearInterval(interval);
   }, [fetchCounts]);
 
@@ -199,32 +171,24 @@ const BottomNavbar = () => {
     return null;
   }
 
-  // Ultra-compact Badge Component
   const AnimatedBadge = ({ count, type = "default" }) => {
     if (!count || count <= 0) return null;
-
     const badgeColors = {
       cart: "#ef4444",
       wishlist: "#ec4899",
       notification: "#3b82f6",
-      default: "#ef4444"
+      default: "#ef4444",
     };
-
     const badgeColor = badgeColors[type] || badgeColors.default;
-
     return (
       <motion.span
         className="nav-badge"
         style={{ background: badgeColor }}
         initial={{ scale: 0, opacity: 0 }}
-        animate={{ 
-          scale: 1, 
+        animate={{
+          scale: 1,
           opacity: 1,
-          transition: {
-            type: "spring",
-            stiffness: 600,
-            damping: 15
-          }
+          transition: { type: "spring", stiffness: 600, damping: 15 },
         }}
         exit={{ scale: 0, opacity: 0 }}
         key={count}
@@ -235,29 +199,29 @@ const BottomNavbar = () => {
   };
 
   const navItems = [
-    { 
-      to: "/", 
-      label: "Home", 
+    {
+      to: "/",
+      label: "Home",
       icon: <FaHome size={18} />,
       requiresAuth: false,
       badgeCount: 0,
-      badgeType: "default"
+      badgeType: "default",
     },
-    { 
-      to: "/cart", 
-      label: "Cart", 
+    {
+      to: "/cart",
+      label: "Cart",
       icon: <FaShoppingCart size={18} />,
       requiresAuth: true,
       badgeCount: cartItemsCount,
-      badgeType: "cart"
+      badgeType: "cart",
     },
-    { 
-      to: "/wishlist", 
-      label: "Wishlist", 
+    {
+      to: "/wishlist",
+      label: "Wishlist",
       icon: <FaHeart size={18} />,
       requiresAuth: true,
       badgeCount: wishlistItemsCount,
-      badgeType: "wishlist"
+      badgeType: "wishlist",
     },
     {
       to: "/notifications",
@@ -265,7 +229,7 @@ const BottomNavbar = () => {
       icon: <FaBell size={18} />,
       requiresAuth: false,
       badgeCount: unreadCount,
-      badgeType: "notification"
+      badgeType: "notification",
     },
   ];
 
@@ -291,15 +255,12 @@ const BottomNavbar = () => {
           {item.icon}
         </motion.div>
         <AnimatePresence mode="wait">
-          <AnimatedBadge 
-            count={item.badgeCount} 
-            type={item.badgeType}
-          />
+          <AnimatedBadge count={item.badgeCount} type={item.badgeType} />
         </AnimatePresence>
       </div>
       <span className="nav-label">{item.label}</span>
       {location.pathname === item.to && (
-        <motion.span 
+        <motion.span
           className="active-indicator"
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
@@ -310,7 +271,7 @@ const BottomNavbar = () => {
   );
 
   return (
-    <motion.nav 
+    <motion.nav
       className="bottom-navbar"
       initial={{ y: 100, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}

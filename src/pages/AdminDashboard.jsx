@@ -542,6 +542,7 @@ const AdminDashboard = () => {
     { icon:<FiPackage/>, title:"Categories", desc:"Tags & categories", path:"/admin/categories", perm:"manage_categories" },
     { icon:<FiMessageSquare/>, title:"Messages", desc:"Monitor conversations", path:"/admin/messages", perm:"manage_messages" },
     { icon:<FiDollarSign/>, title:"Finance", desc:"Revenue & payments", path:"/admin/finance", perm:"manage_finance" },
+    { icon:<FiRefreshCw/>, title:"Refunds", desc:"Process buyer disputes", path:"/admin/refunds", perm:"manage_finance" },
     { icon:<FiCreditCard/>, title:"Wallets", desc:"User wallet oversight", path:"/admin/wallet", perm:"manage_wallets" },
     { icon:<FiStar/>, title:"Ratings", desc:"Reviews & ratings", path:"/admin/ratings", perm:"manage_ratings" },
     { icon:<FiClipboard/>, title:"Installments", desc:"Payment plans", path:"/admin/installments", perm:"manage_installments" },

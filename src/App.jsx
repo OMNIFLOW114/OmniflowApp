@@ -47,6 +47,7 @@ import FlashSalesPage from './components/FlashSalesPage';
 import OrderDetail from "@/pages/OrderDetail";
 import PrivacyPage from './pages/PrivacyPage';
 import FeaturedPage from "./pages/FeaturedPage";
+import SellerOrderDetail from "./pages/seller/SellerOrderDetail";
 // Main Features
 import OmniPayWallet from "./pages/OmniPayWallet";
 import CurrencyConverter from "@/pages/CurrencyConverter";
@@ -94,6 +95,7 @@ import PromotionsOffers from '@/pages/admin/PromotionsOffers';
 import DatabaseManagement from '@/pages/admin/DatabaseManagement';
 import DashboardOverview from '@/pages/admin/DashboardOverview';
 import AdminAuth from "@/pages/admin/AdminAuth";
+import AdminRefunds from "./pages/admin/AdminRefunds";
 import { supabase } from "@/supabase";
 
 // Network Components
@@ -479,6 +481,7 @@ function AppRoutes() {
         <Route path="/store/create" element={<ProtectedRoute><CreateStore /></ProtectedRoute>} />
         <Route path="/dashboard/store/:storeId" element={<ProtectedRoute><StoreDashboard /></ProtectedRoute>} />
         <Route path="/premium" element={<ProtectedRoute><Premium /></ProtectedRoute>} />
+        <Route path="/seller/order/:id" element={<SellerOrderDetail />} />
 
         {/* Student Routes */}
         <Route path="/student" element={<ProtectedRoute><StudentDashboard /></ProtectedRoute>} />
@@ -522,6 +525,7 @@ function AppRoutes() {
         <Route path="/admin/settings" element={<AdminRoute><SystemSettings /></AdminRoute>} />
         <Route path="/admin/wallet" element={<AdminRoute><AdminWallet /></AdminRoute>} />
         <Route path="/admin/invite/:token" element={<AdminAuth mode="invite" />} />
+        <Route path="/admin/refunds" element={<AdminRefunds />} />
 
         {/* Auth Utility Routes */}
         <Route path="/reset-password" element={<ResetPassword />} />

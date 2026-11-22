@@ -1683,14 +1683,22 @@ const TradeStore = memo(() => {
               {filtered.length === 0 ? (
                 <EmptyTabState tabName={activeTab} />
               ) : (
-                filtered.map((p) => (
-                  <ProductCard
-                    key={p.id}
-                    product={p}
-                    buyerLocation={buyerLocation}
-                    onClick={() => navigate(`/product/${p.id}`)}
-                  />
-                ))
+filtered.map((p) => (
+  <ProductCard
+    key={p.id}
+    product={p}
+    buyerLocation={buyerLocation}
+    onClick={() =>
+      navigate(`/product/${p.id}`, {
+        state: {
+          // Preload payload — lets ProductDetail render instantly
+          product: p,
+          buyerLocation: buyerLocation || null,
+        },
+      })
+    }
+  />
+))
               )}
             </motion.div>
 

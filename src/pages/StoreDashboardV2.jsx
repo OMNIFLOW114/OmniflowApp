@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useCallback, useMemo, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FaHome, FaBox, FaCommentDots, FaUpload, FaClipboardCheck, FaBoxOpen,
@@ -20,6 +21,7 @@ import { AuthContext } from '../context/AuthContext';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import InstallmentOrdersTab from '../components/InstallmentOrdersTab';
+import SellerOrdersTab from '../components/SellerOrdersTab';
 import InstallmentSetupModal from '../components/InstallmentSetupModal';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import jsPDF from 'jspdf';
@@ -70,7 +72,18 @@ const CHART_COLORS = ['#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
 
 const StoreDashboardV2 = () => {
   const { user } = useContext(AuthContext);
-  const [section, setSection] = useState('overview');
+  const location = useLocation();
+  const [section, setSection] = useState(() => {
+    // Priority 1: sessionStorage (survives redirects)
+    const saved = sessionStorage.getItem("sellerDashboardSection");
+    if (saved) {
+      sessionStorage.removeItem("sellerDashboardSection");
+      return saved;
+    }
+    // Priority 2: router state
+    if (location.state?.section) return location.state.section;
+    return 'overview';
+  });
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
@@ -105,6 +118,7 @@ const StoreDashboardV2 = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showOrderDetails, setShowOrderDetails] = useState(false);
+  const [refundTabFilter, setRefundTabFilter] = useState('pending');
   
   // NEW STATE VARIABLES FOR ADDED FEATURES
   const [coupons, setCoupons] = useState([]);
@@ -193,6 +207,14 @@ const StoreDashboardV2 = () => {
       document.body.classList.remove('v2-dark-mode');
     }
   }, [darkMode]);
+
+  // Restore section from navigation state if it changes
+useEffect(() => {
+  if (location.state?.section && location.state.section !== section) {
+    setSection(location.state.section);
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [location.state]);
 
   // Get status info
   const getStatusInfo = (status) => {
@@ -418,47 +440,60 @@ const StoreDashboardV2 = () => {
   };
 
   // Fetch returns
-  const fetchReturns = async () => {
-    if (!store) return;
-    try {
-      const { data, error } = await supabase
-        .from('returns')
-        .select('*, product:product_id(name, image_gallery), order:order_id(total_price, created_at)')
-        .eq('seller_id', user?.id)
-        .order('created_at', { ascending: false });
-      if (error && error.code !== 'PGRST116') throw error;
-      setReturns(data || []);
-    } catch (error) {
-      console.error('Error fetching returns:', error);
-    }
-  };
+const fetchReturns = async () => {
+  if (!store || !user?.id) return;
+  try {
+    const { data, error } = await supabase
+      .from('returns')
+      .select(`
+        *,
+        product:product_id(id, name, image_gallery, image_url),
+        order:order_id(id, total_price, delivery_fee, created_at, status, quantity, delivery_location),
+        buyer:buyer_id(id, full_name, name, email, phone)
+      `)
+      .eq('seller_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (error && error.code !== 'PGRST116') throw error;
+    setReturns(data || []);
+  } catch (error) {
+    console.error('Error fetching returns:', error);
+    toast.error('Failed to load refund requests');
+  }
+};
 
   // Process return
-  const processReturn = async (returnId, action, adminNotes) => {
-    try {
-      if (action === 'approve') {
-        const { data, error } = await supabase.rpc('process_return_refund', {
-          p_return_id: returnId
-        });
-        if (error) throw error;
-        toast.success('Return approved and refund processed!');
-      } else {
-        const { error } = await supabase
-          .from('returns')
-          .update({ status: 'rejected', admin_notes: adminNotes, approved_at: new Date().toISOString() })
-          .eq('id', returnId);
-        if (error) throw error;
-        toast.success('Return rejected');
-      }
-      fetchReturns();
-      fetchDashboardData();
-      setReturnModalOpen(false);
-      setSelectedReturn(null);
-    } catch (error) {
-      console.error('Error processing return:', error);
-      toast.error('Failed to process return');
+const processReturn = async (returnId, action, sellerNotes) => {
+  if (!returnId) return;
+  try {
+    // Use the new seller_respond_to_refund RPC (accept or dispute)
+    // action = 'accept' | 'dispute'
+    const { data, error } = await supabase.rpc('seller_respond_to_refund', {
+      p_return_id: returnId,
+      p_seller_id: user.id,
+      p_action: action,                 // 'accept' or 'dispute'
+      p_seller_notes: sellerNotes || null,
+    });
+
+    if (error) throw error;
+    if (!data?.success) throw new Error(data?.error || 'Action failed');
+
+    if (action === 'accept') {
+      toast.success(' Refund accepted! Admin will process the wallet transfer.');
+    } else {
+      toast.success(' Dispute sent to admin for review.');
     }
-  };
+
+    // Refresh local state + dashboard
+    await fetchReturns();
+    await fetchDashboardData();
+    setReturnModalOpen(false);
+    setSelectedReturn(null);
+  } catch (error) {
+    console.error('Error processing return:', error);
+    toast.error(error?.message || 'Failed to process return');
+  }
+};
 
   // Fetch low stock alerts
   const fetchLowStockAlerts = async () => {
@@ -529,43 +564,114 @@ const StoreDashboardV2 = () => {
     }
   };
 
-  // Update store settings
-  const updateStoreSettings = async (settings) => {
-    try {
-      // Try to upsert into store_settings table
-      const { error } = await supabase
-        .from('store_settings')
-        .upsert({
+// Update store settings (with rich success feedback)
+const updateStoreSettings = async (settings) => {
+  if (!store || !user) {
+    toast.error('Store not loaded yet');
+    return;
+  }
+
+  // Detect what actually changed vs current storeSettings state
+  const prevType = storeSettings?.delivery_type || store?.delivery_type || 'omniflow-managed';
+  const newType = settings.delivery_type;
+  const typeChanged = prevType !== newType;
+
+  const prevRadius = Number(storeSettings?.delivery_coverage_radius || 0);
+  const newRadius = Number(settings.delivery_coverage_radius || 0);
+  const radiusChanged = prevRadius !== newRadius;
+
+  const prevBaseFee = Number(storeSettings?.delivery_base_fee || 0);
+  const newBaseFee = Number(settings.delivery_base_fee || 0);
+  const baseFeeChanged = prevBaseFee !== newBaseFee;
+
+  const prevRatePerKm = Number(storeSettings?.delivery_rate_per_km || 0);
+  const newRatePerKm = Number(settings.delivery_rate_per_km || 0);
+  const rateChanged = prevRatePerKm !== newRatePerKm;
+
+  const prevFleet = Number(storeSettings?.delivery_fleet_size || 0);
+  const newFleet = Number(settings.delivery_fleet_size || 0);
+  const fleetChanged = prevFleet !== newFleet;
+
+  try {
+    // 1. Upsert settings row (with proper conflict handling)
+    const { error: settingsError } = await supabase
+      .from('store_settings')
+      .upsert(
+        {
           store_id: store.id,
-          ...settings,
+          delivery_type: newType || 'omniflow-managed',
+          has_delivery_fleet: settings.has_delivery_fleet || false,
+          delivery_fleet_size: newFleet || 0,
+          delivery_coverage_radius: newRadius || 50,
+          delivery_base_fee: newBaseFee || 100,
+          delivery_rate_per_km: newRatePerKm || 15,
           updated_at: new Date().toISOString(),
-          updated_by: user?.id
-        });
-      
-      if (error && error.code !== 'PGRST116') throw error;
-      
-      // Also update stores table
-      const { error: storeError } = await supabase
-        .from('stores')
-        .update({
-          delivery_type: settings.delivery_type,
-          has_delivery_fleet: settings.has_delivery_fleet,
-          delivery_fleet_size: settings.delivery_fleet_size,
-          delivery_coverage_radius: settings.delivery_coverage_radius,
-          delivery_base_fee: settings.delivery_base_fee,
-          delivery_rate_per_km: settings.delivery_rate_per_km
-        })
-        .eq('id', store.id);
-      if (storeError) throw storeError;
-      
-      toast.success('Store settings updated successfully!');
-      fetchStoreSettings();
-      setSelfDeliveryModalOpen(false);
-    } catch (error) {
-      console.error('Error updating store settings:', error);
-      toast.error('Failed to update store settings');
+          updated_by: user.id,
+        },
+        { onConflict: 'store_id', ignoreDuplicates: false }
+      );
+
+    if (settingsError) {
+      console.error('store_settings upsert error:', settingsError);
     }
-  };
+
+    // 2. Sync to parent stores table
+    const { error: storeError } = await supabase
+      .from('stores')
+      .update({
+        delivery_type: newType,
+        has_delivery_fleet: settings.has_delivery_fleet,
+        delivery_fleet_size: newFleet,
+        delivery_coverage_radius: newRadius,
+        delivery_base_fee: newBaseFee,
+        delivery_rate_per_km: newRatePerKm,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', store.id);
+
+    if (storeError) throw storeError;
+
+    // 3. Show a rich, specific success toast
+    if (typeChanged) {
+      if (newType === 'self-delivery') {
+        toast.success(
+          <div>
+            <strong>🚚 Self Delivery Enabled</strong>
+            <br />
+            <small>You now handle your own deliveries. Base fee: KSh {newBaseFee}, +KSh {newRatePerKm}/km</small>
+          </div>,
+          { duration: 5000 }
+        );
+      } else {
+        toast.success(
+          <div>
+            <strong>🛵 Omniflow Managed Delivery</strong>
+            <br />
+            <small>OmniFlow now handles all your deliveries for you</small>
+          </div>,
+          { duration: 5000 }
+        );
+      }
+    } else if (radiusChanged) {
+      toast.success(`Delivery radius updated to ${newRadius}km`, { duration: 4000 });
+    } else if (baseFeeChanged && newBaseFee > 0) {
+      toast.success(`Base delivery fee set to KSh ${newBaseFee}`, { duration: 4000 });
+    } else if (rateChanged && newRatePerKm > 0) {
+      toast.success(`Delivery rate set to KSh ${newRatePerKm}/km`, { duration: 4000 });
+    } else if (fleetChanged) {
+      toast.success(`Fleet size updated to ${newFleet} rider${newFleet !== 1 ? 's' : ''}`, { duration: 4000 });
+    } else {
+      toast.success('Store settings saved', { duration: 3000 });
+    }
+
+    // 4. Refresh local state
+    await fetchStoreSettings();
+    setSelfDeliveryModalOpen(false);
+  } catch (error) {
+    console.error('Error updating store settings:', error);
+    toast.error(error?.message || 'Failed to update store settings');
+  }
+};
 
   // Generate invoice PDF
   const generateInvoice = (order) => {
@@ -948,21 +1054,27 @@ const fetchDashboardData = async () => {
     if (user) fetchStore();
   }, [user]);
 
-  useEffect(() => {
-    const fetchOrders = async () => {
-      if (!store) return;
-      try {
-        const { data, error } = await supabase
-          .from('orders')
-          .select('*, buyer:buyer_id(name, phone, email), product:product_id(name, price, image_gallery, category)')
-          .eq('store_id', store.id)
-          .order('created_at', { ascending: false });
-        if (error && error.code !== 'PGRST116') { console.error("Failed to load orders:", error); }
-        else { setOrders(data || []); }
-      } catch (error) { console.error("Failed to load orders:", error); }
-    };
-    fetchOrders();
-  }, [store]);
+const fetchOrders = useCallback(async () => {
+  if (!store) return;
+  try {
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*, buyer:buyer_id(name, phone, email), product:product_id(name, price, image_gallery, category)')
+      .eq('store_id', store.id)
+      .order('created_at', { ascending: false });
+    if (error && error.code !== 'PGRST116') {
+      console.error("Failed to load orders:", error);
+    } else {
+      setOrders(data || []);
+    }
+  } catch (error) {
+    console.error("Failed to load orders:", error);
+  }
+}, [store]);
+
+useEffect(() => {
+  fetchOrders();
+}, [fetchOrders]);
 
   // Updated navItems with new sections
   const navItems = [
@@ -2014,140 +2126,27 @@ const fetchDashboardData = async () => {
               </div>
             </motion.div>
           )}
-
-          {/* ========== ORDERS SECTION ========== */}
-          {section === 'orders' && (
-            <motion.div
-              key="orders"
-              className="v2-section"
-              variants={sectionVariants}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-            >
-              <h2 className="v2-section-title">Order Management</h2>
-
-              {orders.length === 0 ? (
-                <div className="v2-empty-state">
-                  <FaClipboardCheck size={48} />
-                  <p>No orders yet</p>
-                  <p>When customers place orders, they'll appear here</p>
-                </div>
-              ) : (
-                <div className="v2-orders-grid">
-                  {filteredOrders.map(order => {
-                    const currentStatus = getStatusInfo(order.status);
-                    const nextStatus = getNextStatus(order.status);
-                    const prevStatus = getPreviousStatus(order.status);
-                    const statusColor = currentStatus?.color || '#6b7280';
-                    
-                    return (
-                      <div key={order.id} className="v2-order-card">
-                        <div className="v2-order-header">
-                          <div className="v2-order-id">
-                            <span className="v2-order-id-label">Order #</span>
-                            <span className="v2-order-id-value">{order.id.slice(0, 8).toUpperCase()}</span>
-                          </div>
-                          <div className="v2-order-date">
-                            {new Date(order.created_at).toLocaleDateString()}
-                          </div>
-                          <div className="v2-order-status" style={{ backgroundColor: `${statusColor}20`, color: statusColor }}>
-                            {currentStatus?.icon}
-                            <span>{order.status}</span>
-                          </div>
-                        </div>
-
-                        <div className="v2-order-body">
-                          <div className="v2-order-product">
-                            <img 
-                              src={order.product?.image_gallery?.[0] || '/placeholder.jpg'} 
-                              alt={order.product?.name}
-                            />
-                            <div>
-                              <h4>{order.product?.name || 'Unknown Product'}</h4>
-                              <p>Quantity: {order.quantity || 1}</p>
-                              <p className="v2-product-category">{order.product?.category || 'Uncategorized'}</p>
-                            </div>
-                          </div>
-
-                          <div className="v2-order-pricing">
-                            <div className="v2-price-row">
-                              <span>Product Total:</span>
-                              <span>Ksh {formatPrice(order.total_price - (order.delivery_fee || 0))}</span>
-                            </div>
-                            <div className="v2-price-row">
-                              <span>Delivery Fee:</span>
-                              <span>Ksh {formatPrice(order.delivery_fee || 0)}</span>
-                            </div>
-                            <div className="v2-price-row v2-price-total">
-                              <span>Total:</span>
-                              <span>Ksh {formatPrice(order.total_price)}</span>
-                            </div>
-                          </div>
-
-                          <div className="v2-order-buyer">
-                            <FaUser />
-                            <div>
-                              <p>{order.buyer?.name || 'Anonymous'}</p>
-                              {order.buyer?.phone && <small>{order.buyer.phone}</small>}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="v2-order-progress-container">
-                          {renderOrderProgress(order.status)}
-                        </div>
-
-                        <div className="v2-order-actions">
-                          {prevStatus && (
-                            <button 
-                              className="v2-order-action-btn v2-order-action-prev"
-                              onClick={() => updateOrderStatus(order.id, prevStatus.value)}
-                              disabled={updatingOrderId === order.id}
-                            >
-                              <FaArrowUp /> Back to {prevStatus.label}
-                            </button>
-                          )}
-                          
-                          {nextStatus ? (
-                            <button 
-                              className="v2-order-action-btn v2-order-action-next"
-                              onClick={() => updateOrderStatus(order.id, nextStatus.value)}
-                              disabled={updatingOrderId === order.id}
-                            >
-                              <FaArrowDown /> Mark as {nextStatus.label}
-                              {updatingOrderId === order.id && <div className="v2-spinner-small" />}
-                            </button>
-                          ) : (
-                            <button className="v2-order-action-btn v2-order-action-success" disabled>
-                              <FaCheck /> Order Completed
-                            </button>
-                          )}
-
-                          <button 
-                            className="v2-order-action-btn v2-order-action-details"
-                            onClick={() => {
-                              setSelectedOrder(order);
-                              setShowOrderDetails(true);
-                            }}
-                          >
-                            <FaEye /> View Details
-                          </button>
-                          
-                          <button 
-                            className="v2-order-action-btn v2-order-action-invoice"
-                            onClick={() => generateInvoice(order)}
-                          >
-                            <FaFileInvoice /> Invoice
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </motion.div>
-          )}
+{/* ========== ORDERS SECTION ========== */}
+{section === 'orders' && (
+  <motion.div
+    key="orders"
+    className="v2-section"
+    variants={sectionVariants}
+    initial="initial"
+    animate="animate"
+    exit="exit"
+  >
+    <SellerOrdersTab
+      orders={orders}
+      loading={loadingEarnings}
+      onRefresh={() => fetchOrders()}
+      onStatusUpdate={updateOrderStatus}
+      onGenerateInvoice={generateInvoice}
+      initialTab={sessionStorage.getItem('sellerOrdersTab') || 'new'}
+      onTabChange={(tabKey) => sessionStorage.setItem('sellerOrdersTab', tabKey)}
+    />
+  </motion.div>
+)}
 
           {/* ========== INVENTORY SECTION (Low Stock Alerts) ========== */}
           {section === 'inventory' && (
@@ -2272,51 +2271,180 @@ const fetchDashboardData = async () => {
               )}
             </motion.div>
           )}
+{/* ========== SELLER REFUNDS SECTION ========== */}
+{section === 'returns' && (() => {
+  // Local state helpers
+  const pending = returns.filter(r => r.status === 'pending');
+  const approved = returns.filter(r => r.status === 'approved');
+  const rejected = returns.filter(r => r.status === 'rejected');
+  const completed = returns.filter(r => r.status === 'completed');
 
-          {/* ========== RETURNS SECTION ========== */}
-          {section === 'returns' && (
-            <motion.div
-              key="returns"
-              className="v2-section"
-              variants={sectionVariants}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-            >
-              <h2 className="v2-section-title">Returns Management</h2>
-              
-              {returns.length === 0 ? (
-                <div className="v2-empty-state">
-                  <FaExchangeAlt size={48} />
-                  <p>No return requests</p>
-                </div>
-              ) : (
-                <div className="v2-returns-grid">
-                  {returns.map(returnReq => (
-                    <div key={returnReq.id} className="v2-return-card">
-                      <div className="v2-return-header">
-                        <span className="v2-return-id">Return #{returnReq.id.slice(0, 8)}</span>
-                        <span className={`v2-return-status v2-status-${returnReq.status}`}>{returnReq.status}</span>
+  const refundTabKey = 'seller_refund_tab';
+  const [refundTab, setRefundTab] = (typeof window !== 'undefined' && window.__sellerRefundTab) || [null, null];
+  // We'll use a component-level state — see note below
+
+  return (
+    <motion.div
+      key="returns"
+      className="v2-section"
+      variants={sectionVariants}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+    >
+      <div className="v2-section-header">
+        <h2 className="v2-section-title">
+          Refund Requests
+          {pending.length > 0 && <span className="v2-refund-count-badge">{pending.length} pending</span>}
+        </h2>
+      </div>
+
+      {/* Tabs */}
+      <div className="v2-refund-tabs">
+        {[
+          { key: 'pending',   label: 'Pending',   count: pending.length,   color: '#F59E0B' },
+          { key: 'approved',  label: 'Approved',  count: approved.length,  color: '#10B981' },
+          { key: 'completed', label: 'Completed', count: completed.length, color: '#3B82F6' },
+          { key: 'rejected',  label: 'Rejected',  count: rejected.length,  color: '#EF4444' },
+        ].map(tab => (
+          <button
+            key={tab.key}
+            className={`v2-refund-tab-btn ${refundTabFilter === tab.key ? 'active' : ''}`}
+            onClick={() => setRefundTabFilter(tab.key)}
+            style={refundTabFilter === tab.key ? { background: tab.color, color: 'white', borderColor: tab.color } : {}}
+          >
+            {tab.label}
+            {tab.count > 0 && (
+              <span className="v2-refund-tab-count" style={refundTabFilter === tab.key ? { background: 'rgba(255,255,255,0.25)' } : { background: `${tab.color}22`, color: tab.color }}>
+                {tab.count}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
+      {(() => {
+        const filtered = returns.filter(r => r.status === refundTabFilter);
+        if (filtered.length === 0) {
+          return (
+            <div className="v2-empty-state">
+              <FaExchangeAlt size={48} />
+              <p>No {refundTabFilter} refund requests</p>
+              <small>When buyers request refunds, they'll appear here</small>
+            </div>
+          );
+        }
+        return (
+          <div className="v2-refund-grid">
+            {filtered.map(returnReq => {
+              const buyerName = returnReq.buyer?.full_name || returnReq.buyer?.name || 'Buyer';
+              const productName = returnReq.product?.name || 'Product';
+              const productImage = returnReq.product?.image_gallery?.[0] || returnReq.product?.image_url || '/placeholder.jpg';
+              const orderId = returnReq.order?.id?.slice(0, 8).toUpperCase() || returnReq.order_id?.slice(0, 8).toUpperCase() || 'N/A';
+              const buyerAmount = Number(returnReq.buyer_refund_amount || 0);
+              const sellerAmount = Number(returnReq.seller_refund_amount || 0);
+              const adminAmount = Number(returnReq.admin_refund_amount || 0);
+              const orderTotal = Number(returnReq.order?.total_price || 0);
+              const reasonLabel = (returnReq.reason || 'other').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
+              return (
+                <div key={returnReq.id} className={`v2-refund-card v2-refund-status-${returnReq.status}`}>
+                  {/* Header */}
+                  <div className="v2-refund-card-header">
+                    <div className="v2-refund-card-left">
+                      <div className="v2-refund-product-image">
+                        <img src={productImage} alt={productName} onError={(e) => e.target.src = '/placeholder.jpg'} />
                       </div>
-                      <div className="v2-return-body">
-                        <p><strong>Product:</strong> {returnReq.product?.name}</p>
-                        <p><strong>Reason:</strong> {returnReq.reason}</p>
-                        <p><strong>Order Total:</strong> Ksh {formatPrice(returnReq.order?.total_price)}</p>
-                        <p><strong>Refund Amount:</strong> Ksh {formatPrice(returnReq.refund_amount)}</p>
-                        <p><strong>Buyer Gets:</strong> 95% (Ksh {formatPrice(returnReq.buyer_refund_amount)})</p>
+                      <div className="v2-refund-card-info">
+                        <h4 className="v2-refund-product-name">{productName}</h4>
+                        <p className="v2-refund-order-id">Order #{orderId}</p>
+                        <p className="v2-refund-buyer-name">👤 {buyerName}</p>
                       </div>
-                      {returnReq.status === 'pending' && (
-                        <div className="v2-return-actions">
-                          <button className="v2-btn-success" onClick={() => { setSelectedReturn(returnReq); setReturnModalOpen(true); }}>✅ Approve</button>
-                          <button className="v2-btn-danger" onClick={() => { setSelectedReturn(returnReq); setReturnModalOpen(true); }}>❌ Reject</button>
-                        </div>
-                      )}
                     </div>
-                  ))}
+                    <span className={`v2-refund-status-badge v2-refund-status-${returnReq.status}`}>
+                      {returnReq.status.toUpperCase()}
+                    </span>
+                  </div>
+
+                  {/* Reason + description */}
+                  <div className="v2-refund-reason-box">
+                    <div className="v2-refund-reason-label">Reason</div>
+                    <div className="v2-refund-reason-value">{reasonLabel}</div>
+                    {returnReq.description && (
+                      <div className="v2-refund-description">"{returnReq.description}"</div>
+                    )}
+                  </div>
+
+                  {/* Financial breakdown */}
+                  <div className="v2-refund-breakdown">
+                    <div className="v2-refund-breakdown-row">
+                      <span>Order Total</span>
+                      <strong>Ksh {formatPrice(orderTotal)}</strong>
+                    </div>
+                    <div className="v2-refund-breakdown-row v2-refund-buyer-row">
+                      <span>Buyer Refund</span>
+                      <strong style={{ color: '#10B981' }}>Ksh {formatPrice(buyerAmount)}</strong>
+                    </div>
+                    <div className="v2-refund-breakdown-row v2-refund-seller-row">
+                      <span>Your Deduction</span>
+                      <strong style={{ color: '#EF4444' }}>- Ksh {formatPrice(sellerAmount)}</strong>
+                    </div>
+                    <div className="v2-refund-breakdown-row v2-refund-admin-row">
+                      <span>Omniflow Absorbs</span>
+                      <strong style={{ color: '#6B7280' }}>Ksh {formatPrice(adminAmount)}</strong>
+                    </div>
+                  </div>
+
+                  {/* Dates */}
+                  <div className="v2-refund-dates">
+                    <div>Requested: {new Date(returnReq.created_at).toLocaleDateString('en-KE', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
+                    {returnReq.approved_at && (
+                      <div>Approved: {new Date(returnReq.approved_at).toLocaleDateString('en-KE', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
+                    )}
+                    {returnReq.completed_at && (
+                      <div>Completed: {new Date(returnReq.completed_at).toLocaleDateString('en-KE', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
+                    )}
+                  </div>
+
+                  {/* Notes */}
+                  {returnReq.seller_notes && (
+                    <div className="v2-refund-notes v2-refund-seller-notes">
+                      <strong>Your notes:</strong> {returnReq.seller_notes}
+                    </div>
+                  )}
+                  {returnReq.admin_notes && (
+                    <div className="v2-refund-notes v2-refund-admin-notes">
+                      <strong>Admin notes:</strong> {returnReq.admin_notes}
+                    </div>
+                  )}
+
+                  {/* Actions (only for pending) */}
+                  {returnReq.status === 'pending' && (
+                    <div className="v2-refund-actions">
+                      <button
+                        className="v2-refund-btn-accept"
+                        onClick={() => { setSelectedReturn(returnReq); setReturnModalOpen(true); }}
+                      >
+                        ✅ Accept Refund
+                      </button>
+                      <button
+                        className="v2-refund-btn-dispute"
+                        onClick={() => { setSelectedReturn(returnReq); setReturnModalOpen(true); }}
+                      >
+                        ⚠️ Dispute
+                      </button>
+                    </div>
+                  )}
                 </div>
-              )}
-            </motion.div>
-          )}
+              );
+            })}
+          </div>
+        );
+      })()}
+    </motion.div>
+  );
+})()}
 
           {/* ========== EARNINGS SECTION ========== */}
           {section === 'earnings' && (
@@ -3342,45 +3470,111 @@ const fetchDashboardData = async () => {
         )}
       </AnimatePresence>
 
-      {/* ========== RETURN MODAL ========== */}
-      <AnimatePresence>
-        {returnModalOpen && selectedReturn && (
-          <motion.div
-            className="v2-modal-overlay"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+{/* ========== RETURN / REFUND PROCESSING MODAL ========== */}
+<AnimatePresence>
+  {returnModalOpen && selectedReturn && (
+    <motion.div
+      className="v2-modal-overlay"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <motion.div
+        className="v2-modal v2-refund-modal"
+        initial={{ scale: 0.9 }}
+        animate={{ scale: 1 }}
+        exit={{ scale: 0.9 }}
+      >
+        <div className="v2-modal-header">
+          <h3>Process Refund Request</h3>
+          <button
+            className="v2-modal-close"
+            onClick={() => { setReturnModalOpen(false); setSelectedReturn(null); }}
           >
-            <motion.div
-              className="v2-modal"
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.9 }}
-            >
-              <div className="v2-modal-header">
-                <h3>Process Return Request</h3>
-                <button onClick={() => setReturnModalOpen(false)}>✕</button>
-              </div>
-              <div className="v2-return-preview">
-                <p><strong>Product:</strong> {selectedReturn.product?.name}</p>
-                <p><strong>Reason:</strong> {selectedReturn.reason}</p>
-                <p><strong>Refund Amount:</strong> Ksh {formatPrice(selectedReturn.refund_amount)}</p>
-                <p><strong>Buyer Receives:</strong> Ksh {formatPrice(selectedReturn.refund_amount * 0.95)} (95%)</p>
-              </div>
-              <div className="v2-form-group">
-                <label>Admin Notes</label>
-                <textarea id="adminNotes" rows="3" placeholder="Add notes about this decision..." />
-              </div>
-              <div className="v2-modal-actions">
-                <button className="v2-btn-success" onClick={() => processReturn(selectedReturn.id, 'approve', document.getElementById('adminNotes')?.value)}>✅ Approve & Refund</button>
-                <button className="v2-btn-danger" onClick={() => processReturn(selectedReturn.id, 'reject', document.getElementById('adminNotes')?.value)}>❌ Reject</button>
-                <button className="v2-btn-secondary" onClick={() => setReturnModalOpen(false)}>Cancel</button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            <FaTimes />
+          </button>
+        </div>
 
+        <div className="v2-refund-modal-body">
+          <div className="v2-refund-modal-summary">
+            <div className="v2-refund-modal-row">
+              <span>Product</span>
+              <strong>{selectedReturn.product?.name || 'Product'}</strong>
+            </div>
+            <div className="v2-refund-modal-row">
+              <span>Buyer</span>
+              <strong>{selectedReturn.buyer?.full_name || selectedReturn.buyer?.name || 'Buyer'}</strong>
+            </div>
+            <div className="v2-refund-modal-row">
+              <span>Reason</span>
+              <strong>{(selectedReturn.reason || '').replace(/_/g, ' ')}</strong>
+            </div>
+            {selectedReturn.description && (
+              <div className="v2-refund-modal-description">
+                <span>Description</span>
+                <p>"{selectedReturn.description}"</p>
+              </div>
+            )}
+            <div className="v2-refund-modal-breakdown">
+              <div className="v2-refund-modal-row">
+                <span>Buyer receives</span>
+                <strong style={{ color: '#10B981' }}>Ksh {formatPrice(selectedReturn.buyer_refund_amount)}</strong>
+              </div>
+              <div className="v2-refund-modal-row">
+                <span>Your deduction</span>
+                <strong style={{ color: '#EF4444' }}>- Ksh {formatPrice(selectedReturn.seller_refund_amount)}</strong>
+              </div>
+              <div className="v2-refund-modal-row">
+                <span>Omniflow absorbs</span>
+                <strong style={{ color: '#6B7280' }}>Ksh {formatPrice(selectedReturn.admin_refund_amount)}</strong>
+              </div>
+            </div>
+          </div>
+
+          <div className="v2-refund-modal-notes">
+            <label>Your notes (optional)</label>
+            <textarea
+              id="sellerRefundNotes"
+              rows="3"
+              placeholder="Add any notes about your decision. Admin will see these if you dispute."
+            />
+          </div>
+
+          <div className="v2-refund-modal-info">
+            <FaInfoCircle /> Accepting refunds immediately notifies the admin to process the wallet transfer. Disputing flags this for admin review — they make the final call.
+          </div>
+        </div>
+
+        <div className="v2-refund-modal-footer">
+          <button
+            className="v2-refund-modal-btn-cancel"
+            onClick={() => { setReturnModalOpen(false); setSelectedReturn(null); }}
+          >
+            Cancel
+          </button>
+          <button
+            className="v2-refund-modal-btn-dispute"
+            onClick={() => {
+              const notes = document.getElementById('sellerRefundNotes')?.value || '';
+              processReturn(selectedReturn.id, 'dispute', notes);
+            }}
+          >
+             Dispute
+          </button>
+          <button
+            className="v2-refund-modal-btn-accept"
+            onClick={() => {
+              const notes = document.getElementById('sellerRefundNotes')?.value || '';
+              processReturn(selectedReturn.id, 'accept', notes);
+            }}
+          >
+             Accept Refund
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )}
+</AnimatePresence>
       {/* ========== SELF DELIVERY CONFIRMATION MODAL ========== */}
       <AnimatePresence>
         {selfDeliveryModalOpen && (
